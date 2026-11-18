@@ -55,6 +55,26 @@ def test_optional_requirements_manifest_uses_valid_pip_syntax() -> None:
         "pyesprima", "colorama", "pyyaml", "requests"
     }
 
+def test_semantic_history_embedder_is_an_explicit_optional_capability() -> None:
+    data = tomllib.loads((ROOT / "pyproject.toml").read_text())
+    project = data["project"]
+    optional = project["optional-dependencies"]["semantic-history"]
+    requirements = {Requirement(item).name.lower().replace("_", "-"):
+        Requirement(item) for item in optional}
+
+    assert requirements["sentence-transformers"].specifier == ">=5,<6"
+    assert requirements["sentence-transformers"].marker is not None
+    assert requirements["sentence-transformers"].marker.evaluate(
+        {"python_version": "3.10"}) is True
+    assert requirements["sentence-transformers"].marker.evaluate(
+        {"python_version": "3.9"}) is False
+    assert requirements["transformers"].specifier == ">=4.41,<5"
+    assert "sentence-transformers" not in _names(project["dependencies"])
+    assert "sentence-transformers" not in _names(
+        project["optional-dependencies"]["codex"])
+    assert "sentence-transformers" not in _names(
+        project["optional-dependencies"]["full"])
+
 def test_windows_dependencies_are_platform_guarded() -> None:
     assert _report()["windows_marker_errors"] == []
 

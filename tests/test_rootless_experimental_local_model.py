@@ -41,7 +41,9 @@ from sentientos.rootless_experimental_local_model import (
     EXPERIMENT_ROOT, MODEL_MANIFEST_SCHEMA, MODEL_MANIFEST_SCHEMA_UPSTREAM_LICENSE,
     RootlessExperimentalError,
     _rootless_governance_custody,
+    _fsync_directory_entry,
     execute_intent, prepare_intent, validate_experiment_root, verify_model_manifest,
+    verify_private_experiment_directory,
     verify_runtime_bundle,
     verify_intent, verify_rootless_receipt,
 )
@@ -61,12 +63,60 @@ from sentientos.world_state_board import to_dict
 pytestmark = pytest.mark.no_legacy_skip
 
 
+def test_windows_directory_metadata_flush_is_not_attempted(monkeypatch, tmp_path):
+    def unexpected_open(*_args, **_kwargs):
+        raise AssertionError("Windows directory flush must not use os.open")
+
+    monkeypatch.setattr(os, "open", unexpected_open)
+
+    _fsync_directory_entry(tmp_path, windows=True)
+
+
 def test_rootless_preregistration_binds_finite_no_retry_call_deadline():
     assert _call_budget_record() == {
         "max_calls": 4, "max_calls_per_correlation": 1,
         "per_call_timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
         "retry_policy": "no_retry"}
     assert MAX_CALL_TIMEOUT_SECONDS == 180
+
+
+def test_private_experiment_directory_requires_platform_private_custody(tmp_path):
+    workspace = tmp_path / "private-workspace"
+    workspace.mkdir()
+    if os.name == "nt":
+        import csv
+        import subprocess
+
+        subprocess.run(["icacls", str(workspace), "/grant:r",
+            "*S-1-1-0:(RX)"], check=True, capture_output=True, text=True)
+        with pytest.raises(RootlessExperimentalError,
+                match="experimental_directory_acl_not_private"):
+            verify_private_experiment_directory(workspace)
+
+        identity = subprocess.check_output(
+            ["whoami", "/user", "/fo", "csv", "/nh"], text=True)
+        user_sid = next(csv.reader([identity]))[1]
+        grants = [f"*{user_sid}:(OI)(CI)(F)",
+            "*S-1-5-18:(OI)(CI)(F)", "*S-1-5-32-544:(OI)(CI)(F)"]
+        subprocess.run(["icacls", str(workspace), "/grant:r", *grants],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/inheritance:r"],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/remove:g", "*S-1-1-0"],
+            check=True, capture_output=True, text=True)
+        subprocess.run(["icacls", str(workspace), "/setowner", f"*{user_sid}"],
+            check=True, capture_output=True, text=True)
+    else:
+        workspace.chmod(0o777)
+        with pytest.raises(RootlessExperimentalError,
+                match="experimental_directory_not_private"):
+            verify_private_experiment_directory(workspace)
+        workspace.chmod(0o700)
+
+    verify_private_experiment_directory(workspace)
+    child = workspace / "sentientos-data"
+    child.mkdir()
+    verify_private_experiment_directory(child)
 
 
 def test_rootless_score_write_failure_preserves_partial_and_capture_custody(
@@ -863,7 +913,7 @@ def test_rootless_epistemic_authority_accepts_only_bound_ollama_candidate(tmp_pa
     config = ModelConfig([ModelCandidate(manifest, "ollama", "hermes-test", {
         "api_base": "http://127.0.0.1:11434", "model": "hermes-test",
         "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
-        "think": False, "timeout_seconds": 120,
+        "think": False, "timeout_seconds": 180,
     })], default_engine="ollama", max_context_tokens=8192,
         generation=GenerationConfig(max_new_tokens=128, temperature=0, top_p=1))
     authority = build_rootless_experimental_epistemic_authority_map(

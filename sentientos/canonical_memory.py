@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Any, Mapping
-from .cognition_retrieval import normalize_cognition_term
+from .cognition_retrieval import cognition_tokens
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
 )
@@ -160,12 +160,10 @@ class ExplicitRetentionAdmissionGate:
 def _memory_retrieval_terms(text: str) -> set[str]:
     """Use content anchors so common chat phrasing cannot dominate memory matches."""
     terms: set[str] = set()
-    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+    for token in cognition_tokens(text):
         if len(token) <= 2 or token in _MEMORY_RETRIEVAL_STOP_WORDS:
             continue
-        # Keep canonical memory aligned with resident-history morphology while
-        # retaining this subsystem's own stop words and ranking policy.
-        terms.add(normalize_cognition_term(token))
+        terms.add(token)
     return terms
 
 
@@ -394,6 +392,7 @@ class CanonicalMemoryStore:
         by_id = {record.get("id"): record for record in records
             if isinstance(record.get("id"), str)}
         superseded: dict[str, list[tuple[str, str]]] = {}
+        correction_siblings: dict[tuple[str, str], set[str]] = {}
         for correction in records:
             correction_id = correction.get("id")
             meta = correction.get("meta")
@@ -423,10 +422,44 @@ class CanonicalMemoryStore:
                     continue
                 seen_targets.add(target_id)
                 superseded.setdefault(target_id, []).append((correction_id, target_digest))
+                correction_siblings.setdefault((target_id, target_digest), set()).add(
+                    correction_id)
         historical_recall = _is_historical_memory_recall_query(query)
         eligible = [record for record in records
             if not _is_prior_message_recall_question(record["text"])
             and (historical_recall or record.get("id") not in superseded)]
+        eligible_ids = {record.get("id") for record in eligible
+            if isinstance(record.get("id"), str)}
+        # Distinct active corrections to one exact target form an indivisible
+        # retrieval unit. Otherwise a budget could hide one branch and present
+        # its sibling as though the user had supplied an unambiguous update.
+        competing_sibling_sets: list[set[str]] = []
+        for sibling_ids in correction_siblings.values():
+            members = {record_id for record_id in sibling_ids
+                if record_id in eligible_ids}
+            if len(members) < 2:
+                continue
+            texts = [by_id[record_id].get("text") for record_id in members
+                if isinstance(by_id.get(record_id), Mapping)]
+            normalized_texts = {" ".join(text.split()).casefold() for text in texts
+                if isinstance(text, str) and text.strip()}
+            valid_text_count = sum(isinstance(text, str) and bool(text.strip())
+                for text in texts)
+            if len(normalized_texts) > 1 or valid_text_count != len(members):
+                competing_sibling_sets.append(members)
+        merged_sibling_groups: list[set[str]] = []
+        for sibling_set in competing_sibling_sets:
+            overlapping = [group for group in merged_sibling_groups
+                if group & sibling_set]
+            merged = set(sibling_set)
+            for group in overlapping:
+                merged.update(group)
+                merged_sibling_groups.remove(group)
+            merged_sibling_groups.append(merged)
+        correction_group_by_id = {
+            record_id: tuple(sorted(group))
+            for group in merged_sibling_groups for record_id in group
+        }
         # A correction should remain findable through the wording it replaced.
         # Carry only query terms from the superseded entry into the active
         # correction's retrieval index; the old text itself stays out of the
@@ -436,7 +469,6 @@ class CanonicalMemoryStore:
         # their existing behavior and retrieve the retained history directly.
         correction_alias_terms: dict[str, set[str]] = {}
         if not historical_recall:
-            eligible_ids = {record.get("id") for record in eligible}
             for target_id, corrections in superseded.items():
                 target = by_id.get(target_id)
                 if not isinstance(target, Mapping) or not isinstance(
@@ -488,18 +520,45 @@ class CanonicalMemoryStore:
                     # Bad or absent time never outranks a valid retained record.
                     recency = float("-inf")
                 ranked.append((score, recency, str(record.get("id", "")), record))
-        selected: list[dict[str, Any]]=[]; used=0; omitted=[]
+        selected: list[dict[str, Any]]=[]; used=0
+        omitted: list[tuple[tuple[Any, str], str]] = []
         # Relevance remains primary. Recency only orders equally relevant
         # retained reports; it is not evidence that a newer statement is true.
-        for _,_,_,record in sorted(ranked,key=lambda x:(-x[0],-x[1],x[2])):
-            identity=(record.get("id"),record.get("text_digest") or digest({"text":record["text"]}))
-            if len(selected)>=max(0,limit):
-                omitted.append((identity,"selection_limit"))
-                continue
-            if used+len(record["text"])<=budget_chars:
-                selected.append(record); used+=len(record["text"])
+        ranked = sorted(ranked, key=lambda row: (-row[0], -row[1], row[2]))
+        ranked_by_id = {row[2]: row for row in ranked}
+        processed_correction_ids: set[str] = set()
+        for _, _, record_id, record in ranked:
+            group_ids = correction_group_by_id.get(record_id)
+            if group_ids is None:
+                group_records = [record]
             else:
-                omitted.append((identity,"character_budget"))
+                if record_id in processed_correction_ids:
+                    continue
+                processed_correction_ids.update(group_ids)
+                group_records = [by_id[item] for item in group_ids
+                    if isinstance(by_id.get(item), Mapping)]
+                # Preserve relevance order within the complete group. Members
+                # without a lexical hit follow in stable ID order.
+                group_records.sort(key=lambda item: (
+                    0 if str(item.get("id", "")) in ranked_by_id else 1,
+                    (-ranked_by_id[str(item.get("id", ""))][0],
+                     -ranked_by_id[str(item.get("id", ""))][1],
+                     ranked_by_id[str(item.get("id", ""))][2])
+                    if str(item.get("id", "")) in ranked_by_id
+                    else (0.0, 0.0, str(item.get("id", "")))))
+            group_char_count = sum(len(item["text"]) for item in group_records)
+            group_identities = [(item.get("id"), item.get("text_digest")
+                or digest({"text": item["text"]})) for item in group_records]
+            if len(selected) + len(group_records) > max(0, limit):
+                omitted.extend((identity, "selection_limit")
+                    for identity in group_identities)
+                continue
+            if used + group_char_count > budget_chars:
+                omitted.extend((identity, "character_budget")
+                    for identity in group_identities)
+                continue
+            selected.extend(group_records)
+            used += group_char_count
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
         selected_ids = {str(record.get("id")) for record in selected}
         correction_relations = [{

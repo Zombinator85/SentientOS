@@ -27,11 +27,40 @@ def review_required_applicability(
         packets = semantic_packets_for_projection(projection)
     except EpistemicStateError as exc:
         raise EpistemicPlanningError("epistemic_planning_projection_invalid") from exc
+    relation_review_digests: dict[str, set[str]] = {}
+    for packet in packets:
+        for relation in packet.get("proposition_relations", ()):
+            relation_kind = relation.get("relation")
+            source_id = relation.get("source_proposition_id")
+            target_id = relation.get("target_proposition_id")
+            relation_digest = relation.get("relation_digest")
+            affected_ids = (() if relation_kind not in {"contradicts", "supersedes"}
+                else (source_id, target_id) if relation_kind == "contradicts"
+                else (target_id,))
+            for proposition_id in affected_ids:
+                if isinstance(proposition_id, str):
+                    relation_review_digests.setdefault(proposition_id, set()).add(
+                        str(relation_digest))
     review_scopes: dict[str, dict[str, object]] = {}
     for packet in packets:
         state = packet["state"]
         proposition_id = packet["proposition"]["proposition_id"]
         scope = dict(packet["proposition"].get("context_scope", {}))
+        relation_digests = sorted(relation_review_digests.get(proposition_id, ()))
+        correction_binding_ids = sorted({
+            item["binding_id"] for item in packet.get(
+                "unverified_context_evidence_bindings", ())
+            if item.get("source_schema") == "sentientos.local_operator_feedback:v5"
+            and item.get("source_class") == "operator_input"
+            and item.get("evidence_relation") == "contextualizes"
+            and item.get("reliability_posture")
+                == "operator_assertion_unverified_context_only"})
+        omitted_correction_count = packet.get(
+            "omitted_unverified_context_evidence_count", 0)
+        omitted_correction_digest = packet.get(
+            "omitted_unverified_context_identity_digest")
+        correction_review_pending = bool(
+            correction_binding_ids or omitted_correction_count)
         positive_current = (
             state["stance"] in {"provisionally_supported", "supported"}
             and not state["dependency_unresolved"]
@@ -39,14 +68,28 @@ def review_required_applicability(
         # Unscoped positive history does not constrain canonical planning. A
         # task-family or model-bound positive position must remain visible so
         # planning can prove it still applies to the observed model identity.
-        if positive_current and not any(
-                key in scope for key in ("task_family_id",
-                    "active_model_identity_digest")):
+        if (positive_current and not relation_digests
+                and not correction_review_pending
+                and not any(key in scope for key in (
+                    "task_family_id", "active_model_identity_digest"))):
             continue
-        # This reserved field is always derived from the verified state; a
-        # proposition's own context cannot mark adverse history as positive.
+        # Conflicts, supersession, and source-bound but unverified corrections
+        # require review even when the evidence posture is positive. A
+        # correction is a review signal only; it never revises state or serves
+        # as supporting/contradicting evidence.
         scope["position_posture"] = (
-            "verified_positive_current" if positive_current else "review_required")
+            "verified_positive_current" if (positive_current
+                and not relation_digests and not correction_review_pending)
+            else "review_required")
+        if relation_digests:
+            scope["relation_review_digests"] = relation_digests
+        if correction_binding_ids:
+            scope["unverified_correction_binding_ids"] = correction_binding_ids
+        if omitted_correction_count:
+            scope["omitted_unverified_correction_context"] = {
+                "count": omitted_correction_count,
+                "identity_digest": omitted_correction_digest,
+            }
         scope["position_identity"] = {
             "schema_version": "sentientos.epistemic_review_position_identity:v1",
             "state_id": state["state_id"],

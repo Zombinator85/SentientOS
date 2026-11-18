@@ -217,7 +217,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         observed_at: str, conversation_citation_ids: Sequence[str] = (),
         conversation_citation_digests: Sequence[str] = (),
         conversation_session_id: str | None = None,
-        correction_target_turn_id: str | None = None) -> dict[str, Any]:
+        correction_target_turn_id: str | None = None,
+        correction_target_epistemic_state_ids: Sequence[str] = ()) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     if (not isinstance(feedback, str) or not feedback.strip()
@@ -238,6 +239,15 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             or any(not isinstance(turn_id, str) or citation_pattern.fullmatch(turn_id) is None
                 for turn_id in conversation_citation_ids)
             or len(set(conversation_citation_ids)) != len(conversation_citation_ids)
+            or not isinstance(correction_target_epistemic_state_ids, (tuple, list))
+            or len(correction_target_epistemic_state_ids) > 16
+            or any(not isinstance(state_id, str)
+                or re.fullmatch(r"epistemic-state:[0-9a-f]{24}", state_id) is None
+                for state_id in correction_target_epistemic_state_ids)
+            or len(set(correction_target_epistemic_state_ids))
+                != len(correction_target_epistemic_state_ids)
+            or (correction_target_epistemic_state_ids
+                and correction_target_turn_id is None)
             or any(not isinstance(digest, str)
                 or re.fullmatch(r"[0-9a-f]{64}", digest) is None
                 for digest in conversation_citation_digests)
@@ -253,12 +263,15 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v4"
+    schema_version = ("sentientos.local_operator_feedback:v5"
+        if correction_target_turn_id is not None
+            and correction_target_epistemic_state_ids else
+        "sentientos.local_operator_feedback:v4"
         if correction_target_turn_id is not None else
         "sentientos.local_operator_feedback:v3"
         if conversation_session_id is not None else
         "sentientos.local_operator_feedback:v2")
-    semantic = {
+    semantic: dict[str, Any] = {
         "schema_version": schema_version,
         "request_id": request_id,
         "assistant_turn_id": assistant_turn_id,
@@ -283,6 +296,9 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             "turn_id": correction_target_turn_id,
             "text_digest": conversation_citation_digests[target_index],
         }
+        if correction_target_epistemic_state_ids:
+            semantic["correction_target"]["epistemic_state_citation_ids"] = list(
+                correction_target_epistemic_state_ids)
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
@@ -477,7 +493,7 @@ class ResidentDevelopmentalCompanionBridge:
                             "sentientos.resident_cognition_observation:v11",
                             "sentientos.resident_cognition_observation:v12",
                             "sentientos.resident_cognition_observation:v13",
-                            "sentientos.resident_cognition_observation:v14"}
+                            "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}
                     and linkage.get("cognition_memory_selection_digest")
                         == observation.get("canonical_user_memory_selection_digest")
                     and isinstance(memory_citation_ids, (list, tuple))
@@ -489,7 +505,7 @@ class ResidentDevelopmentalCompanionBridge:
                     "sentientos.resident_cognition_observation:v11",
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"}:
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}:
                 self_model_citation_ids = linkage.get(
                     "cognition_self_model_claim_ids", ())
                 selection = observation.get("prior_self_model_prompt_selection")
@@ -542,14 +558,14 @@ class ResidentDevelopmentalCompanionBridge:
                     "sentientos.resident_cognition_observation:v11",
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"}
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"}
                 and observation.get("companion_history_citation_ids") == list(history_record_ids)
                 and memory_lineage_valid
                 and self_model_lineage_valid
                 and (observation.get("schema_version") not in {
                     "sentientos.resident_cognition_observation:v12",
                     "sentientos.resident_cognition_observation:v13",
-                    "sentientos.resident_cognition_observation:v14"} or (
+                    "sentientos.resident_cognition_observation:v14", "sentientos.resident_cognition_observation:v15"} or (
                     linkage.get("conversation_context_snapshot_digest") ==
                         observation.get("companion_conversation_context_snapshot_digest")
                     and linkage.get("conversation_context_selection_digest") ==
@@ -562,6 +578,23 @@ class ResidentDevelopmentalCompanionBridge:
                         observation.get("companion_conversation_citation_ids", ()))
                     and linkage.get("cognition_conversation_turn_citation_digests", []) == list(
                         observation.get("companion_conversation_citation_digests", ()))
+                    ))
+                and (observation.get("schema_version") !=
+                    "sentientos.resident_cognition_observation:v15" or (
+                    linkage.get("cognition_historical_conversation_citation_ids", []) == list(
+                        observation.get("companion_historical_conversation_citation_ids", ()))
+                    and linkage.get("cognition_historical_conversation_citation_digests", []) == list(
+                        observation.get("companion_historical_conversation_citation_digests", ()))
+                    and len(observation.get(
+                        "companion_historical_conversation_citation_ids", ())) ==
+                        len(observation.get(
+                            "companion_historical_conversation_citation_digests", ()))
+                    and set(zip(
+                        observation.get("companion_historical_conversation_citation_ids", ()),
+                        observation.get("companion_historical_conversation_citation_digests", ())))
+                        <= set(zip(
+                            observation.get("companion_historical_citation_turn_ids", ()),
+                            observation.get("companion_historical_citation_turn_digests", ())))
                     ))
                 and history_lineage_valid
                 and linkage.get("cognition_model_id") == observation.get("model_id")

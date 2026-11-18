@@ -108,6 +108,40 @@ observation, inference receipt, and response digests, then verifies those bindin
 on idempotent recovery instead of invoking cognition a second time. This stored
 reply remains distinct from developmental-history writeback.
 
+### Semantic history beyond the per-query sample
+
+The embedding runtime is opt-in. Run `python -m pip install ".[semantic-history]"`
+with Python 3.10+ to provide the CPU sentence-embedding package. This extra is
+excluded from the base and `full` installs because it brings the PyTorch runtime.
+The model itself
+must already be present in the local Hugging Face cache at the configured
+immutable revision. Retrieval pins loading and encoding to CPU and does not
+download a model; if the package or cached revision is unavailable, selection
+uses the explicit lexical fallback policy.
+
+When an immutable-revision CPU sentence embedder is configured, each query still
+embeds at most 256 records: the newest 192 and up to 64 older lexical/stratified
+candidates. Successfully embedded records also enter an immutable derived vector
+cache under the cognition-state root. Each entry binds the exact durable history
+record digest, the digest of the text projection supplied to the embedder, the
+embedder identity, the tick when it was first indexed, and the vector digest; it
+stores no history text. A later tick may rank all matching cached vectors, up to
+the 4,096-record history bound, while current-tick additions remain unavailable
+to same-tick ranking. The v16 retrieval policy identity binds the embedder and
+the exact cached/current vector inputs used for selection. Cache custody or
+validation failure does not discard the current bounded semantic batch, and an
+unavailable or malformed embedder still selects under the explicit lexical
+fallback policy.
+
+`tests/test_resident_developmental_cognition.py::test_indexed_semantic_history_changes_later_fake_decision_across_restart`
+uses deterministic vectors to place a lexically disjoint old record in one
+tick's bounded sample, then demonstrates that a fresh owner can retrieve and
+apply it on a later tick even when it is absent from that tick's embedding
+batch. Withholding removes the decision effect; restoring the history and
+reopening the owner restores it. This is a synthetic retrieval/application
+counterfactual. It does not establish real embedding quality, real-model
+adherence, generalized learning, or improved decisions.
+
 An explicitly operator-confirmed companion developmental cycle can also use a
 configured longitudinal self-model owner. The bridge captures the eligible
 prior self-model projection before cognition, runs the existing governed
@@ -506,9 +540,28 @@ or currentness. Deterministic fake-model tests cover the storage and selection
 counterfactual; real-model application and long-term behavioral improvement
 remain unverified.
 
+When resident cognition receives one of these verified links, its prompt now
+uses the linked later statement as the user's updated preference when that
+preference directly applies, and cites the correcting memory. The older linked
+statement remains historical; the relation does not establish truth,
+currentness, instruction, or authority. Unrelated unresolved conflicts still
+require clarification. A restart-spanning production-path counterfactual
+compares corrected preference retrieval with the same unlinked conflicting
+statements using a deterministic responder. This verifies context integration
+and citation lineage, not real-model adherence or improved decisions.
+
 ## Fourth substrate: prior epistemic state
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
+
+Large current World-State evidence may use a typed bounded prompt projection while
+remaining bound to the exact source projection digest. Every selected fact ID,
+source freshness, and typed report value remains represented. When selected facts
+conflict, the compact view preserves each complete conflict row and all member
+fact IDs so context pressure cannot turn a contradiction into a one-sided report.
+Unknown fact schemas or conflict rows remain in full form instead of being
+silently summarized. This compaction changes prompt size only; it does not
+resolve a conflict, establish current truth, or grant authority.
 
 When the inference input cannot carry every complete semantic packet, selection
 prioritizes proposition terms matching the current question before epistemic
@@ -537,3 +590,13 @@ conversation text into developmental history or canonical memory. A controlled
 counterfactual test demonstrates that an earlier sensor statement is available
 to the resident route when included and absent when withheld. It uses a test
 double and does not establish real-model accuracy or improved decisions.
+
+When an admitted operator correction cites a prior assistant response, the
+service may carry its cited epistemic state IDs into the next cognition request
+only after verifying the durable response linkage. These IDs remain bounded
+retrieval priorities: the bridge resolves them to proposition priorities without
+changing epistemic stance, evidence bindings, or execution authority.
+Unverified linkage contributes no priority. CPU-only counterfactual tests show
+the verified handoff reaches the bridge and the production bridge selects the
+cited proposition over an unrelated state; they do not establish that a real
+model will apply the selected state correctly.

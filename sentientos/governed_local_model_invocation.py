@@ -587,6 +587,30 @@ RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA = {
             "items": {"type": "string", "pattern": "^turn-[0-9a-f]{24}$"}},
     },
 }
+RESIDENT_COMPANION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA = {
+    **RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA,
+    "required": [*cast(list[str], RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["required"]),
+        "historical_conversation_citations"],
+    "properties": {
+        **cast(dict[str, dict[str, object]], RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA["properties"]),
+        "historical_conversation_citations": {"type": "array", "maxItems": 16,
+            "uniqueItems": True, "items": {"type": "object", "required": ["turn_id", "text_digest"],
+                "additionalProperties": False, "properties": {
+                    "turn_id": {"type": "string", "pattern": "^turn-[0-9a-f]{24}$"},
+                    "text_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}},
+    },
+}
+RESIDENT_COMPANION_SESSION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA = {
+    **RESIDENT_COMPANION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA,
+    "required": [*cast(list[str], RESIDENT_COMPANION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA["required"]),
+        "conversation_turn_ids"],
+    "properties": {
+        **cast(dict[str, dict[str, object]], RESIDENT_COMPANION_HISTORICAL_INTERACTION_OUTPUT_SCHEMA["properties"]),
+        "conversation_turn_ids": cast(dict[str, dict[str, object]],
+            RESIDENT_COMPANION_SESSION_INTERACTION_OUTPUT_SCHEMA["properties"])[
+                "conversation_turn_ids"],
+    },
+}
 # Keep decoding controls identical in all history-intervention conditions.
 RESIDENT_COMPANION_HISTORY_INTERVENTION_OUTPUT_SCHEMA = (
     RESIDENT_COMPANION_INTERACTION_OUTPUT_SCHEMA)

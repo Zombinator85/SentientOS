@@ -41,6 +41,13 @@ plan-only allocation after reconstruction. Missing, mismatched, ambiguous, or
 future-dated run evidence remains explicitly unresolved and does not create an
 epistemic position.
 
+When a task-family proposition includes an
+`active_model_identity_digest` scope, outcome ingestion verifies that the run's
+identity object matches its recorded digest and that the digest exactly matches
+the proposition scope. A different or unverifiable model identity is rejected
+before either evidence or state admission. Propositions without a model scope
+retain the existing family-level aggregation behavior.
+
 The development companion can opt into this same owner without introducing a
 second epistemic store. Its launcher composes the runtime only when both
 `SENTIENTOS_EPISTEMIC_STATE_CONFIG` and
@@ -82,6 +89,24 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Planning also treats a tagged prior position with an explicit projected
+`contradicts` relation as requiring review, even when that position's own
+evidence posture is positive and the connected proposition is not separately
+tagged by the goal. A tagged proposition explicitly superseded by a linked
+claim also requires review. The deterministic counterfactual in
+`sentientos/tests/test_epistemic_planning.py::test_projected_relations_change_tagged_goal_review_decision`
+shows the goal selected without the relation and deferred after the relation
+is recorded. The review scope retains the relation digest; no relation creates
+execution authority or establishes truth.
+
+Canonical plan-only daemon feedback now includes a bounded summary for deferred
+epistemic positions: proposition ID, posture, state digest when available, and
+relation digests. Position and relation-digest listings are capped at eight;
+omitted counts make truncation explicit. The allocation artifact path and
+digest remain the complete evidence source. This summary cannot authorize
+execution or invoke a model. The bounded feedback behavior is covered by
+`sentientos/tests/test_orchestrator_plan_only.py::test_daemon_goal_feedback_reports_bounded_listing_omissions`.
+
 Same-model, same-task-family history now also carries a compact controlled
 effect summary when all three score-bound conditions are comparable. It records
 whether history-present correctness was adverse, favorable, or unchanged against
@@ -98,22 +123,39 @@ objective truth, or improved intelligence.
 
 The resident companion interaction ranks already admitted developmental
 interpretations, source-verified operator-report text, typed historical
-embodiment reports, and admitted lesson content against the current question
-before the bounded history projection.
+embodiment reports, identity-bound history decision contrasts, and admitted
+lesson content against the current question before the bounded history
+projection. A decision contrast contributes retrieval terms only when its
+verified source identity matches the active serving identity; response
+fingerprints remain opaque, and retrieval does not imply correctness or
+improvement.
 Lesson scope and applicability matches receive more weight than generic
 interpretation wording. The latest prior user turn from a validated bounded
 session context contributes topic terms only when the current question has
 fewer than two distinctive terms, supporting elliptical follow-ups without
 letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
+Validated v4 operator-feedback reports that target the same exact conversation
+session, turn ID, and turn-text digest are selected as one bounded retrieval
+unit. A query that matches one report therefore retains the other reports about
+that cited turn when the complete group fits the history cap. This preserves
+their shared provenance for later comparison; it does not classify them as
+contradictory, count repeated reports as corroboration, or establish either
+assertion as true. Groups that do not fit are withheld whole rather than
+partially represented.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8`)
-remain in normal history selection lineage. History packets remain explicitly historical,
-non-authoritative, and not current truth. This remains deterministic lexical
-matching that normalizes common plural endings and weights terms that occur in
-fewer candidate records. It is not semantic retrieval or evidence that selected
-experience improves an answer.
+(`query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11`)
+remain in normal history selection lineage. For decision queries, matching
+decision polarity now ranks ahead of lexical overlap, so a longer opposite
+decision cannot displace a shorter history that matches whether the decision
+was made. Lexical overlap ranks records within the same polarity; checkpoint
+order remains the stable tie-breaker, and unmatched slots still use recency.
+History packets remain explicitly historical, non-authoritative, and not
+current truth. This remains deterministic lexical matching that normalizes
+common plural endings and weights terms that occur in fewer candidate records.
+It is not semantic retrieval or evidence that selected experience improves an
+answer.
 
 Compact resident history packets now carry the bounded lesson statement,
 scope, applicability, and uncertainty rationale into the prompt. The companion
@@ -138,6 +180,53 @@ uncertainty; earlier claims are not evidence of current state. The focused
 `tests/test_resident_developmental_cognition.py::test_context_assembly_states_current_evidence_precedence_over_all_prior_context`
 checks that this rule survives production context assembly. This strengthens
 the prompt contract; real-model adherence remains unverified.
+
+Question-aware current-evidence selection now treats World-State conflict
+groups as indivisible under the configured fact bound. When every conflicting
+fact is eligible and the group fits, the projection keeps the full group. If
+any member is outside the source policy or the group cannot fit, the projection
+withholds its eligible members together instead of presenting one side as
+uncontested. The selection policy is versioned as
+`question_relevance_then_existing_priority_conflict_closed:v2`. A bounded
+counterfactual verifies that a one-fact limit no longer delivers only the
+matching side to a controlled responder, while a two-fact limit delivers both
+and leaves the answer unresolved. This is deterministic selection behavior;
+real-model conflict handling remains unverified.
+
+Ordinary companion context now preserves source freshness in compact current
+evidence rows as well as in the full projection. The prompt directs the model
+to treat stale, expired, undated, unknown, and not-applicable sources as
+historical reports rather than support for a present-condition claim; an
+aging report must be qualified. A controlled production-path counterfactual
+asks for a fresh temperature reading when the only selected report is expired,
+while the same path answers from a fresh report. The compact projection row is
+versioned as v2 to carry source kind, staleness, and finding. This tests the
+prompt contract with a deterministic responder; real-model adherence remains
+unverified.
+
+The production interaction boundary now also enforces freshness for present-
+condition questions. It recognizes explicit temporal markers such as "current",
+"now", "today", or "still", plus common direct question forms with definite,
+possessive, or demonstrative subjects (for example, "What is the room
+temperature?" and "Is the pump online?"). Indefinite definition questions such
+as "What is a moon phase?" remain outside this current-condition classifier. An
+answer must cite current World-State evidence whose source
+finding is valid and whose posture is fresh or aging; a cited stale, expired,
+undated, unknown, or not-applicable source is converted to a request for a fresh
+observation. Memory or dialogue citations alone cannot establish the current
+condition. If the model cited an eligible prior self-model claim, the normalized
+response may include a bounded deterministic description of that historical
+record while still asking for a fresh observation; it explicitly says that the
+record does not establish current truth. The owner derives that note from the
+selected attributed claim, never from the model's discarded current-condition
+wording. Aging evidence receives a deterministic qualification in the response.
+Historical questions remain able to report what an older source said.
+A controlled production-path counterfactual makes the responder answer from an
+expired source and verifies that the boundary asks instead; fresh evidence still
+answers, historical questions still report the expired reading, common implicit
+present-state forms receive the same freshness check, and definition questions
+remain answerable. The classifier is intentionally lexical and bounded; other
+implicit forms and real-model interpretation remain unverified.
 
 The persistent epistemic owner also accepts the current companion question when
 building its bounded prior-state projection. It ranks only propositions that
@@ -174,13 +263,16 @@ and query digest across original, revised, and restored conditions. This
 remains lexical prioritization of non-authoritative claims, not verification
 that those claims are true or useful.
 
-`tests/test_resident_developmental_cognition.py::test_question_selected_self_model_changes_later_companion_response`
+`tests/test_resident_developmental_cognition.py::test_question_selected_self_model_cannot_override_unknown_current_evidence`
 adds a matched counterfactual through the bridge and actual prompt assembler.
 With the same question, scene, source reconciliation, and CPU-only conditioned
 invoker, question-aware selection places the retained prior GPU measurement in
-the prompt and the later response includes it; the legacy predicate ordering
-does not. The prompt binder now tries the complete owner projection first, then
-removes a suffix of the owner's ranked claims until the full assembled context
+the prompt and preserves its citation; when the current screen source has
+unknown freshness, the response labels the prior measurement as historical and
+asks for a fresh observation without repeating the model's unsupported current
+reading. The prompt
+binder now tries the complete owner projection first, then removes a suffix of
+the owner's ranked claims until the full assembled context
 fits. Across competing context types, it first preserves the largest complete
 ranked history suffix that can fit, then trims the self-model prefix within
 that history choice. A digest-bound selection manifest records consumed and
@@ -268,6 +360,19 @@ statement. Missing, changed, malformed, or unselected turns are withheld. The
 durable cognition observation records selection, turn, feedback-fact, and source
 session digests, but does not copy the transcript text into cognition records.
 
+When distinct feedback records cite the same turn, the selection retains one
+source-bound context row per report instead of collapsing them by transcript
+identity. It first reserves a slot for each distinct turn, then uses remaining
+bounded slots for additional reports, so repeated reports cannot crowd out
+other cited turns. The prompt and observation keep those report identities
+separate; repeated dialogue does not count as independent corroboration. The
+deterministic counterfactual in
+`tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`
+now includes two conflicting reports about the same prior turn. Both reports
+reach the later prompt, which preserves the disagreement as unresolved and
+unverified while leaving the prior epistemic state unchanged. This demonstrates
+the behavior with controlled substitutes, not reliable real-model reasoning.
+
 `tests/test_persistent_governed_conversation.py::test_historical_citation_context_resolves_only_digest_bound_source_turn`
 demonstrates reconstruction from a separately persisted session and fail-closed
 behavior after a citation digest changes. The controlled counterfactual in
@@ -279,6 +384,91 @@ are deterministic storage and model-substitute results. They do not establish
 that a real model will reason correctly about disagreement, or that later
 outcomes revise the underlying knowledge state appropriately. The next cognition
 milestone should evaluate that feedback and revision loop.
+
+Feedback schema `sentientos.local_operator_feedback:v5` also binds a correction
+to the epistemic state IDs cited by the exact assistant turn it challenges. The
+chat service copies those IDs only after verifying the committed response
+lineage and the turn's source user turn; malformed or unverifiable linkage
+retains the v4 transcript citation without a state link. Later history
+projection validates the bounded state ID list and keeps it nested under the
+correction target. This preserves which evidence-bound position was challenged
+even when the source transcript is unavailable. The link identifies a state;
+it does not recover missing dialogue, establish the operator report as true,
+authorize an action, or revise the state. The expanded restart counterfactual
+in `tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`
+removes the cited session transcript and demonstrates that both conflicting,
+unverified reports remain associated with the exact unchanged state in a later
+projection. This is deterministic substitute behavior; real-model interpretation
+and outcome-driven revision remain unproven.
+
+The resident epistemic runtime resolves state citations carried by v5 operator
+corrections against its persistent state owner. A retained, allowlisted state ID
+provides the exact proposition join directly; no duplicate static
+`operator_input` selector is required. The correction can add `contextualizes`
+evidence only to that proposition lineage; absent, malformed, or unknown v5
+citations match no proposition. Its assertion remains unverified and cannot
+change stance. A separate configured observation still passes through normal
+evidence and state admissions, and a later cognitive projection resolves the
+old cited state ID to the newest admitted generation. The CPU integration
+regression exercises this sequence across owner reconstruction. It demonstrates
+the governed software path with deterministic evidence; real-model
+interpretation and improved decisions remain unproven.
+
+A cited v5 operator correction survives owner reconstruction as a
+source-digest-bound context record. Its exact assertion text and assertion
+digest are retained in a v2 evidence binding only when the v5 payload shape,
+text digest, cited turn, state IDs, and source identity all validate. The v7
+projection and v4 packet deliver this text while it is pending; if the binding
+later enters active or removed state history, the same text remains explicitly
+context-only. In both locations it is excluded from evidence citations and
+state revisions. The resident prompt labels it as unverified operator context
+that may be compared with current evidence but cannot establish truth or
+authority. A deterministic restart counterfactual confirms the exact text
+reaches the prompt without changing stance or generation; a source payload with
+altered text and a stale digest/source identity adds no binding. An unknown
+citation adds no context, while a separately admitted observation can still
+advance state. This demonstrates the governed software path only; whether a
+real model applies the correction appropriately or makes better later
+decisions remains unverified.
+Epistemic calibration records were previously durable but absent from later
+Meaning-bearing projections now expose up to 16 chronologically latest
+calibration outcomes per selected proposition only after an exact
+`calibration_outcome` update event binds the calibration ID and digest. An
+unreviewed event contributes only to a bounded omitted-identity count; its
+comparison label and outcome text do not reach cognition. Reviewed outcomes
+include any source evidence bindings not already present in that proposition's
+state history. Projection validation joins each outcome to its forecast state
+and source evidence, excludes outcomes at or after the cognition tick, and
+digest-binds omitted records. The resident instruction treats exposed outcomes
+as historical forecast comparisons that can qualify a decision, not as current
+truth or authority. Previously, a controlled-responder counterfactual showed
+that a contradicted forecast can change a later response when delivered, while
+the underlying epistemic state remained unchanged. These are deterministic
+owner and controlled-responder results; real-model use of calibration history
+remains unverified. A follow-up counterfactual showed that the stored comparison label
+could disagree with the cited binding's relation. Semantic packets now derive
+`evidence_consistency` from all cited bindings: only a complete set of current,
+non-withdrawn, dependency-resolved bindings with a matching support or
+contradiction relation is marked `consistent_with_bound_current_evidence`.
+Inconclusive, stale, unknown-dependency, missing, or mismatched evidence is
+marked `unresolved_against_bound_evidence`. Resident instructions require the
+consistent posture before using a calibration label to qualify a decision. A
+restart-backed controlled-responder counterfactual confirms the matching
+contradiction changes the later response while a mismatched label does not.
+The persisted-owner composition is exercised in hosted Linux validation; the
+local Windows checkout can run the pure classification test but not that
+durable-custody fixture. The new runtime review path verifies one exact event,
+forecast state, and active outcome bindings, obtains a calibration-review
+admission to construct a proposal, then requires the existing separate
+state-update admission and CAS. Its candidate definition is not registered in
+the canonical authority catalog pending operator approval; production review
+therefore fails closed. The hosted Required Quality Gate passes the
+restart-backed composition and a deterministic responder
+counterfactual: a consistent admitted calibration changes the later response,
+while a mismatched comparison label remains withheld and leaves that response
+unchanged. This validates software integration with controlled substitutes;
+it does not independently verify the underlying outcome, and real-model
+interpretation and real-world calibration remain unproven.
 
 ## Explicitly retained user context in resident serving
 
@@ -344,3 +534,306 @@ correctly or independently recognize every material conflict. The scripted
 fixture establishes this conflict path's wiring and citation behavior, not
 general conflict resolution or decision improvement. Real-model response
 quality and longitudinal decision improvement remain open evaluation work.
+
+## Evidence-bound task-family strategy candidates
+
+Resident context assembly can now derive a provisional integer-affine strategy
+from retained task-family examples when at least three distinct inputs have
+score-bound, evaluator-correct answers and agree on one relation. The summary
+keeps the supporting examples and their source fact, run, task, and score
+digests; prompt projection re-derives the relation from those rows and rejects
+a strategy whose claim does not match them. Conflicting examples removed by
+the existing cross-history conflict filter also remove the derived summary.
+The prompt labels the relation as historical and provisional, restricts it to
+the matching task family, and explicitly withholds claims of learning or
+transfer performance.
+
+The focused deterministic test
+tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart
+exercises the production history and prompt binders with a controlled fake
+invoker that consumes the candidate relation. In that fixture, the relation
+supports all three held-out predictions after restart; withholding history
+yields zero of three. A separate tampering counterfactual recomputes the
+strategy digest after substituting a false relation and verifies projection
+rejects it. These are deterministic software-path results, not evidence of
+real-model learning, broad task transfer, or improved open-ended decisions.
+No model inference was used for this milestone; validation is CPU-only.
+
+## Revising strategy projection when outcomes conflict
+
+The next cognition increment closes a gap between outcome-aware retrieval and
+context assembly. The goal is to keep a provisional task-family strategy out of
+later guidance when score-bound outcomes for its exact task and source-model
+group are unsettled, while retaining the underlying historical examples and
+their provenance. Acceptance requires a controlled settled/unsettled
+counterfactual: settled evidence still projects its candidate strategy;
+contrary outcomes suppress that strategy in assembled context and the bound
+prompt; the suppressed candidate remains traceable by digest and carries no
+truth or authority posture.
+
+The history projection now carries unsettled task/model outcome groups into the
+production context binder. When a candidate relation belongs to one of those
+groups, the binder omits the relation, marks its digest as withheld due to
+unsettled score-bound outcomes, and preserves the examples. Prompt projection
+records both available and withheld candidate summaries so later review can
+distinguish omission from missing source evidence. This is still a deterministic
+software-path capability: it does not prove that a real model correctly
+interprets unresolved evidence or improves later decisions.
+
+The follow-on goal is to make that withholding operational in model-facing
+context: when a selected history packet marks a candidate relation as
+unsettled, the prompt must tell the model not to reconstruct or apply that
+relation from the retained examples, and to preserve uncertainty until new
+comparable evidence resolves the conflict or abstain. Settled history must not
+receive this caution. The deterministic acceptance check compares both prompts
+while retaining the same source examples and provenance.
+
+The binder now appends this instruction only when a selected history packet
+contains the withheld-candidate posture. The controlled counterfactual
+`tests/test_resident_developmental_cognition.py::test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context`
+checks that the stable prompt keeps its provisional strategy without the
+warning, while the unsettled prompt omits the relation, retains the same
+examples, and explicitly directs the model not to reconstruct or apply it.
+This verifies prompt assembly with deterministic evidence; real-model
+interpretation and later task outcomes remain untested.
+
+The longitudinal fixture now uses the production objective-intervention and
+writeback paths to admit two distinct runs with contrary, receipt-bound outcomes
+for the same task and model, then assembles history for a later task in a fresh
+owner process. Its controlled acceptance result checks strategy use while
+outcomes are settled, admission of the adverse run without editing prior
+evidence, and strategy withholding plus abstention only after the retained group
+becomes unsettled. The hosted Linux source-validation suite passed this
+counterfactual through the durable custody path. This remains a deterministic
+policy-fixture result rather than a real-model improvement claim; real-model
+interpretation and improvement remain unproven. The Windows checkout cannot run
+the durable custody portion because that storage contract currently rejects
+this platform.
+
+Unsettled outcome withholding is scoped to the exact source-model identity.
+When another model receives an oracle-verified same-family candidate from a
+source group that remains unsettled, projection retains the candidate with a
+digest-bound source-conflict marker and tells the target model that source-model
+outcomes do not establish its performance. The existing exact-family and
+evaluator-example checks still apply; this does not claim cross-model transfer.
+
+The hosted restart-safe counterfactual now follows that case through the
+receiving model's own feedback. Model B applies the provisional candidate on a
+held-out task, its receipt-bound favorable result is admitted through ordinary
+World-State and developmental writeback, and an adverse repeat on the same
+task makes B's own candidate unavailable to B's next prompt; the deterministic
+policy abstains. A third identity still receives B's candidate with the
+cross-model unsettled-source marker and solves the same held-out task from the
+oracle-verified relation. This demonstrates that outcome custody, writeback,
+model-specific history selection, and later model-conditioned context compose
+across a restart. It does not establish real-model interpretation, durable
+performance improvement, or general cross-model transfer.
+
+## Cross-session correction integration
+
+A verified assistant answer can now carry its bounded screen-capture provenance
+through resident-cognition transcript linkage, allowing the existing explicitly
+invoked operator-feedback path to evaluate that answer after a later turn. The
+feedback path still requires a cited earlier assistant response and records the
+operator statement as an unverified input; neither transcript history nor the
+feedback itself grants truth or execution authority.
+
+The composed path is covered by
+`tests/test_persistent_governed_conversation.py::test_verified_epistemic_citation_survives_restart_and_changes_followup_projection`.
+It reopens the cognition and epistemic owners, verifies the persisted answer,
+admits an operator correction through `PersistentConversationService`, then
+starts another session and confirms the cited epistemic state is selected in
+the production bridge prompt. A no-correction session selects the alternative
+state. The integration now asks the same target question before and after the
+correction. Its deterministic invoker changes the later response only when the
+historical assistant turn matches the correction target's turn ID and text
+digest, and the feedback assertion and cited dialogue share the exact bound
+feedback digest. The resulting response surfaces the disagreement and keeps
+the operator report unverified. The prompt still labels the old citation
+historical, non-truth, non-authoritative, and non-mutating; the epistemic
+state's identity remains unchanged. This demonstrates that the composed
+context contains enough bound information for a controlled response policy to
+apply a correction without promoting it to truth. It does not establish that a
+real model will correctly interpret feedback or improve open-ended decisions.
+
+Plan-only allocation also treats a source-bound v5 correction as a review
+signal for goals explicitly tagged to the cited proposition. The deferral
+carries the correction binding IDs (or a bounded omission count and digest when
+context is over capacity); the correction remains unverified context and does
+not change the epistemic state. A paired allocation counterfactual verifies
+that the same supported state is usable before the correction and deferred
+after it, with its state digest and generation unchanged. This makes feedback
+operational for planning while preserving the evidence boundary; it does not
+decide whether the correction is true or resolve the position without
+independent evidence.
+
+When the correction is compared with a cited prior epistemic state, the later
+response now names that state as an earlier evidence-bound position and cites
+its exact state ID alongside the feedback record and historical dialogue turn.
+The same deterministic restart test checks those three citations and confirms
+that the epistemic state itself remains unchanged. This demonstrates
+provenance-preserving comparison in the production path; it does not establish
+that a real model will recognize when both sides are relevant or resolve their
+disagreement correctly.
+
+Historical dialogue citations now remain distinct from same-session citations
+through the interaction result, observation schema v15, and committed assistant
+transcript linkage. Each selected citation stores the exact offered turn ID and
+text digest; parsing rejects references outside the prompt's allowlist, and
+transcript verification checks the linkage against the persisted observation
+and its offered historical context. The composed restart test asserts that the
+correction-conditioned answer cites the earlier turn and digest after a new
+session. This is deterministic citation-lineage evidence only: a controlled
+invoker supplies the citation, and it does not show that a real model will
+select all and only the historical turns that materially influenced its answer.
+
+The restart counterfactual now inserts 20 unrelated turns between the cited
+answer and an anchored follow-up. The bounded selector still retrieves both
+turns of the older exchange, carries its verified epistemic-state citation into
+the prompt, and preserves the correction-conditioned response difference from
+the no-history control. This demonstrates the composed retrieval and citation
+path under transcript pressure with deterministic inference; real-model
+selection and interpretation remain unverified.
+
+When resident transcript context exceeds its budget, selection now ranks
+adjacent user/assistant exchanges as units. A query matching the user's earlier
+question therefore keeps the assistant's differently worded decision with it,
+while the existing 16-turn and 4,000-character bounds remain in force. The
+hosted source-validation suite and focused resident-context cases pass this
+counterfactual alongside rare-anchor and anaphoric-follow-up selection. This
+establishes bounded exchange integrity in the deterministic selector; it does
+not establish that a real model will interpret the selected history correctly.
+
+Relevance ranking also runs when the recent slice already fits the character
+budget. An older exchange that directly matches the current question can take
+priority over unrelated recent exchanges, after which recent exchanges fill
+remaining turn and character capacity. Focused tests show the older decision
+survives in a concise long transcript without exceeding either bound; the
+hosted source-validation suite verifies this together with the exchange-pair,
+rare-anchor, and anaphoric-follow-up cases. Real-model selection and use of
+historical decisions remain unverified.
+
+Repeated older mentions could still fill the bounded context with high-scoring
+exchanges and omit the newest exchange that also matches the question. The
+selector now reserves that newest relevant exchange alongside the strongest
+ranked history before filling remaining capacity. A focused counterfactual
+keeps both the strongest older decision and the newest correction under the
+existing turn and character bounds. This is deterministic selector evidence;
+real-model interpretation of competing old and new information remains
+unverified.
+
+The resident prompt now directs the model to use an explicit later user
+correction to revise its account of what was said or decided, while attributing
+both statements and refusing to treat recency as current evidence or authority.
+A composed CPU fixture sends repeated older mentions and a latest correction
+through bounded selection, the resident bridge, and prompt assembly; its
+controlled responder cites the correction and changes its qualified answer
+relative to an older-history-only control. The full owner fixture requires
+Linux durable-custody paths and is skipped on Windows; the hosted source
+validation suite exercises it. Real-model interpretation and application
+remain unverified.
+
+Bounded history selection now also retains a pronoun-only user correction when
+it immediately follows an exchange relevant to the question. This preserves
+the correction's nearby antecedent under transcript pressure without admitting
+an unrelated correction after an irrelevant exchange. A deterministic selector
+counterfactual and the composed resident-owner fixture use "No, that was
+outdated. It cleared several minutes later." to show the correction survives
+selection and changes the qualified response relative to an older-history-only
+control. Hosted source validation is required to exercise the owner fixture;
+real-model interpretation remains unverified.
+
+Resident cognition now ranks source-linked user/assistant exchanges across the
+stored session before applying a bounded candidate limit of 64 turns and a
+4,000-character reconstruction budget (3,000 in gaming mode). Relevant complete
+exchanges receive priority; recent exchanges fill remaining capacity. The
+existing cognition selector then applies its 16-turn, 4,000-character prompt
+limits. Both selection stages rank the number of distinct query terms matched
+before using inverse document frequency to break ties. This prevents a batch of
+one-term identifier matches from crowding out a linked exchange that matches
+multiple terms in the question. The deterministic counterfactual
+`tests/test_persistent_governed_conversation.py::test_query_coverage_keeps_multi_term_exchange_across_both_history_bounds`
+shows the older source is excluded by the prior IDF-sum policy but survives the
+64-turn candidate window and 16-turn final selector under query-coverage ranking.
+A separate chat-path counterfactual with 40 newer unrelated exchanges shows a
+recent-only 64-turn window omits the older west-sensor source, while
+relevance-ranked retrieval retains it alongside recent dialogue. These tests
+demonstrate bounded retrieval with synthetic dialogue; real-model use remains
+unverified.
+
+The same speaker and evidence rule applies when recalling decisions: an
+assistant recommendation is not a user-confirmed decision. The resident prompt
+now requires explicit user acceptance before describing a plan as user-decided,
+and treats that confirmation as dialogue evidence rather than proof that the
+action occurred. A controlled resident-owner counterfactual compares a
+recommendation without acceptance to the same recommendation followed by an
+explicit user acceptance, checks the attributed citation set, and keeps action
+authority false. Its full-owner fixture runs in hosted Linux source validation;
+real-model interpretation remains unverified.
+
+The integration exposed a linkage defect: the bridge adds resolved epistemic
+priorities to the conversation context and recomputes its selection digest, but
+the response linkage previously kept the pre-bridge digest. The cognition
+result now returns the effective digest used for its prompt, and transcript
+verification checks that digest against the persisted observation. The test
+also supplies the screen observer's required text-status field so the bounded
+capture provenance can be carried into the assistant linkage.
+
+Focused CPU-only validation passed for the cross-session test and the adjacent
+developmental-cycle authorization, explicit-confirmation, and historical
+citation tests. No Hermes or GPU inference was used. Real-model feedback
+interpretation, repeated outcome measurement, and improvement across open-ended
+decisions remain unproven.
+
+Same-session transcript retrieval now preserves explicit `no`, `not`, and `nor`
+markers and normalizes common negative contractions to `not` alongside topical
+terms. Shared inflection normalization now maps common `-ved` past-tense forms
+back to their final-`e` stems, so “approved” matches “approve.” For decision
+predicates, retrieval ranks matching query polarity ahead of recency when topic
+coverage ties. A deterministic paired query fixture places the opposite-polarity
+exchange most recently and checks that a two-turn limit still selects the
+matching negative or positive exchange. This validates retrieval ranking and
+source-turn linkage; it does not establish that a real model will interpret
+selected context correctly.
+
+Persistent developmental-history retrieval now uses the same negation-aware
+query terms and ranks matching approval/decision polarity ahead of recency when
+topic relevance ties. A one-slot counterfactual places a negative approval
+record newest: a contracted negative query selects it, while the positive query
+selects the older positive record. This demonstrates polarity-sensitive
+historical record selection with deterministic fixtures; it does not validate
+real-model interpretation, current truth, or execution authority.
+
+Both history retrieval and same-session transcript retrieval now normalize
+“cannot” and “can not” to the same negative decision marker already used for
+“not” and common contractions. Their paired counterfactuals put the positive
+approval most recently while storing the older negative decision as “cannot
+approve”; the negative query retrieves that older record, while a positive
+query still retrieves the recent approval. This closes a wording gap in the
+existing lexical polarity selector without treating retrieved statements as
+truth or authority. It remains deterministic retrieval evidence, not proof that
+a model will interpret the selected correction correctly.
+
+### Rootless Windows epistemic-series execution (2026-11-17)
+
+The Ollama correction-pressure runner now creates its Windows run, cognition,
+history, state, and held-out-key directories through private native custody.
+New directories receive current-user-only inheritable access, and resident
+epistemic prompts use one measured 18 KiB character ceiling throughout prompt
+preview and invocation. The JSON payload is flushed on Windows; directory-entry
+flush is POSIX-only because Python cannot open Windows directories with
+`os.open`, so power-loss durability of the directory name is not claimed there.
+
+The actual Windows path reached pre-registration and one governed local
+inference attempt with Qwen3 8B (`rootless-epistemic-run-e3b493426b7a4d7c803fe13a`,
+preregistration digest `28d55184db27c719997ab9bfcbaf76c2c3b1cdfcb7c76643f649c06c0e392765`)
+and Qwen3 1.7B (`rootless-epistemic-run-f8c49ecb01964af5b1a4cdf4`,
+preregistration digest `1f5664e013026d67c0b0a062b7fe859efbee3953b8db36429fb689ea184db7d0`).
+Each invocation ended in `backend_failure:ModelLoadError` at the 120-second Ollama
+backend timeout; both receipts have no output digest, no capture index was
+produced, and scoring did not start. These runs establish path execution and
+the runtime timeout, not model behavior or correction performance. Their
+preregistration and failure records remain in the private local evidence
+workspace; neither run is production-serving evidence. Focused custody,
+prompt-bound, runner, and serialization tests pass. The remaining empirical
+blocker is a completed bounded local-model response.

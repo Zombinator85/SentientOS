@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
-from .cognition_retrieval import normalize_cognition_term
+from .cognition_retrieval import cognition_negation_terms, cognition_tokens
 from .platform_fcntl import fcntl, require_flock
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .windows_handle_custody import read_explicit_file, verify_explicit_directory
@@ -41,9 +41,13 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "there", "this", "to", "was", "were", "what", "when", "where", "which",
     "who", "why", "will", "with", "would", "you", "your", "ask", "asked",
     "answer", "answered", "briefly", "chat", "claim", "conversation", "current",
-    "exact", "foreground", "game", "gameplay", "guess", "not", "our", "reply",
+    "exact", "foreground", "game", "gameplay", "guess", "our", "reply",
     "replied", "screen", "see", "they", "two", "word", "words",
 ))
+_TRANSCRIPT_RECALL_DECISION_TERMS = frozenset((
+    "accept", "agree", "allow", "approve", "authorize", "confirm",
+    "consent", "decide", "permit", "support"))
+_TRANSCRIPT_RECALL_NEGATION_TERMS = frozenset(("no", "nor", "not"))
 
 
 def transcript_recall_terms(text: str) -> frozenset[str]:
@@ -51,14 +55,60 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     if not isinstance(text, str):
         raise ValueError("conversation_recall_query_invalid")
     terms: set[str] = set()
-    for token in re.findall(r"[a-z0-9]+", text.casefold()):
+    # Negation changes the meaning of a remembered decision. Keep these
+    # markers alongside content words so polarity participates in ranking.
+    terms.update(cognition_negation_terms(text))
+    for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
-        normalized = normalize_cognition_term(token)
+        normalized = token
         if (len(normalized) > 2
                 and normalized not in _TRANSCRIPT_RECALL_STOP_WORDS):
             terms.add(normalized)
     return frozenset(terms)
+
+
+def rank_transcript_exchange_terms(
+        query_terms: frozenset[str],
+        exchange_terms: Sequence[frozenset[str]],
+        ) -> list[tuple[int, int, float, int]]:
+    """Rank by query coverage, decision polarity, rarity, and recency.
+
+    Leading with distinct-term coverage keeps one rare lexical overlap from
+    outranking an exchange that matches more of the question. For queries about
+    a decision predicate, matching explicit negation is the next tie-breaker;
+    IDF and recency follow when candidates cover the same query terms.
+    """
+    if not query_terms:
+        return []
+    query_decision_polarity = bool(
+        query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
+    query_is_negative_decision = bool(
+        query_terms & _TRANSCRIPT_RECALL_NEGATION_TERMS)
+    document_frequency = {term: sum(term in terms for terms in exchange_terms)
+        for term in query_terms}
+    term_weights = {term: math.log((len(exchange_terms) + 1)
+        / (frequency + 0.5)) + 1
+        for term, frequency in document_frequency.items()}
+    ranked = []
+    for index, terms in enumerate(exchange_terms):
+        overlap = query_terms & terms
+        if not overlap:
+            continue
+        exchange_mentions_decision = bool(
+            terms & query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
+        exchange_is_negative_decision = (
+            exchange_mentions_decision
+            and bool(terms & _TRANSCRIPT_RECALL_NEGATION_TERMS))
+        polarity_match = int(
+            not query_decision_polarity
+            or not exchange_mentions_decision
+            and not query_is_negative_decision
+            or query_is_negative_decision == exchange_is_negative_decision)
+        ranked.append((len(overlap), polarity_match,
+            sum(term_weights[term] for term in overlap), index))
+    ranked.sort(reverse=True)
+    return ranked
 
 
 def _is_prior_message_recall_question(text: str) -> bool:
@@ -733,7 +783,8 @@ class ConversationSessionStore:
                     max_turns: int | None = None,
                     oldest_first: bool = False,
                     relevance_query: str | None = None,
-                    prefer_recent_relevant: bool = False) -> ContextSnapshot:
+                    prefer_recent_relevant: bool = False,
+                    relevance_exchange_groups: bool = False) -> ContextSnapshot:
         session = self.load(session_id)
         if include_roles is not None and any(role not in {"user", "assistant"}
                                              for role in include_roles):
@@ -746,13 +797,79 @@ class ConversationSessionStore:
             raise ValueError("conversation_context_relevance_query_invalid")
         if type(prefer_recent_relevant) is not bool:
             raise ValueError("conversation_context_relevance_order_invalid")
+        if type(relevance_exchange_groups) is not bool:
+            raise ValueError("conversation_context_relevance_groups_invalid")
+        if (relevance_exchange_groups and (relevance_query is None
+                or include_roles is not None or max_turns is None
+                or oldest_first or prefer_recent_relevant)):
+            raise ValueError("conversation_context_relevance_groups_invalid")
         role_filter = set(include_roles) if include_roles is not None else None
         candidates = [t for t in session["turns"]
                       if t["turn_id"] != exclude_turn_id
                       and (role_filter is None or t["role"] in role_filter)]
         query_terms = (transcript_recall_terms(relevance_query)
                        if relevance_query is not None else frozenset())
-        if query_terms:
+        priority_groups: list[tuple[Mapping[str, Any], ...]] | None = None
+        if relevance_exchange_groups:
+            # Rank complete source-linked exchanges across the stored session
+            # before filling the bounded candidate window from recent dialogue.
+            exchanges: list[tuple[Mapping[str, Any], ...]] = []
+            index = 0
+            while index < len(candidates):
+                turn = candidates[index]
+                next_turn = candidates[index + 1] if index + 1 < len(candidates) else None
+                next_linkage = (next_turn.get("linkage")
+                    if isinstance(next_turn, Mapping) else None)
+                if (turn.get("role") == "user"
+                        and isinstance(next_turn, Mapping)
+                        and next_turn.get("role") == "assistant"
+                        and isinstance(next_linkage, Mapping)
+                        and next_linkage.get("source_user_turn_id") == turn.get("turn_id")):
+                    exchanges.append((turn, next_turn))
+                    index += 2
+                else:
+                    exchanges.append((turn,))
+                    index += 1
+
+            exchange_terms = [frozenset(term for turn in exchange
+                for term in transcript_recall_terms(str(turn.get("text", ""))))
+                for exchange in exchanges]
+            ranked_exchanges = rank_transcript_exchange_terms(
+                query_terms, exchange_terms)
+            if ranked_exchanges:
+                eligible_exchanges = [exchange_index for exchange_index, exchange in
+                    enumerate(exchanges) if not any(
+                        turn.get("role") == "user"
+                        and isinstance(turn.get("text"), str)
+                        and _is_prior_message_recall_question(turn["text"])
+                        for turn in exchange)]
+                eligible_exchange_set = set(eligible_exchanges)
+                eligible_ranked = [item for item in ranked_exchanges
+                    if item[3] in eligible_exchange_set]
+                if eligible_ranked:
+                    ranked_exchanges = eligible_ranked
+            candidate_turn_limit = (max_turns if max_turns is not None
+                else len(candidates))
+            selected_indexes: list[int] = []
+            selected_turn_count = 0
+            for _, _, _, exchange_index in ranked_exchanges:
+                exchange_size = len(exchanges[exchange_index])
+                if selected_turn_count + exchange_size <= candidate_turn_limit:
+                    selected_indexes.append(exchange_index)
+                    selected_turn_count += exchange_size
+            for exchange_index in reversed(range(len(exchanges))):
+                if exchange_index in selected_indexes:
+                    continue
+                exchange_size = len(exchanges[exchange_index])
+                if selected_turn_count + exchange_size <= candidate_turn_limit:
+                    selected_indexes.append(exchange_index)
+                    selected_turn_count += exchange_size
+            priority_groups = [exchanges[exchange_index]
+                for exchange_index in selected_indexes]
+            selected_index_set = set(selected_indexes)
+            candidates = [turn for exchange_index, exchange in enumerate(exchanges)
+                if exchange_index in selected_index_set for turn in exchange]
+        elif query_terms:
             def rank_turns(
                 turns: Sequence[Mapping[str, Any]],
             ) -> list[tuple[int, int, Mapping[str, Any]]]:
@@ -795,16 +912,27 @@ class ConversationSessionStore:
                                 for item in relevant_matches[:relevance_limit]}
                 candidates = [turn for turn in candidates
                               if turn["turn_id"] in selected_ids]
-        if max_turns is not None:
+        if max_turns is not None and priority_groups is None:
             candidates = candidates[:max_turns] if oldest_first else candidates[-max_turns:]
-        selected: list[Mapping[str, Any]] = []; used = 0
-        ordered_candidates = candidates if oldest_first else list(reversed(candidates))
-        for turn in ordered_candidates:
-            cost = len(turn["text"]) + len(turn["role"]) + 2
-            if cost > budget_chars - used: break
-            selected.append(turn); used += cost
-        if not oldest_first:
-            selected.reverse()
+        selected: list[Mapping[str, Any]] = []
+        used = 0
+        if priority_groups is not None:
+            for exchange in priority_groups:
+                cost = sum(len(turn["text"]) + len(turn["role"]) + 2
+                    for turn in exchange)
+                if cost <= budget_chars - used:
+                    selected.extend(exchange)
+                    used += cost
+            selected_ids = {turn["turn_id"] for turn in selected}
+            selected = [turn for turn in candidates if turn["turn_id"] in selected_ids]
+        else:
+            ordered_candidates = candidates if oldest_first else list(reversed(candidates))
+            for turn in ordered_candidates:
+                cost = len(turn["text"]) + len(turn["role"]) + 2
+                if cost > budget_chars - used: break
+                selected.append(turn); used += cost
+            if not oldest_first:
+                selected.reverse()
         truncated = len(selected) != len(candidates)
         identity = {"session_id": session_id,
                     "turns": [(t["turn_id"], t["role"], t["text_digest"]) for t in selected],

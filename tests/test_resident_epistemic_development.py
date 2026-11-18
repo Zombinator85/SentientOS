@@ -1,17 +1,26 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import replace
 from datetime import datetime, timezone
 
 import pytest
 
 from sentientos.codex_task_authority_admission import (
+    AUTHORITY_DEFINITIONS,
     RESIDENT_EPISTEMIC_STATE_MUTATION,
     RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    authority_definition_digest,
+)
+from sentientos.resident_epistemic_calibration_authority import (
+    CALIBRATION_REVIEW_EFFECTS,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+    RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
 )
 from sentientos.persistent_epistemic_state import (
-    PersistentEpistemicStateOwner, make_epistemic_update_candidate, make_proposition,
+    PersistentEpistemicStateOwner, make_epistemic_update_candidate,
+    make_proposition, semantic_packets_for_projection,
 )
 from sentientos.embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from sentientos.resident_epistemic_development import (
@@ -37,7 +46,15 @@ pytestmark = pytest.mark.no_legacy_skip
 NOW = "2026-09-28T12:00:00+00:00"
 
 
-def fixture(tmp_path, *, relation="supports", disposition="nominal"):
+def test_calibration_review_definition_is_not_registered_without_operator_approval():
+    assert RESIDENT_EPISTEMIC_CALIBRATION_REVIEW not in AUTHORITY_DEFINITIONS
+    assert authority_definition_digest(
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION) == (
+            "d36226d1f3486bfcf24951c818772af744683c4523aa96190f47aa8fd076f285")
+
+
+def fixture(tmp_path, *, relation="supports", disposition="nominal",
+        calibration_review=False):
     owner = PersistentEpistemicStateOwner(tmp_path / "epistemics", allowed_namespaces=("operator",))
     proposition = make_proposition(namespace="operator", subject="service-a", predicate="is_nominal",
         object_value=True, polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
@@ -45,6 +62,9 @@ def fixture(tmp_path, *, relation="supports", disposition="nominal"):
     owner.register_proposition(proposition)
     ledger = AdmissionLedger(tmp_path / "admissions.json")
     definitions = {RESIDENT_EPISTEMIC_STATE_MUTATION: RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION}
+    if calibration_review:
+        definitions[RESIDENT_EPISTEMIC_CALIBRATION_REVIEW] = (
+            RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION)
     def current():
         admissions, revocations = ledger.load()
         return max([x.issued_sequence for x in admissions] + [x.sequence for x in revocations], default=1)
@@ -58,7 +78,9 @@ def fixture(tmp_path, *, relation="supports", disposition="nominal"):
     runtime = ResidentEpistemicDevelopmentRuntime(config=config, owner=owner,
         mutation_controller=controller,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
-        admission_ledger=ledger)
+        admission_ledger=ledger,
+        calibration_review_verifier=(RuntimeAdmissionVerifier(
+            definitions=definitions, ledger=ledger) if calibration_review else None))
     return owner, proposition, ledger, runtime
 
 
@@ -81,6 +103,140 @@ def test_one_tick_evidence_and_state_mutation_uses_distinct_admissions(tmp_path)
     assert len(admissions) == 2 and admissions[0].admission_id != admissions[1].admission_id
     assert set(admissions[0].effects).isdisjoint(set(admissions[1].effects) - {"exact_epistemic_proposition_read", "epistemic_mutation_receipt_write", "read_only_epistemic_post_mutation_verification"})
     assert state.evidence_set_digest
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
+@pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
+def test_calibration_review_is_admitted_before_prior_context_exposes_outcome(
+        tmp_path, outcome_relation):
+    owner, proposition, ledger, runtime = fixture(
+        tmp_path, calibration_review=True)
+    forecast = runtime.process_snapshot(snapshot(), tick=1,
+        recorded_at="2026-09-28T12:00:00+00:00")
+    forecast_state = owner.current_state(proposition.proposition_id)
+    assert forecast.status == "state_advanced"
+    assert forecast_state is not None
+
+    outcome_time = "2026-09-28T12:01:00+00:00"
+    runtime.config = replace(runtime.config, rules=(replace(
+        runtime.config.rules[0],
+        selector={"source_kind": "runtime_supervisor",
+            "subject_id": "service-a", "stage": "observation",
+            "disposition": "degraded"},
+        evidence_relation=outcome_relation,
+        dependency_kind="independently_sourced_observation",
+        independence_basis="separate deterministic outcome fixture"),))
+    outcome_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(outcome_time)).build([{
+            "source_kind": "runtime_supervisor",
+            "source_id": "supervisor-outcome",
+            "subject_kind": "service", "subject_id": "service-a",
+            "stage": "observation", "disposition": "degraded",
+            "observed_at": outcome_time, "payload": {"check": "degraded"},
+        }])
+    outcome = runtime.process_snapshot(outcome_snapshot, tick=2,
+        recorded_at=outcome_time)
+    assert outcome.status == "state_advanced"
+    outcome_state = owner.current_state(proposition.proposition_id)
+    assert outcome_state is not None and outcome_state.stance == (
+        "contested" if outcome_relation == "contradicts"
+        else "provisionally_supported")
+    [outcome_binding] = [item for item in owner.bindings(
+        proposition.proposition_id)
+        if item.dependency_group == "separate deterministic outcome fixture"]
+
+    calibration = owner.record_calibration(
+        proposition_id=proposition.proposition_id,
+        forecast_artifact_id="forecast-artifact-exact",
+        forecast_state_digest=forecast_state.state_digest,
+        observed_outcome_id="outcome-exact",
+        comparison_result="contradicted",
+        source_binding_ids=(outcome_binding.binding_id,),
+        resolved_at="2026-09-28T12:02:00+00:00")
+
+    before_review = owner.cognitive_projection(max_states=1,
+        current_tick=1790597100)
+    assert before_review is not None
+    [before_packet] = semantic_packets_for_projection(before_review)
+    assert before_packet["calibration_outcomes"] == []
+    assert before_packet["omitted_calibration_count"] == 1
+
+    reviewed = runtime.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id="service-nominal", tick=3,
+        recorded_at="2026-09-28T12:03:00+00:00")
+    if outcome_relation == "supports":
+        assert reviewed.status == "calibration_unresolved"
+        unchanged = owner.current_state(proposition.proposition_id)
+        assert unchanged is not None and unchanged.generation == 1
+        assert not any(event.reason == "calibration_outcome"
+            for event in owner.update_events(proposition.proposition_id))
+        after_mismatch = owner.cognitive_projection(max_states=1,
+            current_tick=1790597100)
+        assert after_mismatch is not None
+        [mismatched_packet] = semantic_packets_for_projection(after_mismatch)
+        assert mismatched_packet["calibration_outcomes"] == []
+        assert mismatched_packet["omitted_calibration_count"] == 1
+        admissions, _ = ledger.load()
+        assert not any(item.capability_id == RESIDENT_EPISTEMIC_CALIBRATION_REVIEW
+            for item in admissions)
+        return
+    assert reviewed.status == "state_advanced"
+    current_state = owner.current_state(proposition.proposition_id)
+    assert current_state is not None and current_state.generation == 2
+    assert current_state.stance == "contested"
+    [calibration_update] = [event for event in owner.update_events(
+        proposition.proposition_id) if event.reason == "calibration_outcome"]
+    assert calibration_update.correlation_id == (
+        f"calibration-review:{calibration.calibration_id}:"
+        f"{calibration.calibration_digest}")
+
+    after_review = owner.cognitive_projection(max_states=1,
+        current_tick=1790597100)
+    assert after_review is not None
+    [after_packet] = semantic_packets_for_projection(after_review)
+    assert after_packet["calibration_outcomes"][0][
+        "calibration_id"] == calibration.calibration_id
+    assert after_packet["calibration_outcomes"][0][
+        "evidence_consistency"] == "consistent_with_bound_current_evidence"
+    assert after_packet["state"]["generation"] == 2
+
+    admissions, _ = ledger.load()
+    review_admission = next(item for item in admissions
+        if item.capability_id == RESIDENT_EPISTEMIC_CALIBRATION_REVIEW)
+    state_admission = admissions[-1]
+    assert state_admission.capability_id == RESIDENT_EPISTEMIC_STATE_MUTATION
+    assert set(review_admission.effects) == set(CALIBRATION_REVIEW_EFFECTS)
+    assert set(review_admission.effects).isdisjoint(state_admission.effects)
+
+    recovered_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+                RESIDENT_EPISTEMIC_CALIBRATION_REVIEW:
+                RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION},
+            ledger=ledger),
+        current_sequence=lambda: max(item.issued_sequence
+            for item in ledger.load()[0]),
+        receipt_root=tmp_path / "receipts")
+    assert recovered_controller.verify_receipts()["status"] == "verified"
+    repeated = ResidentEpistemicDevelopmentRuntime(
+        config=runtime.config, owner=recovered_owner,
+        mutation_controller=recovered_controller,
+        admission_authority=runtime.authority, admission_ledger=ledger,
+        calibration_review_verifier=runtime.calibration_review_verifier)
+    again = repeated.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id="service-nominal", tick=4,
+        recorded_at="2026-09-28T12:04:00+00:00")
+    assert again.status == "already_applied"
+    assert recovered_owner.current_state(proposition.proposition_id).generation == 2
 
 
 def test_unverified_operator_feedback_cannot_drive_directional_epistemic_update(
@@ -109,6 +265,207 @@ def test_unverified_operator_feedback_cannot_drive_directional_epistemic_update(
     assert result.new_binding_count == 1
     assert result.updated_proposition_count == 0
     assert owner.current_state(proposition.proposition_id) is None
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="persistent epistemic mutation integration requires hosted Linux custody paths")
+def test_v5_operator_correction_targets_cited_state_but_only_independent_evidence_revises(
+        tmp_path):
+    owner, proposition, _ledger, runtime = fixture(tmp_path)
+    seeded = runtime.process_snapshot(snapshot(), tick=20, recorded_at=NOW)
+    assert seeded.status == "state_advanced"
+    [original_state] = [owner.current_state(proposition.proposition_id)]
+    assert original_state is not None
+    baseline_projection = owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert baseline_projection is not None
+    configured_evidence_rule = runtime.config.rules[0]
+
+    # No static operator-input selector exists. A verified v5 state ID itself
+    # supplies the narrow, allowlisted context-to-proposition join.
+    runtime.config = replace(runtime.config, rules=())
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+    feedback = make_operator_feedback_record(
+        "The prior answer was incorrect.", request_id="feedback-request-v5",
+        assistant_turn_id="turn-" + "a" * 24,
+        assistant_response_digest="b" * 64, source_capture_digest="c" * 64,
+        followup_capture_digest="d" * 64, observed_at=NOW,
+        conversation_citation_ids=("turn-" + "a" * 24,),
+        conversation_citation_digests=("e" * 64,),
+        conversation_session_id="session-v5-test",
+        correction_target_turn_id="turn-" + "a" * 24,
+        correction_target_epistemic_state_ids=(original_state.state_id,))
+    tampered_feedback = {**feedback, "payload": {
+        **feedback["payload"], "assertion_text": "altered after signing"}}
+    tampered_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([tampered_feedback])
+    tampered = runtime.process_snapshot(tampered_snapshot, tick=21,
+        recorded_at=NOW)
+    assert tampered.matched_fact_count == 0
+    assert tampered.new_binding_count == 0
+
+    feedback_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([feedback])
+
+    contextual = runtime.process_snapshot(feedback_snapshot, tick=21,
+        recorded_at=NOW)
+
+    [binding] = [item for item in owner.bindings(proposition.proposition_id)
+        if item.source_class == "operator_input"]
+    assert contextual.new_binding_count == 1
+    assert contextual.updated_proposition_count == 0
+    assert binding.evidence_relation == "contextualizes"
+    assert binding.dependency_kind == "unknown_dependency"
+    assert binding.reliability_posture == "operator_assertion_unverified_context_only"
+    assert binding.unverified_context_text == feedback["payload"]["assertion_text"]
+    assert owner.current_state(proposition.proposition_id) == original_state
+
+    # Before any independent evidence advances the state, restart the owner
+    # and confirm the admitted correction reaches a separate, non-evidentiary
+    # cognitive packet. It must not enter active evidence or the model's
+    # allowed evidence-citation set.
+    pending_owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    pending_controller = ResidentEpistemicStateMutationController(
+        owner=pending_owner,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+            ledger=runtime.ledger),
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=tmp_path / "receipts")
+    assert pending_controller.recovery_status["status"] == "verified"
+    pending_projection = pending_owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert pending_projection is not None
+    assert pending_projection.state_ids == (original_state.state_id,)
+    assert pending_projection.states[0]["stance"] == original_state.stance
+    assert pending_projection.generations == (original_state.generation,)
+    assert pending_projection.current_truth is False
+    assert pending_projection.authority is False
+    assert binding.binding_id not in {
+        item["binding_id"] for item in
+        pending_projection.active_evidence_bindings[0]}
+    [context_history] = pending_projection.unverified_context_evidence
+    [projected_binding] = context_history["bindings"]
+    assert projected_binding["binding_id"] == binding.binding_id
+    assert projected_binding["unverified_context_text"] == feedback["payload"]["assertion_text"]
+    [pending_packet] = semantic_packets_for_projection(pending_projection)
+    assert pending_packet["schema_version"] == (
+        "sentientos.epistemic_cognitive_packet:v4")
+    assert pending_packet["unverified_context_evidence_bindings"] == [
+        projected_binding]
+    assert pending_packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+
+    from sentientos.epistemic_planning import review_required_applicability
+    _, pending_review_scopes = review_required_applicability(pending_projection)
+    assert pending_review_scopes[proposition.proposition_id][
+        "position_posture"] == "review_required"
+    assert pending_review_scopes[proposition.proposition_id][
+        "unverified_correction_binding_ids"] == [binding.binding_id]
+    assert pending_projection.states[0]["state_digest"] == original_state.state_digest
+    assert pending_projection.states[0]["generation"] == original_state.generation
+
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    probe_context = {"instruction": EXPERIMENT_CONTEXT_INSTRUCTION,
+        "epistemic_revision_probe": {
+            "response_contract": "sentientos.epistemic_revision_answer:v2"}}
+    baseline_value, _, baseline_prompt = _bind_epistemic_context(
+        context=probe_context, projection=baseline_projection)
+    pending_value, _, pending_prompt = _bind_epistemic_context(
+        context=probe_context, projection=pending_projection)
+    [baseline_packet] = baseline_value["prior_epistemic_state"]["semantic_packets"]
+    [prompt_packet] = pending_value["prior_epistemic_state"]["semantic_packets"]
+    assert baseline_packet["state"] == prompt_packet["state"]
+    assert "unverified_context_evidence_bindings" not in baseline_packet
+    assert prompt_packet["unverified_context_evidence_bindings"][0][
+        "binding_id"] == binding.binding_id
+    assert prompt_packet["unverified_context_evidence_bindings"][0][
+        "unverified_context_text"] == feedback["payload"]["assertion_text"]
+    assert binding.binding_id not in pending_value["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"]
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        in pending_prompt
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        not in baseline_prompt
+    assert baseline_prompt != pending_prompt
+
+    unknown_feedback = make_operator_feedback_record(
+        "This citation is not in durable epistemic custody.",
+        request_id="feedback-request-unknown-v5",
+        assistant_turn_id="turn-" + "f" * 24,
+        assistant_response_digest="1" * 64, source_capture_digest="2" * 64,
+        followup_capture_digest="3" * 64, observed_at=NOW,
+        conversation_citation_ids=("turn-" + "f" * 24,),
+        conversation_citation_digests=("4" * 64,),
+        conversation_session_id="session-v5-test",
+        correction_target_turn_id="turn-" + "f" * 24,
+        correction_target_epistemic_state_ids=("epistemic-state:" + "f" * 24,))
+    unknown_snapshot = WorldStateBoardBuilder(
+        clock=lambda: datetime.fromisoformat(NOW)).build([unknown_feedback])
+    unknown = runtime.process_snapshot(unknown_snapshot, tick=211, recorded_at=NOW)
+    assert unknown.matched_fact_count == 0
+    assert unknown.new_binding_count == 0
+    assert len(owner.bindings(proposition.proposition_id)) == 2
+    after_unknown = pending_owner.cognitive_projection(max_states=1,
+        current_tick=22, prioritized_state_ids=(original_state.state_id,))
+    assert after_unknown is not None
+    [after_unknown_history] = after_unknown.unverified_context_evidence
+    assert [item["binding_id"] for item in after_unknown_history["bindings"]] == [
+        binding.binding_id]
+
+    # A separate configured observation still uses the ordinary evidence and
+    # state admissions to revise the same proposition after the correction.
+    runtime.config = replace(runtime.config, rules=(replace(
+        configured_evidence_rule, selector={
+            "source_kind": "runtime_supervisor", "subject_id": "service-a",
+            "stage": "observation", "disposition": "degraded"},
+        evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation",
+        independence_basis="separate outcome observation fixture"),))
+    revised = runtime.process_snapshot(snapshot("degraded", source_id="supervisor-independent"),
+        tick=22, recorded_at=NOW)
+    successor = owner.current_state(proposition.proposition_id)
+    assert revised.status == "state_advanced"
+    assert revised.updated_proposition_count == 1
+    assert successor is not None and successor.state_id != original_state.state_id
+    assert successor.generation == original_state.generation + 1
+
+    # A later cognitive projection resolves the original correction citation
+    # through durable lineage and supplies the latest admitted successor.
+    recovered = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("operator",))
+    recovered_controller = ResidentEpistemicStateMutationController(
+        owner=recovered,
+        admission_verifier=RuntimeAdmissionVerifier(
+            definitions={RESIDENT_EPISTEMIC_STATE_MUTATION:
+                RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION},
+            ledger=runtime.ledger),
+        current_sequence=runtime.controller.current_sequence,
+        receipt_root=tmp_path / "receipts")
+    assert recovered_controller.recovery_status["status"] == "verified"
+    projection = recovered.cognitive_projection(max_states=1,
+        prioritized_state_ids=(original_state.state_id,))
+    assert projection is not None
+    assert projection.state_ids == (successor.state_id,)
+    assert projection.proposition_ids == (proposition.proposition_id,)
+    assert binding.binding_id in {
+        item["binding_id"] for item in projection.active_evidence_bindings[0]}
+    assert projection.unverified_context_evidence == ()
+    [integrated_packet] = semantic_packets_for_projection(projection)
+    assert binding.binding_id in {
+        row["binding_id"] for row in integrated_packet["active_evidence_bindings"]}
+    assert next(row for row in integrated_packet["active_evidence_bindings"]
+        if row["binding_id"] == binding.binding_id)["unverified_context_text"] == (
+            feedback["payload"]["assertion_text"])
+    integrated_value, _, integrated_prompt = _bind_epistemic_context(
+        context=probe_context, projection=projection)
+    assert binding.binding_id not in integrated_value["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"]
+    assert "Do not count them as support, contradiction, independent evidence, or truth" \
+        in integrated_prompt
 
 
 def test_freshness_revision_replaces_active_binding_and_withdrawal_stays_withdrawn(tmp_path):

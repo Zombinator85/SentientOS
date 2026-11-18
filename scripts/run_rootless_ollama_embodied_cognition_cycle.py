@@ -851,17 +851,36 @@ class _ResourceGuardedInvoker:
         resource_record["invocation_started_at"] = _now()
         stop_sampling = threading.Event()
         during_samples: list[dict[str, Any]] = []
+        model_placement_samples: list[dict[str, Any]] = []
         sample_failures = 0
         sample_attempts = 0
+        model_placement_failures = 0
         thermal_hot_streak = 0
         low_memory_streak = 0
+        cpu_fallback_detected = threading.Event()
+        model_stop_attempted = threading.Event()
+        model_stop_result: dict[str, Any] | None = None
 
         def sample_during_inference() -> None:
-            nonlocal sample_attempts, sample_failures, thermal_hot_streak, low_memory_streak
+            nonlocal sample_attempts, sample_failures, model_placement_failures
+            nonlocal thermal_hot_streak, low_memory_streak, model_stop_result
             while sample_attempts < _MAX_DURING_INFERENCE_GPU_SAMPLES:
                 if stop_sampling.wait(_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS):
                     return
                 sample_attempts += 1
+                if self._model_name is not None:
+                    placement = _model_gpu_placement_observed(self._model_name)
+                    if placement is None:
+                        model_placement_failures += 1
+                    else:
+                        if len(model_placement_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                            model_placement_samples.append(dict(placement))
+                        if placement.get("status") == "cpu_only":
+                            cpu_fallback_detected.set()
+                            if not model_stop_attempted.is_set():
+                                model_stop_attempted.set()
+                                model_stop_result = _stop_ollama_model(self._model_name)
+                            return
                 try:
                     sample = _gpu_snapshot()
                 except Exception:
@@ -893,13 +912,44 @@ class _ResourceGuardedInvoker:
             name="sentientos-inference-gpu-sampler",
             daemon=True)
         sampler.start()
+        result: Any = None
+        invocation_error: BaseException | None = None
         try:
-            return self._delegate.invoke(request, **kwargs)
+            result = self._delegate.invoke(request, **kwargs)
+        except BaseException as exc:
+            invocation_error = exc
         finally:
             stop_sampling.set()
-            sampler.join(timeout=6.0)
+            # Placement requests can take 5 seconds and the scoped model stop can
+            # take 10. Wait for both bounded operations before sealing evidence.
+            sampler.join(timeout=16.0)
+            final_placement = (_model_gpu_placement_observed(self._model_name)
+                if self._model_name is not None else None)
+            if final_placement is not None:
+                if len(model_placement_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
+                    model_placement_samples.append(dict(final_placement))
+                if (self._model_name is not None
+                        and final_placement.get("status") == "cpu_only"):
+                    cpu_fallback_detected.set()
+                    if not model_stop_attempted.is_set():
+                        model_stop_attempted.set()
+                        model_stop_result = _stop_ollama_model(self._model_name)
             resource_record["invocation_finished_at"] = _now()
             resource_record["during_inference_gpu_samples"] = list(during_samples)
+            resource_record["during_inference_model_placement_samples"] = list(
+                model_placement_samples)
+            resource_record["model_placement_sample_failures"] = (
+                model_placement_failures)
+            resource_record["model_stop_attempted"] = model_stop_attempted.is_set()
+            if model_stop_result is not None:
+                resource_record["model_stop_result"] = dict(model_stop_result)
+            resource_record["model_gpu_placement_status"] = (
+                "cpu_fallback_detected" if cpu_fallback_detected.is_set()
+                else "gpu_offload_observed" if any(
+                    item.get("status") == "gpu_offloaded"
+                    for item in model_placement_samples)
+                else "unverified" if self._model_name is not None
+                else "not_required")
             resource_record["during_inference_gpu_sample_failures_or_omissions"] = (
                 sample_failures)
             resource_record["during_inference_gpu_sample_attempt_count"] = (
@@ -922,6 +972,21 @@ class _ResourceGuardedInvoker:
                 raise RootlessExperimentalError("gpu_temperature_limit_sustained")
             if low_memory_streak >= 2:
                 raise RootlessExperimentalError("gpu_memory_headroom_lost_during_inference")
+            if cpu_fallback_detected.is_set():
+                failure = RootlessExperimentalError("gpu_model_cpu_fallback")
+                if invocation_error is not None:
+                    raise failure from invocation_error
+                raise failure
+            if (self._model_name is not None
+                    and not any(item.get("status") == "gpu_offloaded"
+                        for item in model_placement_samples)):
+                failure = RootlessExperimentalError("gpu_model_placement_unverified")
+                if invocation_error is not None:
+                    raise invocation_error
+                raise failure
+        if invocation_error is not None:
+            raise invocation_error
+        return result
 
 
 def _model_residency_observed(model_name: str) -> bool | None:
@@ -939,6 +1004,48 @@ def _model_residency_observed(model_name: str) -> bool | None:
                 or len(item["name"]) > 128 for item in models)):
         return None
     return any(item["name"] == model_name for item in models)
+
+
+def _model_gpu_placement_observed(model_name: str) -> dict[str, Any] | None:
+    """Read exact Ollama API placement for one already-loaded model."""
+    request = urllib.request.Request("http://127.0.0.1:11434/api/ps", method="GET")
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(request, timeout=5) as response:
+            payload = json.loads(response.read(65_536).decode("utf-8"))
+    except Exception:
+        return None
+    models = payload.get("models") if isinstance(payload, dict) else None
+    if (not isinstance(models, list) or len(models) > 64
+            or any(not isinstance(item, dict)
+                or not isinstance(item.get("name"), str)
+                or len(item["name"]) > 128 for item in models)):
+        return None
+    model = next((item for item in models if item["name"] == model_name), None)
+    if model is None:
+        return {"status": "not_resident", "model_name": model_name}
+    size = model.get("size")
+    size_vram = model.get("size_vram")
+    if (type(size) is not int or size <= 0
+            or type(size_vram) is not int or not 0 <= size_vram <= size):
+        return None
+    return {"status": "cpu_only" if size_vram == 0 else "gpu_offloaded",
+        "model_name": model_name, "size_bytes": size,
+        "size_vram_bytes": size_vram}
+
+
+def _stop_ollama_model(model_name: str) -> dict[str, Any]:
+    """Stop only the experiment's exact target model after CPU fallback."""
+    executable = shutil.which("ollama")
+    if executable is None:
+        return {"status": "ollama_cli_unavailable"}
+    try:
+        completed = subprocess.run([executable, "stop", model_name], check=False,
+            capture_output=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return {"status": "stop_failed"}
+    return {"status": "stop_requested" if completed.returncode == 0
+        else "stop_failed", "return_code": int(completed.returncode)}
 
 
 def _verify_model_released(model_name: str, *, timeout_seconds: float = 20.0
@@ -1519,6 +1626,23 @@ def _require_experiment_runtime_dependencies() -> None:
                 f"experimental_runtime_dependency_missing:{module_name}")
 
 
+def _prepare_resident_cognition_roots(run_root: Path) -> tuple[Path, Path]:
+    """Create isolated history and state roots with the run's private custody."""
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        cognition_root = ensure_private_child_directory(
+            run_root, "resident-cognition")
+        history_root = ensure_private_child_directory(cognition_root, "history")
+        state_root = ensure_private_child_directory(cognition_root, "state")
+        return history_root, state_root
+    cognition_root = run_root / "resident-cognition"
+    cognition_root.mkdir(mode=0o700, exist_ok=False)
+    history_root, state_root = cognition_root / "history", cognition_root / "state"
+    history_root.mkdir(mode=0o700, exist_ok=False)
+    state_root.mkdir(mode=0o700, exist_ok=False)
+    return history_root, state_root
+
+
 def run() -> dict[str, Any]:
     global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE, RUN_PREREGISTRATION_DIGEST
     PRE_ACTION_DECISION_EVIDENCE = None
@@ -1596,8 +1720,7 @@ def run() -> dict[str, Any]:
             {"identity": session.active_model_identity})
     try:
         RUN_STAGE = "synthetic_pre_action_cognition"
-        cognition_root = RUN_ROOT / "resident-cognition"
-        history_root, state_root = cognition_root / "history", cognition_root / "state"
+        history_root, state_root = _prepare_resident_cognition_roots(RUN_ROOT)
         ledger = AdmissionLedger(state_root / "runtime_admissions.json")
 
         def current_sequence() -> int:

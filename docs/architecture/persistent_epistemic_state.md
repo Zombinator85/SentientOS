@@ -58,6 +58,26 @@ The bounded mutation controller implements two independent transactions. An expl
 
 Resident cognition receives four separately typed channels: current World-State evidence, prior self-model, prior epistemic state, and developmental history. The epistemic projection binds proposition/state identities, generations, and evidence-set digests. Before inference, the owner verifies custody and captures the exact immutable update/state inventory as an epistemic epoch; only paired states in that capture are eligible. Update ticks order generations inside that epoch, while the daemon's string tick is never parsed, hashed, or treated as epistemic chronology. A second inventory comparison fails closed on concurrent advancement. Current evidence outranks a stale prior for current-condition reasoning while both remain visible.
 
+Version 8 semantic projections also carry verified, digest-bound proposition
+relations when both endpoints have eligible prior positions and at least one
+endpoint is selected. The relation is repeated in each selected endpoint's
+packet and remains a recorded historical link, not truth or authority. Context
+assembly keeps `contradicts` and `supersedes` endpoint packets together when
+both are in the projection. When a bounded projection has room beyond its
+priority-ranked positions, it selects the connected contradiction/supersession
+component before unrelated history, in deterministic breadth-first order. A
+one-position cap retains the prioritized position and carries connected peers'
+canonical meanings for its incident relations with the omission summary. If
+the state cap otherwise omits one endpoint of an incident relation, its
+canonical proposition meaning accompanies that relation and its state remains
+summarized as omitted; the projection validator rechecks that proposition
+identity. If
+the input budget cannot carry a projected pair, it omits the pair and records
+the relation digest. Prompt instructions explicitly forbid treating an omitted
+relation or endpoint as absent or resolved. Older projection versions retain
+their existing identity formats. Deterministic fixtures establish projection
+and budget behavior; real-model use remains unverified.
+
 Ordinary companion responses now return `epistemic_state_ids` for stored
 positions whose complete semantic packets reached the prompt and materially
 influenced an answer. The parser checks each ID against those delivered packets,
@@ -70,6 +90,15 @@ that citations appear with the state, disappear when withheld, and return when
 restored, while keeping answer text fixed.
 
 Embodied prediction and maintenance post-adoption comparisons can be adapted only through explicit evidence adapters. Matching observations support and mismatches contradict; renderer/model self-report cannot masquerade as independent corroboration. Calibration custody resolves the exact forecast state, requires that it belongs to the same proposition and predates resolution, and requires proposition-owned source bindings. A foreign proposition's state or binding cannot be smuggled into calibration merely because it exists in custody.
+
+Calibration records enter a meaning-bearing cognitive projection only after
+their exact calibration ID and digest are linked to a `calibration_outcome`
+update event. Unreviewed records contribute only to a bounded omitted-identity
+count; their label and outcome text remain unavailable to later reasoning. The
+proposed calibration-review definition is not registered in the canonical
+authority catalog yet, so the runtime review path currently fails closed unless
+an explicitly injected review authority is available. See the
+[calibration runtime authority proposal](../development/resident_epistemic_calibration_runtime_authority_proposal.md).
 
 Runtime construction is inert unless `SENTIENTOS_EPISTEMIC_STATE_CONFIG` names an explicit custody root, namespace allowlist, projection bound, and cognition-consumption switch. Read-only queries are available through owner methods (`proposition`, `bindings`, `current_state`, and `verify`); mutation remains controller-only.
 

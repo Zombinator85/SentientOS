@@ -494,7 +494,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
                 == "salted_private_oracle_commitment:v1"
             and isinstance(projection, Mapping)
             and projection.get("schema_version")
-                == "sentientos.developmental_history_interpretation_projection:v1"
+                in {"sentientos.developmental_history_interpretation_projection:v1",
+                    "sentientos.developmental_history_interpretation_projection:v2"}
             and isinstance(descriptor, Mapping)
             and isinstance(descriptor.get("task_family_id"), str)
             and descriptor.get("task_family_id") == payload.get("objective_task_family")
@@ -725,7 +726,8 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and payload.get("learning_established") is False
                 and isinstance(projection, Mapping)
                 and projection.get("schema_version")
-                    == "sentientos.developmental_history_interpretation_projection:v1"):
+                    in {"sentientos.developmental_history_interpretation_projection:v1",
+                        "sentientos.developmental_history_interpretation_projection:v2"}):
             if _is_bounded_objective_task_family_trial(fact):
                 return MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             return MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
@@ -1851,6 +1853,12 @@ def _developmental_history_interpretation_projection(
         raise DevelopmentalWritebackError("developmental_history_conditions_invalid")
     selected_conditions: list[dict[str, Any]] = []
     family_projection = original.get("objective_task_family") is not None
+    companion_decisions = original.get("companion_intervention_decisions")
+    if (companion_decisions is not None
+            and (not isinstance(companion_decisions, (list, tuple))
+                or len(companion_decisions) != 3)):
+        raise DevelopmentalWritebackError(
+            "developmental_history_companion_decisions_invalid")
     if family_projection:
         descriptor = original.get("objective_task_descriptor")
         if (not isinstance(descriptor, Mapping)
@@ -1873,8 +1881,11 @@ def _developmental_history_interpretation_projection(
             if key not in selected:
                 continue
             value = selected[key]
-            if not isinstance(value, (list, tuple)) or len(value) > 64:
-                raise DevelopmentalWritebackError("developmental_history_retrieval_lineage_invalid")
+            error = "developmental_history_retrieval_lineage_invalid"
+            if (not isinstance(value, (list, tuple)) or len(value) > 64
+                    or any(not isinstance(item, str) or not item for item in value)
+                    or len(set(value)) != len(value)):
+                raise DevelopmentalWritebackError(error)
             selected[key] = list(value)
         selected_conditions.append(selected)
     scores = original.get("objective_scores")
@@ -1951,6 +1962,75 @@ def _developmental_history_interpretation_projection(
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
+    if companion_decisions is not None:
+        # The protocol's verified identity digest is sufficient for exact
+        # model matching on later context assembly; retaining the full mapping
+        # here duplicates provenance and can push this bounded fact over its
+        # existing evidence-selection budget.
+        summary.pop("active_model_identity", None)
+        expected_conditions = ("history_present", "history_withheld", "history_restored")
+        by_condition = {item.get("condition_id"): item for item in selected_conditions}
+        decision_fields = {
+            "condition_id", "observation_id", "observation_digest", "output_digest",
+            "inference_receipt_id", "inference_receipt_digest", "response_digest",
+            "disposition", "model_disposition", "disposition_normalization",
+            "evidence_ids", "history_record_ids",
+        }
+        if (not isinstance(companion_decisions, (list, tuple))
+                or len(companion_decisions) != len(expected_conditions)):
+            raise DevelopmentalWritebackError(
+                "developmental_history_companion_decisions_invalid")
+        projected_decisions: list[dict[str, Any]] = []
+        for expected_condition, decision in zip(expected_conditions, companion_decisions):
+            condition = by_condition.get(expected_condition)
+            if (not isinstance(decision, Mapping) or set(decision) != decision_fields
+                    or decision.get("condition_id") != expected_condition
+                    or not isinstance(condition, Mapping)
+                    or any(decision.get(key) != condition.get(key) for key in (
+                        "observation_id", "observation_digest", "output_digest",
+                        "inference_receipt_id", "inference_receipt_digest"))
+                    or not isinstance(decision.get("response_digest"), str)
+                    or len(decision["response_digest"]) != 64
+                    or any(char not in "0123456789abcdef"
+                        for char in decision["response_digest"])
+                    or decision.get("disposition") not in {"answer", "ask", "abstain"}
+                    or decision.get("model_disposition") not in {"answer", "ask", "abstain"}
+                    or not isinstance(decision.get("evidence_ids"), list)
+                    or len(decision["evidence_ids"]) > 64
+                    or any(not isinstance(item, str) or not item
+                        for item in decision["evidence_ids"])
+                    or len(set(decision["evidence_ids"])) != len(decision["evidence_ids"])
+                    or not isinstance(decision.get("history_record_ids"), list)
+                    or len(decision["history_record_ids"]) > 64
+                    or any(not isinstance(item, str) or not item
+                        for item in decision["history_record_ids"])
+                    or len(set(decision["history_record_ids"]))
+                        != len(decision["history_record_ids"])
+                    or not isinstance(condition.get("retrieved_record_ids"), (list, tuple))
+                    or not set(decision["history_record_ids"]).issubset(
+                        condition.get("retrieved_record_ids", ()))):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_companion_decisions_invalid")
+            normalization = decision.get("disposition_normalization")
+            if (normalization is not None and (
+                    normalization != "history_unavailable_sentinel_means_abstention"
+                    or expected_condition != "history_withheld"
+                    or decision["model_disposition"] != "answer"
+                    or decision["disposition"] != "abstain"
+                    or decision["evidence_ids"] or decision["history_record_ids"])):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_companion_decisions_invalid")
+            projected_decisions.append({key: decision[key] for key in decision_fields})
+        summary["history_decision_contrast"] = {
+            "schema_version": "sentientos.history_decision_contrast:v1",
+            "measurement_scope": "history_conditioned_decision_proposal",
+            "classification": "owner_verified_condition_rows_retained_for_interpretation",
+            "conditions": projected_decisions,
+            "current_truth": False,
+            "authority": False,
+            "action_executed": False,
+            "performance_improvement_established": False,
+        }
     # Retain the experiment owner's bounded invocation-receipt posture beside
     # the scored examples. This preserves whether an example came from a
     # simulation, a receipt-reported backend entry, or an unresolved receipt;
@@ -2156,7 +2236,10 @@ def _developmental_history_interpretation_projection(
             ensure_ascii=False).encode("utf-8")) > MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES:
         raise DevelopmentalWritebackError("developmental_history_projection_over_bound")
     binding = {
-        "schema_version": "sentientos.developmental_history_interpretation_projection:v1",
+        "schema_version": (
+            "sentientos.developmental_history_interpretation_projection:v2"
+            if original.get("companion_intervention_decisions") is not None else
+            "sentientos.developmental_history_interpretation_projection:v1"),
         "source_fact_id": str(fact.get("fact_id", "")),
         "source_payload_digest": digest(dict(original)),
         "source_record_digest": str(source.get("digest", "")),
@@ -2271,6 +2354,8 @@ class DevelopmentalHistoryProjection:
     policy: bool = False
     canonical_explicit_user_retention: bool = False
     task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
+    task_family_unsettled_outcome_groups: tuple[tuple[str, str], ...] = ()
+    retrieval_policy_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -3195,7 +3280,8 @@ class ResidentDevelopmentalWritebackController:
                                     "sentientos.runtime_history_projection:v1",
                                     "sentientos.model_replacement_interpretation_projection:v1",
                                     "sentientos.model_replacement_interpretation_projection:v2",
-                                    "sentientos.developmental_history_interpretation_projection:v1"}
+                                    "sentientos.developmental_history_interpretation_projection:v1",
+                                    "sentientos.developmental_history_interpretation_projection:v2"}
                                 or (projection.get("schema_version")
                                     == "sentientos.runtime_history_projection:v1"
                                     and not (
@@ -3223,7 +3309,8 @@ class ResidentDevelopmentalWritebackController:
                                         payload_value.get("continuity_assessment"),
                                         disposition=fact.get("disposition")))
                                 or (projection.get("schema_version")
-                                    == "sentientos.developmental_history_interpretation_projection:v1"
+                                    in {"sentientos.developmental_history_interpretation_projection:v1",
+                                        "sentientos.developmental_history_interpretation_projection:v2"}
                                     and not (source.get("kind") == "embodiment"
                                         and subject.get("subject_kind")
                                             == "developmental_history_intervention_experiment"

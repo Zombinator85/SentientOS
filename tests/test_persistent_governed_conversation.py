@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import os
 import re
 import shutil
@@ -9,6 +10,7 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping
 from types import SimpleNamespace
 
 import pytest
@@ -52,6 +54,152 @@ def test_resident_context_budget_keeps_relevant_older_exchange() -> None:
     assert [item["turn_id"] for item in selected] == [
         "older-user", "older-assistant"]
     assert sum(len(str(item["text"])) for item in selected) <= 4000
+
+
+def test_resident_context_keeps_relevant_exchange_when_only_question_matches() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [
+        turn("amber-user", "user",
+            "The amber relay warning appeared before startup. Should we stop?"),
+        turn("amber-assistant", "assistant",
+            "Schedule an optical inspection before the next launch."),
+    ]
+    for index in range(12):
+        turns.extend((
+            turn(f"unrelated-user-{index}", "user",
+                "The weekly inventory listed cables and spare parts. "
+                + "Inventory item count was reviewed. " * 12),
+            turn(f"unrelated-assistant-{index}", "assistant",
+                "The stock report is complete for the warehouse. "
+                + "The next count is scheduled. " * 12),
+        ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[:2] == ["amber-user", "amber-assistant"]
+    assert "unrelated-user-11" in selected_ids
+    assert "unrelated-user-0" not in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = [
+        turn("old-amber-user", "user",
+            "The amber relay warning returned during startup."),
+        turn("old-amber-assistant", "assistant",
+            "Schedule an optical inspection before launch."),
+    ]
+    # Keep both the cited exchange and recent turns inside the bounded window;
+    # the neutral follow-up then tests state-citation priority rather than query
+    # keyword matching.
+    for index in range(6):
+        turns.extend((
+            turn(f"recent-user-{index}", "user",
+                f"We reviewed agenda item {index} today."),
+            turn(f"recent-assistant-{index}", "assistant",
+                f"The meeting note for item {index} is saved."),
+        ))
+    assert sum(len(str(item["text"])) for item in turns[-16:]) < (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert selected_ids[:2] == ["old-amber-user", "old-amber-assistant"]
+    assert "recent-user-9" in selected_ids
+    assert "recent-user-0" not in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_resident_context_keeps_newest_relevant_exchange_after_repeated_mentions() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = []
+    for index in range(10):
+        turns.extend((
+            turn(f"old-user-{index}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"old-assistant-{index}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    turns.extend((
+        turn("latest-correction-user", "user",
+            "Correction: the amber warning has cleared."),
+        turn("latest-correction-assistant", "assistant",
+            "Proceed with the routine launch checklist."),
+    ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert "old-user-9" in selected_ids
+    assert "old-assistant-9" in selected_ids
+    assert "latest-correction-user" in selected_ids
+    assert "latest-correction-assistant" in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_resident_context_keeps_adjacent_elliptical_correction_under_pressure() -> None:
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}),
+            "linkage": {}}
+
+    turns = []
+    for index in range(10):
+        turns.extend((
+            turn(f"old-user-{index}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"old-assistant-{index}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    turns.extend((
+        turn("latest-correction-user", "user",
+            "No, that was outdated. It cleared several minutes later."),
+        turn("latest-correction-assistant", "assistant",
+            "Understood. I should revise my earlier recommendation."),
+        turn("unrelated-user", "user", "The office meeting moved to Tuesday."),
+        turn("unrelated-assistant", "assistant", "I updated the meeting note."),
+        turn("unrelated-correction-user", "user",
+            "Correction: that was outdated; the office meeting moved to Wednesday."),
+        turn("unrelated-correction-assistant", "assistant",
+            "Understood. Wednesday is the updated meeting date."),
+    ))
+
+    selected = _select_resident_conversation_context_turns(
+        tuple(turns), question="What did we decide about the amber relay warning?")
+
+    selected_ids = [item["turn_id"] for item in selected]
+    assert "old-user-9" in selected_ids and "old-assistant-9" in selected_ids
+    assert "latest-correction-user" in selected_ids
+    assert "latest-correction-assistant" in selected_ids
+    assert "unrelated-correction-user" not in selected_ids
+    assert "unrelated-correction-assistant" not in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(item["text"])) for item in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
 
 def test_resident_context_ranks_rare_query_anchor_above_common_recent_term() -> None:
@@ -99,6 +247,126 @@ def test_resident_context_keeps_recent_antecedent_for_anaphoric_followup() -> No
     assert sum(len(str(item["text"])) for item in selected) <= 4000
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_chat_preserves_older_relevant_exchange_for_resident_context_selection(
+        tmp_path: Path) -> None:
+    class ReadyBridge:
+        def respond(self, **_kwargs):
+            raise AssertionError("captured cognition path should not invoke the bridge")
+
+        def can_handle(self) -> bool:
+            return True
+
+    app = service(tmp_path, cognition_bridge=ReadyBridge())
+    captured: dict[str, object] = {}
+
+    def capture_context(**kwargs):
+        captured.update(kwargs)
+        return "resident context captured"
+
+    app._complete_resident_cognition_response = capture_context
+    session_id = app.create_session()
+    source_user = app.sessions.append_turn(session_id, role="user",
+        text="The west sensor showed a rising temperature. Should we pause?")
+    source_assistant = app.sessions.append_turn(session_id, role="assistant",
+        text="Review the west sensor before the next run.",
+        linkage={"source_user_turn_id": source_user["turn_id"]})
+    for index in range(40):
+        user_turn = app.sessions.append_turn(session_id, role="user",
+            text=f"We reviewed unrelated north display topic {index}.")
+        app.sessions.append_turn(session_id, role="assistant",
+            text=f"The display note for topic {index} is saved.",
+            linkage={"source_user_turn_id": user_turn["turn_id"]})
+
+    all_turns = app.sessions.load(session_id)["turns"]
+    assert sum(len(turn["text"]) for turn in all_turns) > app.context_budget_chars
+    assert app.chat("What should I consider about the west sensor now?",
+        session_id=session_id) == "resident context captured"
+
+    history = captured["history"]
+    selected = _select_resident_conversation_context_turns(
+        history.turns, question=captured["question"])
+    selected_ids = [turn["turn_id"] for turn in selected]
+    legacy_history = app.sessions.reconstruct(session_id,
+        budget_chars=chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS,
+        max_turns=chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS,
+        exclude_turn_id=captured["user_turn"]["turn_id"])
+    assert source_user["turn_id"] not in {
+        turn["turn_id"] for turn in legacy_history.turns}
+    assert source_user["turn_id"] in selected_ids
+    assert source_assistant["turn_id"] in selected_ids
+    assert all_turns[-2]["turn_id"] in selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(turn["text"]) for turn in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
+def test_query_coverage_keeps_multi_term_exchange_across_both_history_bounds() -> None:
+    question = "What happened with the west sensor? Compare tags " + " ".join(
+        f"anchor{index:03d}" for index in range(32))
+    groups: list[tuple[str, str, str]] = [(
+        "source", "The west sensor showed unstable readings.",
+        "Its output dropped during calibration.")]
+    groups.extend((f"west-{index}", "The west topic was recorded.",
+        "That west item is filed.") for index in range(15))
+    groups.extend((f"sensor-{index}", "The sensor topic was recorded.",
+        "That sensor item is filed.") for index in range(15))
+    groups.extend((f"anchor-{index}", f"Anchor{index:03d} appears in inventory.",
+        "The inventory note is unrelated.") for index in range(32))
+
+    turns: list[dict[str, object]] = []
+    group_terms: list[frozenset[str]] = []
+    source_ids: tuple[str, str] | None = None
+    for label, user_text, assistant_text in groups:
+        user_id = f"turn-{len(turns) + 1:024x}"
+        assistant_id = f"turn-{len(turns) + 2:024x}"
+        user_turn = {"turn_id": user_id, "sequence": len(turns) + 1,
+            "role": "user", "text": user_text,
+            "text_digest": chat_service.digest_payload({"text": user_text}),
+            "linkage": {}}
+        assistant_turn = {"turn_id": assistant_id, "sequence": len(turns) + 2,
+            "role": "assistant", "text": assistant_text,
+            "text_digest": chat_service.digest_payload({"text": assistant_text}),
+            "linkage": {"source_user_turn_id": user_id}}
+        turns.extend((user_turn, assistant_turn))
+        group_terms.append(transcript_recall_terms(user_text + " " + assistant_text))
+        if label == "source":
+            source_ids = (user_id, assistant_id)
+
+    query_terms = transcript_recall_terms(question)
+    document_frequency = {term: sum(term in terms for terms in group_terms)
+        for term in query_terms}
+    legacy_scores = [sum(math.log((len(group_terms) + 1)
+        / (document_frequency[term] + 0.5)) + 1
+        for term in query_terms & terms) for terms in group_terms]
+    legacy_order = sorted(range(len(group_terms)),
+        key=lambda index: (legacy_scores[index], index), reverse=True)
+    assert legacy_order[0] == 62  # unique anchor distractor
+    assert legacy_order[32] == 0  # useful source ranked 33rd
+
+    sessions = object.__new__(ConversationSessionStore)
+    sessions.load = lambda _session_id: {"turns": turns}  # type: ignore[method-assign]
+    history = sessions.reconstruct("session-query-coverage", budget_chars=4000,
+        max_turns=chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS,
+        relevance_query=question, relevance_exchange_groups=True)
+    candidate_ids = {turn["turn_id"] for turn in history.turns}
+    assert source_ids is not None and set(source_ids) <= candidate_ids
+    assert len(history.turns) <= chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
+    assert sum(len(str(turn["text"])) for turn in history.turns) <= 4000
+    source_assistant = next(turn for turn in history.turns
+        if turn["turn_id"] == source_ids[1])
+    assert source_assistant["linkage"]["source_user_turn_id"] == source_ids[0]
+
+    selected = _select_resident_conversation_context_turns(
+        history.turns, question=question)
+    selected_ids = {turn["turn_id"] for turn in selected}
+    assert set(source_ids) <= selected_ids
+    assert len(selected) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(str(turn["text"])) for turn in selected) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+
+
 class Identity:
     def to_dict(self):
         return {"model_id": "commissioned-local", "route_id": "route-a", "posture": "production"}
@@ -141,8 +409,15 @@ def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         tmp_path: Path) -> None:
     app = service(tmp_path)
     source = app.sessions.create(model_identity={"model_id": "fixture"})
-    turn = app.sessions.append_turn(source["session_id"], role="user",
+    source_user_turn = app.sessions.append_turn(source["session_id"], role="user",
         text="The prior report named the west sensor.")
+    state_id = "epistemic-state:" + "c" * 24
+    turn = app.sessions.append_turn(source["session_id"], role="assistant",
+        text="The west sensor reading was stable.",
+        linkage={"source_user_turn_id": source_user_turn["turn_id"],
+            "response_origin": "resident_developmental_cognition",
+            "verified_response": True,
+            "cognition_epistemic_state_citation_ids": [state_id]})
     reference = {"feedback_record_id": "record-1",
         "feedback_record_digest": "a" * 64, "feedback_fact_id": "fact-1",
         "feedback_assertion_digest": "b" * 64,
@@ -150,22 +425,157 @@ def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         "turn_id": turn["turn_id"], "text_digest": turn["text_digest"]}
 
     class CitationBridge:
+        verified = True
+
         def selected_historical_operator_citations(self, **_kwargs):
             return (reference,)
 
-    context = app._resident_historical_citation_context(bridge=CitationBridge(),
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (self.verified is True
+                and linkage.get("verified_response") is True
+                and response_text == turn["text"]
+                and request_id == (
+                    source["session_id"] + ":" + source_user_turn["turn_id"]))
+
+    bridge = CitationBridge()
+    context = app._resident_historical_citation_context(bridge=bridge,
         request_id="new-session:turn-" + "c" * 24, question="What did it say?",
         conversation_context=None)
     assert context is not None
     assert context["turns"][0]["text"] == turn["text"]
     assert context["turns"][0]["turn_id"] == turn["turn_id"]
+    assert context["schema_version"] == (
+        "sentientos.historical_cited_conversation_context:v2")
+    assert context["epistemic_state_citation_ids"] == [state_id]
+    assert context["turns"][0]["epistemic_state_citation_ids"] == [state_id]
     assert context["historical_only"] is True
     assert context["current_truth"] is False
+    assert context["authority"] is False
+    assert context["mutation_performed"] is False
 
+    bridge.verified = False
+    unverified = app._resident_historical_citation_context(bridge=bridge,
+        request_id="new-session:turn-" + "c" * 24, question="What did it say?",
+        conversation_context=None)
+    assert unverified is not None
+    assert unverified["epistemic_state_citation_ids"] == []
+    assert unverified["turns"][0]["epistemic_state_citation_ids"] == []
+
+    bridge.verified = True
     reference["text_digest"] = "d" * 64
     assert app._resident_historical_citation_context(bridge=CitationBridge(),
         request_id="new-session:turn-" + "c" * 24, question="What did it say?",
         conversation_context=None) is None
+
+
+def test_cross_session_correction_prioritizes_only_verified_cited_epistemic_states(
+        tmp_path: Path) -> None:
+    source_session_id = "session-" + "a" * 24
+    current_session_id = "session-" + "b" * 24
+    source_user_id = "turn-" + "1" * 24
+    source_assistant_id = "turn-" + "2" * 24
+    current_user_id = "turn-" + "3" * 24
+    state_id = "epistemic-state:" + "c" * 24
+    source_user = {"turn_id": source_user_id, "role": "user",
+        "text": "What did the west sensor report?",
+        "text_digest": chat_service.digest_payload(
+            {"text": "What did the west sensor report?"}), "linkage": {}}
+    source_linkage = {
+        "source_user_turn_id": source_user_id,
+        "response_origin": "resident_developmental_cognition",
+        "cognition_epistemic_state_citation_ids": [state_id],
+        "verified_response": True,
+    }
+    source_text = "The west sensor reported a stable reading."
+    source_assistant = {"turn_id": source_assistant_id, "role": "assistant",
+        "text": source_text,
+        "text_digest": chat_service.digest_payload({"text": source_text}),
+        "linkage": source_linkage}
+    reference = {
+        "feedback_record_id": "record-feedback",
+        "feedback_record_digest": "d" * 64,
+        "feedback_fact_id": "feedback-fact",
+        "feedback_assertion_digest": "e" * 64,
+        "conversation_session_id": source_session_id,
+        "turn_id": source_assistant_id,
+        "text_digest": source_assistant["text_digest"],
+    }
+
+    class SessionStore:
+        def load(self, session_id):
+            assert session_id == source_session_id
+            return {"session_id": source_session_id, "revision": 2,
+                "turns": [source_user, source_assistant]}
+
+        def append_turn(self, session_id, *, role, text, linkage):
+            assert session_id == current_session_id
+            return {"turn_id": "turn-" + "9" * 24}
+
+    class CognitionBridge:
+        verified = True
+
+        def selected_historical_operator_citations(self, **_kwargs):
+            return (reference,)
+
+        def verify_committed_response(self, *, linkage, response_text, request_id):
+            return (self.verified is True
+                and linkage.get("verified_response") is True
+                and response_text == source_text
+                and request_id == f"{source_session_id}:{source_user_id}")
+
+        def respond(self, **kwargs):
+            self.last_call = kwargs
+            return SimpleNamespace(status="admitted_completed", disposition="answer",
+                response="I am reviewing the previously cited state.", evidence_ids=(),
+                cognition_observation_id="devcog-" + "f" * 24,
+                cognition_observation_digest="sha256:" + "1" * 64,
+                snapshot_id="world-state-cross-session", snapshot_digest="2" * 64,
+                inference_receipt_id="lmrec-" + "3" * 24,
+                inference_receipt_digest="4" * 64,
+                invocation_output_digest="5" * 64, model_id="fixture-model",
+                model_artifact_digest="6" * 64, prior_record_ids=(),
+                history_record_ids=(), memory_record_ids=(), self_model_claim_ids=(),
+                epistemic_state_citation_ids=(), conversation_turn_citation_ids=(),
+                canonical_user_memory_selection_digest=None,
+                developmental_history_writeback_performed=False, authority=False,
+                current_truth=False, canonical_explicit_user_retention_mutated=False)
+
+    bridge = CognitionBridge()
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = bridge
+    app.sessions = SessionStore()
+    app._resident_canonical_memory_context = lambda _question: None
+    app._avatar_output = None
+    app._speech_output = None
+    current_user = {"turn_id": current_user_id, "role": "user",
+        "text": "Revisit the west sensor correction.",
+        "text_digest": chat_service.digest_payload(
+            {"text": "Revisit the west sensor correction."}), "linkage": {}}
+    history = ContextSnapshot(current_session_id, (current_user,), 200, False,
+        "7" * 64)
+
+    app._complete_resident_cognition_response(session_id=current_session_id,
+        user_turn=current_user, question=current_user["text"], history=history,
+        screen_observation=None, on_content_chunk=None)
+    supplied = bridge.last_call["conversation_context"]
+    assert supplied["prior_epistemic_state_ids"] == [state_id]
+    assert supplied["selection_digest"] == chat_service.digest_payload({
+        key: value for key, value in supplied.items() if key != "selection_digest"})
+    historical = bridge.last_call["historical_citation_context"]
+    assert historical["epistemic_state_citation_ids"] == [state_id]
+    assert historical["historical_only"] is True
+    assert historical["current_truth"] is False
+    assert historical["authority"] is False
+    assert historical["mutation_performed"] is False
+
+    bridge.verified = False
+    app._complete_resident_cognition_response(session_id=current_session_id,
+        user_turn=current_user, question=current_user["text"], history=history,
+        screen_observation=None, on_content_chunk=None)
+    unverified_call = bridge.last_call
+    assert unverified_call["conversation_context"]["prior_epistemic_state_ids"] == []
+    assert unverified_call["historical_citation_context"][
+        "epistemic_state_citation_ids"] == []
 
 
 def test_historical_citation_context_skips_oversized_excerpt_and_keeps_later_fit(
@@ -554,8 +964,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
                 prior_record_ids=(), history_record_ids=(), memory_record_ids=(),
                 self_model_claim_ids=(), developmental_history_writeback_performed=False,
                 conversation_turn_citation_ids=(
-                    (conversation_context["turns"][0]["turn_id"],)
-                    if conversation_context and "west sensor" in prior_text else ()),
+                    tuple(row["turn_id"] for row in conversation_context["turns"]
+                        if row["role"] == "user" and "west sensor" in row["text"])
+                    if conversation_context else ()),
                 authority=False, current_truth=False,
                 canonical_explicit_user_retention_mutated=False)
 
@@ -609,6 +1020,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert "three degrees" in followup.response
     assert "do not have" in control.response
     assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
+        "turn-unrelated-18", "turn-unrelated-19",
         "turn-" + "1" * 24, "turn-" + "2" * 24]
     assert seen_contexts[0]["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
@@ -616,8 +1028,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert supplied["schema_version"] == "sentientos.conversation_cognition_context:v1"
     assert supplied["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
-    assert [row["role"] for row in supplied["turns"]] == ["user", "assistant"]
-    assert supplied["turns"][0]["text"] == (
+    assert [row["role"] for row in supplied["turns"]] == [
+        "user", "assistant", "user", "assistant"]
+    assert supplied["turns"][2]["text"] == (
         "The west sensor drifted by three degrees after warmup.")
     assert supplied["historical_only"] is True
     assert supplied["current_truth"] is False
@@ -628,10 +1041,131 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert followup.context["conversation_context_turn_ids"] == [
         row["turn_id"] for row in supplied["turns"]]
     assert followup.context["cognition_conversation_turn_citation_ids"] == [
-        supplied["turns"][0]["turn_id"]]
+        supplied["turns"][2]["turn_id"]]
     assert followup.context["cognition_conversation_turn_citation_digests"] == [
-        supplied["turns"][0]["text_digest"]]
+        supplied["turns"][2]["text_digest"]]
     assert seen_contexts[1] is None
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_newest_relevant_correction_changes_bounded_resident_response(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class CorrectionAwareInvoker(CognitionFakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                context = prompt.get("session_conversation_context", {})
+                turns = context.get("turns", ()) if isinstance(context, Mapping) else ()
+                correction = next((row for row in turns
+                    if "No, that was outdated. It cleared several minutes later."
+                        in row.get("text", "")), None)
+                if correction is not None:
+                    response = ("The latest user correction reports that the warning had cleared. "
+                        "That is the newest dialogue report, not current verification; the "
+                        "earlier stop recommendation should be revisited using current evidence.")
+                    citations = [correction["turn_id"]]
+                else:
+                    response = ("The repeated earlier exchanges record a stop recommendation "
+                        "because the warning was active. That is historical dialogue, not "
+                        "current verification.")
+                    prior_decision = next((row for row in reversed(turns)
+                        if row.get("role") == "assistant"
+                        and "required a stop" in row.get("text", "")), None)
+                    citations = ([prior_decision["turn_id"]]
+                        if prior_decision is not None else [])
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": [], "history_record_ids": [],
+                    "conversation_turn_ids": citations,
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    class SessionSink:
+        def append_turn(self, session_id, *, role, text, linkage):
+            return {"turn_id": "turn-assistant-" + session_id}
+
+    def turn(turn_id: str, role: str, text: str) -> dict[str, object]:
+        return {"turn_id": turn_id, "role": role, "text": text,
+            "text_digest": chat_service.digest_payload({"text": text}), "linkage": {}}
+
+    repeated_history = []
+    for index in range(10):
+        repeated_history.extend((
+            turn(f"turn-{index * 2:024x}", "user",
+                f"The amber relay warning was active in diagnostic episode {index}."),
+            turn(f"turn-{index * 2 + 1:024x}", "assistant",
+                f"We decided episode {index} required a stop because the amber relay warning signaled a fault."),
+        ))
+    latest_correction_turn_id = f"turn-{len(repeated_history):024x}"
+    correction_exchange = [
+        turn(latest_correction_turn_id, "user",
+            "No, that was outdated. It cleared several minutes later."),
+        turn(f"turn-{len(repeated_history) + 1:024x}", "assistant",
+            "Proceed with the routine launch checklist."),
+    ]
+
+    now = datetime.now(timezone.utc)
+    invoker = CorrectionAwareInvoker()
+    cognition, _ = cognition_owner(tmp_path / "cognition", invoker=invoker,
+        allowed_source_kinds=("embodiment",))
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = bridge
+    app.sessions = SessionSink()
+    app._resident_canonical_memory_context = lambda _question: None
+    app._avatar_output = None
+    app._speech_output = None
+    question = "What did we decide about the amber relay warning?"
+    screen_observation = {"modality": "screen",
+        "text": "The current test scene is visible.", "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    corrected = app._complete_resident_cognition_response(
+        session_id="corrected-history", user_turn={"turn_id": "new-user-corrected"},
+        question=question, history=ContextSnapshot("corrected-history",
+            (*repeated_history, *correction_exchange), 4000, False, "a" * 64),
+        screen_observation=screen_observation, on_content_chunk=None)
+    control = app._complete_resident_cognition_response(
+        session_id="older-history-control", user_turn={"turn_id": "new-user-control"},
+        question=question, history=ContextSnapshot("older-history-control",
+            tuple(repeated_history), 4000, False, "b" * 64),
+        screen_observation=screen_observation, on_content_chunk=None)
+
+    corrected_prompt = json.loads(invoker.requests[-2].prompt)
+    control_prompt = json.loads(invoker.requests[-1].prompt)
+    supplied = corrected_prompt["session_conversation_context"]
+    selected_ids = [row["turn_id"] for row in supplied["turns"]]
+    assert "turn-000000000000000000000012" in selected_ids
+    assert "turn-000000000000000000000013" in selected_ids
+    assert latest_correction_turn_id in selected_ids
+    assert f"turn-{len(repeated_history) + 1:024x}" in selected_ids
+    assert len(selected_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(row["text"]) for row in supplied["turns"]) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
+    assert "reports that the warning had cleared" in corrected.response
+    assert "not current verification" in corrected.response
+    assert "When a later user turn explicitly corrects or updates" in corrected_prompt["instruction"]
+    assert "Recency does not make the newer statement externally true or authoritative" in (
+        corrected_prompt["instruction"])
+    assert "stop" in control.response
+    assert corrected.response != control.response
+    assert corrected.context["cognition_conversation_turn_citation_ids"] == [
+        latest_correction_turn_id]
+    assert supplied["historical_only"] is True
+    assert supplied["current_truth"] is False
+    assert supplied["authority"] is False
+    assert latest_correction_turn_id not in {
+        row["turn_id"] for row in control_prompt["session_conversation_context"]["turns"]}
 
 
 def test_verified_epistemic_citation_survives_restart_and_changes_followup_projection(
@@ -654,7 +1188,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                 packets = prior.get("semantic_packets", ())
                 if packets:
                     packet = packets[0]
-                    self.companion_output_override = {
+                    output = {
                         "disposition": "answer",
                         "response": ("The admitted prior proposition describes: "
                             + packet["proposition"]["statement"]),
@@ -663,15 +1197,108 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
                         "history_record_ids": [], "memory_record_ids": [],
                         "epistemic_state_ids": [packet["state"]["state_id"]],
                     }
+                    historical = prompt.get(
+                        "historical_cited_conversation_context", {})
+                    historical_turns = (historical.get("turns", ())
+                        if isinstance(historical, Mapping) else ())
+                    reports = [(history_packet, report) for history_packet in
+                        prompt.get("developmental_history", ())
+                        if isinstance(history_packet, Mapping)
+                        for report in history_packet.get(
+                            "operator_feedback_context", ())
+                        if isinstance(report, Mapping)
+                        and report.get("evidence_posture")
+                            == "operator_assertion_unverified"]
+                    bound_corrections = [
+                        (history_packet, report, turn)
+                        for history_packet, report in reports
+                        if isinstance(history_packet.get("record_id"), str)
+                        for target in (report.get("correction_target"),)
+                        if isinstance(target, Mapping)
+                        and any(isinstance(citation, Mapping)
+                            and citation.get("turn_id") == target.get("turn_id")
+                            and citation.get("text_digest") == target.get("text_digest")
+                            for citation in report.get("conversation_citations", ()))
+                        for turn in historical_turns
+                        if isinstance(turn, Mapping)
+                        and turn.get("role") == "assistant"
+                        and turn.get("turn_id") == target.get("turn_id")
+                        and turn.get("text_digest") == target.get("text_digest")
+                        and turn.get("feedback_assertion_digest")
+                            == report.get("assertion_digest")
+                        and turn.get("feedback_fact_id")
+                            == report.get("operator_feedback_fact_id")]
+                    if bound_corrections:
+                        _, _, turn = bound_corrections[0]
+                        report_texts = list(dict.fromkeys(
+                            str(bound_report.get("assertion_text", ""))
+                            for _, bound_report, _ in bound_corrections))
+                        output.update({
+                            "response": (
+                                "The earlier evidence-bound epistemic position was: "
+                                + packet["proposition"]["statement"]
+                                + ". The exact earlier cited reply said: "
+                                + turn["text"] + ". The operator reports were: "
+                                + " | ".join(report_texts)
+                                + ". These reports disagree; I cannot resolve which "
+                                "is accurate from this history, and the operator "
+                                "report remains unverified."),
+                            "evidence_ids": [],
+                            "history_record_ids": list(dict.fromkeys(
+                                packet_row["record_id"] for packet_row, _, _
+                                in bound_corrections)),
+                            "epistemic_state_ids": [packet["state"]["state_id"]],
+                        })
+                        if "historical_conversation_citations" in schema.get(
+                                "required", ()):
+                            output["historical_conversation_citations"] = [{
+                                "turn_id": turn["turn_id"],
+                                "text_digest": turn["text_digest"]}]
+                    else:
+                        state_id = packet["state"]["state_id"]
+                        durable_corrections = [
+                            (history_packet, report)
+                            for history_packet, report in reports
+                            if isinstance(history_packet.get("record_id"), str)
+                            and isinstance(report.get("correction_target"), Mapping)
+                            and state_id in report["correction_target"].get(
+                                "epistemic_state_citation_ids", ())]
+                        if durable_corrections:
+                            output.update({
+                                "response": (
+                                    "The earlier evidence-bound epistemic position was: "
+                                    + packet["proposition"]["statement"]
+                                    + ". The cited dialogue is unavailable, but the retained "
+                                    "operator reports challenge that exact state: "
+                                    + " | ".join(str(report.get("assertion_text", ""))
+                                        for _, report in durable_corrections)
+                                    + ". Their content remains unresolved and unverified."),
+                                "evidence_ids": [],
+                                "history_record_ids": list(dict.fromkeys(
+                                    history_packet["record_id"]
+                                    for history_packet, _ in durable_corrections)),
+                                "epistemic_state_ids": [state_id],
+                            })
+                    self.companion_output_override = output
                     if prompt.get("session_conversation_context") is not None:
-                        self.companion_output_override["conversation_turn_ids"] = []
+                        conversation = prompt["session_conversation_context"]
+                        allowed_ids = set(prompt.get(
+                            "conversation_turn_citation_allowlist", ()))
+                        assistant_turn = next((turn for turn in
+                            conversation.get("turns", ())
+                            if isinstance(turn, Mapping)
+                            and turn.get("role") == "assistant"
+                            and turn.get("turn_id") in allowed_ids), None)
+                        self.companion_output_override["conversation_turn_ids"] = (
+                            [assistant_turn["turn_id"]]
+                            if assistant_turn is not None else [])
             return super().invoke(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
                 resource_context=resource_context)
 
     now = datetime.now(timezone.utc)
     screen = {"modality": "screen", "text": "The neutral test scene is visible.",
-        "capture_digest": "f" * 64,
+        "text_status": "available", "capture_digest": "f" * 64,
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False,
         "text_change_kind": "initial", "previous_text_digest": None}
@@ -710,6 +1337,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     ep_config = {"cognitive_consumption_enabled": True,
         "max_cognitive_projection_count": 1}
 
+    first_invoker = ProjectionAwareInvoker()
     first_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
             epistemic_state_owner=epistemics,
@@ -718,6 +1346,7 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     first_response = first_app.chat(target_question, session_id=session_id,
         request_id="citation-source-turn", observe_screen=True)
     assert target.statement in first_response.response
+    pre_correction_response = first_response.response
     first_turns = first_app.sessions.load(session_id)["turns"]
     assert first_turns[-1]["linkage"][
         "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
@@ -725,13 +1354,15 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
     # Reopen both durable owners before the follow-up consumes the cited state.
     restarted_invoker = ProjectionAwareInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
-        invoker=restarted_invoker, allowed_source_kinds=("embodiment",))
+        invoker=restarted_invoker,
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
     restarted_epistemics = PersistentEpistemicStateOwner(
         tmp_path / "epistemics", allowed_namespaces=("embodiment",))
     restarted_bridge = ResidentDevelopmentalCompanionBridge(restarted_cognition,
         epistemic_state_owner=restarted_epistemics,
         epistemic_state_config=ep_config, clock=lambda: now)
     source_linkage = first_turns[-1]["linkage"]
+    source_assistant = first_turns[-1]
     source_observation = restarted_cognition.verified_cognition_observation(
         source_linkage["cognition_observation_id"],
         source_linkage["cognition_observation_digest"])
@@ -742,20 +1373,47 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         request_id=f"{session_id}:{source_linkage['source_user_turn_id']}")
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=restarted_bridge)
-    followup_question = "And what should I consider now?"
-    followup_response = restarted_app.chat(followup_question, session_id=session_id,
-        request_id="citation-followup-turn", observe_screen=True)
-    followup_request = next(request for request in reversed(restarted_invoker.requests)
-        if request.upstream_evidence.get("epistemic_projection_id") is not None)
-
+    last_intervening_user = None
+    # Keep one unrelated exchange for continuity while leaving the cited turn
+    # in the bounded context; the neutral query tests citation priority rather
+    # than lexical matching.
+    for index in range(1):
+        last_intervening_user = restarted_app.sessions.append_turn(session_id,
+            role="user", text=(f"We reviewed unrelated north display topic {index}."))
+        restarted_app.sessions.append_turn(session_id, role="assistant",
+            text=f"The display note for topic {index} is saved.",
+            linkage={"source_user_turn_id": last_intervening_user["turn_id"]})
+    # Keep the request neutral so lexical relevance cannot select the target
+    # proposition without the cited conversation lineage.
+    followup_question = "What should I consider now?"
+    # Capture the no-citation control before the cited follow-up can itself add
+    # cognition/writeback evidence that would contaminate the counterfactual.
     control_session_id = restarted_app.create_session()
     control_request_start = len(restarted_invoker.requests)
-    control_response = restarted_app.chat(followup_question, session_id=control_session_id,
+    restarted_app.chat(followup_question, session_id=control_session_id,
         request_id="citation-followup-control", observe_screen=True)
     control_request = next(request for request in reversed(
         restarted_invoker.requests[control_request_start:])
         if request.upstream_evidence.get("epistemic_projection_id") is not None
     )
+    control_prompt = json.loads(control_request.prompt)
+
+    restarted_app.chat(followup_question, session_id=session_id,
+        request_id="citation-followup-turn", observe_screen=True)
+    followup_request = next(request for request in reversed(restarted_invoker.requests)
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    followup_prompt = json.loads(followup_request.prompt)
+    selected_conversation = followup_prompt["session_conversation_context"]
+    selected_turn_ids = [turn["turn_id"] for turn in selected_conversation["turns"]]
+    source_user_turn_id = source_assistant["linkage"]["source_user_turn_id"]
+    assert source_user_turn_id in selected_turn_ids
+    assert source_assistant["turn_id"] in selected_turn_ids
+    assert last_intervening_user is not None
+    assert last_intervening_user["turn_id"] in selected_turn_ids
+    assert "prior_epistemic_state_ids" not in selected_conversation
+    assert len(selected_turn_ids) <= chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS
+    assert sum(len(turn["text"]) for turn in selected_conversation["turns"]) <= (
+        chat_service.MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS)
 
     assert followup_request.upstream_evidence["epistemic_proposition_ids"] == [
         target.proposition_id]
@@ -763,9 +1421,142 @@ def test_verified_epistemic_citation_survives_restart_and_changes_followup_proje
         target_state.state_id]
     assert control_request.upstream_evidence["epistemic_proposition_ids"] == [
         other.proposition_id]
-    assert target.statement in followup_response.response
-    assert other.statement in control_response.response
-    assert followup_response.response != control_response.response
+    followup_packets = followup_prompt["prior_epistemic_state"]["semantic_packets"]
+    control_packets = control_prompt["prior_epistemic_state"]["semantic_packets"]
+    assert [packet["proposition"]["proposition_id"] for packet in followup_packets] == [
+        target.proposition_id]
+    assert [packet["proposition"]["proposition_id"] for packet in control_packets] == [
+        other.proposition_id]
+
+    followup_turns = restarted_app.sessions.load(session_id)["turns"]
+    correction_source = next(turn for turn in followup_turns
+        if turn["turn_id"] == source_assistant["turn_id"])
+    correction_assistant = followup_turns[-1]
+    assert correction_source["turn_id"] in correction_assistant["linkage"][
+        "cognition_conversation_turn_citation_ids"]
+    assert restarted_bridge.operator_feedback_available() is True
+    assert correction_assistant["linkage"]["screen_observation_provenance"][
+        "capture_digest"] == "f" * 64
+    correction_assertion = (
+        "The west sensor did not report a stable reading."
+        if target.subject == "sensor:west"
+        else "The launch was not delayed.")
+    correction_cycle = restarted_app.run_developmental_cycle(
+        session_id=session_id, assistant_turn_id=correction_assistant["turn_id"],
+        request_id="cross-session-operator-feedback",
+        operator_feedback=correction_assertion,
+        correction_target_turn_id=source_assistant["turn_id"])
+    assert correction_cycle["status"] == "completed_writeback"
+    conflicting_assertion = "I now believe the west sensor reading was stable after all."
+    conflicting_cycle = restarted_app.run_developmental_cycle(
+        session_id=session_id, assistant_turn_id=correction_assistant["turn_id"],
+        request_id="cross-session-conflicting-operator-feedback",
+        operator_feedback=conflicting_assertion,
+        correction_target_turn_id=source_assistant["turn_id"])
+    assert conflicting_cycle["status"] == "completed_writeback"
+
+    correction_session_id = restarted_app.create_session()
+    correction_request_start = len(restarted_invoker.requests)
+    corrected_context_response = restarted_app.chat(target_question,
+        session_id=correction_session_id, request_id="cross-session-priority",
+        observe_screen=True)
+    corrected_request = next(request for request in reversed(
+        restarted_invoker.requests[correction_request_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    assert corrected_request.upstream_evidence["epistemic_proposition_ids"] == [
+        target.proposition_id]
+    assert corrected_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    assert corrected_context_response.response != pre_correction_response
+    assert source_assistant["text"] in corrected_context_response.response
+    assert target.statement in corrected_context_response.response
+    assert correction_assertion in corrected_context_response.response
+    assert conflicting_assertion in corrected_context_response.response
+    assert "reports disagree" in corrected_context_response.response
+    assert "cannot resolve which is accurate" in corrected_context_response.response
+    assert "remains unverified" in corrected_context_response.response
+    corrected_assistant_turn = restarted_app.sessions.load(
+        correction_session_id)["turns"][-1]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_epistemic_state_citation_ids"] == [target_state.state_id]
+    assert corrected_assistant_turn["linkage"]["cognition_evidence_ids"] == []
+    assert corrected_assistant_turn["linkage"]["cognition_history_record_ids"]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_historical_conversation_citation_ids"] == [source_assistant["turn_id"]]
+    assert corrected_assistant_turn["linkage"][
+        "cognition_historical_conversation_citation_digests"] == [
+            source_assistant["linkage"]["assistant_output_lineage"]["response_digest"]]
+    assert restarted_bridge.verify_committed_response(
+        linkage=corrected_assistant_turn["linkage"],
+        response_text=corrected_assistant_turn["text"],
+        request_id=(f"{correction_session_id}:"
+            f"{corrected_assistant_turn['linkage']['source_user_turn_id']}"))
+    corrected_prompt = json.loads(corrected_request.prompt)
+    assert "cite its exact state ID" in corrected_prompt["instruction"]
+    assert "A v5 correction_target may carry epistemic_state_citation_ids" in (
+        corrected_prompt["instruction"])
+    historical_context = corrected_prompt["historical_cited_conversation_context"]
+    target_rows = [row for row in historical_context["turns"]
+        if row["turn_id"] == source_assistant["turn_id"]]
+    assert len(target_rows) == 2
+    assert len({row["feedback_fact_id"] for row in target_rows}) == 2
+    assert conflicting_cycle["written_record_id"] in corrected_assistant_turn[
+        "linkage"]["cognition_history_record_ids"]
+    assert historical_context["historical_only"] is True
+    assert historical_context["current_truth"] is False
+    assert historical_context["authority"] is False
+    assert historical_context["mutation_performed"] is False
+    assert historical_context["epistemic_state_citation_ids"] == [
+        target_state.state_id]
+    corrected_reports = [report for packet in corrected_prompt["developmental_history"]
+        for report in packet.get("operator_feedback_context", ())
+        if report.get("assertion_text") in {
+            correction_assertion, conflicting_assertion}]
+    assert len(corrected_reports) == 2
+    assert all(report["source_schema_version"]
+        == "sentientos.local_operator_feedback:v5" for report in corrected_reports)
+    assert all(report["correction_target"]["epistemic_state_citation_ids"] == [
+        target_state.state_id] for report in corrected_reports)
+    assert all(report["evidence_posture"] == "operator_assertion_unverified"
+        and report["authority"] is False for report in corrected_reports)
+    assert restarted_epistemics.current_state(target.proposition_id).state_id == (
+        target_state.state_id)
+
+    # The report retains its exact state relation when the source transcript
+    # can no longer be recovered. The next cognition sees no dialogue excerpt,
+    # yet can still identify which evidence-bound state the report challenges.
+    restarted_app.sessions._path(session_id).unlink()
+    no_transcript_session_id = restarted_app.create_session()
+    no_transcript_start = len(restarted_invoker.requests)
+    no_transcript_response = restarted_app.chat(target_question,
+        session_id=no_transcript_session_id,
+        request_id="correction-without-source-transcript", observe_screen=True)
+    no_transcript_request = next(request for request in reversed(
+        restarted_invoker.requests[no_transcript_start:])
+        if request.upstream_evidence.get("epistemic_projection_id") is not None)
+    no_transcript_prompt = json.loads(no_transcript_request.prompt)
+    assert "historical_cited_conversation_context" not in no_transcript_prompt
+    assert target.statement in no_transcript_response.response
+    assert correction_assertion in no_transcript_response.response
+    assert conflicting_assertion in no_transcript_response.response
+    assert "unresolved and unverified" in no_transcript_response.response
+    assert no_transcript_request.upstream_evidence["epistemic_state_ids"] == [
+        target_state.state_id]
+    linked_feedback_reports = [
+        report
+        for packet in no_transcript_prompt.get("developmental_history", ())
+        if isinstance(packet, Mapping)
+        for report in packet.get("operator_feedback_context", ())
+        if isinstance(report, Mapping)
+        and isinstance(report.get("correction_target"), Mapping)
+        and target_state.state_id in report["correction_target"].get(
+            "epistemic_state_citation_ids", ())]
+    assert {report["assertion_text"] for report in linked_feedback_reports} == {
+        correction_assertion, conflicting_assertion}
+    assert len({report["correction_target"]["epistemic_state_citation_ids"][0]
+        for report in linked_feedback_reports}) == 1
+    assert restarted_epistemics.current_state(target.proposition_id).state_id == (
+        target_state.state_id)
 
 
 def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
@@ -1086,6 +1877,245 @@ def test_conflicting_retained_preferences_reach_resident_and_prompt_clarificatio
     assert observation["companion_memory_citation_ids"] == cited_ids
 
 
+def test_correction_guidance_keeps_competing_updates_unresolved() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _canonical_memory_correction_guidance)
+
+    single = _canonical_memory_correction_guidance({
+        "records": [{"memory_id": "memory-new", "text": "I prefer concise answers."}],
+        "correction_relations": [{"correcting_memory_id": "memory-new",
+            "corrected_memory_id": "memory-old"}],
+    })
+    assert "use the linked later statement as the user's updated preference" in single
+    assert "Competing explicit corrections are present" not in single
+
+    competing = _canonical_memory_correction_guidance({
+        "records": [
+            {"memory_id": "memory-concise", "text": "I prefer concise answers."},
+            {"memory_id": "memory-medium", "text": "I prefer medium length answers."},
+        ],
+        "correction_relations": [
+            {"correcting_memory_id": "memory-concise",
+                "corrected_memory_id": "memory-old"},
+            {"correcting_memory_id": "memory-medium",
+                "corrected_memory_id": "memory-old"},
+        ],
+    })
+    assert "Competing explicit corrections are present" in competing
+    assert "Do not select one by timestamp, ordering" in competing
+    assert "ask which preference the user wants applied" in competing
+    assert "Do not apply any competing statement" in competing
+
+    duplicate_text = _canonical_memory_correction_guidance({
+        "records": [
+            {"memory_id": "memory-one", "text": "I prefer concise answers."},
+            {"memory_id": "memory-two", "text": " I prefer CONCISE answers. "},
+        ],
+        "correction_relations": [
+            {"correcting_memory_id": "memory-one", "corrected_memory_id": "memory-old"},
+            {"correcting_memory_id": "memory-two", "corrected_memory_id": "memory-old"},
+        ],
+    })
+    assert "Competing explicit corrections are present" not in duplicate_text
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="durable conversation publication is POSIX-only")
+def test_retained_memory_correction_changes_resident_personalization_after_restart(
+        tmp_path: Path) -> None:
+    from tests.test_resident_developmental_cognition import (
+        FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
+    )
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+
+    class CorrectionAwareInvoker(CognitionFakeInvoker):
+        observed_contexts: list[dict[str, object]]
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.observed_contexts = []
+
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                memory = prompt.get("canonical_user_memory_context", {})
+                self.observed_contexts.append(memory)
+                records = memory.get("records", [])
+                relations = memory.get("correction_relations", [])
+                if len(relations) == 1:
+                    relation = relations[0]
+                    correcting_id = relation["correcting_memory_id"]
+                    assert len(records) == 1
+                    assert records[0]["memory_id"] == correcting_id
+                    assert "concise" in records[0]["text"].casefold()
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": (
+                            "Your later retained statement says you prefer concise "
+                            "answers. I can use that as a defeasible preference, not "
+                            "as a verified current fact."),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [correcting_id],
+                    }
+                elif len(relations) > 1:
+                    targets = {relation["corrected_memory_id"]
+                        for relation in relations}
+                    correcting_ids = {relation["correcting_memory_id"]
+                        for relation in relations}
+                    assert len(targets) == 1
+                    assert len(correcting_ids) == 2
+                    assert len(records) == 2
+                    instruction = prompt["instruction"]
+                    assert "Competing explicit corrections are present" in instruction
+                    assert "Do not select one by timestamp, ordering" in instruction
+                    self.companion_output_override = {
+                        "disposition": "ask",
+                        "response": (
+                            "I have two later corrections to your answer preference: "
+                            "concise answers and medium length answers. Which should I use?"),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": sorted(correcting_ids),
+                    }
+                else:
+                    assert relations == []
+                    assert len(records) == 2
+                    self.companion_output_override = {
+                        "disposition": "ask",
+                        "response": (
+                            "I have retained both detailed and concise answer "
+                            "preferences without a correction link. Which should I use?"),
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [row["memory_id"] for row in records],
+                    }
+            return super().invoke(request, **kwargs)
+
+    now = datetime.now(timezone.utc)
+    screen = {"modality": "screen", "text": "A neutral test scene is visible.",
+        "capture_digest": "a" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False,
+        "text_change_kind": "initial", "previous_text_digest": None}
+
+    def run_case(root: Path, *, bind_correction: bool,
+            competing_corrections: bool = False):
+        cognition_root = root / "cognition"
+        source_app = service(root, FakeInvoker())
+        source_session_id = source_app.create_session()
+        source_app.chat("I prefer detailed answers.", session_id=source_session_id,
+            request_id="retained-detailed-preference", retain=True)
+        source_request_digest = chat_service.digest_payload({
+            "client_request_id": "retained-detailed-preference"})
+        source_turn = next(turn for turn in source_app.sessions.load(
+            source_session_id)["turns"]
+            if turn.get("linkage", {}).get("client_request_id_digest")
+                == source_request_digest)
+        old_memory_id = source_turn["retention_receipt"]["memory_id"]
+        source_app.chat("I prefer concise answers.", session_id=source_session_id,
+            request_id="retained-concise-preference", retain=True,
+            corrects_memory_ids=(old_memory_id,) if bind_correction else ())
+        if competing_corrections:
+            source_app.chat("I prefer medium length answers.",
+                session_id=source_session_id,
+                request_id="retained-medium-preference", retain=True,
+                corrects_memory_ids=(old_memory_id,))
+
+        cognition_invoker = CorrectionAwareInvoker()
+        cognition, _ = cognition_owner(cognition_root, invoker=cognition_invoker)
+        restarted_app = service(root, FakeInvoker(), screen_observer=lambda: screen,
+            cognition_bridge=ResidentDevelopmentalCompanionBridge(
+                cognition, clock=lambda: now))
+        query_session_id = restarted_app.create_session()
+        assert query_session_id != source_session_id
+        response = restarted_app.chat("Draft a response for me.",
+            session_id=query_session_id, request_id="resident-preference-followup",
+            observe_screen=True)
+        prompt = json.loads(cognition_invoker.requests[-1].prompt)
+        context = prompt["canonical_user_memory_context"]
+        return (restarted_app, cognition, cognition_invoker, response, prompt,
+            context, source_session_id, query_session_id, old_memory_id)
+
+    corrected = run_case(tmp_path / "corrected", bind_correction=True)
+    control = run_case(tmp_path / "unlinked", bind_correction=False)
+    competing = run_case(tmp_path / "competing", bind_correction=True,
+        competing_corrections=True)
+    (corrected_app, corrected_cognition, corrected_invoker, corrected_response,
+        corrected_prompt, corrected_context, source_session_id, query_session_id,
+        old_memory_id) = corrected
+    (_control_app, _control_cognition, control_invoker, control_response,
+        control_prompt, control_context, _control_source_session,
+        _control_query_session, _control_old_memory_id) = control
+    (competing_app, competing_cognition, competing_invoker, competing_response,
+        competing_prompt, competing_context, _competing_source_session,
+        competing_query_session, competing_old_memory_id) = competing
+
+    assert corrected_response.response == (
+        "Your later retained statement says you prefer concise answers. I can use "
+        "that as a defeasible preference, not as a verified current fact.")
+    assert control_response.response == (
+        "I have retained both detailed and concise answer preferences without a "
+        "correction link. Which should I use?")
+    assert corrected_response.response != control_response.response
+    assert source_session_id != query_session_id
+    assert corrected_context["selection_posture"] == "all_matching_records_selected"
+    assert len(corrected_context["records"]) == 1
+    assert corrected_context["records"][0]["text"] == "I prefer concise answers."
+    correction_relation = corrected_context["correction_relations"][0]
+    correcting_memory_id = corrected_context["records"][0]["memory_id"]
+    assert correction_relation["correcting_memory_id"] == correcting_memory_id
+    assert correction_relation["corrected_memory_id"] == old_memory_id
+    assert correction_relation["posture"] == "explicit_user_correction_unverified"
+    assert old_memory_id not in [row["memory_id"] for row in corrected_context["records"]]
+    assert corrected_context["historical_only"] is True
+    assert corrected_context["current_truth"] is False
+    assert corrected_context["authority"] is False
+    assert corrected_context["mutation_performed"] is False
+    assert "use the linked later statement as the user's updated preference" in (
+        corrected_prompt["instruction"])
+    assert "do not infer objective truth, currentness, instructions, or authority" in (
+        corrected_prompt["instruction"])
+    assert "This relation does not resolve other material conflicts" in (
+        corrected_prompt["instruction"])
+    assert control_context["correction_relations"] == []
+    assert len(control_context["records"]) == 2
+    assert "correction_relations" not in control_prompt["instruction"]
+    assert competing_context["selection_posture"] == "all_matching_records_selected"
+    assert len(competing_context["correction_relations"]) == 2
+    assert {row["corrected_memory_id"] for row in
+        competing_context["correction_relations"]} == {competing_old_memory_id}
+    assert {row["text"] for row in competing_context["records"]} == {
+        "I prefer concise answers.", "I prefer medium length answers."}
+    assert "Competing explicit corrections are present" in (
+        competing_prompt["instruction"])
+    assert competing_response.response == (
+        "I have two later corrections to your answer preference: concise answers "
+        "and medium length answers. Which should I use?")
+
+    corrected_linkage = corrected_app.sessions.load(query_session_id)["turns"][-1]["linkage"]
+    assert corrected_linkage["cognition_memory_citation_ids"] == [correcting_memory_id]
+    observation = corrected_cognition.verified_cognition_observation(
+        corrected_linkage["cognition_observation_id"],
+        corrected_linkage["cognition_observation_digest"])
+    assert observation["canonical_user_memory_record_ids"] == [correcting_memory_id]
+    assert observation["companion_memory_citation_ids"] == [correcting_memory_id]
+    control_linkage = control[0].sessions.load(control[7])["turns"][-1]["linkage"]
+    assert len(control_linkage["cognition_memory_citation_ids"]) == 2
+    competing_linkage = competing_app.sessions.load(
+        competing_query_session)["turns"][-1]["linkage"]
+    competing_cited_ids = competing_linkage["cognition_memory_citation_ids"]
+    assert set(competing_cited_ids) == {
+        row["memory_id"] for row in competing_context["records"]}
+    competing_observation = competing_cognition.verified_cognition_observation(
+        competing_linkage["cognition_observation_id"],
+        competing_linkage["cognition_observation_digest"])
+    assert set(competing_observation["canonical_user_memory_record_ids"]) == set(
+        competing_cited_ids)
+    assert competing_observation["companion_memory_citation_ids"] == competing_cited_ids
+    assert len(corrected_invoker.observed_contexts) == 1
+    assert len(control_invoker.observed_contexts) == 1
+    assert len(competing_invoker.observed_contexts) == 1
+
+
 def test_companion_uses_ordinary_chat_without_current_cognition_evidence(
         tmp_path: Path) -> None:
     class NoEvidenceBridge:
@@ -1201,6 +2231,108 @@ def test_bounded_context_can_select_a_relevant_older_turn(tmp_path: Path) -> Non
 
 def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("overheating") == frozenset({"overheat"})
+    assert transcript_recall_terms("approved") == frozenset({"approve"})
+
+
+def test_transcript_recall_normalizes_cannot_as_negative_decision() -> None:
+    from sentientos.conversation_session import rank_transcript_exchange_terms
+
+    negative = transcript_recall_terms("I cannot approve the west sensor.")
+    positive = transcript_recall_terms("I approved the west sensor.")
+    negative_query = transcript_recall_terms(
+        "What didn't I approve about the west sensor?")
+    positive_query = transcript_recall_terms(
+        "What did I approve about the west sensor?")
+
+    assert rank_transcript_exchange_terms(
+        negative_query, (negative, positive))[0][3] == 0
+    assert rank_transcript_exchange_terms(
+        positive_query, (negative, positive))[0][3] == 1
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="durable conversation publication is POSIX-only")
+def test_bounded_exchange_retrieval_preserves_decision_polarity(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    session_id = session["session_id"]
+    rejected = store.append_turn(session_id, role="user",
+        text="I cannot approve the west sensor installation.")
+    rejected_reply = store.append_turn(session_id, role="assistant",
+        text="I cannot approve the west sensor installation.",
+        linkage={"source_user_turn_id": rejected["turn_id"]})
+    approved = store.append_turn(session_id, role="user",
+        text="I approved the west sensor inspection.")
+    approved_reply = store.append_turn(session_id, role="assistant",
+        text="I approved the west sensor inspection.",
+        linkage={"source_user_turn_id": approved["turn_id"]})
+
+    negative_query = "What didn't I approve about the west sensor?"
+    positive_query = "What did I approve about the west sensor?"
+    assert "not" in transcript_recall_terms(negative_query)
+    assert "not" in transcript_recall_terms("I can't approve this change.")
+    assert "not" in transcript_recall_terms(
+        "I cannot approve this change.")
+    assert "no" in transcript_recall_terms("No sensor was approved.")
+
+    negative = store.reconstruct(session_id, budget_chars=1000,
+        relevance_query=negative_query, relevance_exchange_groups=True,
+        max_turns=2)
+    positive = store.reconstruct(session_id, budget_chars=1000,
+        relevance_query=positive_query, relevance_exchange_groups=True,
+        max_turns=2)
+
+    assert [turn["turn_id"] for turn in negative.turns] == [
+        rejected["turn_id"], rejected_reply["turn_id"]]
+    assert negative.turns[1]["linkage"]["source_user_turn_id"] == rejected["turn_id"]
+    assert [turn["turn_id"] for turn in positive.turns] == [
+        approved["turn_id"], approved_reply["turn_id"]]
+    assert positive.turns[1]["linkage"]["source_user_turn_id"] == approved["turn_id"]
+
+    monkeypatch.setattr(chat_service, "MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS", 2)
+    saved_turns = store.load(session_id)["turns"]
+    resident_negative = _select_resident_conversation_context_turns(
+        saved_turns, question=negative_query)
+    resident_positive = _select_resident_conversation_context_turns(
+        saved_turns, question=positive_query)
+    assert [turn["turn_id"] for turn in resident_negative] == [
+        rejected["turn_id"], rejected_reply["turn_id"]]
+    assert [turn["turn_id"] for turn in resident_positive] == [
+        approved["turn_id"], approved_reply["turn_id"]]
+
+
+def test_transcript_recall_selects_accented_term_across_canonical_spellings(
+        tmp_path: Path) -> None:
+    assert transcript_recall_terms("café cafe\u0301") == frozenset({"café"})
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(session["session_id"], role="user",
+        text="The crème was served after dinner.")
+    store.append_turn(session["session_id"], role="user",
+        text="The weather report remains clear.")
+
+    snapshot = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="crème")
+
+    assert snapshot.turns == (target,)
+
+
+def test_transcript_recall_normalizes_irregular_ves_plural_for_selection(
+        tmp_path: Path) -> None:
+    assert transcript_recall_terms("wolves knives shelves") == frozenset(
+        {"wolf", "knife", "shelf"})
+    store = ConversationSessionStore(tmp_path / "sessions")
+    session = store.create(model_identity={})
+    target = store.append_turn(session["session_id"], role="user",
+        text="A wolf approached the west sensor.")
+    store.append_turn(session["session_id"], role="user",
+        text="The east display remains stable.")
+
+    snapshot = store.reconstruct(session["session_id"], budget_chars=1000,
+        include_roles=("user",), max_turns=1, relevance_query="wolves")
+
+    assert snapshot.turns == (target,)
 
 
 def test_transcript_recall_inflection_changes_bounded_selection(
@@ -2065,6 +3197,59 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
     assert result["retrieval_posture"] == "complete"
     assert unrelated_query["memories"] == []
+
+
+def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    original = {"id": "memory-" + "1" * 24,
+        "text": "I prefer detailed answers.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    target = {"memory_id": original["id"],
+        "memory_record_digest": digest(original)}
+    concise = {"id": "memory-" + "2" * 24,
+        "text": "I prefer concise answers.",
+        "timestamp": "2026-01-02T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [target]}}
+    medium = {"id": "memory-" + "3" * 24,
+        "text": "I prefer medium length answers.",
+        "timestamp": "2026-01-03T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [target]}}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([original, concise, medium], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    omitted_by_limit = store.retrieve("concise", limit=1)
+    omitted_by_budget = store.retrieve("concise", limit=2,
+        budget_chars=len(concise["text"]) + len(medium["text"]) - 1)
+    selected_together = store.retrieve("concise", limit=2)
+
+    assert omitted_by_limit["memories"] == []
+    assert omitted_by_limit["omitted_memory_count"] == 2
+    assert omitted_by_limit["selection_posture"] == "matching_records_omitted"
+    assert omitted_by_budget["memories"] == []
+    assert omitted_by_budget["omitted_memory_count"] == 2
+    assert omitted_by_budget["selection_posture"] == "matching_records_omitted"
+    assert {row["id"] for row in selected_together["memories"]} == {
+        concise["id"], medium["id"]}
+    assert len(selected_together["correction_relations"]) == 2
+    assert selected_together["selection_posture"] == "all_matching_records_selected"
+
+
+def test_canonical_memory_retrieval_preserves_unicode_accents(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    retained = {"id": "memory-creme", "text": "The crème was served after dinner.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated = {"id": "memory-weather", "text": "The weather report remains clear.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    result = store.retrieve("cr\u00e8me")
+
+    assert [row["id"] for row in result["memories"]] == ["memory-creme"]
 
 
 def test_memory_retrieval_applies_only_explicit_style_preferences_to_new_writing(

@@ -746,6 +746,7 @@ def test_adopted_renderer_receipt_preserves_exact_action_lineage_without_effect_
 def test_history_projection_accepts_direct_renderer_report_fact_payload():
     from sentientos.resident_developmental_cognition import (
         CurrentWorldStateCognitiveProjection,
+        _digest as cognition_digest,
         _current_evidence_prompt_payload,
         _historical_embodiment_evidence_context,
     )
@@ -776,10 +777,12 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
     source = {"kind": "embodiment",
         "source_id": "renderer-report:direct-payload",
         "schema_version": report["schema_version"],
+        "staleness": "expired", "finding": "ok",
         "digest": "sha256:" + "a" * 64}
     run_id = "developmental-history-run:sample"
     run_source = {"kind": "embodiment", "source_id": run_id,
         "schema_version": "sentientos.developmental_history_intervention_run:v2",
+        "staleness": "not_applicable", "finding": "ok",
         "digest": "sha256:" + "d" * 64}
     run_fact = {"fact_id": "fact-history-run", "source": run_source,
         "subject": {"subject_kind": "developmental_history_intervention_experiment"},
@@ -836,7 +839,8 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
                     "independent_observation_posture": "insufficient", "effect_proven": False}),
             )):
         source_item = {"kind": "embodiment", "source_id": f"embodiment:{index}",
-            "schema_version": schema, "digest": "sha256:" + str(index) * 64}
+            "schema_version": schema, "staleness": "fresh", "finding": "ok",
+            "digest": "sha256:" + str(index) * 64}
         fact_item = {"fact_id": f"fact-embodiment-{index}", "source": source_item,
             "subject": {"subject_kind": schema.rsplit(":", 1)[0]},
             "stage": "observation", "disposition": "recorded",
@@ -855,12 +859,18 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
     compact = _current_evidence_prompt_payload(current)
     assert compact["fact_ids"] == [item["fact_id"] for item in current_facts]
     assert compact["projection_digest"] == current.projection_digest
-    assert compact["fact_row_schema"] == "sentientos.current_world_state_fact_row:v1"
+    assert compact["schema_version"] == (
+        "sentientos.current_world_state_cognitive_projection_summary:v4")
+    assert compact["fact_row_schema"] == "sentientos.current_world_state_fact_row:v2"
     assert all(len(row) == len(compact["fact_row_fields"]) for row in compact["facts"])
     rows = [dict(zip(compact["fact_row_fields"], row)) for row in compact["facts"]]
     assert rows[0]["source_id"] == source["source_id"]
+    assert rows[0]["source_staleness"] == "expired"
+    assert rows[0]["source_kind"] == "embodiment"
+    assert rows[0]["source_finding"] == "ok"
     assert compact["evidence_posture"]["current_observation"] is True
     assert compact["evidence_posture"]["historical_only"] is False
+    assert compact["freshness_posture"] == "source_freshness_is_preserved_per_fact"
     assert compact["sources_digest"]
     assert rows[0]["reported_values"]["renderer_self_report"][
         "reported_state"]["motion"]["active_motion"] == "wave"
@@ -879,3 +889,91 @@ def test_history_projection_accepts_direct_renderer_report_fact_payload():
     assert run_summary["conditions"][0]["retrieved_record_ids"] == ["devrec-example"]
     assert len(json.dumps(compact, sort_keys=True, separators=(",", ":"))) < len(
         json.dumps(current.semantic_payload(), sort_keys=True, separators=(",", ":")))
+
+    conflicting_report = copy.deepcopy(report)
+    conflicting_report["renderer_state"]["motion"]["active_motion"] = "idle"
+    conflicting_source = {**source,
+        "source_id": "renderer-report:conflicting-current-state",
+        "digest": "sha256:" + "f" * 64}
+    conflicting_fact = {**fact, "fact_id": "fact-renderer-report-conflict",
+        "source": conflicting_source, "payload": conflicting_report,
+        "observed_at": "2026-11-11T00:00:02Z"}
+    conflict = {
+        "conflict_id": "conflict-renderer-current-motion",
+        "conflict_type": "contradictory_current_observation",
+        "subject_id": "avatar:sample",
+        "fact_ids": [fact_id, conflicting_fact["fact_id"]],
+        "severity": "warning",
+        "description": "Current renderer reports disagree about active motion.",
+    }
+    conflicted_facts = (fact, conflicting_fact, run_fact, *extra_facts)
+    conflicted_sources = (source, conflicting_source, run_source, *extra_sources)
+    conflicted_raw = CurrentWorldStateCognitiveProjection(
+        snapshot_id="snapshot-current-conflicted",
+        snapshot_digest="sha256:" + "9" * 64,
+        facts=conflicted_facts, sources=conflicted_sources,
+        conflicts=(conflict,),
+        fact_ids=tuple(item["fact_id"] for item in conflicted_facts),
+        projection_id="", projection_digest="")
+    conflicted_digest = cognition_digest(conflicted_raw.semantic_payload())
+    conflicted_current = CurrentWorldStateCognitiveProjection(
+        snapshot_id=conflicted_raw.snapshot_id,
+        snapshot_digest=conflicted_raw.snapshot_digest,
+        facts=conflicted_facts, sources=conflicted_sources,
+        conflicts=(conflict,), fact_ids=conflicted_raw.fact_ids,
+        projection_id="current-world-state-" + conflicted_digest[7:31],
+        projection_digest=conflicted_digest)
+    conflict_payload = _current_evidence_prompt_payload(conflicted_current)
+    assert conflict_payload["schema_version"] == (
+        "sentientos.current_world_state_cognitive_projection_summary:v5")
+    assert conflict_payload["projection_digest"] == conflicted_digest
+    assert conflict_payload["fact_ids"] == list(conflicted_current.fact_ids)
+    assert conflict_payload["conflicts"] == [conflict]
+    assert conflict_payload["conflict_count"] == 1
+    assert conflict_payload["conflicts_digest"] == cognition_digest([conflict])
+    conflict_rows = [dict(zip(conflict_payload["fact_row_fields"], row))
+        for row in conflict_payload["facts"]]
+    observed_motions = {
+        row["reported_values"]["renderer_self_report"]["reported_state"][
+            "motion"]["active_motion"]
+        for row in conflict_rows if row["fact_id"] in set(conflict["fact_ids"])}
+    assert observed_motions == {"wave", "idle"}
+    assert set(conflict["fact_ids"]).issubset(
+        {row["fact_id"] for row in conflict_rows})
+    compact_conflict_chars = len(json.dumps(
+        conflict_payload, sort_keys=True, separators=(",", ":")))
+    full_conflict_chars = len(json.dumps(
+        conflicted_current.semantic_payload(), sort_keys=True, separators=(",", ":")))
+    assert full_conflict_chars > 12_000
+    assert compact_conflict_chars < 12_000
+    assert conflict_payload["evidence_posture"]["current_truth"] is False
+    assert conflict_payload["evidence_posture"]["authority"] is False
+
+    unknown_source = {"kind": "embodiment", "source_id": "custom:unknown",
+        "schema_version": "sentientos.custom_embodiment:v1",
+        "staleness": "fresh", "finding": "ok", "digest": "sha256:" + "8" * 64}
+    unknown_fact = {"fact_id": "fact-custom-unknown", "source": unknown_source,
+        "subject": {"subject_kind": "custom_evidence"}, "stage": "observation",
+        "disposition": "recorded", "evidence_strength": "typed_source_evidence",
+        "effect_proven": False, "observed_at": "2026-11-11T00:00:03Z",
+        "payload": {"schema_version": "sentientos.custom_embodiment:v1",
+            "unknown_schema_data": "z" * 12_000}}
+    unknown_facts = (*current_facts, unknown_fact)
+    unknown_current = CurrentWorldStateCognitiveProjection(
+        snapshot_id="snapshot-current-unknown", snapshot_digest="sha256:" + "7" * 64,
+        facts=unknown_facts, sources=(*current_sources, unknown_source), conflicts=(),
+        fact_ids=tuple(item["fact_id"] for item in unknown_facts),
+        projection_id="current-projection-unknown", projection_digest="sha256:" + "6" * 64)
+    assert _current_evidence_prompt_payload(unknown_current) == (
+        unknown_current.semantic_payload())
+
+    opaque_conflict_current = CurrentWorldStateCognitiveProjection(
+        snapshot_id="snapshot-current-opaque-conflict",
+        snapshot_digest="sha256:" + "5" * 64,
+        facts=current_facts, sources=current_sources,
+        conflicts=("unrecognized-conflict-row",),
+        fact_ids=tuple(item["fact_id"] for item in current_facts),
+        projection_id="current-projection-opaque-conflict",
+        projection_digest="sha256:" + "4" * 64)
+    assert _current_evidence_prompt_payload(opaque_conflict_current) == (
+        opaque_conflict_current.semantic_payload())

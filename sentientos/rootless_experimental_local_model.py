@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -81,6 +82,28 @@ def _no_symlink_path(path: Path) -> Path:
     return absolute
 
 
+def verify_private_experiment_directory(path: Path) -> None:
+    """Verify POSIX mode or the equivalent private Windows directory ACL."""
+    candidate = _no_symlink_path(Path(path))
+    if os.name == "nt":
+        from .windows_handle_custody import (
+            WindowsHandleCustodyError, verify_explicit_directory,
+        )
+        try:
+            verify_explicit_directory(candidate, require_private_acl=True)
+        except WindowsHandleCustodyError as exc:
+            raise RootlessExperimentalError(
+                "experimental_directory_acl_not_private") from exc
+        return
+    try:
+        private_mode = stat.S_IMODE(candidate.stat().st_mode) & 0o077 == 0
+    except OSError as exc:
+        raise RootlessExperimentalError(
+            "experimental_directory_unavailable") from exc
+    if not private_mode or not candidate.is_dir():
+        raise RootlessExperimentalError("experimental_directory_not_private")
+
+
 def validate_experiment_root(root: Path, *, workspace_root: Path | None = None) -> Path:
     base = _no_symlink_path(workspace_root or WORKSPACE_ROOT).resolve(strict=True)
     candidate = _no_symlink_path(root)
@@ -132,7 +155,18 @@ def _exclusive_json(path: Path, value: Mapping[str, Any], *, root: Path) -> None
         stream.write(payload)
         stream.flush()
         os.fsync(stream.fileno())
-    directory_fd = os.open(target.parent, os.O_RDONLY)
+    _fsync_directory_entry(target.parent)
+
+
+def _fsync_directory_entry(path: Path, *, windows: bool | None = None) -> None:
+    """Flush parent-directory metadata where the platform exposes that operation."""
+    use_windows = os.name == "nt" if windows is None else windows
+    if use_windows:
+        # Python's os.open does not open Windows directories as file handles.
+        # The file itself was flushed above; namespace durability across sudden
+        # power loss is not claimed on this platform.
+        return
+    directory_fd = os.open(path, os.O_RDONLY)
     try:
         os.fsync(directory_fd)
     finally:

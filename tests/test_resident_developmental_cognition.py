@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import csv
 import hashlib
 import json
@@ -36,11 +37,13 @@ from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload,
 )
 from sentientos.resident_developmental_cognition import (
-    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4,
     ResidentDevelopmentalCognitionConfig,
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
     _bind_history_and_epistemic_context, _history_context_packet,
+    _history_decision_contrast_context,
+    _historical_embodiment_retrieval_text,
     load_objective_request, objective_task_for_request, stage_objective_request,
     stored_objective_request_disposition, stored_objective_request_record,
     _valid_rootless_epistemic_session_binding, _parse_companion_interaction_output,
@@ -202,6 +205,44 @@ class FakeInvoker:
                     multiplier = (y2 - y1) // (x2 - x1)
                     offset = y1 - multiplier * x1
                     answers = [multiplier * probe + offset for probe in probes]
+            elif self.objective_mode == "adverse_when_strategy_present":
+                has_candidate_strategy = any(
+                    isinstance(experience, Mapping)
+                    and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)
+                    and experience.get("task_family_id") == descriptor.get("task_family_id")
+                    for packet in history
+                    for experience in packet.get("task_relevant_experience", ()))
+                answers = [3 * probe + 2 for probe in probes]
+                if has_candidate_strategy:
+                    answers = [0 for _ in probes]
+            elif self.objective_mode in {"derive_from_candidate_strategy",
+                    "apply_or_abstain_when_unsettled"}:
+                if (self.objective_mode == "apply_or_abstain_when_unsettled"
+                        and "Do not reconstruct or apply that candidate relation"
+                            in request.prompt):
+                    answers = [None for _ in probes]
+                    relations = set()
+                else:
+                    relations = None
+                import re
+                if relations is None:
+                    strategies = [experience.get("candidate_integer_affine_strategy")
+                        for packet in history
+                        for experience in packet.get("task_relevant_experience", ())
+                        if isinstance(experience, Mapping)
+                        and experience.get("task_family_id") == descriptor.get("task_family_id")]
+                    relations = {item.get("relation") for item in strategies
+                        if isinstance(item, Mapping)}
+                if relations:
+                    if len(relations) == 1:
+                        relation = next(iter(relations))
+                        match = (re.fullmatch(r"output = (-?\d+) \* input ([+-]) (\d+)",
+                            relation) if isinstance(relation, str) else None)
+                        if match is not None:
+                            multiplier = int(match.group(1))
+                            signed_offset = int(match.group(3))
+                            offset = signed_offset if match.group(2) == "+" else -signed_offset
+                            answers = [multiplier * probe + offset for probe in probes]
             elif self.objective_mode in {"derive_from_admitted_family",
                     "derive_from_latest_admitted_family", "derive_from_controlled_effect"}:
                 examples = []
@@ -292,6 +333,9 @@ class FakeInvoker:
             if "conversation_turn_ids" in request.structured_output_schema.get(
                     "required", ()):
                 decision.setdefault("conversation_turn_ids", [])
+            if "historical_conversation_citations" in request.structured_output_schema.get(
+                    "required", ()):
+                decision.setdefault("historical_conversation_citations", [])
             text = json.dumps(decision, sort_keys=True, separators=(",", ":"))
             original_output = text
         elif request.expected_output_format == "json" and request.structured_output_schema:
@@ -1382,7 +1426,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id in family_record_ids
     conditions = recovered["conditions"]
     present, withheld, restored = conditions
-    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v14"
+    assert all(item["schema_version"] == "sentientos.resident_cognition_observation:v15"
         for item in conditions)
     # This fixture uses genuinely unlinked historical-compatible invocation
     # receipts; the new observation version must retain that empty linkage.
@@ -1400,7 +1444,7 @@ print(json.dumps({"context_id": context["context_id"],
     assert later.written_record_id not in withheld["retrieved_record_ids"]
     assert later.written_record_id in restored["retrieved_record_ids"]
     assert present["developmental_history_selection"]["retrieval_policy_id"] == \
-        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6"
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"
     assert present["developmental_history_selection"]["task_family_id"] == \
         "integer_affine_prediction"
     assert withheld["developmental_history_selection"]["treatment"] == "withheld"
@@ -1909,7 +1953,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v7"
+        "sentientos.task_family_history_prompt_projection:v10"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2254,10 +2298,15 @@ print(json.dumps({"stance": state.stance if state else None,
     assert planning_feedback["work_plan_id"] is None
     assert planning_feedback["work_plan_path"] is None
     assert planning_feedback["deferred_goal_count"] == 1
-    assert planning_feedback["deferred_goals"] == [{
-        "goal_id": "integer-affine-followup",
-        "reason": "epistemic_applicability_unresolved",
-    }]
+    [deferred_feedback] = planning_feedback["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "integer-affine-followup"
+    assert deferred_feedback["reason"] == "epistemic_applicability_unresolved"
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    planning_state = recovered_epistemics.current_state(proposition.proposition_id)
+    assert planning_state is not None
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == planning_state.state_digest
+    assert deferred_feedback["omitted_epistemic_position_count"] == 0
     expected_planner_projection = recovered_epistemics.cognitive_projection(
         max_states=1, current_tick=updated_projection.current_tick,
         prioritized_proposition_ids=(proposition.proposition_id,))
@@ -2340,6 +2389,170 @@ print(json.dumps({"stance": state.stance if state else None,
         "epistemic_projection_digest"] == updated_projection.projection_digest
 
 
+def test_candidate_integer_affine_strategy_requires_score_bound_consistent_examples() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _candidate_integer_affine_strategy, _digest as cognition_digest)
+
+    experience = {
+        "task_family_id": "integer_affine_prediction",
+        "source_fact_id": "fact-affine-1",
+        "source_run_id": "run-affine-1",
+        "source_run_digest": "sha256:" + "1" * 64,
+        "source_task_digest": "sha256:" + "2" * 64,
+        "source_score_digest": "sha256:" + "3" * 64,
+        "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+        "controlled_task_effect": {"effect_classification": "no_difference_observed"},
+        "model_identity_relation": "same_active_model_identity",
+        "historical_only": True, "current_truth": False, "authority": False,
+    }
+    examples = [
+        {"probe_input": 2, "observed_answer": 7, "evaluator_correct": True},
+        {"probe_input": 4, "observed_answer": 13, "evaluator_correct": True},
+        {"probe_input": 5, "observed_answer": 16, "evaluator_correct": True},
+    ]
+    strategy = _candidate_integer_affine_strategy(experience, examples)
+    assert strategy is not None
+    assert strategy["relation"] == "output = 3 * input + 1"
+    assert strategy["supporting_example_count"] == 3
+    assert strategy["scope"] == "exact_declared_integer_affine_task_family_only"
+    assert strategy["performance_transfer_established"] is False
+    assert strategy["learning_established"] is False
+    assert strategy["historical_only"] is True
+    assert strategy["current_truth"] is False and strategy["authority"] is False
+    assert strategy["strategy_digest"] == cognition_digest({key: value
+        for key, value in strategy.items() if key != "strategy_digest"})
+    assert _candidate_integer_affine_strategy(experience, examples[:2]) is None
+    assert _candidate_integer_affine_strategy(experience,
+        [*examples[:2], {**examples[2], "observed_answer": 17}]) is None
+    assert _candidate_integer_affine_strategy(experience,
+        [*examples[:2], {**examples[2], "evaluator_correct": False}]) is None
+    assert _candidate_integer_affine_strategy({**experience,
+        "task_family_id": "unrelated_prediction_family"}, examples) is None
+    assert _candidate_integer_affine_strategy({**experience,
+        "controlled_task_effect": {"effect_classification": "history_adverse"}},
+        examples) is None
+
+
+def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    identity = {"provider": "fixture", "model": "unsettled-strategy"}
+    identity_digest = cognition_module._digest(identity)
+    experience = {
+        "task_family_id": "integer_affine_prediction",
+        "source_fact_id": "fact-affine-unsettled",
+        "source_run_id": "run-affine-favorable",
+        "source_run_digest": "sha256:" + "1" * 64,
+        "source_task_digest": "sha256:" + "2" * 64,
+        "source_score_digest": "sha256:" + "3" * 64,
+        "source_active_model_identity": identity,
+        "source_active_model_identity_digest": identity_digest,
+        "evaluator": "deterministic_exact_integer_suite_oracle_v2",
+        "controlled_task_effect": {"effect_classification": "history_favorable"},
+        "model_identity_relation": "same_active_model_identity",
+        "historical_only": True, "current_truth": False, "authority": False,
+        "examples": [
+            {"probe_input": 2, "observed_answer": 7, "evaluator_correct": True},
+            {"probe_input": 4, "observed_answer": 13, "evaluator_correct": True},
+            {"probe_input": 5, "observed_answer": 16, "evaluator_correct": True},
+        ],
+    }
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: [dict(experience)])
+    record = {"record_id": "record-affine-favorable",
+        "record_digest": "sha256:" + "4" * 64,
+        "candidate": {"candidate_id": "candidate-affine-favorable",
+            "candidate_digest": "sha256:" + "5" * 64,
+            "selected_facts": [], "selected_sources": []},
+        "created_at": "fixture-time",
+        "epistemic_posture": "historical_interpretation_not_current_truth"}
+    base_instruction = cognition_module.EXPERIMENT_CONTEXT_INSTRUCTION
+    stable_packet = cognition_module._history_context_packet(record,
+        task_family_id="integer_affine_prediction",
+        target_model_identity=identity)
+    [stable_experience] = stable_packet["task_relevant_experience"]
+    stable_strategy = stable_experience["candidate_integer_affine_strategy"]
+    assert stable_strategy["relation"] == "output = 3 * input + 1"
+    stable_context, _, stable_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": identity},
+            records=(record,), projection=None))
+    assert stable_strategy["relation"] in stable_prompt
+    assert "Do not reconstruct or apply that candidate relation" not in stable_prompt
+    assert cognition_module._task_family_history_prompt_projection(
+        stable_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")[
+            "candidate_integer_affine_strategy_count"] == 1
+
+    unsettled_group = (experience["source_task_digest"], identity_digest)
+    context, _, prompt, _, _ = cognition_module._bind_history_and_epistemic_context(
+        context={"instruction": base_instruction,
+            "developmental_history_task_family_id": "integer_affine_prediction",
+            "developmental_history_task_family_history_required": True,
+            "developmental_history_target_model_identity": identity},
+        records=(record,), projection=None,
+        unsettled_task_family_outcome_groups={unsettled_group})
+    [projected] = context["developmental_history"][0]["task_relevant_experience"]
+    assert "candidate_integer_affine_strategy" not in projected
+    assert projected["candidate_integer_affine_strategy_withheld"]["posture"] == (
+        "withheld_unsettled_score_bound_outcomes")
+    assert projected["examples"] == experience["examples"]
+    assert stable_strategy["relation"] not in prompt
+    assert "withheld_unsettled_score_bound_outcomes" in prompt
+    assert "Do not reconstruct or apply that candidate relation" in prompt
+    assert "wait for new comparable evidence or abstain" in prompt
+    prompt_projection = cognition_module._task_family_history_prompt_projection(
+        context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert prompt_projection["candidate_integer_affine_strategy_count"] == 0
+    assert prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategy_count"] == 1
+    [withheld_ref] = prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategies"]
+    assert withheld_ref["strategy_digest"] == stable_strategy["strategy_digest"]
+
+    other_identity = {"provider": "fixture", "model": "unsettled-strategy-transfer"}
+    cross_model_context, _, cross_model_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": other_identity},
+            records=(record,), projection=None,
+            unsettled_task_family_outcome_groups={unsettled_group}))
+    [cross_model_experience] = cross_model_context["developmental_history"][0][
+        "task_relevant_experience"]
+    assert cross_model_experience["model_identity_relation"] == (
+        "different_active_model_identity")
+    cross_model_strategy = cross_model_experience[
+        "candidate_integer_affine_strategy"]
+    assert cross_model_strategy["relation"] == stable_strategy["relation"]
+    cross_model_caution = cross_model_experience[
+        "candidate_integer_affine_strategy_source_outcomes_unsettled"]
+    assert cross_model_caution["posture"] == (
+        "source_model_outcomes_unsettled_cross_model_candidate")
+    assert cross_model_caution["strategy_digest"] == cross_model_strategy[
+        "strategy_digest"]
+    assert cross_model_caution["authority"] is False
+    assert cross_model_caution["current_truth"] is False
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        cross_model_prompt)
+    assert "Those outcomes do not establish this model's performance" in (
+        cross_model_prompt)
+    cross_model_projection = cognition_module._task_family_history_prompt_projection(
+        cross_model_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert cross_model_projection[
+        "cross_model_unsettled_candidate_integer_affine_strategy_count"] == 1
+    [cross_model_ref] = cross_model_projection[
+        "cross_model_unsettled_candidate_integer_affine_strategies"]
+    assert cross_model_ref["strategy_digest"] == cross_model_strategy["strategy_digest"]
+
+
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
         _digest as cognition_digest, _task_family_guidance_examples,
@@ -2411,7 +2624,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
     assert projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v7"
+        "sentientos.task_family_history_prompt_projection:v10"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
@@ -2602,14 +2815,18 @@ def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:
     packets = [{
         "record_id": "record-a", "record_digest": "digest-a",
         "task_relevant_experience": [{"source_fact_id": "fact-a",
-            "source_task_digest": "task-a", "examples": [
+            "source_task_digest": "task-a",
+            "candidate_integer_affine_strategy": {"relation": "output = 3 * input + 2"},
+            "examples": [
                 {"probe_input": 7, "observed_answer": 23, "evaluator_correct": True},
                 {"probe_input": 8, "observed_answer": 26, "evaluator_correct": True},
             ]}],
     }, {
         "record_id": "record-b", "record_digest": "digest-b",
         "task_relevant_experience": [{"source_fact_id": "fact-b",
-            "source_task_digest": "task-b", "examples": [
+            "source_task_digest": "task-b",
+            "candidate_integer_affine_strategy": {"relation": "output = 3 * input + 8"},
+            "examples": [
                 {"probe_input": 7, "observed_answer": 29, "evaluator_correct": True},
             ]}],
     }]
@@ -2620,6 +2837,8 @@ def test_selected_task_family_history_withholds_cross_suite_conflicts() -> None:
     assert [row["probe_input"] for row in
         selected[0]["task_relevant_experience"][0]["examples"]] == [8]
     assert selected[1]["task_relevant_experience"][0]["examples"] == []
+    assert all("candidate_integer_affine_strategy" not in
+        packet["task_relevant_experience"][0] for packet in selected)
     serialized = json.dumps(selected, sort_keys=True)
     assert "23" not in serialized and "29" not in serialized
 
@@ -2842,8 +3061,8 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     # prompt assembler. Its correctness remains unknown at every stage.
     import copy
     from sentientos.resident_developmental_cognition import (
-        _digest as cognition_digest, _history_context_packet,
-        _task_family_history_examples,
+        _bind_epistemic_context, _digest as cognition_digest,
+        _history_context_packet, _task_family_history_examples,
         _task_family_history_prompt_projection,
     )
     abstention_candidate = copy.deepcopy(admitted.candidate)
@@ -3011,6 +3230,11 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         target_model_identity=identity, compact_for_input_budget=True)
     task_experience = packet["task_relevant_experience"][0]
     assert task_experience["controlled_task_effect"] == effect
+    strategy = task_experience.get("candidate_integer_affine_strategy")
+    assert strategy is not None
+    assert strategy["source_fact_id"] == family_fact["fact_id"]
+    assert strategy["source_score_digest"] == bound_projection["source_score_digest"]
+    assert strategy["supporting_example_count"] == len(task_experience["examples"])
     assert "interpretation" not in packet
     assert packet["task_family_scope"] == "integer_affine_prediction"
     assert packet["task_family_scope_posture"] == (
@@ -3022,6 +3246,89 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert task_experience["model_identity_relation"] == "same_active_model_identity"
     assert task_experience["applicability_posture"] == \
         "same_family_same_model_task_scope_unverified"
+    bound_context, _, bound_prompt = _bind_epistemic_context(
+        context={"developmental_history": [packet]}, projection=None)
+    assert bound_context["developmental_history"][0]["task_relevant_experience"][0][
+        "candidate_integer_affine_strategy"]["relation"] in bound_prompt
+    task_projection = _task_family_history_prompt_projection(bound_context,
+        condition_id="history_present", task_family_id="integer_affine_prediction")
+    assert task_projection["candidate_integer_affine_strategy_count"] == 1
+    [strategy_ref] = task_projection["candidate_integer_affine_strategies"]
+    assert strategy_ref["strategy_digest"] == strategy["strategy_digest"]
+    assert strategy_ref["supporting_examples_digest"] == strategy[
+        "supporting_examples_digest"]
+    unsettled_group = (bound_projection["source_task_digest"],
+        bound_projection["source_active_model_identity_digest"])
+    unsettled_packet = _history_context_packet({"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"},
+        task_family_id="integer_affine_prediction",
+        target_model_identity=identity, compact_for_input_budget=True,
+        unsettled_outcome_groups={unsettled_group})
+    [withheld_experience] = unsettled_packet["task_relevant_experience"]
+    assert "candidate_integer_affine_strategy" not in withheld_experience
+    withheld_strategy = withheld_experience[
+        "candidate_integer_affine_strategy_withheld"]
+    assert withheld_strategy["posture"] == (
+        "withheld_unsettled_score_bound_outcomes")
+    assert withheld_strategy["strategy_digest"] == strategy["strategy_digest"]
+    assert withheld_experience["examples"] == task_experience["examples"]
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    unsettled_context, _, unsettled_prompt, _, _ = (
+        _bind_history_and_epistemic_context(
+            context={"instruction": "Use historical outcomes within scope.",
+                "developmental_history_task_family_id": (
+                    "integer_affine_prediction"),
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": identity},
+            records=({"record_id": admitted.record_id,
+                "record_digest": admitted.record_digest,
+                "candidate": bound_model_identity,
+                "created_at": "fixture-time",
+                "epistemic_posture": "historical_only"},),
+            projection=None,
+            unsettled_task_family_outcome_groups={unsettled_group},
+            compact_history_for_input=True))
+    assert "candidate_integer_affine_strategy" not in (
+        unsettled_context["developmental_history"][0][
+            "task_relevant_experience"][0])
+    assert "withheld_unsettled_score_bound_outcomes" in unsettled_prompt
+    assert strategy["relation"] not in unsettled_prompt
+    unsettled_prompt_projection = _task_family_history_prompt_projection(
+        unsettled_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert unsettled_prompt_projection[
+        "candidate_integer_affine_strategy_count"] == 0
+    assert unsettled_prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategy_count"] == 1
+    assert unsettled_prompt_projection[
+        "withheld_unsettled_candidate_integer_affine_strategies"][0][
+            "strategy_digest"] == strategy["strategy_digest"]
+    forged_context = copy.deepcopy(bound_context)
+    forged_strategy = forged_context["developmental_history"][0][
+        "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
+    forged_strategy["relation"] = "output = 3 * input + 999"
+    forged_strategy_body = {key: value for key, value in forged_strategy.items()
+        if key != "strategy_digest"}
+    from sentientos.resident_developmental_cognition import _digest as cognition_digest
+    forged_strategy["strategy_digest"] = cognition_digest(forged_strategy_body)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="task_family_prompt_projection_strategy_invalid"):
+        _task_family_history_prompt_projection(forged_context,
+            condition_id="history_present", task_family_id="integer_affine_prediction")
+    forged_provenance_context = copy.deepcopy(bound_context)
+    forged_provenance = forged_provenance_context["developmental_history"][0][
+        "task_relevant_experience"][0]["candidate_integer_affine_strategy"]
+    forged_provenance["source_score_digest"] = "sha256:" + "0" * 64
+    forged_provenance_body = {key: value for key, value in forged_provenance.items()
+        if key != "strategy_digest"}
+    forged_provenance["strategy_digest"] = cognition_digest(forged_provenance_body)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="task_family_prompt_projection_strategy_invalid"):
+        _task_family_history_prompt_projection(forged_provenance_context,
+            condition_id="history_present", task_family_id="integer_affine_prediction")
     cross_model_packet = _history_context_packet({"record_id": admitted.record_id,
         "record_digest": admitted.record_digest, "candidate": bound_model_identity,
         "created_at": "fixture-time", "epistemic_posture": "historical_only"},
@@ -3332,8 +3639,18 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
                 "one_or_more_conditions_simulated_or_no_backend_entry")
             assert historical_examples[0]["independent_backend_observation"] is False
             assert len(historical_examples[0]["execution_evidence_conditions"]) == 3
+            strategies = [item["candidate_integer_affine_strategy"]
+                for item in historical_examples
+                if "candidate_integer_affine_strategy" in item]
+            assert len(strategies) == 1
+            assert strategies[0]["relation"] == "output = 3 * input + 2"
+            assert strategies[0]["historical_only"] is True
+            assert strategies[0]["current_truth"] is False
+            assert strategies[0]["authority"] is False
         else:
-            assert "task_relevant_experience" not in json.dumps(body["developmental_history"])
+            withheld_history = json.dumps(body["developmental_history"])
+            assert "task_relevant_experience" not in withheld_history
+            assert "candidate_integer_affine_strategy" not in withheld_history
     assert "multiplier" not in json.dumps(heldout_prompts)
     assert "offset" not in json.dumps(heldout_prompts)
     assert "learning_established" not in heldout_run["objective_evaluation"]
@@ -3519,6 +3836,312 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         request_id="episode-heldout-tamper-control",
         request_digest=str(tamper_request["request_digest"]),
         tamper_receipt_id=tampered_receipt)["rejected_before_owner_recovery"] is True
+
+
+def test_unsettled_score_bound_outcomes_change_later_strategy_use_after_restart(
+        tmp_path: Path) -> None:
+    """A conflict admitted from a later run changes a subsequent controlled decision."""
+    from scripts.stage_resident_objective_intervention import stage_request
+    from sentientos.resident_developmental_cognition import _task_family_history_examples
+
+    fake = InstallationCustodyFakeInvoker()
+    identity = {"provider": "fixture", "model": "outcome-conflict-decision"}
+    fake.active_model_identity = identity
+    _bind_fixture_installation_custody(tmp_path, fake)
+    fake.history_interpretation = "Historical examples: input 1 produced 5; input 2 produced 8."
+    fake.objective_plan_root = tmp_path / "state" / "developmental_experiments" / "protocols"
+    config_path = tmp_path / "objective-config.json"
+    config_path.write_text(json.dumps({"schema": CONFIG_SCHEMA, "enabled": True,
+        "history_root": str(tmp_path / "history"), "state_root": str(tmp_path / "state"),
+        "allowed_source_kinds": ["capability_registry", "embodiment"],
+        "max_selected_facts": 16, "max_retrieved_records": 4,
+        "comparison_enabled": True}), encoding="utf-8")
+    cognition, _ = owner(tmp_path, comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
+    assert cognition.run_tick(snapshot=snapshot(), tick_id="conflict-decision-seed").written_record_id
+
+    acquisition_task = ObjectivePredictionTask(3, 2, 7, (8, 9),
+        task_family_id="integer_affine_prediction")
+    _, acquisition_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-acquisition", task=acquisition_task)
+    acquisition = cognition.run_objective_intervention_once(snapshot=snapshot(),
+        tick_id="conflict-decision-acquisition", objective_task=acquisition_task,
+        request_id="conflict-decision-acquisition",
+        request_digest=str(acquisition_request["request_digest"]))
+    acquisition_run = cognition.experiments.load_run(
+        str(acquisition.changed_cognition_measurement_id))
+    acquisition_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            acquisition_run["run_id"], acquisition_run["run_digest"]),)))
+    acquisition_feedback = cognition.run_tick(snapshot=acquisition_world,
+        tick_id="conflict-decision-acquisition-feedback")
+    assert acquisition_feedback.written_record_id
+
+    repeated_task = ObjectivePredictionTask(3, 2, 10, (11, 12),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    repeated_task_digest = repeated_task.public_descriptor()["task_digest"]
+    _, stable_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-settled", task=repeated_task)
+    stable_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-settled",
+        request_digest=str(stable_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(("conflict-decision-acquisition",
+            str(acquisition_request["request_digest"])),),
+        objective_mode="apply_or_abstain_when_unsettled")
+    stable_run = stable_episode["run"]
+    stable_scores = {row["condition_id"]: row["score"]
+        for row in stable_run["objective_scores"]}
+    assert stable_scores["history_present"]["correct_count"] == 3
+    assert stable_scores["history_restored"]["correct_count"] == 3
+    stable_prompt = json.loads(stable_episode["prompts"]["history_present"])
+    stable_experiences = [experience for packet in stable_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    assert any("candidate_integer_affine_strategy" in experience
+        for experience in stable_experiences)
+    assert "Do not reconstruct or apply that candidate relation" not in stable_prompt[
+        "instruction"]
+
+    stable_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            stable_run["run_id"], stable_run["run_digest"]),)))
+    stable_feedback = cognition.run_tick(snapshot=stable_world,
+        tick_id="conflict-decision-stable-feedback")
+    assert stable_feedback.written_record_id
+    [stable_experience] = _task_family_history_examples(
+        cognition.writeback.store.get(stable_feedback.written_record_id).candidate,
+        task_family_id="integer_affine_prediction")
+    assert stable_experience["source_task_digest"] == repeated_task_digest
+    assert stable_experience["controlled_task_effect"]["effect_classification"] == (
+        "history_favorable")
+
+    _, adverse_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-adverse-repeat", task=repeated_task)
+    assert adverse_request["task_descriptor"]["task_digest"] == repeated_task_digest
+    adverse_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-adverse-repeat",
+        request_digest=str(adverse_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"]))),
+        objective_mode="adverse_when_strategy_present")
+    adverse_run = adverse_episode["run"]
+    adverse_scores = {row["condition_id"]: row["score"]
+        for row in adverse_run["objective_scores"]}
+    assert adverse_scores["history_present"]["correct_count"] == 0
+    assert adverse_scores["history_withheld"]["correct_count"] == 3
+    assert adverse_scores["history_restored"]["correct_count"] == 0
+
+    adverse_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            adverse_run["run_id"], adverse_run["run_digest"]),)))
+    adverse_feedback = cognition.run_tick(snapshot=adverse_world,
+        tick_id="conflict-decision-adverse-feedback")
+    assert adverse_feedback.written_record_id
+    [adverse_experience] = _task_family_history_examples(
+        cognition.writeback.store.get(adverse_feedback.written_record_id).candidate,
+        task_family_id="integer_affine_prediction")
+    assert adverse_experience["source_task_digest"] == repeated_task_digest
+    assert adverse_experience["source_active_model_identity_digest"] == (
+        stable_experience["source_active_model_identity_digest"])
+    assert adverse_experience["controlled_task_effect"]["effect_classification"] == (
+        "history_adverse")
+    assert adverse_experience["source_run_id"] != stable_experience["source_run_id"]
+
+    later_task = ObjectivePredictionTask(3, 2, 16, (17, 18),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, later_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-after-revision", task=later_task)
+    later_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-after-revision",
+        request_digest=str(later_request["request_digest"]),
+        active_model_identity=identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    later_run = later_episode["run"]
+    later_scores = {row["condition_id"]: row["score"]
+        for row in later_run["objective_scores"]}
+    assert later_scores["history_present"]["status"] == "selective"
+    assert later_scores["history_present"]["abstained_count"] == 3
+    assert later_scores["history_restored"]["status"] == "selective"
+    assert later_scores["history_restored"]["abstained_count"] == 3
+
+    later_prompt = json.loads(later_episode["prompts"]["history_present"])
+    later_experiences = [experience for packet in later_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [withheld] = [experience["candidate_integer_affine_strategy_withheld"]
+        for experience in later_experiences
+        if "candidate_integer_affine_strategy_withheld" in experience
+        and experience.get("source_task_digest") == repeated_task_digest]
+    assert withheld["posture"] == "withheld_unsettled_score_bound_outcomes"
+    assert not any("candidate_integer_affine_strategy" in experience
+        and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)
+        and experience.get("source_task_digest") == repeated_task_digest
+        for experience in later_experiences)
+    assert "Do not reconstruct or apply that candidate relation" in later_prompt[
+        "instruction"]
+    assert "wait for new comparable evidence or abstain" in later_prompt["instruction"]
+    withheld_condition_prompt = json.loads(later_episode["prompts"]["history_withheld"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        withheld_condition_prompt["instruction"])
+
+    replacement_identity = {"provider": "fixture", "model": "replacement-after-conflict"}
+    _, transfer_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-cross-model-transfer", task=later_task)
+    transfer_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-cross-model-transfer",
+        request_digest=str(transfer_request["request_digest"]),
+        active_model_identity=replacement_identity,
+        publish_session=True,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in transfer_episode, transfer_episode
+    transfer_run = transfer_episode["run"]
+    transfer_scores = {row["condition_id"]: row["score"]
+        for row in transfer_run["objective_scores"]}
+    assert transfer_scores["history_present"]["correct_count"] == 3
+    assert transfer_scores["history_restored"]["correct_count"] == 3
+    assert transfer_scores["history_withheld"]["correct_count"] == 0
+    transfer_prompt = json.loads(transfer_episode["prompts"]["history_present"])
+    transfer_experiences = [experience
+        for packet in transfer_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [transfer_experience] = [experience for experience in transfer_experiences
+        if experience.get("source_task_digest") == repeated_task_digest
+        and isinstance(experience.get("candidate_integer_affine_strategy"), Mapping)]
+    assert transfer_experience["model_identity_relation"] == (
+        "different_active_model_identity")
+    assert transfer_experience[
+        "candidate_integer_affine_strategy_source_outcomes_unsettled"]["posture"] == (
+            "source_model_outcomes_unsettled_cross_model_candidate")
+    assert "Those outcomes do not establish this model's performance" in (
+        transfer_prompt["instruction"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        transfer_prompt["instruction"])
+
+    # The receiving model's result becomes its own evidence. A later conflict
+    # for the exact same task and model must govern that model's next decision,
+    # while a third model still receives the history as a provisional
+    # cross-model candidate rather than inheriting B's withholding authority.
+    transfer_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            transfer_run["run_id"], transfer_run["run_digest"]),)))
+    transfer_feedback = cognition.run_tick(snapshot=transfer_world,
+        tick_id="conflict-decision-cross-model-transfer-feedback")
+    assert transfer_feedback.written_record_id
+
+    _, replacement_adverse_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-replacement-adverse-repeat", task=later_task)
+    replacement_adverse_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-replacement-adverse-repeat",
+        request_digest=str(replacement_adverse_request["request_digest"]),
+        active_model_identity=replacement_identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"]))),
+        objective_mode="adverse_when_strategy_present")
+    assert "run" in replacement_adverse_episode, replacement_adverse_episode
+    replacement_adverse_run = replacement_adverse_episode["run"]
+    replacement_adverse_scores = {row["condition_id"]: row["score"]
+        for row in replacement_adverse_run["objective_scores"]}
+    assert replacement_adverse_scores["history_present"]["correct_count"] == 0
+    assert replacement_adverse_scores["history_withheld"]["correct_count"] == 3
+    assert replacement_adverse_scores["history_restored"]["correct_count"] == 0
+    replacement_adverse_world = WorldStateBoardBuilder().build(
+        cognition.experiments.world_state_records(run_refs=((
+            replacement_adverse_run["run_id"], replacement_adverse_run["run_digest"]),)))
+    replacement_adverse_feedback = cognition.run_tick(snapshot=replacement_adverse_world,
+        tick_id="conflict-decision-replacement-adverse-feedback")
+    assert replacement_adverse_feedback.written_record_id
+
+    post_conflict_task = ObjectivePredictionTask(3, 2, 22, (23, 24),
+        task_family_id="integer_affine_prediction", requires_task_family_history=True)
+    _, replacement_later_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-replacement-after-conflict", task=post_conflict_task)
+    replacement_later_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-replacement-after-conflict",
+        request_digest=str(replacement_later_request["request_digest"]),
+        active_model_identity=replacement_identity,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"])),
+            ("conflict-decision-replacement-adverse-repeat",
+                str(replacement_adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in replacement_later_episode, replacement_later_episode
+    replacement_later_scores = {row["condition_id"]: row["score"]
+        for row in replacement_later_episode["run"]["objective_scores"]}
+    assert replacement_later_scores["history_present"]["status"] == "selective"
+    assert replacement_later_scores["history_present"]["abstained_count"] == 3
+    replacement_later_prompt = json.loads(
+        replacement_later_episode["prompts"]["history_present"])
+    replacement_later_experiences = [experience
+        for packet in replacement_later_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    assert any(experience.get("source_task_digest")
+        == later_task.public_descriptor()["task_digest"]
+        and (experience.get("candidate_integer_affine_strategy_withheld") or {}).get(
+            "posture") == "withheld_unsettled_score_bound_outcomes"
+        for experience in replacement_later_experiences)
+
+    third_identity = {"provider": "fixture", "model": "third-after-replacement-conflict"}
+    _, third_request, _ = stage_request(config_path=config_path,
+        request_id="conflict-decision-third-after-replacement-conflict",
+        task=post_conflict_task)
+    third_episode = _run_family_episode_in_child(tmp_path,
+        acquisition_request_digest=str(acquisition_request["request_digest"]),
+        request_id="conflict-decision-third-after-replacement-conflict",
+        request_digest=str(third_request["request_digest"]),
+        active_model_identity=third_identity, publish_session=True,
+        prior_request_refs=(
+            ("conflict-decision-acquisition", str(acquisition_request["request_digest"])),
+            ("conflict-decision-settled", str(stable_request["request_digest"])),
+            ("conflict-decision-adverse-repeat", str(adverse_request["request_digest"])),
+            ("conflict-decision-cross-model-transfer",
+                str(transfer_request["request_digest"])),
+            ("conflict-decision-replacement-adverse-repeat",
+                str(replacement_adverse_request["request_digest"]))),
+        objective_mode="apply_or_abstain_when_unsettled")
+    assert "run" in third_episode, third_episode
+    third_scores = {row["condition_id"]: row["score"]
+        for row in third_episode["run"]["objective_scores"]}
+    assert third_scores["history_present"]["correct_count"] == 3
+    third_prompt = json.loads(third_episode["prompts"]["history_present"])
+    third_experiences = [experience
+        for packet in third_prompt["developmental_history"]
+        for experience in packet.get("task_relevant_experience", ())]
+    [replacement_conflict_candidate] = [experience
+        for experience in third_experiences
+        if experience.get("source_task_digest")
+            == later_task.public_descriptor()["task_digest"]
+        and (experience.get(
+            "candidate_integer_affine_strategy_source_outcomes_unsettled") or {}).get(
+                "posture") == "source_model_outcomes_unsettled_cross_model_candidate"]
+    assert replacement_conflict_candidate["model_identity_relation"] == (
+        "different_active_model_identity")
+    assert "Those outcomes do not establish this model's performance" in (
+        third_prompt["instruction"])
+    assert "Do not reconstruct or apply that candidate relation" not in (
+        third_prompt["instruction"])
 
 
 def test_historical_embodiment_context_preserves_typed_report_roles() -> None:
@@ -4608,6 +5231,54 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
+    foreign_model_proposition = make_proposition(namespace="operator",
+        subject="task_family:integer_affine_prediction", predicate="history_effect",
+        object_value="history presence changes held-out correctness", polarity="positive",
+        qualifiers={"run_scope": run_id}, temporal_scope={"kind": "single_run"},
+        context_scope={"task_family_id": "integer_affine_prediction",
+            "active_model_identity_digest": "sha256:" + "0" * 64},
+        proposition_class="causal_hypothesis")
+    epistemics.register_proposition(foreign_model_proposition)
+    foreign_model_rule = EpistemicDevelopmentRule("foreign-model-task-family",
+        foreign_model_proposition.proposition_id,
+        foreign_model_proposition.proposition_digest,
+        {"source_kind": "embodiment",
+            "subject_kind": "developmental_history_intervention_experiment"},
+        "supports", "unknown_dependency", "bounded_fixture")
+    foreign_model_runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 1, 1, (foreign_model_rule,),
+            ("operator",)),
+        owner=epistemics, mutation_controller=controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=epistemic_definitions, ledger=epistemic_ledger),
+        admission_ledger=epistemic_ledger)
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_mismatch"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=restarted.experiments, run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
+    assert epistemics.bindings(foreign_model_proposition.proposition_id) == ()
+    assert epistemics.current_state(foreign_model_proposition.proposition_id) is None
+
+    class UnverifiedModelIdentityStore:
+        def load_run(self, requested_run_id):
+            value = restarted.experiments.load_run(requested_run_id)
+            value["protocol"] = {**value["protocol"],
+                "active_model_identity_digest": "sha256:" + "1" * 64}
+            return value
+
+        def objective_task_family_evidence_binding(self, **_kwargs):
+            raise AssertionError("unverified model identity reached evidence adapter")
+
+    with pytest.raises(EpistemicDevelopmentError,
+            match="task_family_model_identity_unverified"):
+        foreign_model_runtime.process_verified_task_family_run(
+            experiment_store=UnverifiedModelIdentityStore(), run_id=run_id,
+            expected_run_digest=run_digest, rule_id=foreign_model_rule.rule_id,
+            tick=1, recorded_at=evaluated_at.isoformat())
+    assert epistemic_ledger.load()[0] == ()
     with pytest.raises(DevelopmentalHistoryInterventionError,
             match="epistemic_run_digest_mismatch"):
         runtime.process_verified_task_family_run(
@@ -5029,6 +5700,351 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
+        tmp_path: Path) -> None:
+    class FactSensitiveInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                current = prompt.get("current_evidence", {})
+                selected_facts = current.get("facts", ())
+                selected_text = json.dumps(selected_facts, sort_keys=True).casefold()
+                if "battery" in selected_text and "voltage" in selected_text:
+                    response = "The battery sensor reports 9 volts."
+                elif "moon" in selected_text and "phase" in selected_text:
+                    response = "The moon phase sensor reports waxing."
+                else:
+                    response = "The selected evidence does not answer this question."
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": list(request.upstream_evidence.get(
+                        "current_fact_ids", ())), "history_record_ids": [],
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    current = WorldStateBoardBuilder().build([
+        {"source_id": "source-a-moon", "source_kind": "capability_registry",
+            "subject_id": "moon-phase-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The moon phase sensor observed waxing."}},
+        {"source_id": "source-z-battery", "source_kind": "capability_registry",
+            "subject_id": "battery-voltage-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The battery sensor measured voltage at 9 volts."}},
+    ])
+    battery_fact = next(fact for fact in current.facts
+        if fact.subject.subject_id == "battery-voltage-sensor")
+    moon_fact = next(fact for fact in current.facts
+        if fact.subject.subject_id == "moon-phase-sensor")
+    cognition, _fake = owner(tmp_path, invoker=FactSensitiveInvoker(),
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+
+    background = cognition._current_projection(current)
+    assert background.fact_ids == (moon_fact.fact_id,)
+    battery_projection = cognition._current_projection(current, question="battery voltage")
+    assert battery_projection.fact_ids == (battery_fact.fact_id,)
+
+    battery = cognition.run_companion_interaction(snapshot=current,
+        request_id="question-current-battery-001", question="battery voltage")
+    moon = cognition.run_companion_interaction(snapshot=current,
+        request_id="question-current-moon-001", question="moon phase")
+
+    assert battery.evidence_ids == (battery_fact.fact_id,)
+    assert battery.response == "The battery sensor reports 9 volts."
+    assert moon.evidence_ids == (moon_fact.fact_id,)
+    assert moon.response == "The moon phase sensor reports waxing."
+    assert battery.authority is False and moon.authority is False
+    assert battery.current_truth is False and moon.current_truth is False
+
+
+def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
+        tmp_path: Path) -> None:
+    class FactOnlyInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                current = prompt.get("current_evidence", {})
+                facts = current.get("facts", ())
+                text = json.dumps(facts, sort_keys=True).casefold()
+                has_safe = "safe for entry" in text
+                has_unsafe = "unsafe for entry" in text
+                if has_safe and not has_unsafe:
+                    decision = {"disposition": "answer",
+                        "response": "The selected observation says entry is safe.",
+                        "evidence_ids": ["__CURRENT_FACT__"],
+                        "history_record_ids": []}
+                else:
+                    decision = {"disposition": "ask",
+                        "response": "The available current evidence is insufficient.",
+                        "evidence_ids": [], "history_record_ids": []}
+                self.companion_output_override = decision
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    current = WorldStateBoardBuilder().build([
+        {"source_id": "entry-permit", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The east entry is safe for entry."}},
+        {"source_id": "entry-denial", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The east entry is unsafe for entry."}},
+    ])
+    assert len(current.conflicts) == 1
+    conflict_fact_ids = set(current.conflicts[0].fact_ids)
+
+    bounded, bounded_invoker = owner(tmp_path / "bounded",
+        invoker=FactOnlyInvoker(), max_selected_facts=1)
+    bounded_projection = bounded._current_projection(current,
+        question="Is the east entry safe for entry?")
+    assert bounded_projection.fact_ids == ()
+    bounded_result = bounded.run_companion_interaction(snapshot=current,
+        request_id="conflicting-entry-bounded", question="Is the east entry safe for entry?")
+    assert bounded_result.disposition == "ask"
+    assert bounded_result.evidence_ids == ()
+    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == []
+
+    complete, complete_invoker = owner(tmp_path / "complete",
+        invoker=FactOnlyInvoker(), max_selected_facts=2)
+    complete_projection = complete._current_projection(current,
+        question="Is the east entry safe for entry?")
+    assert set(complete_projection.fact_ids) == conflict_fact_ids
+    complete_result = complete.run_companion_interaction(snapshot=current,
+        request_id="conflicting-entry-complete", question="Is the east entry safe for entry?")
+    assert complete_result.disposition == "ask"
+    assert set(complete_result.evidence_ids).isdisjoint(conflict_fact_ids)
+    assert (set(complete_invoker.requests[-1].upstream_evidence["current_fact_ids"])
+        == conflict_fact_ids)
+
+    partially_eligible = WorldStateBoardBuilder().build([
+        {"source_id": "eligible-entry-permit", "source_kind": "capability_registry",
+            "subject_id": "west-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The west entry is safe for entry."}},
+        {"source_id": "reported-entry-denial", "source_kind": "operator_input",
+            "subject_id": "west-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The west entry is unsafe for entry."}},
+    ])
+    policy_bounded, _ = owner(tmp_path / "policy-bounded",
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+    assert policy_bounded._current_projection(partially_eligible,
+        question="Is the west entry safe for entry?").fact_ids == ()
+
+
+def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_ones(
+        tmp_path: Path) -> None:
+    from sentientos.resident_developmental_cognition import (
+        _asks_about_present_condition,
+    )
+
+    class FreshnessAwareInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                facts = prompt.get("current_evidence", {}).get("facts", ())
+                selected = facts[0] if facts else {}
+                source = selected.get("source", {})
+                freshness = source.get("staleness")
+                fact_id = selected.get("fact_id")
+                question = str(prompt.get("companion_question", "")).casefold()
+                if freshness == "fresh":
+                    decision = {"disposition": "answer",
+                        "response": "The fresh observation reports 18 C.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
+                elif "previous report" in question:
+                    decision = {"disposition": "answer",
+                        "response": "The previous report recorded 18 C.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
+                else:
+                    decision = {"disposition": "answer",
+                        "response": "The room temperature is 18 C now.",
+                        "evidence_ids": [fact_id], "history_record_ids": []}
+                self.companion_output_override = decision
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 11, 17, 12, 0, tzinfo=timezone.utc)
+
+    def temperature_snapshot(observed_at: datetime):
+        return WorldStateBoardBuilder(clock=lambda: now).build([{
+            "source_id": "temperature-sensor",
+            "source_kind": "capability_registry",
+            "subject_id": "room-temperature",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": observed_at.isoformat(),
+            "payload": {"description": "The room temperature is 18 C."},
+        }])
+
+    question = "What is the room temperature now?"
+    stale_snapshot = temperature_snapshot(now - timedelta(days=8))
+    stale_owner, stale_invoker = owner(tmp_path / "stale",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    stale_result = stale_owner.run_companion_interaction(snapshot=stale_snapshot,
+        request_id="stale-temperature-current-question", question=question)
+    stale_prompt = json.loads(stale_invoker.requests[-1].prompt)
+    stale_source = stale_prompt["current_evidence"]["facts"][0]["source"]
+    assert stale_source["staleness"] == "expired"
+    assert "Only fresh supports an unqualified current claim" in (
+        stale_prompt["instruction"])
+    assert "Stale, expired, undated, unknown, and not-applicable are historical only" in (
+        stale_prompt["instruction"])
+    assert stale_invoker.companion_output_override["disposition"] == "answer"
+    assert stale_result.disposition == "ask"
+    assert "fresh, cited observation" in stale_result.response
+    assert "current condition" in stale_result.response
+
+    for index, implicit_question in enumerate((
+            "What is the room temperature?",
+            "Is the room temperature 18 C?")):
+        implicit_stale_result = stale_owner.run_companion_interaction(
+            snapshot=stale_snapshot,
+            request_id=f"stale-temperature-implicit-question-{index}",
+            question=implicit_question)
+        assert implicit_stale_result.disposition == "ask"
+        assert "fresh, cited observation" in implicit_stale_result.response
+
+    fresh_snapshot = temperature_snapshot(now - timedelta(minutes=5))
+    fresh_owner, fresh_invoker = owner(tmp_path / "fresh",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    fresh_result = fresh_owner.run_companion_interaction(snapshot=fresh_snapshot,
+        request_id="fresh-temperature-current-question", question=question)
+    fresh_prompt = json.loads(fresh_invoker.requests[-1].prompt)
+    fresh_source = fresh_prompt["current_evidence"]["facts"][0]["source"]
+    assert fresh_source["staleness"] == "fresh"
+    assert fresh_result.disposition == "answer"
+    assert fresh_result.response == "The fresh observation reports 18 C."
+
+    fresh_implicit_result = fresh_owner.run_companion_interaction(
+        snapshot=fresh_snapshot, request_id="fresh-temperature-implicit-question",
+        question="What's the room temperature?")
+    assert fresh_implicit_result.disposition == "answer"
+    assert fresh_implicit_result.response == "The fresh observation reports 18 C."
+
+    assert _asks_about_present_condition("What is a room temperature?") is False
+    assert _asks_about_present_condition("What is the room temperature?") is True
+    assert _asks_about_present_condition("Is the pump online?") is True
+    assert _asks_about_present_condition(
+        "What did the previous report say about the current room temperature?") is False
+
+    aging_snapshot = temperature_snapshot(now - timedelta(hours=2))
+    aging_owner, aging_invoker = owner(tmp_path / "aging",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    aging_result = aging_owner.run_companion_interaction(snapshot=aging_snapshot,
+        request_id="aging-temperature-current-question", question=question)
+    aging_prompt = json.loads(aging_invoker.requests[-1].prompt)
+    aging_source = aging_prompt["current_evidence"]["facts"][0]["source"]
+    assert aging_source["staleness"] == "aging"
+    assert aging_result.disposition == "answer"
+    assert aging_result.response.startswith(
+        "The available observation is aging and may be out of date:")
+
+    historical_owner, historical_invoker = owner(tmp_path / "historical",
+        invoker=FreshnessAwareInvoker(), allowed_source_kinds=("capability_registry",))
+    historical_result = historical_owner.run_companion_interaction(
+        snapshot=stale_snapshot, request_id="stale-temperature-historical-question",
+        question="What did the previous report say about the current room temperature?")
+    assert historical_invoker.companion_output_override["disposition"] == "answer"
+    assert historical_result.disposition == "answer"
+    assert historical_result.response == "The previous report recorded 18 C."
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="temporary test fixtures cannot satisfy the resident owner's Windows custody paths")
+def test_companion_distinguishes_assistant_recommendation_from_user_decision(
+        tmp_path: Path) -> None:
+    class DecisionAttributionInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                turns = prompt.get("session_conversation_context", {}).get("turns", ())
+                recommendation = next(row for row in turns
+                    if row["role"] == "assistant"
+                    and "I recommend stopping" in row["text"])
+                acceptance = next((row for row in turns
+                    if row["role"] == "user" and "Yes, I agree" in row["text"]), None)
+                if acceptance is None:
+                    response = ("The assistant recommended stopping the launch. "
+                        "No user decision is recorded in this conversation.")
+                    citations = [recommendation["turn_id"]]
+                else:
+                    response = ("You explicitly accepted the proposal to stop the launch. "
+                        "The conversation records your decision, but it does not show "
+                        "that the action was carried out.")
+                    citations = [recommendation["turn_id"], acceptance["turn_id"]]
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": [], "history_record_ids": [],
+                    "conversation_turn_ids": citations,
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    invoker = DecisionAttributionInvoker()
+    cognition, _ = owner(tmp_path / "cognition", invoker=invoker,
+        allowed_source_kinds=("capability_registry",))
+
+    def context(*, confirmed: bool) -> dict[str, object]:
+        turn_rows = [
+            {"turn_id": "turn-" + "1" * 24, "role": "user",
+                "text": "Should we stop the launch?",
+                "text_digest": digest_payload({"text": "Should we stop the launch?"}),
+                "linkage_digest": digest_payload({})},
+            {"turn_id": "turn-" + "2" * 24, "role": "assistant",
+                "text": "I recommend stopping until the warning is checked.",
+                "text_digest": digest_payload({
+                    "text": "I recommend stopping until the warning is checked."}),
+                "linkage_digest": digest_payload({})},
+        ]
+        if confirmed:
+            text = "Yes, I agree; let's stop the launch."
+            turn_rows.append({"turn_id": "turn-" + "3" * 24, "role": "user",
+                "text": text, "text_digest": digest_payload({"text": text}),
+                "linkage_digest": digest_payload({})})
+        semantic = {"schema_version": "sentientos.conversation_cognition_context:v1",
+            "session_id": "decision-attribution", "source_snapshot_digest": "a" * 64,
+            "turns": turn_rows, "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False}
+        return {**semantic, "selection_digest": digest_payload(semantic)}
+
+    question = "What did we decide about the launch?"
+    no_confirmation = cognition.run_companion_interaction(
+        snapshot=snapshot(), request_id="decision-without-user-confirmation",
+        question=question, conversation_context=context(confirmed=False))
+    confirmed = cognition.run_companion_interaction(
+        snapshot=snapshot(), request_id="decision-with-user-confirmation",
+        question=question, conversation_context=context(confirmed=True))
+
+    assert "assistant recommended" in no_confirmation.response
+    assert "No user decision is recorded" in no_confirmation.response
+    assert "explicitly accepted" in confirmed.response
+    assert "does not show that the action was carried out" in confirmed.response
+    assert no_confirmation.conversation_turn_citation_ids == ("turn-" + "2" * 24,)
+    assert confirmed.conversation_turn_citation_ids == (
+        "turn-" + "2" * 24, "turn-" + "3" * 24)
+    assert no_confirmation.authority is False
+    assert confirmed.authority is False
+    assert no_confirmation.current_truth is False and confirmed.current_truth is False
+    assert no_confirmation.developmental_history_writeback_performed is False
+    assert confirmed.developmental_history_writeback_performed is False
+    assert "An assistant suggestion or recommendation is not a user-made decision" in (
+        json.loads(invoker.requests[-2].prompt)["instruction"])
+
+
 def test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history(
         tmp_path: Path) -> None:
     cognition, fake = owner(tmp_path)
@@ -5057,7 +6073,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -5087,7 +6103,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -5190,7 +6206,7 @@ def test_history_query_ranks_admitted_lesson_scope_over_recent_interpretation_te
     from sentientos import resident_developmental_cognition as cognition_module
     _, metadata, _, _, _ = cognition_module._bind_history_and_epistemic_context(
         context={"developmental_history_retrieval_policy_id":
-            "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8"},
+            "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"},
         records=(), projection=None, history_present=False)
     cognition_module._validate_developmental_history_selection({
         "developmental_history_selection": metadata["developmental_history_selection"]})
@@ -5289,10 +6305,644 @@ def test_boilerplate_history_query_falls_back_to_recent_records() -> None:
         "overheat", "sing", "morning", "nothing", "charge"}
     assert cognition_query_terms("overheating charged batteries") == {
         "overheat", "charge", "battery"}
+    assert cognition_query_terms("approved saved moved") == {
+        "approve", "save", "move"}
     projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-tick", relevance_query="What did we do with it?")
 
     assert projection.requested_record_ids == tuple(order[1:])
+
+
+def test_history_query_prefers_matching_decision_polarity_over_recency() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.cognition_retrieval import cognition_query_terms
+
+    candidates = {
+        "older-negative": {"selected_facts": [],
+            "interpretation": "I cannot approve the west sensor."},
+        "newer-positive": {"selected_facts": [],
+            "interpretation": "I approved the west sensor."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
+    ]}
+
+    negative_query = "What didn't I approve about the west sensor?"
+    positive_query = "What did I approve about the west sensor?"
+    assert "not" in cognition_query_terms(negative_query)
+    assert "didn" not in cognition_query_terms(negative_query)
+    assert "not" in cognition_query_terms(
+        "I cannot approve the west sensor.")
+
+    negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-negative", relevance_query=negative_query)
+    positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-positive", relevance_query=positive_query)
+
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
+
+
+def test_history_query_polarity_precedes_stronger_opposite_lexical_overlap() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    candidates = {
+        "older-negative": {"selected_facts": [],
+            "interpretation": (
+                "I cannot approve the west sensor after repeated calibration "
+                "failure near its north connector.")},
+        "newer-positive": {"selected_facts": [],
+            "interpretation": (
+                "I approved the west sensor after repeated calibration failure "
+                "near its north connector following full certification and "
+                "successful validation.")},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
+    ]}
+
+    negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-negative",
+        relevance_query=("Should I not approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
+    positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-positive",
+        relevance_query=("Should I approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
+
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
+
+
+def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-lesson": {"selected_facts": [], "interpretation":
+            "In a severe storm, the ridge shelter stayed dry while the valley flooded."},
+        "newer-unrelated": {"selected_facts": [], "interpretation":
+            "The orbital telescope captured a clear image of Saturn."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=self.selected)
+
+    observed = {}
+
+    def fake_encode(texts, *, model_id, revision):
+        observed["texts"] = tuple(texts)
+        observed["model"] = (model_id, revision)
+        document_vectors = [(0.99, 0.01) if "storm" in text else (0.0, 1.0)
+            for text in texts[1:]]
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=((1.0, 0.0), *document_vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-lesson"},
+        {"tick_id": "tick-1", "record_id": "newer-unrelated"},
+    ]}
+
+    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question",
+        relevance_query="Where should we shelter during a flood?")
+
+    assert selected.requested_record_ids == ("older-lesson",)
+    assert observed["model"] == ("test/local-embedder", "a" * 40)
+    policy_prefix, embedder_digest, selection_digest = (
+        selected.retrieval_policy_id.rsplit(":", 2))
+    assert policy_prefix.endswith(":v16")
+    assert embedder_digest == "d" * 64
+    assert len(selection_digest) == 64
+    assert all(character in "0123456789abcdef" for character in selection_digest)
+    assert "Where should we shelter" in observed["texts"][0]
+
+
+def test_semantic_history_samples_older_lexically_disjoint_experience(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    record_ids = [f"history-{index:04d}" for index in range(400)]
+    target_id = record_ids[100]
+    lexical_id = record_ids[207]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"Unrelated retained observation number {index}."}
+        for index, record_id in enumerate(record_ids)}
+    candidates[target_id]["interpretation"] = (
+        "The elevated basalt outpost remained dry through cyclonic rainfall.")
+    candidates[lexical_id]["interpretation"] = (
+        "The stone refuge sheltered travellers through one earlier storm.")
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, selected_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(selected_ids))
+
+    observed = {}
+
+    def fake_encode(texts, *, model_id, revision):
+        observed["texts"] = tuple(texts)
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "basalt outpost" in text
+            else (0.0, 1.0) for text in texts[1:])
+        return SimpleNamespace(identity_digest="d" * 64, vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": f"tick-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+
+    selected = None
+    embedded_texts = ()
+    for variant in range(64):
+        selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+            fake_owner, state, f"later-monsoon-query-{variant}",
+            relevance_query=("Where is the refuge during the monsoon? "
+                f"paraphrase {variant}."))
+        embedded_texts = observed["texts"][1:]
+        if any("basalt outpost" in text for text in embedded_texts):
+            break
+
+    assert selected is not None
+    assert len(embedded_texts) == 256
+    assert any("basalt outpost" in text for text in embedded_texts)
+    assert any("stone refuge" in text for text in embedded_texts)
+    assert selected.requested_record_ids == (target_id,)
+    assert selected.retrieval_policy_id is not None
+    assert selected.retrieval_policy_id.startswith(
+        "query_decision_polarity_then_semantic_then_overlap_with_"
+        "identity_bound_correction_groups_decision_contrasts_embodied_"
+        "reports_and_elliptical_session_context_then_recency_fill:v16:"
+        + "d" * 64 + ":")
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": selected.retrieval_policy_id,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
+def test_semantic_history_tick_phases_reach_complementary_older_records(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    record_ids = [f"history-{index:04d}" for index in range(400)]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"{record_id} :: unrelated orbital instrument calibration."}
+        for record_id in record_ids}
+    encoded_ids: set[str] = set()
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, selected_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(selected_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        encoded_ids.clear()
+        encoded_ids.update(text.split(" :: ", 1)[0]
+            for text in texts[1:] if text.startswith("history-")
+            and " :: " in text)
+        target_vectors = [(1.0, 0.0) if "obsidian outpost" in text
+            else (0.0, 1.0) for text in texts[1:]]
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=((1.0, 0.0), *target_vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": f"tick-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+    base_query = "Which location is a safe refuge when floodwater arrives?"
+
+    ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question-1", relevance_query=base_query)
+    first_phase_ids = set(encoded_ids)
+    omitted_target_id = next(record_id for record_id in record_ids[:208]
+        if record_id not in first_phase_ids)
+    candidates[omitted_target_id]["interpretation"] = (
+        f"{omitted_target_id} :: The obsidian outpost remained dry through "
+        "cyclonic inundation.")
+
+    omitted = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question-1", relevance_query=base_query)
+    repeated_phase_ids = set(encoded_ids)
+    assert repeated_phase_ids == first_phase_ids
+    assert omitted_target_id not in repeated_phase_ids
+    assert omitted_target_id not in omitted.requested_record_ids
+
+    recovered = None
+    for variant in range(1, 65):
+        projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+            fake_owner, state, f"later-question-variant-{variant}",
+            relevance_query=base_query)
+        assert len(encoded_ids) == 256
+        if omitted_target_id in encoded_ids:
+            recovered = projection
+            break
+
+    assert recovered is not None
+    assert recovered.requested_record_ids == (omitted_target_id,)
+    assert recovered.retrieval_policy_id is not None
+
+
+def test_indexed_semantic_history_changes_later_fake_decision_across_restart(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import re
+
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+    from sentientos.semantic_history_index import SemanticHistoryIndex
+
+    record_ids = [f"devrec-{index:024x}" for index in range(400)]
+    target_id = record_ids[100]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"record-{index:04d} :: unrelated orbital instrument calibration."}
+        for index, record_id in enumerate(record_ids)}
+    candidates[target_id]["interpretation"] = (
+        "record-0100 :: The elevated basalt outpost remained dry through cyclonic inundation.")
+    record_digests = {record_id: "sha256:" + hashlib.sha256(
+        ("record:" + record_id).encode()).hexdigest() for record_id in record_ids}
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id],
+                record_digest=record_digests[record_id])
+
+    def attach_store(cognition):
+        cognition.writeback.store = Store()
+        cognition.writeback.retrieve = lambda selected_ids, *, limit: (
+            DevelopmentalHistoryProjection(
+                records=tuple({"record_id": record_id,
+                    "record_digest": record_digests[record_id],
+                    "candidate": candidates[record_id]} for record_id in selected_ids),
+                requested_record_ids=tuple(selected_ids)))
+
+    encoded_ids: set[str] = set()
+
+    def fake_encode(texts, *, model_id, revision):
+        encoded_ids.clear()
+        vectors = [(1.0, 0.0)]
+        for text in texts[1:]:
+            match = re.search(r"record-([0-9]{4})", text)
+            if match:
+                encoded_ids.add(record_ids[int(match.group(1))])
+            vectors.append((1.0, 0.0) if "basalt outpost" in text
+                else (0.0, 1.0))
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=tuple([(1.0, 0.0), *vectors[1:]]))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    state_root = tmp_path / "state"
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+    else:
+        state_root.mkdir(mode=0o700, exist_ok=True)
+    cognition, _fake = owner(tmp_path, max_retrieved_records=1,
+        semantic_history_model_id="test/local-indexed-embedder",
+        semantic_history_model_revision="a" * 40)
+    attach_store(cognition)
+    state = {"completed_ticks": [
+        {"tick_id": f"seed-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+    query = "Which location stays safe when floodwater arrives?"
+
+    indexed_at = None
+    for tick in range(64):
+        projection = cognition._prior_projection(state, f"index-tick-{tick}",
+            relevance_query=query)
+        if target_id in encoded_ids:
+            assert projection.requested_record_ids == (target_id,)
+            indexed_at = tick
+            break
+    assert indexed_at is not None
+    index_paths = list(next(iter(cognition._semantic_history_indexes.values())).root.glob(
+        "*.json"))
+    assert index_paths
+    index_payloads = [json.loads(path.read_text(encoding="utf-8"))
+        for path in index_paths]
+    index_payload = index_payloads[0]
+    assert index_payload["authority"] is False
+    assert "record_digest" in index_payload and "text_digest" in index_payload
+    assert all("cyclonic inundation" not in path.read_text(encoding="utf-8")
+        for path in index_paths)
+    target_entry = next(item for item in index_payloads
+        if item["record_id"] == target_id)
+    index = next(iter(cognition._semantic_history_indexes.values()))
+    expected_target = {target_id: (target_entry["record_digest"],
+        target_entry["text_digest"])}
+    same_tick_vectors = index.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(
+            f"index-tick-{indexed_at}".encode()).hexdigest()).vectors
+    assert target_id not in same_tick_vectors
+    assert target_id in index.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(b"a-later-tick").hexdigest()).vectors
+    assert target_id not in index.load(expected_records={target_id: (
+        "0" * 64, target_entry["text_digest"])},
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+    other_embedder = SemanticHistoryIndex(state_root=cognition.config.state_root,
+        embedder_identity_digest="e" * 64)
+    assert target_id not in other_embedder.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+
+    later_projection = None
+    for tick in range(indexed_at + 1, indexed_at + 65):
+        projection = cognition._prior_projection(state, f"later-tick-{tick}",
+            relevance_query=query)
+        if target_id not in encoded_ids and projection.requested_record_ids == (target_id,):
+            later_projection = projection
+            later_tick_id = f"later-tick-{tick}"
+            break
+    assert later_projection is not None
+
+    def fake_model_decision(projection):
+        historical = [row["candidate"]["interpretation"]
+            for row in projection.records]
+        if any("basalt outpost" in text for text in historical):
+            return "choose the elevated dry refuge"
+        return "abstain because no relevant experience was selected"
+
+    assert fake_model_decision(later_projection) == "choose the elevated dry refuge"
+    repeated = cognition._prior_projection(state, later_tick_id,
+        relevance_query=query)
+    assert repeated.requested_record_ids == later_projection.requested_record_ids
+
+    withheld_state = {"completed_ticks": [item for item in state["completed_ticks"]
+        if item["record_id"] != target_id]}
+    withheld = cognition._prior_projection(withheld_state, "withheld-later-tick",
+        relevance_query=query)
+    assert target_id not in withheld.requested_record_ids
+    assert fake_model_decision(withheld) == (
+        "abstain because no relevant experience was selected")
+
+    restarted, _fake = owner(tmp_path, max_retrieved_records=1,
+        semantic_history_model_id="test/local-indexed-embedder",
+        semantic_history_model_revision="a" * 40)
+    attach_store(restarted)
+    restored = restarted._prior_projection(state, "restored-later-tick",
+        relevance_query=query)
+    assert target_id in restored.requested_record_ids
+    assert fake_model_decision(restored) == "choose the elevated dry refuge"
+
+
+def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    monkeypatch.setattr(semantic_embeddings, "_SEMANTIC_MODELS", {})
+    calls = {}
+
+    class FakeModel:
+        def __init__(self, model_id, **kwargs):
+            calls["load"] = (model_id, kwargs)
+
+        def encode(self, texts, **kwargs):
+            calls["encode"] = kwargs
+            return [[1.0, 0.0] for _ in texts]
+
+    monkeypatch.setattr(semantic_embeddings, "SentenceTransformer", FakeModel)
+    result = semantic_embeddings.encode_semantic(["a bounded sentence"],
+        model_id="test/local", revision="b" * 40)
+
+    assert result is not None
+    assert calls["load"][1] == {"revision": "b" * 40,
+        "local_files_only": True, "device": "cpu", "trust_remote_code": False}
+    assert calls["encode"]["device"] == "cpu"
+    assert len(result.identity_digest) == 64
+
+    class BrokenModel:
+        def encode(self, texts, **kwargs):
+            return [[float("nan"), 0.0] for _ in texts]
+
+    semantic_embeddings._SEMANTIC_MODELS[("test/broken", "c" * 40)] = BrokenModel()
+    assert semantic_embeddings.encode_semantic(["bounded sentence"],
+        model_id="test/broken", revision="c" * 40) is None
+
+
+def test_configured_semantic_failure_is_recorded_as_lexical_fallback(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-relevant": {"selected_facts": [], "interpretation":
+            "The elevated refuge stayed dry when the low valley flooded."},
+        "newer-unrelated": {"selected_facts": [], "interpretation":
+            "The telescope captured a clear image of Saturn."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    import semantic_embeddings
+    calls = []
+
+    def unavailable(texts, *, model_id, revision):
+        calls.append((tuple(texts), model_id, revision))
+        return None
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", unavailable)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-relevant"},
+        {"tick_id": "tick-1", "record_id": "newer-unrelated"}]}
+
+    projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question",
+        relevance_query="Where should we shelter during a flood?")
+
+    assert projection.requested_record_ids == ("older-relevant",)
+    assert projection.retrieval_policy_id == (
+        cognition_module.SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID)
+    assert calls and calls[0][1:] == ("test/local-embedder", "a" * 40)
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": projection.retrieval_policy_id,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
+def test_semantic_retrieval_identity_is_accepted_by_history_lineage_validator() -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": "query_decision_polarity_then_semantic_then_overlap_"
+            "with_identity_bound_correction_groups_decision_contrasts_embodied_"
+            "reports_and_elliptical_session_context_then_recency_fill:v12:" + "d" * 64,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
+def test_semantic_similarity_cannot_override_decision_polarity(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-negative": {"selected_facts": [], "interpretation":
+            "I cannot approve the west sensor after repeated calibration failure."},
+        "newer-positive": {"selected_facts": [], "interpretation":
+            "I approved the west sensor after certification and successful validation."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        # The positive, newer record is a closer vector match to the negative
+        # query. Decision polarity must still rank ahead of this similarity.
+        vectors = [(1.0, 0.0)]
+        vectors.extend([(0.99, 0.01) if "approved" in text else (0.8, 0.6)
+            for text in texts[1:]])
+        return SimpleNamespace(identity_digest="e" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local",
+            semantic_history_model_revision="f" * 40), objective_task=None)
+    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "older-negative"},
+            {"tick_id": "tick-1", "record_id": "newer-positive"}]},
+        "later-decision",
+        relevance_query="Should I not approve the west sensor after certification?")
+
+    assert selected.requested_record_ids == ("older-negative",)
+    assert selected.retrieval_policy_id is not None
 
 
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
@@ -5410,7 +7060,7 @@ def test_canonical_user_memory_is_prompt_bound_historical_context_not_evidence(
     assert result.canonical_user_memory_selection_digest == context["selection_digest"]
     observation = cognition.verified_cognition_observation(
         result.cognition_observation_id, result.cognition_observation_digest)
-    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v14"
+    assert observation["schema_version"] == "sentientos.resident_cognition_observation:v15"
     assert observation["canonical_user_memory_selection_digest"] == context["selection_digest"]
     assert observation["canonical_user_memory_record_ids"] == [
         context["records"][0]["memory_id"]]
@@ -5580,6 +7230,23 @@ def test_companion_interaction_conversation_citations_require_selected_turn_ids(
             match="companion_interaction_conversation_binding_invalid"):
         _parse_companion_interaction_output(json.dumps(payload), set(), set(),
             set(), set(), {turn_id})
+
+
+def test_historical_conversation_citations_bind_exact_selected_turn_and_digest() -> None:
+    turn_id, text_digest = "turn-" + "a" * 24, "b" * 64
+    payload = {"disposition": "answer", "response": "The earlier response said three.",
+        "evidence_ids": [], "history_record_ids": [], "memory_record_ids": [],
+        "self_model_claim_ids": [], "historical_conversation_citations": [
+            {"turn_id": turn_id, "text_digest": text_digest}]}
+    parsed = _parse_companion_interaction_output(json.dumps(payload), set(), set(),
+        set(), set(), None, None, {(turn_id, text_digest)})
+    assert parsed["historical_conversation_citations"] == payload[
+        "historical_conversation_citations"]
+    payload["historical_conversation_citations"][0]["text_digest"] = "c" * 64
+    with pytest.raises(ValueError,
+            match="companion_interaction_historical_citation_binding_invalid"):
+        _parse_companion_interaction_output(json.dumps(payload), set(), set(),
+            set(), set(), None, None, {(turn_id, text_digest)})
 
 
 def test_controlled_history_intervention_classifies_unavailable_sentinel_as_abstention() -> None:
@@ -5949,7 +7616,9 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
             session_id=session_id, request_id="hosted-cognition-request-1",
             observe_screen=True)
 
-        assert response.response == "The current observation is recorded."
+        assert response.response == (
+            "I do not have a fresh, cited observation that establishes the current "
+            "condition. Could you provide a fresh observation?")
         assert response.context["response_origin"] == "resident_developmental_cognition"
         assert response.context["developmental_history_writeback_performed"] is False
         assert len(fake.requests) == request_count_before_chat + 1
@@ -5963,7 +7632,7 @@ def test_development_chat_configuration_hosts_resident_cognition_owner(
         observation = cognition.verified_cognition_observation(
             response.context["cognition_observation_id"],
             response.context["cognition_observation_digest"])
-        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v14"
+        assert observation["schema_version"] == "sentientos.resident_cognition_observation:v15"
         assert observation["companion_history_citation_ids"] == [seed.written_record_id]
         turns = app.sessions.load(session_id)["turns"]
         assert turns[-1]["linkage"]["response_origin"] == "resident_developmental_cognition"
@@ -6085,7 +7754,9 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
           max_selected_facts: int = 1, objective_task=None,
           resource_context_owner=None, max_inference_timeout_seconds: int = 30,
           max_retrieved_records: int = 4,
-          max_inference_input_chars: int | None = None):
+          max_inference_input_chars: int | None = None,
+          semantic_history_model_id: str | None = None,
+          semantic_history_model_revision: str | None = None):
     ledger = AdmissionLedger(root / "state" / "runtime_admissions.json")
     definitions = {RESIDENT_DEVELOPMENTAL_WRITEBACK: RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}
     def current():
@@ -6100,7 +7771,9 @@ def owner(root: Path, *, comparison: bool = False, invoker: FakeInvoker | None =
         root / "history", root / "state", allowed_source_kinds, max_selected_facts,
         max_retrieved_records,
         comparison, max_inference_timeout_seconds=max_inference_timeout_seconds,
-        max_inference_input_chars=max_inference_input_chars), writeback=ctrl,
+        max_inference_input_chars=max_inference_input_chars,
+        semantic_history_model_id=semantic_history_model_id,
+        semantic_history_model_revision=semantic_history_model_revision), writeback=ctrl,
         admission_authority=RuntimeAdmissionAuthority(definitions=definitions, ledger=ledger),
         invoker=fake, current_sequence=next_sequence, objective_task=objective_task,
         resource_context_owner=resource_context_owner)
@@ -6240,7 +7913,8 @@ def _run_family_episode_in_child(root: Path, *, acquisition_request_digest: str,
         active_model_identity: Mapping[str, Any] | None = None,
         publish_session: bool = False,
         prior_request_refs: tuple[tuple[str, str], ...] = (),
-        tamper_receipt_id: str | None = None) -> Mapping[str, Any]:
+        tamper_receipt_id: str | None = None,
+        objective_mode: str = "derive_from_candidate_strategy") -> Mapping[str, Any]:
     """Run transfer in a fresh process through installation-scoped production readers.
 
     Inference itself is issued by a deterministic fixture; the persisted receipt
@@ -6271,6 +7945,7 @@ request_id, request_digest = sys.argv[3:5]
 prior_request_refs = json.loads(sys.argv[5])
 active_model_identity = json.loads(sys.argv[6])
 publish_session = sys.argv[7] == "true"
+objective_mode = sys.argv[8]
 test_path = Path.cwd() / "tests" / "test_resident_developmental_cognition.py"
 spec = importlib.util.spec_from_file_location("fixture_cognition_tests", test_path)
 module = importlib.util.module_from_spec(spec)
@@ -6279,7 +7954,9 @@ spec.loader.exec_module(module)
 invoker = module.InstallationCustodyFakeInvoker()
 invoker.active_model_identity = active_model_identity
 module._bind_fixture_installation_custody(root, invoker, publish_session=publish_session)
-invoker.objective_mode = "derive_from_admitted_family"
+# The mock model consumes only the production candidate strategy. It does not
+# inspect the private task plan or infer from raw examples in this counterfactual.
+invoker.objective_mode = objective_mode
 invoker.objective_plan_root = root / "state" / "developmental_experiments" / "protocols"
 owner, _ = module.owner(root, comparison=True, invoker=invoker,
     allowed_source_kinds=("capability_registry", "embodiment"), max_selected_facts=16)
@@ -6294,6 +7971,7 @@ try:
         request_digest=request_digest)
 except Exception as exc:
     print(json.dumps({"status": "rejected", "reason": str(exc),
+        "cause": str(exc.__cause__) if exc.__cause__ is not None else None,
         "new_invocations": len(invoker.requests)}, sort_keys=True))
     raise SystemExit(0)
 run = owner.experiments.load_run(str(result.changed_cognition_measurement_id))
@@ -6313,7 +7991,8 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
             json.dumps(prior_request_refs or (("episode-acquisition",
                 acquisition_request_digest),)),
             json.dumps(dict(active_model_identity or {})),
-            "true" if publish_session else "false"], cwd=Path(__file__).resolve().parents[1],
+            "true" if publish_session else "false", objective_mode],
+            cwd=Path(__file__).resolve().parents[1],
             capture_output=True, text=True)
         if child.returncode != 0:
             raise AssertionError("fresh-process fixture episode failed: " + child.stderr[-4000:])
@@ -6321,6 +8000,7 @@ print(json.dumps({"fresh_process": True, "fixture_only": True,
         if tampered_path is not None:
             assert result == {"status": "rejected",
                 "reason": "cognition_invocation_receipt_reconciliation_failed",
+                "cause": "historical_invocation_receipt_invalid",
                 "new_invocations": 0}
             return {"rejected_before_owner_recovery": True, "fixture_only": True}
         return result
@@ -7593,7 +9273,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
     owner._state = lambda: object()
     owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
         requested_record_ids=(), records=())
-    owner._current_projection = lambda _snapshot: object()
+    owner._current_projection = lambda _snapshot, **_kwargs: object()
 
     def cognize(**kwargs):
         captured.update(kwargs)
@@ -7629,7 +9309,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
             question="How much did it drift?", conversation_context=tampered)
 
 
-def test_question_selected_self_model_changes_later_companion_response(
+def test_question_selected_self_model_cannot_override_unknown_current_evidence(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from contextlib import nullcontext
     from datetime import datetime, timezone
@@ -7750,8 +9430,15 @@ def test_question_selected_self_model_changes_later_companion_response(
     query_prompt = json.loads(query_invoker.requests[-1].prompt)
     baseline_prompt = json.loads(baseline_invoker.requests[-1].prompt)
     assert query_result.status == baseline_result.status == "admitted_completed"
-    assert "prior self-model record reports 25 percent" in query_result.response
-    assert "selected context contains no prior measurement" in baseline_result.response
+    assert query_result.response == (
+        'A prior self-model record lists "host_resource_metrics" = '
+        '{"gpu_utilization_percent":25}. That record is historical and does not '
+        'establish the current condition. Could you provide a fresh observation '
+        'so I can compare it?')
+    assert "31 percent" not in query_result.response
+    assert baseline_result.response == (
+        "I do not have a fresh, cited observation that establishes the current "
+        "condition. Could you provide a fresh observation?")
     assert query_prompt["prior_self_model"]["selected_claim_ids"] == [relevant.claim_id]
     assert baseline_prompt["prior_self_model"] is None
     assert query_prompt["prior_self_model_prompt_selection"]["selected_claim_ids"] == [
@@ -7765,13 +9452,10 @@ def test_question_selected_self_model_changes_later_companion_response(
     assert ("Current World-State evidence with a source posture that supports the claim takes "
         "precedence over conflicting prior self-model claims, prior epistemic positions, "
         "and developmental-history interpretations") in query_prompt["instruction"]
-    assert query_result.response.startswith(
-        "The current screen reports 31 percent GPU utilization;")
     assert query_result.self_model_claim_ids == ("self-model-claim-gpu",)
     assert baseline_result.self_model_claim_ids == ()
     assert query_result.evidence_ids == tuple(
         query_invoker.requests[-1].upstream_evidence["current_fact_ids"][:1])
-    assert "prior self-model record reports 25 percent" in query_result.response
     assert baseline_prompt["prior_self_model_prompt_selection"]["policy"] == ("owner_ordered_prefix:v1")
     selected_claim = query_prompt["prior_self_model"]["selected_claims"][0]
     assert selected_claim["claim_category"] == "historical_interpretation"
@@ -7873,6 +9557,238 @@ def test_epistemic_only_prior_context_causes_real_owner_cognition(tmp_path: Path
     assert observation["authority"] is False
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="epistemic-owner fixtures require hosted Linux durable-custody paths")
+@pytest.mark.parametrize("outcome_relation", ["contradicts", "supports"])
+def test_admitted_calibration_changes_later_decision_only_when_evidence_agrees(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        outcome_relation: str) -> None:
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+    from sentientos.codex_task_authority_admission import (
+        RESIDENT_EPISTEMIC_STATE_MUTATION,
+        RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+    )
+    from sentientos.persistent_epistemic_state import (
+        make_evidence_binding, semantic_packets_for_projection,
+    )
+    from sentientos.resident_epistemic_calibration_authority import (
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    )
+    from sentientos.resident_epistemic_development import (
+        EpistemicDevelopmentConfig, EpistemicDevelopmentRule,
+        ResidentEpistemicDevelopmentRuntime,
+    )
+    from sentientos.resident_epistemic_state_mutation import (
+        ResidentEpistemicStateMutationController,
+    )
+    from sentientos.runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+
+    class CalibrationAwareInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            schema = request.structured_output_schema or {}
+            if "disposition" in schema.get("required", ()):
+                prompt = json.loads(request.prompt)
+                prior = prompt.get("prior_epistemic_state") or {}
+                packets = prior.get("semantic_packets", ())
+                outcomes = [outcome for packet in packets
+                    for outcome in packet.get("calibration_outcomes", ())]
+                state_ids = [packet["state"]["state_id"] for packet in packets]
+                response = ("The earlier forecast was contradicted by its bound "
+                    "outcome; I should not repeat that position as reliable without "
+                    "fresh support." if any(item.get("comparison_result") == "contradicted"
+                        and item.get("evidence_consistency") ==
+                            "consistent_with_bound_current_evidence"
+                        for item in outcomes) else
+                    "The earlier position has no calibrated outcome yet, so its "
+                    "reliability remains unresolved.")
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": ["__CURRENT_FACT__"],
+                    "history_record_ids": [], "epistemic_state_ids": state_ids}
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 1, 1, 0, 4, tzinfo=timezone.utc)
+    forecast_tick = int(datetime(2026, 1, 1, 0, 0,
+        tzinfo=timezone.utc).timestamp())
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    proposition = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_measurement",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={"window": "trial-west"}, context_scope={},
+        proposition_class="predictive",
+        statement="The west sensor will report a stable measurement.")
+    epistemic.register_proposition(proposition)
+    forecast_evidence = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="forecast-source",
+        source_digest="sha256:" + "a" * 64,
+        source_schema="sentientos.test_forecast:v1",
+        source_class="independent_fixture",
+        observation_time="2026-01-01T00:00:00Z",
+        evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="forecast-source", upstream_binding_ids=(),
+        freshness="current", reliability_posture="supports")
+    epistemic.bind_evidence(forecast_evidence)
+    state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="initialization", active_binding_ids=(forecast_evidence.binding_id,),
+        added_binding_ids=(forecast_evidence.binding_id,),
+        correlation_id="calibrated-forecast", tick=forecast_tick,
+        recorded_at="2026-01-01T00:00:00Z")
+    outcome_evidence = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="outcome-source",
+        source_digest="sha256:" + "b" * 64,
+        source_schema="sentientos.test_outcome:v1",
+        source_class="independent_fixture",
+        observation_time="2026-01-01T00:01:00Z",
+        evidence_relation=outcome_relation,
+        dependency_kind="independently_sourced_observation",
+        dependency_group="outcome-source", upstream_binding_ids=(),
+        freshness="current", reliability_posture="contradicts")
+    epistemic.bind_evidence(outcome_evidence)
+    outcome_state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=state.state_digest,
+        stance=("contested" if outcome_relation == "contradicts"
+            else "provisionally_supported"),
+        reason="new_evidence",
+        active_binding_ids=(forecast_evidence.binding_id,
+            outcome_evidence.binding_id),
+        added_binding_ids=(outcome_evidence.binding_id,),
+        correlation_id="independent-outcome-observation",
+        tick=forecast_tick + 60, recorded_at="2026-01-01T00:01:00Z")
+    calibration = epistemic.record_calibration(
+        proposition_id=proposition.proposition_id,
+        forecast_artifact_id="forecast-artifact",
+        forecast_state_digest=state.state_digest,
+        observed_outcome_id="observed-outcome-1",
+        comparison_result="contradicted",
+        source_binding_ids=(outcome_evidence.binding_id,),
+        resolved_at="2026-01-01T00:01:00Z")
+
+    ledger = AdmissionLedger(tmp_path / "admissions.json")
+    definitions = {
+        RESIDENT_EPISTEMIC_STATE_MUTATION:
+            RESIDENT_EPISTEMIC_STATE_MUTATION_DEFINITION,
+        RESIDENT_EPISTEMIC_CALIBRATION_REVIEW:
+            RESIDENT_EPISTEMIC_CALIBRATION_REVIEW_DEFINITION,
+    }
+
+    def current_sequence() -> int:
+        admissions, revocations = ledger.load()
+        return max([item.issued_sequence for item in admissions]
+            + [item.sequence for item in revocations], default=1)
+
+    verifier = RuntimeAdmissionVerifier(definitions=definitions, ledger=ledger)
+    mutation_controller = ResidentEpistemicStateMutationController(
+        owner=epistemic, admission_verifier=verifier,
+        current_sequence=current_sequence,
+        receipt_root=tmp_path / "epistemic-receipts")
+    rule = EpistemicDevelopmentRule(
+        "west-sensor-calibration", proposition.proposition_id,
+        proposition.proposition_digest,
+        {"source_kind": "independent_fixture", "subject_id": "sensor:west"},
+        "contradicts", "independently_sourced_observation", "contradicts",
+        independence_basis="separate deterministic outcome fixture")
+    runtime = ResidentEpistemicDevelopmentRuntime(
+        config=EpistemicDevelopmentConfig(True, 8, 4, (rule,), ("embodiment",)),
+        owner=epistemic, mutation_controller=mutation_controller,
+        admission_authority=RuntimeAdmissionAuthority(
+            definitions=definitions, ledger=ledger), admission_ledger=ledger,
+        calibration_review_verifier=verifier)
+
+    question = "How should I treat the west sensor's earlier forecast?"
+    baseline_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=forecast_tick + 120, relevance_query=question)
+    assert baseline_projection is not None
+    assert baseline_projection.schema_version == "sentientos.epistemic_cognitive_projection:v5"
+    [withheld_packet] = semantic_packets_for_projection(baseline_projection)
+    assert withheld_packet["calibration_outcomes"] == []
+    assert withheld_packet["omitted_calibration_count"] == 1
+    review = runtime.process_calibration_event(
+        calibration_id=calibration.calibration_id,
+        expected_calibration_digest=calibration.calibration_digest,
+        rule_id=rule.rule_id, tick=forecast_tick + 180,
+        recorded_at="2026-01-01T00:03:00Z")
+    reviewed_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=forecast_tick + 240, relevance_query=question)
+    assert reviewed_projection is not None
+    [reviewed_packet] = semantic_packets_for_projection(reviewed_projection)
+    if outcome_relation == "contradicts":
+        assert review.status == "state_advanced"
+        assert reviewed_packet["calibration_outcomes"][0][
+            "evidence_consistency"] == "consistent_with_bound_current_evidence"
+        assert epistemic.current_state(proposition.proposition_id).generation == 2
+    else:
+        assert review.status == "calibration_unresolved"
+        assert reviewed_packet["calibration_outcomes"] == []
+        assert reviewed_packet["omitted_calibration_count"] == 1
+        assert epistemic.current_state(proposition.proposition_id).generation == 1
+    cognition, invoker = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), invoker=CalibrationAwareInvoker())
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen",
+        "text": "A bounded fixture observation; no external fact is asserted.",
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    monkeypatch.setattr(epistemic, "cognitive_projection",
+        lambda **_kwargs: baseline_projection)
+    control = bridge.respond(request_id="calibration-withheld-control",
+        question=question, screen_observation=screen)
+    monkeypatch.setattr(epistemic, "cognitive_projection",
+        lambda **_kwargs: reviewed_projection)
+    calibrated = bridge.respond(request_id="calibration-present-followup",
+        question=question, screen_observation=screen)
+
+    control_request, calibrated_request = invoker.requests[-2:]
+    control_prompt = json.loads(control_request.prompt)
+    calibrated_prompt = json.loads(calibrated_request.prompt)
+    [calibrated_packet] = calibrated_prompt["prior_epistemic_state"][
+        "semantic_packets"]
+    [control_packet] = control_prompt["prior_epistemic_state"][
+        "semantic_packets"]
+    assert control_packet["calibration_outcomes"] == []
+    assert control_packet["omitted_calibration_count"] == 1
+    if outcome_relation == "contradicts":
+        assert calibrated_packet["calibration_outcomes"][0][
+            "calibration_id"] == calibration.calibration_id
+        assert "bound outcome" in calibrated.response
+        assert calibrated.response != control.response
+        assert calibrated_request.upstream_evidence["epistemic_state_ids"] == [
+            epistemic.current_state(proposition.proposition_id).state_id]
+    else:
+        assert calibrated_packet["calibration_outcomes"] == []
+        assert calibrated_packet["omitted_calibration_count"] == 1
+        assert "reliability remains unresolved" in calibrated.response
+        assert calibrated.response == control.response
+    assert control_request.upstream_evidence["epistemic_state_ids"] == [
+        outcome_state.state_id]
+    if outcome_relation == "contradicts":
+        assert "evidence_consistency is consistent_with_bound_current_evidence" in (
+            calibrated_prompt["instruction"])
+    else:
+        assert "evidence_consistency is consistent_with_bound_current_evidence" not in (
+            calibrated_prompt["instruction"])
+    assert calibrated.authority is control.authority is False
+    assert epistemic.current_state(proposition.proposition_id).generation == (
+        2 if outcome_relation == "contradicts" else 1)
+
+
 def test_self_model_and_epistemic_context_run_one_ordinary_condition(tmp_path: Path) -> None:
     epistemic, _, _ = epistemic_projection(tmp_path / "epistemic")
     self_model = self_model_projection(tmp_path / "self-model")
@@ -7948,7 +9864,7 @@ def test_history_comparison_keeps_self_model_and_epistemic_bindings_constant(tmp
     durable = [json.loads(path.read_text(encoding="utf-8"))
         for path in restarted.observations_root.glob("*.json")]
     by_request = {row["request_id"]: row for row in durable}
-    assert all(by_request[request.request_id]["schema_version"].endswith(":v14")
+    assert all(by_request[request.request_id]["schema_version"].endswith(":v15")
         and by_request[request.request_id]["developmental_history_selection"]
             == request.upstream_evidence["developmental_history_selection"]
         for request in cognition)
@@ -8020,6 +9936,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decoy.written_record_id != initial.written_record_id
 
     fake = FakeInvoker()
+    fake.active_model_identity = {"provider": "fixture", "model": "model-a"}
     proposals = {
         "history_present": {"disposition": "answer",
             "response": '{"requested_pose":"idle","predicted_pose":"idle"}',
@@ -8037,6 +9954,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     fake.companion_output_by_condition = proposals
     source = snapshot(2)
     compared_owner, _ = owner(tmp_path / "cognition", comparison=True, invoker=fake,
+        allowed_source_kinds=("capability_registry", "embodiment"),
         max_inference_timeout_seconds=90)
     with pytest.raises(ResidentDevelopmentalCognitionError,
             match="history_record_allowlist_not_admitted"):
@@ -8084,6 +10002,236 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert decision_audit[1]["disposition_normalization"] == (
         "history_unavailable_sentinel_means_abstention")
     assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_audit)
+    decision_records = compared_owner.experiments.world_state_records(run_refs=((
+        persisted_run["run_id"], persisted_run["run_digest"]),))
+    assert len(decision_records) == 1
+    decision_world = WorldStateBoardBuilder().build(decision_records)
+    projection_owner, _ = owner(tmp_path / "cognition", invoker=fake,
+        allowed_source_kinds=("embodiment",))
+    decision_writeback = projection_owner.run_tick(snapshot=decision_world,
+        tick_id="companion-decision-projection-writeback")
+    assert decision_writeback.written_record_id
+    contrast_record_id = decision_writeback.written_record_id
+    contrast_record = projection_owner.writeback.store.get(contrast_record_id)
+    contrast_index_terms = _historical_embodiment_retrieval_text(
+        contrast_record.candidate,
+        target_model_identity=fake.active_model_identity)
+    assert any("history decision proposal response disposition comparison" in term
+        for term in contrast_index_terms)
+    contrast_retrieval_owner, contrast_retrieval_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    contrast_retrieval_fake.active_model_identity = dict(fake.active_model_identity)
+    newer_unrelated_ids = []
+    for index in range(4):
+        contrast_retrieval_fake.history_interpretation = (
+            f"An unrelated astronomy observation about stars {index}.")
+        unrelated = contrast_retrieval_owner.run_tick(
+            snapshot=snapshot(30 + index),
+            tick_id=f"decision-contrast-retrieval-unrelated-{index}")
+        assert unrelated.written_record_id
+        newer_unrelated_ids.append(unrelated.written_record_id)
+    contrast_retrieval_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    contrast_question = (
+        "What did the history decision comparison reveal about response "
+        "disposition and restoration stability?")
+    contrast_retrieval = contrast_retrieval_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="retrieve-old-decision-contrast",
+        question=contrast_question)
+    assert contrast_record_id in contrast_retrieval.prior_record_ids
+    assert newer_unrelated_ids[0] not in contrast_retrieval.prior_record_ids
+    contrast_retrieval_prompt = json.loads(
+        contrast_retrieval_fake.requests[-1].prompt)
+    assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_"
+        "embodied_reports_and_elliptical_session_context_then_recency_fill:v11")
+
+    other_identity_owner, other_identity_fake = owner(
+        tmp_path / "cognition", invoker=FakeInvoker(),
+        allowed_source_kinds=("capability_registry", "embodiment"))
+    other_identity_fake.active_model_identity = {
+        "provider": "fixture", "model": "model-b"}
+    other_identity_fake.companion_output_override = {
+        "disposition": "answer", "response": "Prior comparison considered.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    other_identity_retrieval = other_identity_owner.run_companion_interaction(
+        snapshot=decision_world, request_id="other-model-does-not-retrieve-contrast",
+        question=contrast_question)
+    assert contrast_record_id not in other_identity_retrieval.prior_record_ids
+    assert set(newer_unrelated_ids[1:]).issubset(
+        set(other_identity_retrieval.prior_record_ids))
+    assert any(decision_audit[0]["response_digest"] in item.prompt
+        for item in fake.requests)
+    decision_memory = projection_owner.writeback.store.get(
+        decision_writeback.written_record_id)
+    decision_facts = [item for item in decision_memory.candidate["selected_facts"]
+        if item["payload"].get("history_decision_contrast")]
+    assert len(decision_facts) == 1
+    decision_contrast = decision_facts[0]["payload"]["history_decision_contrast"]
+    assert decision_facts[0]["payload"]["active_model_identity_digest"] == (
+        "sha256:" + digest_payload(fake.active_model_identity))
+    assert decision_contrast["schema_version"] == "sentientos.history_decision_contrast:v1"
+    assert decision_contrast["classification"] == (
+        "owner_verified_condition_rows_retained_for_interpretation")
+    assert [item["condition_id"] for item in decision_contrast["conditions"]] == [
+        "history_present", "history_withheld", "history_restored"]
+    assert [item["response_digest"] for item in decision_contrast["conditions"]] == [
+        item["response_digest"] for item in decision_audit]
+    assert [item["history_record_ids"] for item in decision_contrast["conditions"]] == [
+        item["history_record_ids"] for item in decision_audit]
+    assert decision_contrast["current_truth"] is False
+    assert decision_contrast["authority"] is False
+    assert decision_contrast["action_executed"] is False
+    assert decision_contrast["performance_improvement_established"] is False
+    assert "HISTORY_UNAVAILABLE" not in json.dumps(decision_contrast)
+    assert "response" not in decision_contrast["conditions"][0]
+    contrast_context_payload = {
+        "interpretation_projection": {"schema_version":
+            "sentientos.developmental_history_interpretation_projection:v2"},
+        "history_decision_contrast": decision_contrast,
+        "active_model_identity_digest": "sha256:" + digest_payload(
+            fake.active_model_identity),
+        "conditions": persisted_run["conditions"],
+    }
+    stable_pattern = _history_decision_contrast_context(
+        contrast_context_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert stable_pattern["proposal_fingerprint_relation"] == (
+        "history_associated_difference_restoration_stable")
+    assert stable_pattern["present_withheld_history_citations_differ"] is True
+    citation_only_payload = copy.deepcopy(contrast_context_payload)
+    citation_only_conditions = citation_only_payload[
+        "history_decision_contrast"]["conditions"]
+    for item in citation_only_conditions:
+        item["response_digest"] = citation_only_conditions[0]["response_digest"]
+        item["disposition"] = "abstain"
+    citation_only_pattern = _history_decision_contrast_context(
+        citation_only_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert citation_only_pattern["proposal_fingerprint_relation"] == (
+        "no_difference_observed")
+    assert citation_only_pattern["present_withheld_history_citations_differ"] is True
+    unstable_payload = copy.deepcopy(contrast_context_payload)
+    unstable_conditions = unstable_payload[
+        "history_decision_contrast"]["conditions"]
+    unstable_conditions[2]["response_digest"] = "f" * 64
+    unstable_pattern = _history_decision_contrast_context(
+        unstable_payload,
+        target_model_identity=fake.active_model_identity)["decision_pattern"]
+    assert unstable_pattern["proposal_fingerprint_relation"] == (
+        "restoration_unstable")
+    # Reconstruct a later history-conditioned cognition run. The retained
+    # contrast should reach the matching model in present/restored conditions,
+    # while the controlled withheld condition receives no history packet.
+    class ContrastApplyingFakeInvoker(FakeInvoker):
+        @staticmethod
+        def _decision_for_prompt(prompt):
+            reports = prompt.get("historical_embodiment_reports", ())
+            patterns = [report.get("reported_values", {}).get(
+                "history_intervention_result", {}).get(
+                    "history_decision_contrast", {}).get("decision_pattern", {})
+                for report in reports if isinstance(report, Mapping)]
+            relation = next((pattern.get("proposal_fingerprint_relation")
+                for pattern in patterns if isinstance(pattern, Mapping)
+                and pattern.get("proposal_fingerprint_relation") is not None), None)
+            if relation != "history_associated_difference_restoration_stable":
+                return {
+                    "disposition": "ask",
+                    "response": "No restoration-stable proposal difference is available.",
+                    "evidence_ids": [], "history_record_ids": [],
+                }
+            return {
+                "disposition": "answer",
+                "response": ("A prior restoration-stable history comparison changed "
+                    "the recorded proposal fingerprint; it did not establish correctness."),
+                "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+            }
+
+        def invoke(self, request, **kwargs):
+            if (request.purpose
+                    == "resident_developmental_history_intervention_experiment"):
+                prompt = json.loads(request.prompt)
+                condition_id = request.linkage.get("condition_id")
+                self.companion_output_by_condition[condition_id] = (
+                    self._decision_for_prompt(prompt))
+            return super().invoke(request, **kwargs)
+
+    followup_fake = ContrastApplyingFakeInvoker()
+    followup_fake.active_model_identity = dict(fake.active_model_identity)
+    followup_owner, _ = owner(tmp_path / "cognition", comparison=True,
+        invoker=followup_fake, allowed_source_kinds=("embodiment",))
+    followup = followup_owner.run_companion_history_intervention(
+        snapshot=source, tick_id="companion-decision-apply-retained-contrast",
+        question="Use the retained decision comparison as context for this proposal.",
+        history_record_allowlist=(decision_writeback.written_record_id,))
+    followup_requests = [request for request in followup_fake.requests
+        if request.purpose == "resident_developmental_history_intervention_experiment"
+        and request.linkage.get("condition_id") in {
+            "history_present", "history_withheld", "history_restored"}]
+    assert len(followup_requests) == 3
+    followup_contexts = [json.loads(request.prompt) for request in followup_requests]
+    present_context, withheld_context, restored_context = followup_contexts
+    assert "A history_decision_contrast is a digest-bound comparison" in (
+        present_context["instruction"])
+    assert "citation differences alone are not a proposal difference" in (
+        present_context["instruction"])
+    assert "A history_decision_contrast is a digest-bound comparison" not in (
+        withheld_context["instruction"])
+    for context in (present_context, restored_context):
+        embodiment_packets = context.get("historical_embodiment_reports", [])
+        contrast_packets = [report.get("reported_values", {}).get(
+            "history_intervention_result", {}).get("history_decision_contrast")
+            for report in embodiment_packets]
+        contrast_packets = [packet for packet in contrast_packets if packet is not None]
+        assert len(contrast_packets) == 1
+        assert contrast_packets[0]["model_identity_relation"] == (
+            "same_active_model_identity")
+        assert contrast_packets[0]["current_truth"] is False
+        assert contrast_packets[0]["authority"] is False
+        assert contrast_packets[0]["performance_improvement_established"] is False
+        pattern = contrast_packets[0]["decision_pattern"]
+        assert pattern["schema_version"] == "sentientos.history_decision_pattern:v2"
+        assert pattern["present_restored_response_digest_match"] is True
+        assert pattern["present_withheld_response_digest_differs"] is True
+        assert pattern["present_restored_disposition_match"] is True
+        assert pattern["present_withheld_disposition_differs"] is True
+        assert pattern["proposal_fingerprint_relation"] == (
+            "history_associated_difference_restoration_stable")
+        assert pattern["interpretation_posture"] == (
+            "proposal_association_only_outcome_quality_unmeasured")
+        assert "HISTORY_UNAVAILABLE" not in json.dumps(contrast_packets[0])
+    assert not any(report.get("reported_values", {}).get(
+        "history_intervention_result", {}).get("history_decision_contrast")
+        for report in withheld_context.get("historical_embodiment_reports", []))
+    assert followup.restored_prompt_matches is True
+    followup_present, followup_withheld, followup_restored = followup.conditions
+    assert followup_present["response"] == followup_restored["response"]
+    assert "did not establish correctness" in followup_present["response"]
+    assert followup_present["disposition"] == followup_restored["disposition"] == "answer"
+    assert followup_present["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_restored["history_record_ids"] == (
+        decision_writeback.written_record_id,)
+    assert followup_withheld["disposition"] == "ask"
+    assert followup_withheld["history_record_ids"] == ()
+    neutral_context = copy.deepcopy(present_context)
+    neutral_report = neutral_context["historical_embodiment_reports"][0]
+    neutral_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "no_difference_observed"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        neutral_context)["disposition"] == "ask"
+    unstable_context = copy.deepcopy(present_context)
+    unstable_report = unstable_context["historical_embodiment_reports"][0]
+    unstable_report["reported_values"]["history_intervention_result"][
+        "history_decision_contrast"]["decision_pattern"][
+            "proposal_fingerprint_relation"] = "restoration_unstable"
+    assert ContrastApplyingFakeInvoker._decision_for_prompt(
+        unstable_context)["disposition"] == "ask"
     assert all(item["snapshot_digest"] == source.digest for item in result.conditions)
     matched_controls = [item["matched_control_inputs"] for item in result.conditions]
     assert matched_controls[0] == matched_controls[1] == matched_controls[2]
@@ -8092,11 +10240,11 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     assert matched_controls[0]["question_digest"] == "sha256:" + digest_payload({
         "question": "For the synthetic avatar, choose the next pose and predict "
             "its encoder pose. Return JSON with requested_pose and predicted_pose."})
-    assert all(request.budget.timeout_seconds == 90 for request in fake.requests)
     intervention_requests = [request for request in fake.requests
         if request.purpose == "resident_developmental_history_intervention_experiment"
         and request.linkage.get("condition_id") in
             {"history_present", "history_withheld", "history_restored"}]
+    assert all(request.budget.timeout_seconds == 90 for request in intervention_requests)
     assert [request.linkage["condition_id"] for request in intervention_requests] == [
         "history_present", "history_withheld", "history_restored"]
     assert all(item["prompt_digest"] == "sha256:" + request.prompt_digest
@@ -8123,7 +10271,9 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         json.loads(path.read_text(encoding="utf-8"))
         for path in compared_owner.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id")
-            in {"history_present", "history_withheld", "history_restored"}]
+            in {"history_present", "history_withheld", "history_restored"}
+            and json.loads(path.read_text(encoding="utf-8")).get("tick_id")
+                == "companion-decision-1"]
     assert len(intervention_observations) == 3
     assert all(item["companion_history_citation_ids"] == []
         for item in intervention_observations)
@@ -8205,6 +10355,7 @@ def test_retrieved_experience_changes_later_companion_recommendation_with_restor
     # Reconstruct the owner to ensure the later recommendation consumes durable
     # experience rather than an in-memory object from the acquisition call.
     application_fake = HistoryApplyingFakeInvoker()
+    # A one-record budget makes semantic reranking compete against recency.
     application_owner, _ = owner(tmp_path / "cognition", comparison=True,
         invoker=application_fake)
     result = application_owner.run_companion_history_intervention(
@@ -8224,6 +10375,98 @@ def test_retrieved_experience_changes_later_companion_recommendation_with_restor
     assert withheld["retrieved_record_ids"] == []
     assert result.response_text_classification == (
         "history_presence_associated_stable_response_text_difference")
+    assert result.restored_prompt_matches is True
+    assert result.authority is False and result.action_authority is False
+    assert result.canonical_explicit_user_retention_mutated is False
+
+
+def test_semantically_retrieved_experience_changes_later_response_with_restoration(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    relevant_text = (
+        "After torrential rainfall the elevated stone refuge stayed dry while "
+        "lowland camps flooded.")
+    acquisition_fake = FakeInvoker()
+    acquisition_owner, _ = owner(tmp_path / "cognition", invoker=acquisition_fake)
+    acquisition_fake.history_interpretation = relevant_text
+    relevant = acquisition_owner.run_tick(snapshot=snapshot(),
+        tick_id="semantic-history-relevant-experience")
+    assert relevant.written_record_id
+
+    def fake_encode(texts, *, model_id, revision):
+        vectors = [(1.0, 0.0)]
+        vectors.extend([(0.99, 0.01) if "elevated stone refuge" in text
+            else (0.0, 1.0) for text in texts[1:]])
+        return SimpleNamespace(identity_digest="a" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+
+    class HistoryApplyingFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            condition = request.linkage.get("condition_id")
+            if (request.purpose == "resident_developmental_history_intervention_experiment"
+                    and condition in {"history_present", "history_withheld",
+                        "history_restored"}):
+                prompt = json.loads(request.prompt)
+                history = prompt.get("developmental_history", [])
+                interpretations = " ".join(str(row.get("interpretation", ""))
+                    for row in history if isinstance(row, Mapping))
+                if "elevated stone refuge" in interpretations:
+                    decision = {"disposition": "answer",
+                        "response": "Use the elevated refuge during a flood.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"]}
+                else:
+                    decision = {"disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": []}
+                self.companion_output_by_condition[condition] = decision
+            return super().invoke(request, **kwargs)
+
+    application_fake = HistoryApplyingFakeInvoker()
+    application_owner, _ = owner(tmp_path / "cognition", comparison=True,
+        invoker=application_fake,
+        max_retrieved_records=1,
+        semantic_history_model_id="test/local-embedder",
+        semantic_history_model_revision="b" * 40)
+    intervening_ids = tuple(f"fixture-decoy-{index:03d}" for index in range(192))
+    load_state = application_owner._state
+    def state_with_long_history():
+        state = load_state()
+        state["completed_ticks"] = [
+            {"tick_id": "semantic-history-relevant-experience",
+                "record_id": relevant.written_record_id},
+            *({"tick_id": f"fixture-tick-{index:03d}",
+                "record_id": record_id} for index, record_id in enumerate(intervening_ids)),
+        ]
+        return state
+    application_owner._state = state_with_long_history
+    store_get = application_owner.writeback.store.get
+    def get_with_intervening_decoys(record_id):
+        if record_id in intervening_ids:
+            return SimpleNamespace(candidate={"selected_facts": [],
+                "interpretation": "A newer retained observation about an unrelated cloud chamber."})
+        return store_get(record_id)
+    monkeypatch.setattr(application_owner.writeback.store, "get",
+        get_with_intervening_decoys)
+    result = application_owner.run_companion_history_intervention(
+        snapshot=snapshot(3), tick_id="semantic-history-application",
+        question="Where was the safe place during the water emergency?")
+
+    assert result.response_text_classification == (
+        "history_presence_associated_stable_response_text_difference")
+    present, withheld, restored = result.conditions
+    assert present["response"] == restored["response"] == (
+        "Use the elevated refuge during a flood.")
+    assert withheld["response"] == (
+        "No applicable retained experience is available.")
+    assert present["retrieved_record_ids"] == restored["retrieved_record_ids"] == [
+        relevant.written_record_id]
+    assert withheld["retrieved_record_ids"] == []
+    assert not set(intervening_ids).intersection(present["retrieved_record_ids"])
     assert result.restored_prompt_matches is True
     assert result.authority is False and result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
@@ -8278,6 +10521,86 @@ def test_companion_bridge_runs_existing_matched_history_intervention_on_fresh_sc
     assert result.authority is False
     assert result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
+
+
+def test_operator_feedback_v5_binds_verified_target_state_ids() -> None:
+    from sentientos.developmental_companion_bridge import (
+        DevelopmentalCompanionBridgeError, make_operator_feedback_record,
+    )
+    from sentientos.resident_developmental_cognition import (
+        _historical_operator_feedback_context,
+    )
+
+    feedback = make_operator_feedback_record(
+        "The cited measurement was incorrect.",
+        request_id="state-bound-feedback",
+        assistant_turn_id="turn-" + "b" * 24,
+        assistant_response_digest="f" * 64,
+        source_capture_digest="b" * 64,
+        followup_capture_digest="d" * 64,
+        observed_at=datetime.now(timezone.utc).isoformat(),
+        conversation_citation_ids=("turn-" + "a" * 24,),
+        conversation_citation_digests=("c" * 64,),
+        conversation_session_id="session-" + "c" * 24,
+        correction_target_turn_id="turn-" + "a" * 24,
+        correction_target_epistemic_state_ids=("epistemic-state:" + "9" * 24,))
+    assert feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v5")
+    assert feedback["payload"]["correction_target"] == {
+        "turn_id": "turn-" + "a" * 24,
+        "text_digest": "c" * 64,
+        "epistemic_state_citation_ids": ["epistemic-state:" + "9" * 24],
+    }
+    assert feedback["payload"]["evidence_posture"] == "operator_assertion_unverified"
+    assert all(value is False for value in feedback["payload"]["authority"].values())
+    fact_id = "devfact-" + "e" * 24
+    candidate = {
+        "selected_fact_ids": [fact_id],
+        "selected_facts": [{
+            "fact_id": fact_id,
+            "source": {
+                "kind": feedback["source_kind"],
+                "source_id": feedback["source_id"],
+                "schema_version": feedback["schema_version"],
+                "digest": "a" * 64,
+            },
+            "subject": {
+                "subject_id": feedback["subject_id"],
+                "subject_kind": feedback["subject_kind"],
+            },
+            "stage": feedback["stage"],
+            "disposition": feedback["disposition"],
+            "evidence_strength": feedback["evidence_strength"],
+            "effect_claimed": feedback["effect_claimed"],
+            "effect_proven": feedback["effect_proven"],
+            "payload": feedback["payload"],
+            "observed_at": feedback["observed_at"],
+        }],
+    }
+    projected = _historical_operator_feedback_context(candidate)
+    assert len(projected) == 1
+    assert projected[0]["correction_target"][
+        "epistemic_state_citation_ids"] == ["epistemic-state:" + "9" * 24]
+    tampered_candidate = copy.deepcopy(candidate)
+    tampered_candidate["selected_facts"][0]["payload"]["correction_target"][
+        "epistemic_state_citation_ids"] = ["unverified-state-id"]
+    assert _historical_operator_feedback_context(tampered_candidate) == []
+
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_contract_invalid"):
+        make_operator_feedback_record(
+            "The cited measurement was incorrect.",
+            request_id="invalid-state-bound-feedback",
+            assistant_turn_id="turn-" + "b" * 24,
+            assistant_response_digest="f" * 64,
+            source_capture_digest="b" * 64,
+            followup_capture_digest="d" * 64,
+            observed_at=datetime.now(timezone.utc).isoformat(),
+            conversation_citation_ids=("turn-" + "a" * 24,),
+            conversation_citation_digests=("c" * 64,),
+            conversation_session_id="session-" + "c" * 24,
+            correction_target_turn_id="turn-" + "a" * 24,
+            correction_target_epistemic_state_ids=("unverified-state-id",))
 
 
 def test_operator_feedback_provenance_survives_writeback_and_changes_later_response(
@@ -8340,6 +10663,14 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
                             and matching_cited_turn.get("turn_id") in current_turn_ids):
                         self.companion_output_override["conversation_turn_ids"] = [
                             matching_cited_turn["turn_id"]]
+                    if (isinstance(matching_cited_turn, Mapping)
+                            and "historical_conversation_citations" in
+                                schema.get("required", ())
+                            and matching_cited_turn.get("turn_id") not in current_turn_ids):
+                        self.companion_output_override[
+                            "historical_conversation_citations"] = [{
+                                "turn_id": matching_cited_turn["turn_id"],
+                                "text_digest": matching_cited_turn["text_digest"]}]
                 else:
                     self.companion_output_override = {
                         "disposition": "abstain",
@@ -8395,6 +10726,26 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         {"turn_id": cited_turn_id, "text_digest": cited_turn_digest}]
     assert feedback["payload"]["correction_target"] == {
         "turn_id": cited_turn_id, "text_digest": cited_turn_digest}
+    challenged_state_id = "epistemic-state:" + "9" * 24
+    state_bound_feedback = make_operator_feedback_record(
+        feedback_text, request_id="cycle-feedback-state-bound",
+        assistant_turn_id="turn-" + "b" * 24,
+        assistant_response_digest="f" * 64,
+        source_capture_digest="b" * 64,
+        followup_capture_digest=screen["capture_digest"],
+        observed_at=now.isoformat(),
+        conversation_citation_ids=(cited_turn_id,),
+        conversation_citation_digests=(cited_turn_digest,),
+        conversation_session_id="session-" + "c" * 24,
+        correction_target_turn_id=cited_turn_id,
+        correction_target_epistemic_state_ids=(challenged_state_id,))
+    assert state_bound_feedback["payload"]["schema_version"] == (
+        "sentientos.local_operator_feedback:v5")
+    assert state_bound_feedback["payload"]["correction_target"] == {
+        "turn_id": cited_turn_id,
+        "text_digest": cited_turn_digest,
+        "epistemic_state_citation_ids": [challenged_state_id],
+    }
     with pytest.raises(DevelopmentalCompanionBridgeError,
             match="operator_feedback_contract_invalid"):
         make_operator_feedback_record(
@@ -8408,6 +10759,20 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
             conversation_citation_digests=(cited_turn_digest,),
             conversation_session_id="session-" + "c" * 24,
             correction_target_turn_id="turn-" + "e" * 24)
+    with pytest.raises(DevelopmentalCompanionBridgeError,
+            match="operator_feedback_contract_invalid"):
+        make_operator_feedback_record(
+            feedback_text, request_id="cycle-feedback-invalid-state-id",
+            assistant_turn_id="turn-" + "b" * 24,
+            assistant_response_digest="f" * 64,
+            source_capture_digest="b" * 64,
+            followup_capture_digest=screen["capture_digest"],
+            observed_at=now.isoformat(),
+            conversation_citation_ids=(cited_turn_id,),
+            conversation_citation_digests=(cited_turn_digest,),
+            conversation_session_id="session-" + "c" * 24,
+            correction_target_turn_id=cited_turn_id,
+            correction_target_epistemic_state_ids=("unverified-state-id",))
 
     cycle = bridge.run_developmental_cycle(
         tick_id="operator-confirmed-cycle-1", screen_observation=screen,
@@ -8434,6 +10799,17 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
             screen_observation=screen)
         assert filler.written_record_id is not None
         filler_ids.append(filler.written_record_id)
+
+    # The subsequent answer must use durable writeback/retrieval after the
+    # resident cognition owner and its bridge have both been reconstructed.
+    prior_cognition = cognition
+    prior_fake = fake
+    fake = FeedbackConditionedInvoker()
+    cognition, fake = owner(tmp_path / "operator-cycle", invoker=fake,
+        allowed_source_kinds=("embodiment", "operator_input"), max_selected_facts=2)
+    assert cognition is not prior_cognition
+    assert fake is not prior_fake
+    bridge = ResidentDevelopmentalCompanionBridge(cognition, clock=lambda: now)
     later = bridge.respond(request_id="later-cognition-cycle",
         question="What did the earlier operator report say about the candles?",
         screen_observation=screen)
@@ -8512,10 +10888,14 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
     assert later_with_historical_source.cognition_observation_id
     durable_observation = json.loads((cognition.observations_root /
         (later_with_historical_source.cognition_observation_id + ".json")).read_text())
-    assert durable_observation["schema_version"].endswith(":v14")
+    assert durable_observation["schema_version"].endswith(":v15")
     assert durable_observation["companion_historical_citation_turn_ids"] == [cited_turn_id]
     assert durable_observation["companion_historical_citation_feedback_fact_ids"] == [
         citation_ref["feedback_fact_id"]]
+    assert durable_observation["companion_historical_conversation_citation_ids"] == [
+        cited_turn_id]
+    assert durable_observation["companion_historical_conversation_citation_digests"] == [
+        citation_ref["text_digest"]]
     assert cited_turn_text not in json.dumps(durable_observation)
 
     # Same observation and later question without the feedback cycle do not
@@ -8539,6 +10919,86 @@ def test_operator_feedback_provenance_survives_writeback_and_changes_later_respo
         screen_observation=screen)
     assert control_later.disposition == "abstain"
     assert control_later.response == "I do not have a relevant retained report."
+
+
+def test_companion_history_keeps_same_target_corrections_together_under_cap(
+        tmp_path: Path) -> None:
+    from sentientos.developmental_companion_bridge import make_operator_feedback_record
+
+    cognition, fake = owner(tmp_path / "correction-group",
+        allowed_source_kinds=("operator_input", "capability_registry"),
+        max_selected_facts=4, max_retrieved_records=4)
+    session_id = "session-" + "c" * 24
+    target_turn_id = "turn-" + "a" * 24
+    target_digest = "b" * 64
+
+    def feedback_record(label: str, assertion: str, *,
+            target_session_id: str = session_id,
+            target_text_digest: str = target_digest) -> str:
+        feedback = make_operator_feedback_record(assertion,
+            request_id=f"correction-group-{label}",
+            assistant_turn_id="turn-" + f"{int(label, 16):024x}",
+            assistant_response_digest="d" * 64,
+            source_capture_digest="e" * 64,
+            followup_capture_digest="f" * 64,
+            observed_at="2026-11-16T12:00:00Z",
+            conversation_citation_ids=(target_turn_id,),
+            conversation_citation_digests=(target_text_digest,),
+            conversation_session_id=target_session_id,
+            correction_target_turn_id=target_turn_id)
+        result = cognition.run_tick(
+            snapshot=WorldStateBoardBuilder().build([feedback]),
+            tick_id=f"correction-group-{label}")
+        assert result.written_record_id
+        return result.written_record_id
+
+    matching_assertion = "The west sensor was stable."
+    nonmatching_assertion = "That account was wrong; it drifted after warmup."
+    matching_record_id = feedback_record("01", matching_assertion)
+    nonmatching_record_id = feedback_record("02", nonmatching_assertion)
+    other_session_record_id = feedback_record("03",
+        "A separate session studied an amber nebula.",
+        target_session_id="session-" + "d" * 24)
+    other_turn_version_record_id = feedback_record("04",
+        "This cited text discusses a blue constellation.",
+        target_text_digest="c" * 64)
+
+    unrelated_record_ids = []
+    for index in range(4):
+        fake.history_interpretation = (
+            f"An unrelated astronomy note about distant star clusters {index}.")
+        result = cognition.run_tick(snapshot=snapshot(index + 10),
+            tick_id=f"correction-group-unrelated-{index}")
+        assert result.written_record_id
+        unrelated_record_ids.append(result.written_record_id)
+
+    question = "What did the operator report about the west sensor being stable?"
+    fake.companion_output_override = {
+        "disposition": "answer", "response": "The reports remain unresolved.",
+        "evidence_ids": [], "history_record_ids": ["__CURRENT_HISTORY__"],
+    }
+    interaction = cognition.run_companion_interaction(
+        snapshot=snapshot(99), request_id="retrieve-targeted-correction-group",
+        question=question)
+
+    assert len(interaction.prior_record_ids) == 4
+    assert matching_record_id in interaction.prior_record_ids
+    assert nonmatching_record_id in interaction.prior_record_ids
+    assert other_session_record_id not in interaction.prior_record_ids
+    assert other_turn_version_record_id not in interaction.prior_record_ids
+    assert unrelated_record_ids[0] not in interaction.prior_record_ids
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert prompt["developmental_history_retrieval_policy_id"] == (
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_"
+        "contrasts_embodied_reports_and_elliptical_session_context_then_"
+        "recency_fill:v11")
+    reports = [report for packet in prompt["developmental_history"]
+        for report in packet.get("operator_feedback_context", ())]
+    assert {report["assertion_text"] for report in reports} == {
+        matching_assertion, nonmatching_assertion}
+    assert all(report["evidence_posture"] == "operator_assertion_unverified"
+        and report["current_truth"] is False and report["authority"] is False
+        for report in reports)
 
 
 def test_targeted_operator_citations_deduplicate_before_budget(
@@ -9836,6 +12296,100 @@ def test_context_budget_trims_self_model_before_dropping_retrieved_experience(
     assert len(full_model_bound["prior_self_model"]["selected_claim_ids"]) == 2
 
 
+def test_self_model_prompt_budget_withholds_conflict_group_atomically(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        _validate_self_model_prompt_selection,
+    )
+
+    record = {"record_id": "budget-history", "record_digest": "r" * 64}
+    monkeypatch.setattr(cognition_module, "_history_context_packet",
+        lambda item, **_kwargs: {**item, "padding": "h" * 300,
+            "task_relevant_experience": [], "historical_embodiment_reports": []})
+    claim_rows = [
+        {"claim_id": "conflict-current", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "current position " + "c" * 520},
+        {"claim_id": "conflict-historical", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "historical position " + "h" * 520},
+    ]
+
+    def context(*, conflict: bool) -> dict[str, Any]:
+        claims = [dict(row) for row in claim_rows]
+        if not conflict:
+            for row in claims:
+                row["status"] = "historical"
+                row["contradiction_state"] = "unresolved"
+        return {"instruction": "Use bounded prior self-model context.",
+            "prior_self_model": {
+                "projection_id": "self-model-projection",
+                "projection_digest": "sha256:" + "c" * 64,
+                "relevance_query_digest": "sha256:" + "q" * 64,
+                "selected_claims": claims,
+                "selected_claim_ids": [row["claim_id"] for row in claims],
+                "selected_claim_digests": ["sha256:" + letter * 64
+                    for letter in ("a", "b")],
+                "omitted_conflict_groups": []},
+            "developmental_history": []}
+
+    def bind(candidate: dict[str, Any], capacity: int):
+        return _bind_history_and_epistemic_context(context=candidate,
+            records=(record,), projection=None, history_present=True,
+            max_input_chars=capacity)
+
+    selected_capacity = None
+    for capacity in range(1024, 6001, 16):
+        try:
+            bound, metadata, prompt, ids, _ = bind(context(conflict=True), capacity)
+        except ResidentDevelopmentalCognitionError as exc:
+            if str(exc) != "cognition_input_budget_exceeded":
+                raise
+            continue
+        selection = metadata.get("prior_self_model_prompt_selection", {})
+        if selection.get("selected_claim_ids") != []:
+            continue
+        omitted_groups = selection.get("omitted_conflict_groups", ())
+        if (len(omitted_groups) == 1
+                and omitted_groups[0].get("reason") == "inference_input_budget"):
+            try:
+                ordinary_bound, ordinary_metadata, ordinary_prompt, ordinary_ids, _ = bind(
+                    context(conflict=False), capacity)
+            except ResidentDevelopmentalCognitionError as exc:
+                if str(exc) != "cognition_input_budget_exceeded":
+                    raise
+                continue
+            ordinary_selection = ordinary_metadata.get(
+                "prior_self_model_prompt_selection", {})
+            if len(ordinary_selection.get("selected_claim_ids", ())) == 1:
+                selected_capacity = capacity
+                break
+
+    assert selected_capacity is not None
+    bounded, metadata, prompt, ids, _ = bind(context(conflict=True), selected_capacity)
+    selection = metadata["prior_self_model_prompt_selection"]
+    [omitted_group] = selection["omitted_conflict_groups"]
+    assert omitted_group["claim_ids"] == [
+        "conflict-current", "conflict-historical"]
+    assert selection["omitted_conflict_groups_digest"] == cognition_module._digest(
+        selection["omitted_conflict_groups"])
+    assert "Do not treat withheld claims as absent, resolved" in bounded["instruction"]
+    _validate_self_model_prompt_selection({
+        "self_model_projection_present": True,
+        "self_model_projection_digest": "sha256:" + "c" * 64,
+        "self_model_claim_ids": ["conflict-current", "conflict-historical"],
+        "self_model_claim_digests": ["sha256:" + "a" * 64,
+            "sha256:" + "b" * 64],
+        "prior_self_model_prompt_selection": selection,
+    })
+    full_bound, full_metadata, full_prompt, _, _ = bind(
+        context(conflict=True), 10_000)
+    assert full_metadata["prior_self_model_prompt_selection"][
+        "selected_claim_ids"] == ["conflict-current", "conflict-historical"]
+    assert len(full_prompt) <= 10_000
+
+
 def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_overlap(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Applicable history survives the retrieval cap over higher-overlap other-model records."""
@@ -9886,6 +12440,49 @@ def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_over
     current_fact = records["old-current-model"].candidate["selected_facts"][0]
     assert current_fact["payload"]["acquisition_examples"][0][
         "evaluator_correct"] is False
+
+
+def test_task_family_retrieval_prefers_probe_overlap_to_example_volume(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An exact probe match survives the cap over larger same-model histories."""
+    from types import SimpleNamespace
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    identity = {"provider": "fixture", "model": "probe-relevance"}
+    records: dict[str, Any] = {}
+    record_ids = ["direct-overlap", *(f"large-unrelated-{index}" for index in range(4))]
+    for record_id in record_ids:
+        fact = {"payload": {
+            "objective_task_family": "integer_affine_prediction",
+            "active_model_identity": dict(identity),
+            "active_model_identity_digest": cognition_module._digest(identity),
+        }}
+        records[record_id] = SimpleNamespace(candidate={
+            "record_id": record_id, "selected_facts": [fact]})
+
+    cognition, _ = owner(tmp_path)
+    monkeypatch.setattr(cognition.writeback.store, "get",
+        lambda record_id: records[record_id])
+    monkeypatch.setattr(cognition.writeback, "retrieve", lambda ids, *, limit:
+        DevelopmentalHistoryProjection(tuple(records[record_id]
+            for record_id in ids), tuple(ids)))
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: [{"record_id": candidate["record_id"]}])
+    monkeypatch.setattr(cognition_module, "_task_family_history_retrieval_utility",
+        lambda experiences, **_kwargs: ((3, 1, 1) if experiences[0]["record_id"]
+            == "direct-overlap" else (3, 16, 0)))
+
+    selected = cognition._prior_projection({"completed_ticks": [
+            {"tick_id": record_id, "record_id": record_id} for record_id in record_ids]},
+        "later-task", task_family_id="integer_affine_prediction",
+        task_probe_inputs=(10, 11), require_task_family_history=True,
+        target_model_identity=identity)
+
+    assert selected.requested_record_ids[-1] == "direct-overlap"
+    assert len(selected.requested_record_ids) == cognition.config.max_retrieved_records
+    assert any(record_id not in selected.requested_record_ids
+        for record_id in record_ids[1:])
 
 
 def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_single_run(
@@ -10062,6 +12659,8 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     assert observed_unsettled_groups["run-a"] == expected_unsettled_group
     assert observed_unsettled_groups["run-b"] == expected_unsettled_group
     assert unsettled_selection.requested_record_ids == ("newer-single",)
+    assert unsettled_selection.task_family_unsettled_outcome_groups == (
+        (task_digest, identity_digest),)
     assert unsettled_selection.task_family_outcome_corroboration == ()
 
 
@@ -10300,6 +12899,20 @@ def test_configuration_is_exact_and_malformed_configuration_fails_closed(tmp_pat
 
     path.write_text(json.dumps(version_three))
     assert load_config(path).max_inference_timeout_seconds == 90
+    version_four = {
+        **version_three,
+        "schema": CONFIG_SCHEMA_V4,
+        "semantic_history_model_id": "sentence-transformers/test-model",
+        "semantic_history_model_revision": "a" * 40,
+    }
+    path.write_text(json.dumps(version_four))
+    configured = load_config(path)
+    assert configured.semantic_history_model_id == "sentence-transformers/test-model"
+    assert configured.semantic_history_model_revision == "a" * 40
+    path.write_text(json.dumps({**version_four,
+        "semantic_history_model_revision": None}))
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="values_invalid"):
+        load_config(path)
     path.write_text(json.dumps({
         **version_three, "max_inference_timeout_seconds": 121}))
     with pytest.raises(ResidentDevelopmentalCognitionError, match="values_invalid"):
@@ -11067,11 +13680,13 @@ def test_pre_v6_observation_recovery_preserves_historical_digest_shape(tmp_path:
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v15"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
     value.pop("companion_epistemic_state_citation_ids")
+    value.pop("companion_historical_conversation_citation_ids")
+    value.pop("companion_historical_conversation_citation_digests")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
@@ -11123,11 +13738,13 @@ def test_v6_history_selection_recovery_reconciles_the_invocation_receipt(tmp_pat
     composition.run_tick(snapshot=snapshot(2), tick_id="tick-2")
     path = next(composition.observations_root.glob("*.json"))
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v15"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
     value.pop("companion_epistemic_state_citation_ids")
+    value.pop("companion_historical_conversation_citation_ids")
+    value.pop("companion_historical_conversation_citation_digests")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
@@ -11184,11 +13801,13 @@ def test_rehashed_v7_history_selection_substitution_fails_receipt_reconciliation
     path = next(path for path in composition.observations_root.glob("*.json")
         if json.loads(path.read_text(encoding="utf-8")).get("condition_id") == "history_present")
     value = json.loads(path.read_text(encoding="utf-8"))
-    assert value["schema_version"] == "sentientos.resident_cognition_observation:v14"
+    assert value["schema_version"] == "sentientos.resident_cognition_observation:v15"
     value.pop("developmental_history_context_budget_attempts")
     value.pop("prior_self_model_prompt_selection")
     value.pop("companion_self_model_citation_ids")
     value.pop("companion_epistemic_state_citation_ids")
+    value.pop("companion_historical_conversation_citation_ids")
+    value.pop("companion_historical_conversation_citation_digests")
     for field in ("companion_conversation_context_snapshot_digest",
             "companion_conversation_context_selection_digest",
             "companion_conversation_context_turn_ids",
@@ -13099,12 +15718,15 @@ def test_daemon_tick_routes_recovery_evidence_through_next_tick_cognition_and_pl
     assert first_plan["authority"] is False
     assert first_plan["execution_performed"] is False
     assert first_plan["prior_epistemic_projection_digest"] is not None
-    assert first_plan["deferred_goals"] == [{
-        "goal_id": "recovery-followup",
-        "reason": "epistemic_review_required",
-    }]
+    [deferred_feedback] = first_plan["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "recovery-followup"
+    assert deferred_feedback["reason"] == "epistemic_review_required"
     state = epistemics.current_state(proposition.proposition_id)
     assert state is not None
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == state.state_digest
+    assert position_feedback["posture"] == "review_required"
     assert state.stance == "provisionally_supported"
     assert not any(state.authority.values())
     cognition_requests = [request for request in fake.requests

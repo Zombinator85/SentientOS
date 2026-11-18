@@ -6,7 +6,6 @@ roles, and neither role can adopt a body generation.
 from __future__ import annotations
 
 import hashlib
-import fcntl
 import json
 import math
 import os
@@ -17,6 +16,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
+from .platform_fcntl import fcntl, require_flock
 
 from .bounded_subprocess import run_supervised
 from .embodiment_self_observation import AvatarBodyManifest, EmbodimentObservation
@@ -557,6 +557,7 @@ def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
 
 @contextmanager
 def _pointer_lock(path: Path) -> Iterator[None]:
+    require_flock()
     lock=path.with_suffix(path.suffix+".lock"); lock.parent.mkdir(parents=True,exist_ok=True)
     fd=os.open(lock,os.O_RDWR|os.O_CREAT|getattr(os,"O_NOFOLLOW",0),0o600)
     try:
