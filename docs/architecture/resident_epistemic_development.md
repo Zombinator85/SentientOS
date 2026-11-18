@@ -157,6 +157,16 @@ retained garden constraint selecting an older applicable experience over a
 recent unrelated telescope record; a specific telescope question remains
 question-driven. This shows retrieval integration, not real-model adherence or
 better deployed outcomes.
+The live companion bridge also uses its bounded selected current World-State
+facts to rank prior self-model and epistemic projections when a question has
+fewer than two distinctive terms. Specific questions keep question-only
+projection ranking. Current observations stay in the current-evidence channel;
+they are not promoted into prior positions or used to change their posture. The
+deterministic bridge counterfactual in
+`tests/test_resident_developmental_cognition.py::test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval`
+shows a short follow-up selecting the matching older epistemic position while a
+specific query selects a different position. It demonstrates retrieval under
+a deterministic fixture, not real-model application or improved outcomes.
 Validated v4 operator-feedback reports that target the same exact conversation
 session, turn ID, and turn-text digest are selected as one bounded retrieval
 unit. A query that matches one report therefore retains the other reports about

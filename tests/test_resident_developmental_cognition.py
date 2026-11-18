@@ -9456,6 +9456,88 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
         "relevance_query": question}
 
 
+def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The west mechanism is overheating.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"bridge-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query="What now?")
+    assert baseline is not None
+    by_id = {item.proposition_id: item for item in (overheating, telescope)}
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = by_id[baseline.proposition_ids[0]]
+
+    class CapturingEpistemicOwner:
+        def __init__(self):
+            self.calls = []
+
+        def cognitive_projection(self, **kwargs):
+            projection = epistemic.cognitive_projection(**kwargs)
+            self.calls.append((kwargs, projection))
+            return projection
+
+    capture = CapturingEpistemicOwner()
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=capture,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": relevant.statement,
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    bridge.respond(request_id="elliptical-epistemic-retrieval",
+        question="What now?", screen_observation=screen)
+    bridge.respond(request_id="specific-epistemic-retrieval",
+        question=("What was observed about overheating?" if unrelated is overheating
+            else "What did the telescope capture?"),
+        screen_observation=screen)
+
+    elliptical_query, elliptical_projection = capture.calls[0]
+    specific_query, specific_projection = capture.calls[1]
+    assert elliptical_query["relevance_query"] != "What now?"
+    assert elliptical_projection is not None
+    assert elliptical_projection.proposition_ids == (relevant.proposition_id,)
+    assert specific_query["relevance_query"] == (
+        "What was observed about overheating?" if unrelated is overheating
+        else "What did the telescope capture?")
+    assert specific_projection is not None
+    assert specific_projection.proposition_ids == (unrelated.proposition_id,)
+    assert specific_projection.projection_digest != elliptical_projection.projection_digest
+    assert elliptical_projection.current_truth is False
+    assert elliptical_projection.authority is False
+    assert json.loads(fake.requests[0].prompt)["companion_question"] == "What now?"
+    assert json.loads(fake.requests[1].prompt)["companion_question"] == (
+        "What was observed about overheating?" if unrelated is overheating
+        else "What did the telescope capture?")
+
+
 def test_companion_bridge_binds_verified_citation_lineage_into_packet_context():
     from sentientos.developmental_companion_bridge import (
         ResidentDevelopmentalCompanionBridge,

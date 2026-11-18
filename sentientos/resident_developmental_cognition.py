@@ -9327,6 +9327,17 @@ class ResidentDevelopmentalCognitionOwner:
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="current-world-state-" + digest[7:31], projection_digest=digest)
 
+    def selected_current_relevance_context(self, snapshot: WorldStateSnapshot, *,
+            question: str | None = None, maximum_chars: int = 2800) -> str:
+        """Expose bounded selected current facts for prior-context ranking only."""
+        if (not isinstance(maximum_chars, int) or isinstance(maximum_chars, bool)
+                or not 0 <= maximum_chars <= 4000):
+            raise ResidentDevelopmentalCognitionError(
+                "current_relevance_context_bound_invalid")
+        current = self._current_projection(snapshot, question=question)
+        return _current_history_relevance_context(
+            current, maximum_chars=maximum_chars)
+
     @staticmethod
     def _exclude_retained_task_facts(current: CurrentWorldStateCognitiveProjection,
             records: Sequence[Mapping[str, Any]], task_family_id: str) -> CurrentWorldStateCognitiveProjection:

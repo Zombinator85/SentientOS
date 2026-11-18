@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
+from .cognition_retrieval import cognition_query_terms
 from .embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
@@ -981,15 +982,27 @@ class ResidentDevelopmentalCompanionBridge:
                     proposition_priorities)
                 conversation_context = {**semantic_context,
                     "selection_digest": digest_payload(semantic_context)}
-        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_id, projection_tick=projection_tick,
-            relevance_query=question,
-            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()
+        relevance_query = question
+        if (isinstance(question, str) and question.strip()
+                and len(question) <= 1200
+                and len(cognition_query_terms(question)) < 2):
+            current_context = self._owner.selected_current_relevance_context(
+                snapshot, question=question, maximum_chars=2800)
+            if current_context:
+                # Sparse questions may use selected current observations to find
+                # a relevant prior position. Specific questions retain their
+                # question-only ranking, and the original question is unchanged
+                # in the interaction request and current-evidence channel.
+                relevance_query = (question + " " + current_context)[:4000]
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_id, projection_tick=projection_tick,
+            relevance_query=relevance_query,
+            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
