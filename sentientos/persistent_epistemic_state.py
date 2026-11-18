@@ -1928,13 +1928,24 @@ class PersistentEpistemicStateOwner:
             base_rank = {proposition_id: index for index, proposition_id in
                 enumerate(base_ranked_ids)}
             relation_peers: list[str] = []
-            for proposition_id in active_priorities:
+            seen_relation_ids = set(active_priorities)
+            relation_queue = list(active_priorities)
+            next_relation = 0
+            relation_capacity = max_states - len(active_priorities)
+            while (next_relation < len(relation_queue)
+                    and len(relation_peers) < relation_capacity):
+                proposition_id = relation_queue[next_relation]
+                next_relation += 1
                 peers = sorted(relation_neighbors.get(proposition_id, ()),
                     key=lambda item: (base_rank[item], item))
-                peer = next((item for item in peers
-                    if item not in active_priorities and item not in relation_peers), None)
-                if peer is not None:
+                for peer in peers:
+                    if peer in seen_relation_ids:
+                        continue
+                    seen_relation_ids.add(peer)
+                    relation_queue.append(peer)
                     relation_peers.append(peer)
+                    if len(relation_peers) == relation_capacity:
+                        break
             ranked_ids = tuple(active_priorities + tuple(relation_peers) + tuple(
                 proposition_id for proposition_id in base_ranked_ids
                 if proposition_id not in active_priorities

@@ -43,7 +43,7 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
     propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
         predicate="reports_temperature", object_value=value, polarity="positive",
         qualifiers={}, temporal_scope={"window": "prior"}, context_scope={},
-        proposition_class="environmental") for value in (18, 28, 23)]
+        proposition_class="environmental") for value in (18, 28, 23, 19)]
     for proposition in propositions:
         epistemic.register_proposition(proposition)
         epistemic.commit_update(proposition_id=proposition.proposition_id,
@@ -55,28 +55,37 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
         prioritized_proposition_ids=(propositions[0].proposition_id,))
     assert unlinked_projection is not None
     unlinked_peer = min(propositions[1:], key=lambda item: item.proposition_id)
-    linked_peer = max(propositions[1:], key=lambda item: item.proposition_id)
+    linked_peers = sorted(propositions[1:], key=lambda item: item.proposition_id)[1:]
     assert set(unlinked_projection.proposition_ids) == {
         propositions[0].proposition_id, unlinked_peer.proposition_id}
-    epistemic.add_relation(PropositionRelation(
-        source_proposition_id=propositions[0].proposition_id,
-        target_proposition_id=linked_peer.proposition_id,
-        relation="contradicts", recorded_at="2026-01-02T00:00:00Z"))
+    for index, (peer, relation_kind) in enumerate(zip(
+            linked_peers, ("contradicts", "supersedes")), start=2):
+        epistemic.add_relation(PropositionRelation(
+            source_proposition_id=(propositions[0].proposition_id
+                if index == 2 else linked_peers[0].proposition_id),
+            target_proposition_id=peer.proposition_id,
+            relation=relation_kind,
+            recorded_at=f"2026-01-0{index}T00:00:00Z"))
 
-    projection = epistemic.cognitive_projection(max_states=2, current_tick=4,
+    projection = epistemic.cognitive_projection(max_states=3, current_tick=4,
         prioritized_proposition_ids=(propositions[0].proposition_id,))
     assert projection is not None
     assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v8"
     packets = semantic_packets_for_projection(projection)
-    assert len(packets) == 2
+    assert len(packets) == 3
     assert set(projection.proposition_ids) == {
-        propositions[0].proposition_id, linked_peer.proposition_id}
+        propositions[0].proposition_id,
+        *(peer.proposition_id for peer in linked_peers)}
     assert projection.omission_manifest is not None
     assert projection.omission_manifest["selection_policy"] == (
         "relation_bundle_then_existing_priority_order")
+    assert {relation["relation_digest"] for packet in packets
+        for relation in packet["proposition_relations"]} == {
+            relation["relation_digest"] for relation in projection.proposition_relations}
     for packet in packets:
-        [relation] = packet["proposition_relations"]
-        assert relation["relation"] == "contradicts"
+        assert packet["proposition_relations"]
+        assert all(relation["relation"] in {"contradicts", "supersedes"}
+            for relation in packet["proposition_relations"])
         assert packet["relation_interpretation"] == (
             "recorded_prior_link_not_truth_or_authority")
         assert packet["authority"] is False
@@ -84,16 +93,16 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
     context, metadata, prompt = _bind_epistemic_context(
         context={"instruction": "Assess the two prior readings.",
             "companion_question": "Which prior temperature readings conflict?"},
-        projection=projection, max_input_chars=16_000)
+        projection=projection, max_input_chars=30_000)
     prior = context["prior_epistemic_state"]
-    assert len(prior["semantic_packets"]) == 2
+    assert len(prior["semantic_packets"]) == 3
     assert "recorded prior links, not truth or authority" in context["instruction"]
     assert prior["omitted_proposition_relations"] == []
-    assert metadata["epistemic_owner_packet_count"] == 2
+    assert metadata["epistemic_owner_packet_count"] == 3
     assert "contradicts" in prompt
     observed_packet_counts = set()
     zero_packet_relation_manifest = None
-    for budget in range(4_000, 16_001, 500):
+    for budget in range(4_000, 30_001, 500):
         try:
             bounded, _bounded_metadata, _bounded_prompt = _bind_epistemic_context(
                 context={"instruction": "Assess the two prior readings.",
@@ -108,31 +117,30 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
         if packet_count == 0:
             zero_packet_relation_manifest = bounded_prior[
                 "omitted_proposition_relations"]
-    assert observed_packet_counts <= {0, 2}
+    assert observed_packet_counts <= {0, 3}
     assert 0 in observed_packet_counts
-    assert zero_packet_relation_manifest == [{
-        "source_proposition_id": projection.proposition_relations[0][
-            "source_proposition_id"],
-        "target_proposition_id": projection.proposition_relations[0][
-            "target_proposition_id"],
-        "relation": "contradicts",
-        "relation_digest": projection.proposition_relations[0]["relation_digest"],
-    }]
+    assert zero_packet_relation_manifest == [{key: relation[key] for key in (
+        "source_proposition_id", "target_proposition_id", "relation",
+        "relation_digest")} for relation in projection.proposition_relations]
     capped_projection = epistemic.cognitive_projection(max_states=1,
         current_tick=4, prioritized_proposition_ids=(propositions[0].proposition_id,))
     assert capped_projection is not None
     assert capped_projection.omission_manifest is not None
     [capped_packet] = semantic_packets_for_projection(capped_projection)
-    [capped_relation] = capped_packet["proposition_relations"]
+    capped_relations = capped_packet["proposition_relations"]
     assert len(capped_projection.states) == 1
-    assert capped_relation["relation"] == "contradicts"
+    capped_relation = next(relation for relation in capped_relations
+        if relation["target_proposition_id"] == linked_peers[0].proposition_id)
+    assert {relation["relation"] for relation in capped_relations} == {
+        "contradicts"}
     peer_meaning = capped_relation["omitted_endpoint_proposition"]
-    assert peer_meaning["proposition_id"] == linked_peer.proposition_id
-    assert peer_meaning["object_value"] == linked_peer.object_value
-    omitted_peer_state = next(row for row in
+    assert peer_meaning["proposition_id"] == linked_peers[0].proposition_id
+    assert peer_meaning["object_value"] == linked_peers[0].object_value
+    omitted_peer_states = [row for row in
         capped_projection.omission_manifest["omitted_state_identities"]
-        if row["proposition_id"] == linked_peer.proposition_id)
-    assert omitted_peer_state["stance"] == "supported"
+        if row["proposition_id"] in {peer.proposition_id for peer in linked_peers}]
+    assert len(omitted_peer_states) == 2
+    assert {row["stance"] for row in omitted_peer_states} == {"supported"}
     assert capped_projection.authority is False
     forged_peer = {**peer_meaning, "object_value": 29}
     forged_relation = {**capped_relation,

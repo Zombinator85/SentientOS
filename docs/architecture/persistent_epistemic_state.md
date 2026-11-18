@@ -64,12 +64,14 @@ endpoint is selected. The relation is repeated in each selected endpoint's
 packet and remains a recorded historical link, not truth or authority. Context
 assembly keeps `contradicts` and `supersedes` endpoint packets together when
 both are in the projection. When a bounded projection has room beyond its
-explicitly prioritized positions, it selects an available contradiction or
-supersession peer before unrelated history. A one-position cap retains the
-prioritized position and carries the peer's canonical meaning with the
-omission summary. If the state cap otherwise omits one endpoint, its canonical
-proposition meaning accompanies the relation and its state remains summarized
-as omitted; the projection validator rechecks that proposition identity. If
+priority-ranked positions, it selects the connected contradiction/supersession
+component before unrelated history, in deterministic breadth-first order. A
+one-position cap retains the prioritized position and carries connected peers'
+canonical meanings for its incident relations with the omission summary. If
+the state cap otherwise omits one endpoint of an incident relation, its
+canonical proposition meaning accompanies that relation and its state remains
+summarized as omitted; the projection validator rechecks that proposition
+identity. If
 the input budget cannot carry a projected pair, it omits the pair and records
 the relation digest. Prompt instructions explicitly forbid treating an omitted
 relation or endpoint as absent or resolved. Older projection versions retain
