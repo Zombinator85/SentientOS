@@ -6468,7 +6468,12 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
 
     assert selected.requested_record_ids == ("older-lesson",)
     assert observed["model"] == ("test/local-embedder", "a" * 40)
-    assert selected.retrieval_policy_id.endswith(":" + "d" * 64)
+    policy_prefix, embedder_digest, selection_digest = (
+        selected.retrieval_policy_id.rsplit(":", 2))
+    assert policy_prefix.endswith(":v16")
+    assert embedder_digest == "d" * 64
+    assert len(selection_digest) == 64
+    assert all(character in "0123456789abcdef" for character in selection_digest)
     assert "Where should we shelter" in observed["texts"][0]
 
 
@@ -6537,11 +6542,12 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     assert any("basalt outpost" in text for text in embedded_texts)
     assert any("stone refuge" in text for text in embedded_texts)
     assert selected.requested_record_ids == (target_id,)
-    assert selected.retrieval_policy_id == (
+    assert selected.retrieval_policy_id is not None
+    assert selected.retrieval_policy_id.startswith(
         "query_decision_polarity_then_semantic_then_overlap_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
-        "reports_and_elliptical_session_context_then_recency_fill:v15:"
-        + "d" * 64)
+        "reports_and_elliptical_session_context_then_recency_fill:v16:"
+        + "d" * 64 + ":")
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
         "policy": "most_recent_complete_record_suffix:v1",
@@ -6630,6 +6636,146 @@ def test_semantic_history_tick_phases_reach_complementary_older_records(
     assert recovered is not None
     assert recovered.requested_record_ids == (omitted_target_id,)
     assert recovered.retrieval_policy_id is not None
+
+
+def test_indexed_semantic_history_changes_later_fake_decision_across_restart(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import re
+
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+    from sentientos.semantic_history_index import SemanticHistoryIndex
+
+    record_ids = [f"devrec-{index:024x}" for index in range(400)]
+    target_id = record_ids[100]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"record-{index:04d} :: unrelated orbital instrument calibration."}
+        for index, record_id in enumerate(record_ids)}
+    candidates[target_id]["interpretation"] = (
+        "record-0100 :: The elevated basalt outpost remained dry through cyclonic inundation.")
+    record_digests = {record_id: "sha256:" + hashlib.sha256(
+        ("record:" + record_id).encode()).hexdigest() for record_id in record_ids}
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id],
+                record_digest=record_digests[record_id])
+
+    def attach_store(cognition):
+        cognition.writeback.store = Store()
+        cognition.writeback.retrieve = lambda selected_ids, *, limit: (
+            DevelopmentalHistoryProjection(
+                records=tuple({"record_id": record_id,
+                    "record_digest": record_digests[record_id],
+                    "candidate": candidates[record_id]} for record_id in selected_ids),
+                requested_record_ids=tuple(selected_ids)))
+
+    encoded_ids: set[str] = set()
+
+    def fake_encode(texts, *, model_id, revision):
+        encoded_ids.clear()
+        vectors = [(1.0, 0.0)]
+        for text in texts[1:]:
+            match = re.search(r"record-([0-9]{4})", text)
+            if match:
+                encoded_ids.add(record_ids[int(match.group(1))])
+            vectors.append((1.0, 0.0) if "basalt outpost" in text
+                else (0.0, 1.0))
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=tuple([(1.0, 0.0), *vectors[1:]]))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    state_root = tmp_path / "state"
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+    else:
+        state_root.mkdir(mode=0o700, exist_ok=True)
+    cognition, _fake = owner(tmp_path, max_retrieved_records=1,
+        semantic_history_model_id="test/local-indexed-embedder",
+        semantic_history_model_revision="a" * 40)
+    attach_store(cognition)
+    state = {"completed_ticks": [
+        {"tick_id": f"seed-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+    query = "Which location stays safe when floodwater arrives?"
+
+    indexed_at = None
+    for tick in range(64):
+        projection = cognition._prior_projection(state, f"index-tick-{tick}",
+            relevance_query=query)
+        if target_id in encoded_ids:
+            assert projection.requested_record_ids == (target_id,)
+            indexed_at = tick
+            break
+    assert indexed_at is not None
+    index_paths = list(next(iter(cognition._semantic_history_indexes.values())).root.glob(
+        "*.json"))
+    assert index_paths
+    index_payloads = [json.loads(path.read_text(encoding="utf-8"))
+        for path in index_paths]
+    index_payload = index_payloads[0]
+    assert index_payload["authority"] is False
+    assert "record_digest" in index_payload and "text_digest" in index_payload
+    assert all("cyclonic inundation" not in path.read_text(encoding="utf-8")
+        for path in index_paths)
+    target_entry = next(item for item in index_payloads
+        if item["record_id"] == target_id)
+    index = next(iter(cognition._semantic_history_indexes.values()))
+    expected_target = {target_id: (target_entry["record_digest"],
+        target_entry["text_digest"])}
+    same_tick_vectors = index.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(
+            f"index-tick-{indexed_at}".encode()).hexdigest()).vectors
+    assert target_id not in same_tick_vectors
+    assert target_id in index.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(b"a-later-tick").hexdigest()).vectors
+    assert target_id not in index.load(expected_records={target_id: (
+        "0" * 64, target_entry["text_digest"])},
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+    other_embedder = SemanticHistoryIndex(state_root=cognition.config.state_root,
+        embedder_identity_digest="e" * 64)
+    assert target_id not in other_embedder.load(expected_records=expected_target,
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+
+    later_projection = None
+    for tick in range(indexed_at + 1, indexed_at + 65):
+        projection = cognition._prior_projection(state, f"later-tick-{tick}",
+            relevance_query=query)
+        if target_id not in encoded_ids and projection.requested_record_ids == (target_id,):
+            later_projection = projection
+            later_tick_id = f"later-tick-{tick}"
+            break
+    assert later_projection is not None
+
+    def fake_model_decision(projection):
+        historical = [row["candidate"]["interpretation"]
+            for row in projection.records]
+        if any("basalt outpost" in text for text in historical):
+            return "choose the elevated dry refuge"
+        return "abstain because no relevant experience was selected"
+
+    assert fake_model_decision(later_projection) == "choose the elevated dry refuge"
+    repeated = cognition._prior_projection(state, later_tick_id,
+        relevance_query=query)
+    assert repeated.requested_record_ids == later_projection.requested_record_ids
+
+    withheld_state = {"completed_ticks": [item for item in state["completed_ticks"]
+        if item["record_id"] != target_id]}
+    withheld = cognition._prior_projection(withheld_state, "withheld-later-tick",
+        relevance_query=query)
+    assert target_id not in withheld.requested_record_ids
+    assert fake_model_decision(withheld) == (
+        "abstain because no relevant experience was selected")
+
+    restarted, _fake = owner(tmp_path, max_retrieved_records=1,
+        semantic_history_model_id="test/local-indexed-embedder",
+        semantic_history_model_revision="a" * 40)
+    attach_store(restarted)
+    restored = restarted._prior_projection(state, "restored-later-tick",
+        relevance_query=query)
+    assert target_id in restored.requested_record_ids
+    assert fake_model_decision(restored) == "choose the elevated dry refuge"
 
 
 def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
