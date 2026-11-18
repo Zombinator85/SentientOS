@@ -9627,6 +9627,100 @@ def test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prio
     assert after_cycle.state_digests == prior_states.state_digests
 
 
+def test_daemon_cognition_uses_current_observation_to_rank_prior_epistemic_state(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="sensor:battery_thermal", predicate="has_status",
+        object_value="overheating", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="Battery thermal sensor reports overheating.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"daemon-current-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query=None)
+    assert baseline is not None
+    prior_states = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert prior_states is not None
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = next(item for item in (overheating, telescope)
+        if item.proposition_id == baseline.proposition_ids[0])
+    capture_calls = []
+
+    class CapturingEpistemicOwner:
+        def cognitive_projection(self, **kwargs):
+            projection = epistemic.cognitive_projection(**kwargs)
+            capture_calls.append((kwargs, projection))
+            return projection
+
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+        runtime_state_root=tmp_path / "runtime-daemon-current-retrieval",
+        resident_developmental_owner=cognition,
+        epistemic_state_owner=CapturingEpistemicOwner(),
+        epistemic_state_config={"status": "configured",
+            "max_cognitive_projection_count": 1,
+            "cognitive_consumption_enabled": True})  # type: ignore[arg-type]
+    tick = now.isoformat()
+    surfaces.build_world_state_board(tick_id=tick)
+    current_snapshot = WorldStateBoardBuilder().build([{
+        "source_id": "daemon-current-observation",
+        "source_kind": "capability_registry",
+        "subject_id": "battery_thermal_sensor",
+        "stage": "observation", "disposition": "recorded",
+        "observed_at": tick,
+        "payload": {"status": "overheating", "component": "battery"},
+    }])
+    surfaces._world_state_snapshot = current_snapshot
+
+    feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+
+    query, projection = capture_calls[0]
+    assert feedback["status"] == "completed"
+    assert query["relevance_query"]
+    assert "battery" in query["relevance_query"]
+    assert "overheating" in query["relevance_query"]
+    assert projection is not None
+    assert projection.proposition_ids == (relevant.proposition_id,)
+    assert projection.proposition_ids != (unrelated.proposition_id,)
+    assert projection.current_truth is False and projection.authority is False
+    assert projection.source_tick < int(now.timestamp())
+    cognition_request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    prompt = json.loads(cognition_request.prompt)
+    prior = prompt["prior_epistemic_state"]
+    assert prior["semantic_packets"][0]["proposition"]["proposition_id"] == (
+        relevant.proposition_id)
+    assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
+        projection.projection_digest)
+    assert "overheating" in json.dumps(prompt["current_evidence"])
+    after_cycle = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert after_cycle is not None
+    assert after_cycle.state_digests == prior_states.state_digests
+
+
 def test_companion_bridge_binds_verified_citation_lineage_into_packet_context():
     from sentientos.developmental_companion_bridge import (
         ResidentDevelopmentalCompanionBridge,

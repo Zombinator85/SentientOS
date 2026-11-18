@@ -634,6 +634,19 @@ prompt and changing the fake invoker's decision over a recent unrelated record.
 Real-model use of that context and longitudinal decision improvement remain
 unverified.
 
+The long-running daemon cognition path applies the same bounded selected
+World-State context when ranking prior self-model claims and epistemic states.
+It does so after the same-tick snapshot exists and before cognition, while
+staged objective requests and comparison cycles retain their experiment-specific
+projection selection. The selected observations stay in current evidence; the
+retrieved projections remain historical and non-authoritative. A deterministic
+daemon-path counterfactual shows a battery-overheating observation selecting
+the matching prior epistemic position over a newer unrelated telescope
+position, with the selected packet digest reaching the production cognition
+prompt and the epistemic owner state unchanged. This verifies selection and
+delivery with a CPU fake invoker, not real-model application or improved
+outcomes.
+
 Elliptical companion history selection also uses bounded text from the selected,
 source-turn-verified canonical user memories. When a selected memory correction
 marks an older memory as superseded, only the correcting memory contributes
