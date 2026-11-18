@@ -89,6 +89,16 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Planning also treats a tagged prior position with an explicit projected
+`contradicts` relation as requiring review, even when that position's own
+evidence posture is positive and the connected proposition is not separately
+tagged by the goal. A tagged proposition explicitly superseded by a linked
+claim also requires review. The deterministic counterfactual in
+`sentientos/tests/test_epistemic_planning.py::test_projected_relations_change_tagged_goal_review_decision`
+shows the goal selected without the relation and deferred after the relation
+is recorded. The review scope retains the relation digest; no relation creates
+execution authority or establishes truth.
+
 Same-model, same-task-family history now also carries a compact controlled
 effect summary when all three score-bound conditions are comparable. It records
 whether history-present correctness was adverse, favorable, or unchanged against
