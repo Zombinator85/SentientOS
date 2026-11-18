@@ -573,7 +573,46 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
 
 def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    projection, _proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=["embodiment"])
+    proposition = make_proposition(namespace="embodiment", subject="sensor:g1",
+        predicate="reports_temperature", object_value=18, polarity="positive",
+        qualifiers={"sensor": "g1"}, temporal_scope={"window": "prior"},
+        context_scope={"room": "lab"}, proposition_class="descriptive")
+    epistemic.register_proposition(proposition)
+    support = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="probe-support", source_digest="sha256:" + "1" * 64,
+        source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+        observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="probe-support", upstream_binding_ids=(),
+        freshness="current", reliability_posture="verified")
+    contradiction = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="probe-contradiction",
+        source_digest="sha256:" + "2" * 64,
+        source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+        observation_time="2025-12-01T00:00:00Z", evidence_relation="contradicts",
+        dependency_kind="unknown_dependency", dependency_group=None,
+        upstream_binding_ids=(), freshness="stale",
+        reliability_posture="unverified")
+    epistemic.bind_evidence(support)
+    epistemic.bind_evidence(contradiction)
+    initial_state, _ = epistemic.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="contested", reason="new_evidence",
+        active_binding_ids=[support.binding_id, contradiction.binding_id],
+        added_binding_ids=[support.binding_id, contradiction.binding_id],
+        correlation_id="probe-initial", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    epistemic.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=initial_state.state_digest,
+        stance="contradicted", reason="evidence_withdrawal",
+        active_binding_ids=[contradiction.binding_id],
+        removed_binding_ids=[support.binding_id],
+        correlation_id="probe-withdrawal", tick=2,
+        recorded_at="2026-01-02T00:00:00Z")
+    projection = epistemic.cognitive_projection(max_states=1, current_tick=3)
+    assert projection is not None
     cognition, _ = owner(tmp_path / "cognition", invoker=StructuredFixtureInvoker())
     from contextlib import nullcontext
     monkeypatch.setattr(cognition, "_composition_lock", lambda: nullcontext())
@@ -585,12 +624,34 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
     context = json.loads(preview["prompt"])
     instruction = context["instruction"]
     packet = context["prior_epistemic_state"]["semantic_packets"][0]
+    [source_packet] = semantic_packets_for_projection(projection)
+    source_packet = json.loads(json.dumps(source_packet, sort_keys=True))
     allowed_ids = context["epistemic_revision_probe"][
         "allowed_evidence_binding_ids"]
     assert preview["model_invocation_performed"] is False
     assert preview["probe_observation_written"] is False
-    assert len(preview["prompt"]) < 12_000
+    assert len(preview["prompt"]) < 11_000
     assert len(instruction) < 2_000
+    assert context["prior_epistemic_state"]["schema_version"] == (
+        "sentientos.epistemic_revision_probe_context:v1")
+    assert context["prior_epistemic_state"]["source_projection_schema_version"] == (
+        projection.schema_version)
+    assert packet["schema_version"] == (
+        "sentientos.epistemic_revision_probe_packet_view:v1")
+    assert packet["source_packet_schema_version"] == source_packet["schema_version"]
+    assert packet["source_packet_id"] == source_packet["packet_id"]
+    assert packet["source_packet_digest"] == source_packet["packet_digest"]
+    assert packet["state"] == source_packet["state"]
+    assert packet["proposition"] == source_packet["proposition"]
+    assert packet["update_event_history"] == source_packet["update_event_history"]
+    assert "last_update_event" not in packet
+    assert packet["active_evidence_bindings"] == (
+        source_packet["active_evidence_bindings"])
+    assert packet["removed_evidence_history"] == (
+        source_packet["removed_evidence_history"])
+    assert not any(key.startswith("developmental_history") for key in context)
+    assert packet["removed_evidence_history"][0]["freshness"] == "current"
+    assert packet["active_evidence_bindings"][0]["freshness"] == "stale"
     assert "active evidence bindings" in instruction
     assert "removed bindings are historical" in instruction
     assert "represent the conclusion as contested" in instruction
@@ -602,6 +663,15 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
     packet_binding_ids = {row["binding_id"] for row in
         packet["active_evidence_bindings"] + packet["removed_evidence_history"]}
     assert set(allowed_ids) == packet_binding_ids
+    baseline_context = {key: value for key, value in context.items()
+        if key != "prior_epistemic_state"}
+    baseline_context["epistemic_revision_probe"] = {
+        **baseline_context["epistemic_revision_probe"],
+        "response_contract": "sentientos.epistemic_revision_answer:comparison"}
+    _baseline_value, _baseline_metadata, baseline_prompt = _bind_epistemic_context(
+        context=baseline_context, projection=projection,
+        max_input_chars=MAX_PROMPT_CHARS)
+    assert len(preview["prompt"]) < len(baseline_prompt)
 
 
 def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None:

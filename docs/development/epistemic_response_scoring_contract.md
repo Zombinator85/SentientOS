@@ -42,16 +42,25 @@ The bounded probe now uses a task-specific instruction instead of the ordinary
 cross-domain cognition instructions. It still requires evaluation of active
 bindings and their source qualifiers, preserves unresolved support and
 contradiction together, limits citations to the exact evidence-binding
-allowlist, and denies truth or action authority to model output. A deterministic
-prompt-preview fixture measures an 8,548-character prompt and checks that the
-instruction is under 2,000 characters. This verifies assembly, not model
+allowlist, and denies truth or action authority to model output. The probe's
+model-facing context uses a dedicated
+`sentientos.epistemic_revision_probe_context:v1` view. It omits unrelated
+developmental-history fields and removes a packet's `last_update_event` only
+when it exactly duplicates the final item in `update_event_history`. It retains
+the full projection ID/digest, source packet ID/digest and schema, proposition,
+state, all active and removed evidence bindings with their qualifiers, and the
+complete update-event history. A paired prompt-builder counterfactual with two
+evidence bindings and one withdrawal reduced the prompt from 11,608 to 10,067
+characters (13.28%). This is deterministic assembly evidence, not model
 behavior. The uncompressed four-condition protocol timed out on its first call
 with both Hermes 4 14B and Hermes 3 3B. With the compact prompt, a Hermes 3 3B
 run again timed out on its first call after 180 seconds with zero output; during
 that call, Ollama reported CPU-only placement despite the configured GPU-layer
-limit. The correction and pressure behavior therefore remains unverified with a
-real model, and the prompt reduction did not resolve this machine's inference
-latency.
+limit. A later retry was stopped within ten seconds when Ollama again reported
+`100% CPU`; its startup log selected the CPU inference library with zero GPU
+offload. No response was scored. Correction and pressure behavior therefore
+remain unverified with a real model, and prompt reduction has not resolved this
+machine's inference latency.
 
 ## Stance meanings
 

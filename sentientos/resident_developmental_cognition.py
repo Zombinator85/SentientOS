@@ -4787,6 +4787,42 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
     return {**semantic, "projection_digest": _digest(semantic)}
 
 
+EPISTEMIC_REVISION_PROBE_CONTEXT_SCHEMA = (
+    "sentientos.epistemic_revision_probe_context:v1")
+EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA = (
+    "sentientos.epistemic_revision_probe_packet_view:v1")
+EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT = (
+    "sentientos.epistemic_revision_answer:v2")
+_EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
+    "developmental_history", "developmental_history_posture",
+    "developmental_history_retrieval_policy_id",
+    "developmental_history_selection",
+    "developmental_history_target_model_identity",
+    "developmental_history_task_family_history_required",
+    "developmental_history_task_family_id",
+)
+
+
+def _epistemic_revision_probe_packet_view(
+        packet: Mapping[str, Any]) -> dict[str, Any]:
+    """Keep canonical packet lineage while omitting a duplicated latest event."""
+    event_history = packet.get("update_event_history")
+    last_event = packet.get("last_update_event")
+    view = {key: value for key, value in packet.items()
+        if key not in {"schema_version", "packet_id", "packet_digest"}}
+    if (isinstance(event_history, (list, tuple)) and event_history
+            and isinstance(last_event, Mapping)
+            and dict(last_event) == event_history[-1]):
+        view.pop("last_update_event", None)
+    return {
+        "schema_version": EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA,
+        "source_packet_schema_version": packet.get("schema_version"),
+        "source_packet_id": packet.get("packet_id"),
+        "source_packet_digest": packet.get("packet_digest"),
+        **view,
+    }
+
+
 def _bind_epistemic_context(*, context: Mapping[str, Any],
                             projection: EpistemicCognitiveProjection | None,
                             max_input_chars: int | None = None,
@@ -4795,6 +4831,17 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     if max_input_chars is None:
         max_input_chars = MAX_RESIDENT_COGNITION_INPUT_CHARS
     prompt_context = dict(context)
+    probe_context = prompt_context.get("epistemic_revision_probe")
+    is_epistemic_revision_probe = (
+        isinstance(probe_context, Mapping)
+        and probe_context.get("response_contract")
+            == EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT)
+    if is_epistemic_revision_probe:
+        # This probe is scoped to a supplied epistemic state and current
+        # evidence. Unrelated developmental history and its retrieval metadata
+        # cannot help answer it and can bias the evidence review.
+        for field in _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS:
+            prompt_context.pop(field, None)
     prompt_conversation_context = prompt_context.get("session_conversation_context")
     if isinstance(prompt_conversation_context, Mapping):
         prompt_context["session_conversation_context"] = {
@@ -4931,15 +4978,21 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         if split_relation:
             continue
         omitted = descriptors[count:]
-        prior = {"schema_version": schema,
+        prior = {"schema_version": (EPISTEMIC_REVISION_PROBE_CONTEXT_SCHEMA
+                if is_epistemic_revision_probe else schema),
             "projection_id": projection.projection_id,
             "projection_digest": projection.projection_digest,
             "source_tick": projection.source_tick,
             "current_tick_cutoff": projection.current_tick,
+            **({"source_projection_schema_version": schema}
+                if is_epistemic_revision_probe else {}),
             "semantic_status": ("all_meanings_delivered" if not omitted else
                 "complete_packets_selected_with_budget_omissions"),
             "owner_packet_count": len(packets),
-            "semantic_packets": list(consumed),
+            "semantic_packets": ([
+                _epistemic_revision_probe_packet_view(packet)
+                for packet in consumed] if is_epistemic_revision_probe
+                else list(consumed)),
             "omitted_packet_count": len(omitted),
             "omitted_packets_digest": _digest(list(omitted)),
             "omission_reason": "inference_input_budget" if omitted else None}
