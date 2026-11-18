@@ -10237,7 +10237,7 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     assert present["retrieved_record_ids"] == restored["retrieved_record_ids"] == [
         relevant.written_record_id]
     assert withheld["retrieved_record_ids"] == []
-    assert decoy.written_record_id not in present["retrieved_record_ids"]
+    assert not set(intervening_ids).intersection(present["retrieved_record_ids"])
     assert result.restored_prompt_matches is True
     assert result.authority is False and result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
