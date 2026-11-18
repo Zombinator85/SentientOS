@@ -6073,7 +6073,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -6103,7 +6103,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -6357,6 +6357,58 @@ def test_history_query_prefers_matching_decision_polarity_over_recency() -> None
         fake_owner, state, "later-negative", relevance_query=negative_query)
     positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-positive", relevance_query=positive_query)
+
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
+
+
+def test_history_query_polarity_precedes_stronger_opposite_lexical_overlap() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    candidates = {
+        "older-negative": {"selected_facts": [],
+            "interpretation": (
+                "I cannot approve the west sensor after repeated calibration "
+                "failure near its north connector.")},
+        "newer-positive": {"selected_facts": [],
+            "interpretation": (
+                "I approved the west sensor after repeated calibration failure "
+                "near its north connector following full certification and "
+                "successful validation.")},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
+    ]}
+
+    negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-negative",
+        relevance_query=("Should I not approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
+    positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-positive",
+        relevance_query=("Should I approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
 
     assert negative_projection.requested_record_ids == ("older-negative",)
     assert positive_projection.requested_record_ids == ("newer-positive",)

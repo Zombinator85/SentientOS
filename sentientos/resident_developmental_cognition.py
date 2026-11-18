@@ -5077,7 +5077,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_lesson_scope_and_elliptical_session_context_then_recency_fill:v7",
                 "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8",
                 "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9",
-                "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"}
+                "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10",
+                "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"}
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -8242,7 +8243,7 @@ class ResidentDevelopmentalCognitionOwner:
                             and not query_is_negative_decision)
                         or query_is_negative_decision
                             == exchange_is_negative_decision)
-                    ranked.append((relevance_score, polarity_match, order, record_id))
+                    ranked.append((polarity_match, relevance_score, order, record_id))
             ranked.sort(reverse=True)
 
             # Keep feedback records about the same exact cited turn together.
@@ -8280,9 +8281,9 @@ class ResidentDevelopmentalCognitionOwner:
             for record_id in ids:
                 unit_members.setdefault(find_group(record_id), []).append(record_id)
             ranked_score_by_id = {record_id: score
-                for score, _polarity, _order, record_id in ranked}
+                for _polarity, score, _order, record_id in ranked}
             ranked_polarity_by_id = {record_id: polarity
-                for _score, polarity, _order, record_id in ranked}
+                for polarity, _score, _order, record_id in ranked}
             unit_ranking = []
             for members in unit_members.values():
                 score = max((ranked_score_by_id.get(record_id, 0.0)
@@ -8292,11 +8293,11 @@ class ResidentDevelopmentalCognitionOwner:
                 newest_order = max(checkpoint_order[record_id]
                     for record_id in members)
                 if score > 0:
-                    unit_ranking.append((score, polarity_match, newest_order, members))
+                    unit_ranking.append((polarity_match, score, newest_order, members))
             unit_ranking.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
             selected_record_ids: list[str] = []
             selected_general_set: set[str] = set()
-            for _score, _polarity_match, _newest_order, members in unit_ranking:
+            for _polarity_match, _score, _newest_order, members in unit_ranking:
                 if (len(selected_record_ids) + len(members)
                         > self.config.max_retrieved_records):
                     continue
@@ -8317,11 +8318,11 @@ class ResidentDevelopmentalCognitionOwner:
                 selected_general_set.update(members)
             # History budgeting keeps a complete suffix. Put strongest query
             # matches last so ranking survives a smaller input budget.
-            overlap_by_id = {item[3]: item[0] for item in ranked}
-            polarity_by_id = {item[3]: item[1] for item in ranked}
+            polarity_by_id = {item[3]: item[0] for item in ranked}
+            overlap_by_id = {item[3]: item[1] for item in ranked}
             ids = sorted(selected_record_ids, key=lambda record_id: (
-                overlap_by_id.get(record_id, 0),
-                polarity_by_id.get(record_id, 0), checkpoint_order[record_id]))
+                polarity_by_id.get(record_id, 0),
+                overlap_by_id.get(record_id, 0), checkpoint_order[record_id]))
         ids = ids[-self.config.max_retrieved_records:]
         projection = self.writeback.retrieve(ids,
             limit=self.config.max_retrieved_records)
@@ -9325,7 +9326,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and bool(observed_target_identity))
             else "task_family_probe_overlap_then_recency_fill:v2"
             if isinstance(task_family_id, str) else
-            "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
+            "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
             if interaction_question is not None
                 and condition_id == "companion-interaction"
             else "completed_tick_recency_suffix:v1")

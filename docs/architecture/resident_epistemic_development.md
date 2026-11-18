@@ -145,12 +145,17 @@ assertion as true. Groups that do not fit are withheld whole rather than
 partially represented.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10`)
-remain in normal history selection lineage. History packets remain explicitly historical,
-non-authoritative, and not current truth. This remains deterministic lexical
-matching that normalizes common plural endings and weights terms that occur in
-fewer candidate records. It is not semantic retrieval or evidence that selected
-experience improves an answer.
+(`query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11`)
+remain in normal history selection lineage. For decision queries, matching
+decision polarity now ranks ahead of lexical overlap, so a longer opposite
+decision cannot displace a shorter history that matches whether the decision
+was made. Lexical overlap ranks records within the same polarity; checkpoint
+order remains the stable tie-breaker, and unmatched slots still use recency.
+History packets remain explicitly historical, non-authoritative, and not
+current truth. This remains deterministic lexical matching that normalizes
+common plural endings and weights terms that occur in fewer candidate records.
+It is not semantic retrieval or evidence that selected experience improves an
+answer.
 
 Compact resident history packets now carry the bounded lesson statement,
 scope, applicability, and uncertainty rationale into the prompt. The companion
