@@ -669,6 +669,40 @@ def test_stale_position_keeps_stale_freshness_in_prior_packet(tmp_path):
     assert packet["evidence_posture"]["posture"] == "all_evidence_stale"
 
 
+def test_update_candidate_histories_follow_canonical_projection_state_order(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    propositions = sorted((
+        proposition(statement="First distinct prior position", position="first"),
+        proposition(statement="Second distinct prior position", position="second")),
+        key=lambda item: item.proposition_id)
+    for index, item in enumerate(propositions, start=1):
+        owner.register_proposition(item)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=item.proposition_id, predecessor_state_digest=None,
+            proposed_stance="unknown", evidence_binding_ids=(),
+            reason="initialization", rationale=f"Initialize position {index}.",
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule", proposer_id=f"projection-fixture-{index}")
+        owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(), candidate=candidate,
+            correlation_id=f"candidate-projection-{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+
+    selected_order = tuple(item.proposition_id for item in reversed(propositions))
+    projection = owner.cognitive_projection(max_states=2, current_tick=3,
+        prioritized_proposition_ids=selected_order)
+
+    assert projection is not None
+    assert projection.proposition_ids == tuple(
+        item.proposition_id for item in propositions)
+    for proposition_id, candidate_history in zip(
+            projection.proposition_ids, projection.update_candidate_histories):
+        assert len(candidate_history["candidates"]) == 1
+        assert candidate_history["candidates"][0]["candidate"][
+            "proposition_id"] == proposition_id
+
+
 
 def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner(tmp_path):
     owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
