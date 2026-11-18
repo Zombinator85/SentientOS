@@ -358,6 +358,15 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert pending_packet["unverified_context_interpretation"] == (
         "operator_context_only_not_state_evidence_or_truth")
 
+    from sentientos.epistemic_planning import review_required_applicability
+    _, pending_review_scopes = review_required_applicability(pending_projection)
+    assert pending_review_scopes[proposition.proposition_id][
+        "position_posture"] == "review_required"
+    assert pending_review_scopes[proposition.proposition_id][
+        "unverified_correction_binding_ids"] == [binding.binding_id]
+    assert pending_projection.states[0]["state_digest"] == original_state.state_digest
+    assert pending_projection.states[0]["generation"] == original_state.generation
+
     from sentientos.resident_developmental_cognition import (
         EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
     probe_context = {"instruction": EXPERIMENT_CONTEXT_INSTRUCTION,

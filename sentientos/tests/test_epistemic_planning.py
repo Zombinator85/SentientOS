@@ -152,6 +152,122 @@ def test_projected_relations_change_tagged_goal_review_decision(
     assert feedback["authority"] is False
 
 
+def test_cited_unverified_correction_defers_goal_without_revising_state(
+        tmp_path: Path) -> None:
+    from sentientos.goal_graph import Goal, GoalGraph
+    from sentientos.persistent_epistemic_state import (
+        MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE,
+        PersistentEpistemicStateOwner, make_evidence_binding,
+        make_proposition,
+    )
+    from sentientos.risk_budget import RiskBudget
+    from sentientos.work_allocator import allocate_goals
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    proposition = make_proposition(namespace="embodiment",
+        subject="sensor:correction-review", predicate="reports_condition",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={"window": "prior"}, context_scope={},
+        proposition_class="environmental")
+    owner.register_proposition(proposition)
+    support = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="observation:correction-review-baseline",
+        source_digest="sha256:" + "a" * 64,
+        source_schema="sentientos.test_observation:v1",
+        source_class="independent_fixture",
+        observation_time="2026-11-18T10:00:00Z",
+        evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group=None, upstream_binding_ids=(), freshness="current",
+        reliability_posture="supports")
+    owner.bind_evidence(support)
+    original_state, _ = owner.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="correction-review-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+
+    goal = Goal("apply-cited-position", "apply prior sensor position", 2.0,
+        10, (), "rule", 1, 1,
+        (f"epistemic_proposition:{proposition.proposition_id}",), True)
+    graph = GoalGraph(schema_version=1, goals=(goal,))
+    budget = RiskBudget(router_k_max=1, router_m_max=1)
+
+    def allocate():
+        projection = owner.cognitive_projection(max_states=1, current_tick=2,
+            prioritized_proposition_ids=(proposition.proposition_id,))
+        assert projection is not None
+        return projection, allocate_goals(graph=graph, budget=budget,
+            operating_mode="normal", integrity_pressure_level=0,
+            quarantine_active=False, posture="balanced",
+            prior_epistemic_projection=projection)
+
+    baseline_projection, baseline = allocate()
+    assert baseline.selected == (goal.goal_id,)
+    baseline_state = baseline_projection.states[0]
+
+    correction = make_evidence_binding(
+        proposition_id=proposition.proposition_id,
+        source_artifact_id="operator-feedback:correction-review",
+        source_digest="sha256:" + "b" * 64,
+        source_schema="sentientos.local_operator_feedback:v5",
+        source_class="operator_input",
+        observation_time="2026-11-18T10:01:00Z",
+        evidence_relation="contextualizes",
+        dependency_kind="unknown_dependency", dependency_group=None,
+        upstream_binding_ids=(), freshness="unknown",
+        reliability_posture="operator_assertion_unverified_context_only",
+        unverified_context_text="The prior sensor condition may be wrong.")
+    owner.bind_evidence(correction)
+
+    corrected_projection, corrected = allocate()
+    assert corrected_projection.states[0] == baseline_state
+    assert corrected_projection.state_ids == baseline_projection.state_ids
+    assert corrected.selected == ()
+    [deferred] = corrected.deferred
+    assert deferred.reason == "epistemic_review_required"
+    [position] = deferred.epistemic_positions
+    assert position["posture"] == "review_required"
+    assert position["unverified_correction_binding_ids"] == [
+        correction.binding_id]
+    assert original_state.state_digest == corrected_projection.states[0][
+        "state_digest"]
+    assert original_state.generation == corrected_projection.states[0][
+        "generation"]
+
+    # Context pressure must not erase the review signal when the original
+    # correction is among the bounded, omitted context records.
+    for index in range(
+            MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE):
+        owner.bind_evidence(make_evidence_binding(
+            proposition_id=proposition.proposition_id,
+            source_artifact_id=f"operator-feedback:correction-review-{index}",
+            source_digest=f"{index + 1:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:{index + 2:02d}:00Z",
+            evidence_relation="contextualizes",
+            dependency_kind="unknown_dependency", dependency_group=None,
+            upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=f"Additional correction context {index}."))
+
+    bounded_projection, bounded = allocate()
+    assert bounded_projection.states[0]["state_digest"] == original_state.state_digest
+    assert bounded_projection.states[0]["generation"] == original_state.generation
+    assert bounded.selected == ()
+    [bounded_deferred] = bounded.deferred
+    [bounded_position] = bounded_deferred.epistemic_positions
+    assert bounded_deferred.reason == "epistemic_review_required"
+    assert bounded_position["omitted_unverified_correction_context"]["count"] == 1
+    assert bounded_position["omitted_unverified_correction_context"][
+        "identity_digest"].startswith("sha256:")
+
+
 def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence(
     tmp_path: Path,
 ) -> None:

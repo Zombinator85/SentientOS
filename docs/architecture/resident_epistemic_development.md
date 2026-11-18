@@ -656,6 +656,17 @@ context contains enough bound information for a controlled response policy to
 apply a correction without promoting it to truth. It does not establish that a
 real model will correctly interpret feedback or improve open-ended decisions.
 
+Plan-only allocation also treats a source-bound v5 correction as a review
+signal for goals explicitly tagged to the cited proposition. The deferral
+carries the correction binding IDs (or a bounded omission count and digest when
+context is over capacity); the correction remains unverified context and does
+not change the epistemic state. A paired allocation counterfactual verifies
+that the same supported state is usable before the correction and deferred
+after it, with its state digest and generation unchanged. This makes feedback
+operational for planning while preserving the evidence boundary; it does not
+decide whether the correction is true or resolve the position without
+independent evidence.
+
 When the correction is compared with a cited prior epistemic state, the later
 response now names that state as an earlier evidence-bound position and cites
 its exact state ID alongside the feedback record and historical dialogue turn.
