@@ -58,6 +58,18 @@ The bounded mutation controller implements two independent transactions. An expl
 
 Resident cognition receives four separately typed channels: current World-State evidence, prior self-model, prior epistemic state, and developmental history. The epistemic projection binds proposition/state identities, generations, and evidence-set digests. Before inference, the owner verifies custody and captures the exact immutable update/state inventory as an epistemic epoch; only paired states in that capture are eligible. Update ticks order generations inside that epoch, while the daemon's string tick is never parsed, hashed, or treated as epistemic chronology. A second inventory comparison fails closed on concurrent advancement. Current evidence outranks a stale prior for current-condition reasoning while both remain visible.
 
+Version 8 semantic projections also carry verified, digest-bound proposition
+relations when both endpoints have eligible prior positions and at least one
+endpoint is selected. The relation is repeated in each selected endpoint's
+packet and remains a recorded historical link, not truth or authority. Context
+assembly keeps `contradicts` and `supersedes` endpoint packets together when
+both are in the projection; when the input budget cannot carry the pair, it
+omits the pair and records the relation digest. Prompt instructions explicitly
+forbid treating an omitted relation or endpoint as absent or resolved. Older
+projection versions retain their existing identity formats. Deterministic
+fixtures establish projection and budget behavior; real-model use remains
+unverified.
+
 Ordinary companion responses now return `epistemic_state_ids` for stored
 positions whose complete semantic packets reached the prompt and materially
 influenced an answer. The parser checks each ID against those delivered packets,

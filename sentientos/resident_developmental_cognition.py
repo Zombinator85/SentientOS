@@ -4837,6 +4837,19 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     selected_omissions: tuple[Mapping[str, Any], ...] = ()
     for count in range(len(packets), -1, -1):
         consumed = packets[:count]
+        consumed_proposition_ids = {str(packet.get("proposition", {}).get(
+            "proposition_id", "")) for packet in consumed}
+        projected_packet_ids = {str(packet.get("proposition", {}).get(
+            "proposition_id", "")) for packet in packets}
+        split_relation = any(
+            relation.get("relation") in {"contradicts", "supersedes"}
+            and relation.get("source_proposition_id") in projected_packet_ids
+            and relation.get("target_proposition_id") in projected_packet_ids
+            and ((relation.get("source_proposition_id") in consumed_proposition_ids)
+                != (relation.get("target_proposition_id") in consumed_proposition_ids))
+            for relation in getattr(projection, "proposition_relations", ()))
+        if split_relation:
+            continue
         omitted = descriptors[count:]
         prior = {"schema_version": schema,
             "projection_id": projection.projection_id,
@@ -4850,6 +4863,17 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "omitted_packet_count": len(omitted),
             "omitted_packets_digest": _digest(list(omitted)),
             "omission_reason": "inference_input_budget" if omitted else None}
+        relation_rows = tuple(getattr(projection, "proposition_relations", ()))
+        delivered_relation_digests = {str(relation.get("relation_digest"))
+            for packet in consumed for relation in packet.get("proposition_relations", ())
+            if isinstance(relation, Mapping)}
+        omitted_relations = [{key: relation[key] for key in (
+            "source_proposition_id", "target_proposition_id", "relation",
+            "relation_digest")} for relation in relation_rows
+            if relation.get("relation_digest") not in delivered_relation_digests]
+        if relation_rows:
+            prior["omitted_proposition_relations"] = omitted_relations
+            prior["omitted_proposition_relations_digest"] = _digest(omitted_relations)
         # A v3 owner projection also identifies propositions omitted by the
         # projection's state bound. Keep that owner-level manifest in the
         # exact inference context; the prompt digest and projection digest
@@ -4898,6 +4922,14 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 and isinstance(candidate.get("instruction"), str)
                 and "unverified_context_evidence_bindings" not in candidate["instruction"]):
             candidate["instruction"] += UNVERIFIED_CONTEXT_EVIDENCE_INSTRUCTION
+        if any(packet.get("proposition_relations") for packet in consumed) or omitted_relations:
+            relation_instruction = (
+                " Proposition relations are recorded prior links, not truth or authority; "
+                "an omitted relation or endpoint must not be treated as absent, resolved, or current.")
+            if isinstance(candidate.get("instruction"), str):
+                candidate["instruction"] += relation_instruction
+            else:
+                candidate["instruction"] = relation_instruction.strip()
         candidate_prompt = json.dumps(candidate, sort_keys=True, separators=(",", ":"))
         largest_candidate_chars = max(largest_candidate_chars, len(candidate_prompt))
         if len(candidate_prompt) <= max_input_chars:

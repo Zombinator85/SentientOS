@@ -26,12 +26,84 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
 from sentientos.persistent_epistemic_state import (
-    FALSE_AUTHORITY, PersistentEpistemicStateOwner, make_evidence_binding,
+    FALSE_AUTHORITY, PersistentEpistemicStateOwner, PropositionRelation,
+    make_evidence_binding, make_proposition,
     semantic_packets_for_projection,
 )
+from sentientos.resident_developmental_cognition import _bind_epistemic_context
 
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_verified_proposition_relations_reach_later_bounded_cognition(
+        tmp_path: Path) -> None:
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "related-epistemics",
+        allowed_namespaces=("embodiment",))
+    propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
+        predicate="reports_temperature", object_value=value, polarity="positive",
+        qualifiers={}, temporal_scope={"window": "prior"}, context_scope={},
+        proposition_class="environmental") for value in (18, 28)]
+    for proposition in propositions:
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=(), correlation_id=f"initialize:{proposition.proposition_id}",
+            tick=1, recorded_at="2026-01-01T00:00:00Z")
+    epistemic.add_relation(PropositionRelation(
+        source_proposition_id=propositions[0].proposition_id,
+        target_proposition_id=propositions[1].proposition_id,
+        relation="contradicts", recorded_at="2026-01-02T00:00:00Z"))
+
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=4)
+    assert projection is not None
+    assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v8"
+    packets = semantic_packets_for_projection(projection)
+    assert len(packets) == 2
+    for packet in packets:
+        [relation] = packet["proposition_relations"]
+        assert relation["relation"] == "contradicts"
+        assert packet["relation_interpretation"] == (
+            "recorded_prior_link_not_truth_or_authority")
+        assert packet["authority"] is False
+
+    context, metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "Assess the two prior readings.",
+            "companion_question": "Which prior temperature readings conflict?"},
+        projection=projection, max_input_chars=16_000)
+    prior = context["prior_epistemic_state"]
+    assert len(prior["semantic_packets"]) == 2
+    assert "recorded prior links, not truth or authority" in context["instruction"]
+    assert prior["omitted_proposition_relations"] == []
+    assert metadata["epistemic_owner_packet_count"] == 2
+    assert "contradicts" in prompt
+    observed_packet_counts = set()
+    zero_packet_relation_manifest = None
+    for budget in range(4_000, 16_001, 500):
+        try:
+            bounded, _bounded_metadata, _bounded_prompt = _bind_epistemic_context(
+                context={"instruction": "Assess the two prior readings.",
+                    "companion_question": "Which prior temperature readings conflict?"},
+                projection=projection, max_input_chars=budget)
+        except ResidentDevelopmentalCognitionError as exc:
+            assert exc.code == "cognition_input_budget_exceeded"
+            continue
+        bounded_prior = bounded["prior_epistemic_state"]
+        packet_count = len(bounded_prior["semantic_packets"])
+        observed_packet_counts.add(packet_count)
+        if packet_count == 0:
+            zero_packet_relation_manifest = bounded_prior[
+                "omitted_proposition_relations"]
+    assert observed_packet_counts <= {0, 2}
+    assert 0 in observed_packet_counts
+    assert zero_packet_relation_manifest == [{
+        "source_proposition_id": projection.proposition_relations[0][
+            "source_proposition_id"],
+        "target_proposition_id": projection.proposition_relations[0][
+            "target_proposition_id"],
+        "relation": "contradicts",
+        "relation_digest": projection.proposition_relations[0]["relation_digest"],
+    }]
 
 
 def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
