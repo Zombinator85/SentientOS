@@ -753,6 +753,26 @@ def test_guard_rejects_unacceptable_model_placement(
         assert evidence[0]["model_stop_attempted"] is True
         assert evidence[0]["model_stop_result"]["status"] == "stop_requested"
 
+
+def test_ollama_stop_tolerates_non_utf8_cli_output(runner, monkeypatch):
+    class Completed:
+        returncode = 0
+        stdout = b"\x8f"
+        stderr = b""
+
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "ollama.exe")
+
+    def run(args, **kwargs):
+        assert args == ["ollama.exe", "stop", "hermes"]
+        assert kwargs["capture_output"] is True
+        assert "text" not in kwargs
+        return Completed()
+
+    monkeypatch.setattr(runner.subprocess, "run", run)
+
+    assert runner._stop_ollama_model("hermes") == {
+        "status": "stop_requested", "return_code": 0}
+
 def test_guard_preserves_post_inference_resource_sample_when_backend_fails(
         runner, monkeypatch):
     class Delegate:

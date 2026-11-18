@@ -1041,7 +1041,7 @@ def _stop_ollama_model(model_name: str) -> dict[str, Any]:
         return {"status": "ollama_cli_unavailable"}
     try:
         completed = subprocess.run([executable, "stop", model_name], check=False,
-            capture_output=True, text=True, timeout=10)
+            capture_output=True, timeout=10)
     except (OSError, subprocess.SubprocessError):
         return {"status": "stop_failed"}
     return {"status": "stop_requested" if completed.returncode == 0
