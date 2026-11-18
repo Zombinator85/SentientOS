@@ -611,3 +611,15 @@ Unverified linkage contributes no priority. CPU-only counterfactual tests show
 the verified handoff reaches the bridge and the production bridge selects the
 cited proposition over an unrelated state; they do not establish that a real
 model will apply the selected state correctly.
+
+
+History selection for ordinary cognition ticks now also considers bounded
+selected current World-State facts as ranking context, except in objective,
+family, intervention, and epistemic-revision paths. Companion retrieval adds
+those facts only for elliptical questions, alongside the previous user turn.
+The context affects which historical packets are selected; current evidence
+remains separate and history remains non-authoritative. A CPU-only deterministic
+counterfactual shows a matching older experience reaching the real companion
+prompt and changing the fake invoker's decision over a recent unrelated record.
+Real-model use of that context and longitudinal decision improvement remain
+unverified.

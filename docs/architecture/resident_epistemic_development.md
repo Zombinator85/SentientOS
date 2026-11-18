@@ -135,6 +135,17 @@ session context contributes topic terms only when the current question has
 fewer than two distinctive terms, supporting elliptical follow-ups without
 letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
+For ordinary cognition ticks, the bounded selected current World-State fact
+projection also contributes ranking terms to history selection when no
+objective, family, intervention, or epistemic-revision protocol is active. For
+companion interactions, those terms join the previous user turn only for an
+elliptical question. Current facts remain in their separate evidence channel;
+they are not copied into history packets, and this retrieval context does not
+grant historical records authority or current-truth status. A deterministic
+counterfactual in `tests/test_resident_developmental_cognition.py` shows an
+older hot-battery lesson displacing a recent unrelated telescope record for an
+elliptical follow-up. This establishes retrieval and prompt delivery, not that a
+real model will apply the lesson correctly or improve outcomes.
 Validated v4 operator-feedback reports that target the same exact conversation
 session, turn ID, and turn-text digest are selected as one bounded retrieval
 unit. A query that matches one report therefore retains the other reports about

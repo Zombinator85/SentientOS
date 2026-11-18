@@ -5700,6 +5700,88 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+def test_current_world_state_retrieves_applicable_history_for_elliptical_decision(
+        tmp_path: Path) -> None:
+    class SituationAwareFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if (request.purpose == "resident_developmental_retrieval_cognition"
+                    and "disposition" in schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                history_text = " ".join(str(row.get("interpretation", ""))
+                    for row in prompt.get("developmental_history", ())
+                    if isinstance(row, Mapping))
+                self.companion_output_override = (
+                    {"disposition": "answer",
+                        "response": "Use low-power charging; the current hot-battery condition matches the retained experience.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"]}
+                    if "low-power charging" in history_text else
+                    {"disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": []})
+            return super().invoke(request, **kwargs)
+
+    def situation(description: str):
+        return WorldStateBoardBuilder().build([{
+            "source_id": "current-situation",
+            "source_kind": "capability_registry",
+            "subject_id": "battery-condition",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-11-18T12:00:00+00:00",
+            "payload": {"description": description},
+        }])
+
+    fake = SituationAwareFakeInvoker()
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+        ensure_private_child_directory(tmp_path, "history")
+    cognition, _ = owner(tmp_path, invoker=fake,
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+        max_retrieved_records=1)
+    current_hot_battery = situation(
+        "The battery is hot and temperature is rising during charging.")
+    fake.history_interpretation = (
+        "An earlier hot battery experience suggests low-power charging when "
+        "temperature is rising to reduce overheating.")
+    acquired = cognition.run_tick(snapshot=current_hot_battery,
+        tick_id="hot-battery-experience")
+    assert acquired.written_record_id is not None
+
+    fake.history_interpretation = (
+        "The orbital telescope recorded a clear image of Saturn.")
+    recent = cognition.run_tick(snapshot=situation(
+        "The orbital telescope captured Saturn in a clear sky."),
+        tick_id="recent-telescope-experience")
+    assert recent.written_record_id is not None
+
+    baseline = cognition._prior_projection(cognition._state(),
+        "elliptical-history-baseline", relevance_query="What now?")
+    assert baseline.requested_record_ids == (recent.written_record_id,)
+
+    state_before_interaction = cognition.state_path.read_bytes()
+    result = cognition.run_companion_interaction(snapshot=current_hot_battery,
+        request_id="hot-battery-elliptical-followup", question="What next?")
+    assert result.prior_record_ids == (acquired.written_record_id,)
+    assert result.history_record_ids == (acquired.written_record_id,)
+    assert "Use low-power charging" in result.response
+    assert result.evidence_ids == ()
+    assert result.authority is False and result.current_truth is False
+    assert cognition.state_path.read_bytes() == state_before_interaction
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert "temperature is rising during charging" in json.dumps(
+        prompt.get("current_evidence", {}))
+    assert "low-power charging" in json.dumps(
+        prompt.get("developmental_history", []))
+    assert all(row.get("current_truth") is False and row.get("authority") is False
+        for row in prompt.get("developmental_history", []))
+
+    ordinary_tick = cognition.run_tick(snapshot=current_hot_battery,
+        tick_id="hot-battery-ordinary-cognition-followup")
+    assert ordinary_tick.prior_record_ids == (acquired.written_record_id,)
+
+
 def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
         tmp_path: Path) -> None:
     class FactSensitiveInvoker(FakeInvoker):

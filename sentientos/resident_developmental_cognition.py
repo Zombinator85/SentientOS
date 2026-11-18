@@ -5806,6 +5806,30 @@ def _current_evidence_prompt_payload(
         prompt_payload["conflicts"] = conflicts
     return prompt_payload
 
+
+def _current_history_relevance_context(
+        current: CurrentWorldStateCognitiveProjection, *,
+        maximum_chars: int = 4000) -> str:
+    """Return bounded selected current fact text for history ranking only."""
+    pieces: list[str] = []
+    remaining = maximum_chars
+    for fact in current.facts:
+        if remaining <= 0 or not isinstance(fact, Mapping):
+            continue
+        payload = fact.get("payload")
+        subject = fact.get("subject")
+        if not isinstance(payload, Mapping):
+            continue
+        text = json.dumps({"subject": subject, "payload": payload},
+            ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+        if len(text) > remaining:
+            text = text[:remaining]
+        if text:
+            pieces.append(text)
+            remaining -= len(text)
+    return " ".join(pieces)
+
+
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:
     status: str
@@ -10607,19 +10631,24 @@ class ResidentDevelopmentalCognitionOwner:
         capture: dict[str, Any] = {}
         with self._composition_lock():
             state = self._state()
+            current = self._current_projection(snapshot, question=question)
+            current_relevance = _current_history_relevance_context(current)
+            prior_user_text = (next((row["text"] for row in reversed(
+                conversation_context.get("turns", ()))
+                if row.get("role") == "user"), None)
+                if conversation_context is not None else None)
+            relevance_context = " ".join(text[:2000] for text in (
+                prior_user_text, current_relevance) if isinstance(text, str)
+                and text.strip())[:4000]
             projection = self._prior_projection(state, tick_id,
                 relevance_query=question,
-                relevance_context=(next((row["text"] for row in reversed(
-                    conversation_context.get("turns", ()))
-                    if row.get("role") == "user"), None)
-                    if conversation_context is not None else None),
+                relevance_context=relevance_context or None,
                 target_model_identity=(
                     _observed_current_cognition_model_identity(
                         getattr(self, "invoker", None))))
             historical_citation_context = _validated_historical_citation_context(
                 historical_citation_context, records=projection.records,
                 conversation_context=conversation_context)
-            current = self._current_projection(snapshot, question=question)
             observation = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                 projection=projection, with_history=bool(projection.requested_record_ids),
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
@@ -11023,7 +11052,16 @@ class ResidentDevelopmentalCognitionOwner:
             _observed_current_cognition_model_identity(self.invoker)
             if (isinstance(family_id, str)
                 or companion_intervention_question is not None) else None)
+        current = self._current_projection(snapshot,
+            question=companion_intervention_question)
+        current_relevance = _current_history_relevance_context(current)
+        current_relevance_query = (current_relevance
+            if current_relevance and not objective_only
+                and objective_task is None and family_id is None
+                and companion_intervention_question is None
+                and not epistemic_revision_probe else None)
         prior = self._prior_projection(state, tick_id, task_family_id=family_id,
+            relevance_query=current_relevance_query,
             task_probe_inputs=task_probe_inputs,
             require_task_family_history=require_family,
             target_model_identity=preflight_target_model_identity,
@@ -11071,8 +11109,6 @@ class ResidentDevelopmentalCognitionOwner:
                 if objective_only else {})})
         self._save_state(state)
 
-        current = self._current_projection(snapshot,
-            question=companion_intervention_question)
         if isinstance(family_id, str) and objective_only:
             current = self._exclude_retained_task_facts(current, prior.records, family_id)
         observations: list[ResidentCognitionObservation] = []
