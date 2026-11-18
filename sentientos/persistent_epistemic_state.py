@@ -871,7 +871,11 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                         "candidate_digest"}):
                     raise EpistemicStateError(
                         "epistemic_semantic_update_candidate_projection_invalid")
-                event_row = event_by_id.get(row.get("event_id"))
+                row_event_id = row.get("event_id")
+                if not isinstance(row_event_id, str):
+                    raise EpistemicStateError(
+                        "epistemic_semantic_update_candidate_projection_invalid")
+                event_row = event_by_id.get(row_event_id)
                 try:
                     candidate_value = dict(row["candidate"])
                     candidate_value["evidence_binding_ids"] = tuple(
@@ -884,7 +888,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                     raise EpistemicStateError(
                         "epistemic_semantic_update_candidate_invalid") from exc
                 if (candidate != expected_candidate or event_row is None
-                        or row["event_id"] in seen_candidate_events
+                        or row_event_id in seen_candidate_events
                         or row["event_digest"] != event_row.event_digest
                         or type(row["generation"]) is not int
                         or row["generation"] != event_row.generation
@@ -899,8 +903,8 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                             <= set(all_binding_rows)):
                     raise EpistemicStateError(
                         "epistemic_semantic_update_candidate_lineage_invalid")
-                seen_candidate_events.add(str(row["event_id"]))
-                candidate_order.append((row["generation"], str(row["event_id"])))
+                seen_candidate_events.add(row_event_id)
+                candidate_order.append((row["generation"], row_event_id))
             if candidate_order != sorted(candidate_order):
                 raise EpistemicStateError(
                     "epistemic_semantic_update_candidate_order_invalid")
