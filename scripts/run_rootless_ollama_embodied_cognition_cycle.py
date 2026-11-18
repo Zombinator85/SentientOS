@@ -928,7 +928,8 @@ class _ResourceGuardedInvoker:
             if final_placement is not None:
                 if len(model_placement_samples) < _MAX_DURING_INFERENCE_GPU_SAMPLES:
                     model_placement_samples.append(dict(final_placement))
-                if final_placement.get("status") == "cpu_only":
+                if (self._model_name is not None
+                        and final_placement.get("status") == "cpu_only"):
                     cpu_fallback_detected.set()
                     if not model_stop_attempted.is_set():
                         model_stop_attempted.set()
