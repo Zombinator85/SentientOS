@@ -52,6 +52,8 @@ def _projection_key(projection: CognitiveSelfModelProjection) -> dict[str, Any]:
     semantic.pop("projection_digest")
     if semantic.get("relevance_query_digest") is None:
         semantic.pop("relevance_query_digest")
+    if not semantic.get("omitted_conflict_groups"):
+        semantic.pop("omitted_conflict_groups")
     digest = _digest(semantic)
     relevance_query_digest = raw.get("relevance_query_digest")
     policy_valid = (

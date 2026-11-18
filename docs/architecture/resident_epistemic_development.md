@@ -89,6 +89,24 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Planning also treats a tagged prior position with an explicit projected
+`contradicts` relation as requiring review, even when that position's own
+evidence posture is positive and the connected proposition is not separately
+tagged by the goal. A tagged proposition explicitly superseded by a linked
+claim also requires review. The deterministic counterfactual in
+`sentientos/tests/test_epistemic_planning.py::test_projected_relations_change_tagged_goal_review_decision`
+shows the goal selected without the relation and deferred after the relation
+is recorded. The review scope retains the relation digest; no relation creates
+execution authority or establishes truth.
+
+Canonical plan-only daemon feedback now includes a bounded summary for deferred
+epistemic positions: proposition ID, posture, state digest when available, and
+relation digests. Position and relation-digest listings are capped at eight;
+omitted counts make truncation explicit. The allocation artifact path and
+digest remain the complete evidence source. This summary cannot authorize
+execution or invoke a model. The bounded feedback behavior is covered by
+`sentientos/tests/test_orchestrator_plan_only.py::test_daemon_goal_feedback_reports_bounded_listing_omissions`.
+
 Same-model, same-task-family history now also carries a compact controlled
 effect summary when all three score-bound conditions are comparable. It records
 whether history-present correctness was adverse, favorable, or unchanged against
@@ -127,12 +145,17 @@ assertion as true. Groups that do not fit are withheld whole rather than
 partially represented.
 Unmatched slots are filled from the recent checkpoint sequence. The selected
 record identities and retrieval policy
-(`query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10`)
-remain in normal history selection lineage. History packets remain explicitly historical,
-non-authoritative, and not current truth. This remains deterministic lexical
-matching that normalizes common plural endings and weights terms that occur in
-fewer candidate records. It is not semantic retrieval or evidence that selected
-experience improves an answer.
+(`query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11`)
+remain in normal history selection lineage. For decision queries, matching
+decision polarity now ranks ahead of lexical overlap, so a longer opposite
+decision cannot displace a shorter history that matches whether the decision
+was made. Lexical overlap ranks records within the same polarity; checkpoint
+order remains the stable tie-breaker, and unmatched slots still use recency.
+History packets remain explicitly historical, non-authoritative, and not
+current truth. This remains deterministic lexical matching that normalizes
+common plural endings and weights terms that occur in fewer candidate records.
+It is not semantic retrieval or evidence that selected experience improves an
+answer.
 
 Compact resident history packets now carry the bounded lesson statement,
 scope, applicability, and uncertainty rationale into the prompt. The companion
@@ -769,6 +792,16 @@ record newest: a contracted negative query selects it, while the positive query
 selects the older positive record. This demonstrates polarity-sensitive
 historical record selection with deterministic fixtures; it does not validate
 real-model interpretation, current truth, or execution authority.
+
+Both history retrieval and same-session transcript retrieval now normalize
+“cannot” and “can not” to the same negative decision marker already used for
+“not” and common contractions. Their paired counterfactuals put the positive
+approval most recently while storing the older negative decision as “cannot
+approve”; the negative query retrieves that older record, while a positive
+query still retrieves the recent approval. This closes a wording gap in the
+existing lexical polarity selector without treating retrieved statements as
+truth or authority. It remains deterministic retrieval evidence, not proof that
+a model will interpret the selected correction correctly.
 
 ### Rootless Windows epistemic-series execution (2026-11-17)
 

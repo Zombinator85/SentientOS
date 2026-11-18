@@ -173,13 +173,17 @@ def _epistemic_positions_for_goal(
             continue
         identity = scope.get("position_identity")
         omitted_identity = scope.get("omitted_state_identity")
-        positions.append({
+        position = {
             "proposition_id": proposition_id,
             "posture": scope.get("position_posture", "review_required"),
             "identity": dict(identity) if isinstance(identity, Mapping) else None,
             "omitted_state_identity": (dict(omitted_identity)
                 if isinstance(omitted_identity, Mapping) else None),
-        })
+        }
+        relation_review_digests = scope.get("relation_review_digests")
+        if isinstance(relation_review_digests, (list, tuple)):
+            position["relation_review_digests"] = list(relation_review_digests)
+        positions.append(position)
     return tuple(positions)
 
 

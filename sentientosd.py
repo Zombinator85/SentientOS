@@ -3258,6 +3258,40 @@ class RuntimeMaintenanceSurfaces:
             selected_goals = result.allocation.selected
             deferred_goals = result.allocation.deferred
             goal_decision_limit = 32
+            epistemic_position_listing_limit = 8
+            relation_digest_listing_limit = 8
+            deferred_goal_feedback: list[dict[str, Any]] = []
+            for item in deferred_goals[:goal_decision_limit]:
+                decision = {"goal_id": item.goal_id, "reason": item.reason}
+                if item.epistemic_positions:
+                    positions: list[dict[str, Any]] = []
+                    for position in item.epistemic_positions[
+                            :epistemic_position_listing_limit]:
+                        summary: dict[str, Any] = {
+                            "proposition_id": position.get("proposition_id"),
+                            "posture": position.get("posture", "review_required"),
+                            "omitted_from_prior_projection": (
+                                position.get("omitted_state_identity") is not None),
+                        }
+                        identity = position.get("identity")
+                        if isinstance(identity, Mapping):
+                            state_digest = identity.get("state_digest")
+                            if isinstance(state_digest, str):
+                                summary["state_digest"] = state_digest
+                        relation_digests = position.get("relation_review_digests", ())
+                        if isinstance(relation_digests, (list, tuple)):
+                            selected_digests = [digest for digest in relation_digests[
+                                :relation_digest_listing_limit]
+                                if isinstance(digest, str)]
+                            if selected_digests:
+                                summary["relation_review_digests"] = selected_digests
+                            summary["omitted_relation_review_digest_count"] = max(
+                                0, len(relation_digests) - len(selected_digests))
+                        positions.append(summary)
+                    decision["epistemic_positions"] = positions
+                    decision["omitted_epistemic_position_count"] = max(
+                        0, len(item.epistemic_positions) - len(positions))
+                deferred_goal_feedback.append(decision)
             feedback: dict[str, Any] = {
                 "status": "planned" if plan is not None else "empty",
                 "tick_id": tick_id,
@@ -3275,14 +3309,14 @@ class RuntimeMaintenanceSurfaces:
                 "selected_goal_count": len(selected_goals),
                 "omitted_selected_goal_count": max(
                     0, len(selected_goals) - goal_decision_limit),
-                "deferred_goals": [
-                    {"goal_id": item.goal_id, "reason": item.reason}
-                    for item in deferred_goals[:goal_decision_limit]
-                ],
+                "deferred_goals": deferred_goal_feedback,
                 "deferred_goal_count": len(deferred_goals),
                 "omitted_deferred_goal_count": max(
                     0, len(deferred_goals) - goal_decision_limit),
                 "goal_decision_listing_limit": goal_decision_limit,
+                "epistemic_position_listing_limit": (
+                    epistemic_position_listing_limit),
+                "relation_digest_listing_limit": relation_digest_listing_limit,
                 "work_plan_id": plan.plan_id if plan is not None else None,
                 "work_plan_path": result.work_plan_path,
                 "work_plan_evidence_path": result.work_plan_evidence_path,

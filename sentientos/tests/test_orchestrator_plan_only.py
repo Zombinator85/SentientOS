@@ -758,7 +758,17 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
             kernel=kernel, runtime_state_root=tmp_path / "runtime"),
     )
     selected = tuple(f"selected-{index:02d}" for index in range(35))
-    deferred = tuple(DeferredGoal(goal_id=f"deferred-{index:02d}", reason="fixture")
+    positions = tuple({
+        "proposition_id": f"proposition:{index:024x}",
+        "posture": "review_required",
+        "identity": {"state_digest": f"sha256:{index:064x}"},
+        "omitted_state_identity": None,
+        "relation_review_digests": [
+            f"sha256:{digest_index:064x}" for digest_index in range(10)],
+    } for index in range(10))
+    deferred = tuple(DeferredGoal(
+        goal_id=f"deferred-{index:02d}", reason="fixture",
+        epistemic_positions=positions if index == 0 else ())
         for index in range(41))
     allocation = AllocationDecision(
         selected=selected, deferred=deferred, selected_reasons=(),
@@ -787,11 +797,28 @@ def test_daemon_goal_feedback_reports_bounded_listing_omissions(
     assert feedback["omitted_selected_goal_count"] == 3
     assert feedback["target_active_model_identity_digest"] is None
     assert feedback["target_identity_observed_at"] is None
-    assert feedback["deferred_goals"] == [
-        {"goal_id": item.goal_id, "reason": item.reason} for item in deferred[:32]]
+    assert len(feedback["deferred_goals"]) == 32
+    assert feedback["deferred_goals"][0] == {
+        "goal_id": "deferred-00",
+        "reason": "fixture",
+        "epistemic_positions": [{
+            "proposition_id": f"proposition:{index:024x}",
+            "posture": "review_required",
+            "omitted_from_prior_projection": False,
+            "state_digest": f"sha256:{index:064x}",
+            "relation_review_digests": [
+                f"sha256:{digest_index:064x}" for digest_index in range(8)],
+            "omitted_relation_review_digest_count": 2,
+        } for index in range(8)],
+        "omitted_epistemic_position_count": 2,
+    }
+    assert feedback["deferred_goals"][1:] == [
+        {"goal_id": item.goal_id, "reason": item.reason} for item in deferred[1:32]]
     assert feedback["deferred_goal_count"] == 41
     assert feedback["omitted_deferred_goal_count"] == 9
     assert feedback["goal_decision_listing_limit"] == 32
+    assert feedback["epistemic_position_listing_limit"] == 8
+    assert feedback["relation_digest_listing_limit"] == 8
     assert feedback["allocation_artifact_path"] == "glow/allocation.json"
     assert feedback["allocation_artifact_digest"] == "sha256:fixture-allocation"
     assert feedback["execution_performed"] is False
@@ -1195,9 +1222,9 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     assert drifted["status"] == "empty"
     assert drifted["work_plan_id"] is None
     assert drifted["selected_goals"] == []
-    assert drifted["deferred_goals"] == [{
-        "goal_id": "g_experienced",
-        "reason": "epistemic_applicability_unresolved"}]
+    [deferred_feedback] = drifted["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "g_experienced"
+    assert deferred_feedback["reason"] == "epistemic_applicability_unresolved"
     assert drifted["target_active_model_identity_digest"] == (
         "sha256:" + digest_payload(drifted_model_identity))
     assert drifted["target_identity_observed_at"] == drift_tick
@@ -1218,6 +1245,10 @@ def test_supported_prior_experience_enables_daemon_canonical_goal_selection(
     assert drifted_position["identity"]["state_id"] == supported.state_id
     assert drifted_allocation["deferred_goals"][0]["reason"] == (
         "epistemic_applicability_unresolved")
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    assert position_feedback["proposition_id"] == supported.proposition_id
+    assert position_feedback["state_digest"] == supported.state_digest
+    assert position_feedback["posture"] == "verified_positive_current"
     assert observer.identity_calls == 2
     assert owner.current_state(proposition.proposition_id) == supported
     assert recovered_owner.current_state(proposition.proposition_id) == supported

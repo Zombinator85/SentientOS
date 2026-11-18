@@ -2298,10 +2298,15 @@ print(json.dumps({"stance": state.stance if state else None,
     assert planning_feedback["work_plan_id"] is None
     assert planning_feedback["work_plan_path"] is None
     assert planning_feedback["deferred_goal_count"] == 1
-    assert planning_feedback["deferred_goals"] == [{
-        "goal_id": "integer-affine-followup",
-        "reason": "epistemic_applicability_unresolved",
-    }]
+    [deferred_feedback] = planning_feedback["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "integer-affine-followup"
+    assert deferred_feedback["reason"] == "epistemic_applicability_unresolved"
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    planning_state = recovered_epistemics.current_state(proposition.proposition_id)
+    assert planning_state is not None
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == planning_state.state_digest
+    assert deferred_feedback["omitted_epistemic_position_count"] == 0
     expected_planner_projection = recovered_epistemics.cognitive_projection(
         max_states=1, current_tick=updated_projection.current_tick,
         prioritized_proposition_ids=(proposition.proposition_id,))
@@ -6068,7 +6073,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -6098,7 +6103,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
     assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -6315,10 +6320,10 @@ def test_history_query_prefers_matching_decision_polarity_over_recency() -> None
     from sentientos.cognition_retrieval import cognition_query_terms
 
     candidates = {
-        "older-positive": {"selected_facts": [],
+        "older-negative": {"selected_facts": [],
+            "interpretation": "I cannot approve the west sensor."},
+        "newer-positive": {"selected_facts": [],
             "interpretation": "I approved the west sensor."},
-        "newer-negative": {"selected_facts": [],
-            "interpretation": "I did not approve the west sensor."},
     }
 
     class Store:
@@ -6337,22 +6342,76 @@ def test_history_query_prefers_matching_decision_polarity_over_recency() -> None
     fake_owner = SimpleNamespace(writeback=writeback,
         config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
     state = {"completed_ticks": [
-        {"tick_id": "tick-0", "record_id": "older-positive"},
-        {"tick_id": "tick-1", "record_id": "newer-negative"},
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
     ]}
 
     negative_query = "What didn't I approve about the west sensor?"
     positive_query = "What did I approve about the west sensor?"
     assert "not" in cognition_query_terms(negative_query)
     assert "didn" not in cognition_query_terms(negative_query)
+    assert "not" in cognition_query_terms(
+        "I cannot approve the west sensor.")
 
     negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-negative", relevance_query=negative_query)
     positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-positive", relevance_query=positive_query)
 
-    assert negative_projection.requested_record_ids == ("newer-negative",)
-    assert positive_projection.requested_record_ids == ("older-positive",)
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
+
+
+def test_history_query_polarity_precedes_stronger_opposite_lexical_overlap() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    candidates = {
+        "older-negative": {"selected_facts": [],
+            "interpretation": (
+                "I cannot approve the west sensor after repeated calibration "
+                "failure near its north connector.")},
+        "newer-positive": {"selected_facts": [],
+            "interpretation": (
+                "I approved the west sensor after repeated calibration failure "
+                "near its north connector following full certification and "
+                "successful validation.")},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return SimpleNamespace(records=(), requested_record_ids=self.selected,
+                limit=limit)
+
+    writeback = Writeback()
+    fake_owner = SimpleNamespace(writeback=writeback,
+        config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
+    ]}
+
+    negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-negative",
+        relevance_query=("Should I not approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
+    positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-positive",
+        relevance_query=("Should I approve the west sensor after repeated "
+            "calibration failure near the north connector following full "
+            "certification and successful validation?"))
+
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
 
 
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
@@ -9452,8 +9511,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     contrast_retrieval_prompt = json.loads(
         contrast_retrieval_fake.requests[-1].prompt)
     assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_"
-        "embodied_reports_and_elliptical_session_context_then_recency_fill:v10")
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_"
+        "embodied_reports_and_elliptical_session_context_then_recency_fill:v11")
 
     other_identity_owner, other_identity_fake = owner(
         tmp_path / "cognition", invoker=FakeInvoker(),
@@ -10302,9 +10361,9 @@ def test_companion_history_keeps_same_target_corrections_together_under_cap(
     assert unrelated_record_ids[0] not in interaction.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_correction_groups_decision_"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_"
         "contrasts_embodied_reports_and_elliptical_session_context_then_"
-        "recency_fill:v10")
+        "recency_fill:v11")
     reports = [report for packet in prompt["developmental_history"]
         for report in packet.get("operator_feedback_context", ())]
     assert {report["assertion_text"] for report in reports} == {
@@ -11607,6 +11666,100 @@ def test_context_budget_trims_self_model_before_dropping_retrieved_experience(
         selected_capacity, history_present=False)
     assert len(full_model_prompt) <= selected_capacity
     assert len(full_model_bound["prior_self_model"]["selected_claim_ids"]) == 2
+
+
+def test_self_model_prompt_budget_withholds_conflict_group_atomically(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import sentientos.resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        _validate_self_model_prompt_selection,
+    )
+
+    record = {"record_id": "budget-history", "record_digest": "r" * 64}
+    monkeypatch.setattr(cognition_module, "_history_context_packet",
+        lambda item, **_kwargs: {**item, "padding": "h" * 300,
+            "task_relevant_experience": [], "historical_embodiment_reports": []})
+    claim_rows = [
+        {"claim_id": "conflict-current", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "current position " + "c" * 520},
+        {"claim_id": "conflict-historical", "claim_key": "claim-key",
+            "status": "contradicted", "contradiction_state": "contradicted",
+            "value": "historical position " + "h" * 520},
+    ]
+
+    def context(*, conflict: bool) -> dict[str, Any]:
+        claims = [dict(row) for row in claim_rows]
+        if not conflict:
+            for row in claims:
+                row["status"] = "historical"
+                row["contradiction_state"] = "unresolved"
+        return {"instruction": "Use bounded prior self-model context.",
+            "prior_self_model": {
+                "projection_id": "self-model-projection",
+                "projection_digest": "sha256:" + "c" * 64,
+                "relevance_query_digest": "sha256:" + "q" * 64,
+                "selected_claims": claims,
+                "selected_claim_ids": [row["claim_id"] for row in claims],
+                "selected_claim_digests": ["sha256:" + letter * 64
+                    for letter in ("a", "b")],
+                "omitted_conflict_groups": []},
+            "developmental_history": []}
+
+    def bind(candidate: dict[str, Any], capacity: int):
+        return _bind_history_and_epistemic_context(context=candidate,
+            records=(record,), projection=None, history_present=True,
+            max_input_chars=capacity)
+
+    selected_capacity = None
+    for capacity in range(1024, 6001, 16):
+        try:
+            bound, metadata, prompt, ids, _ = bind(context(conflict=True), capacity)
+        except ResidentDevelopmentalCognitionError as exc:
+            if str(exc) != "cognition_input_budget_exceeded":
+                raise
+            continue
+        selection = metadata.get("prior_self_model_prompt_selection", {})
+        if selection.get("selected_claim_ids") != []:
+            continue
+        omitted_groups = selection.get("omitted_conflict_groups", ())
+        if (len(omitted_groups) == 1
+                and omitted_groups[0].get("reason") == "inference_input_budget"):
+            try:
+                ordinary_bound, ordinary_metadata, ordinary_prompt, ordinary_ids, _ = bind(
+                    context(conflict=False), capacity)
+            except ResidentDevelopmentalCognitionError as exc:
+                if str(exc) != "cognition_input_budget_exceeded":
+                    raise
+                continue
+            ordinary_selection = ordinary_metadata.get(
+                "prior_self_model_prompt_selection", {})
+            if len(ordinary_selection.get("selected_claim_ids", ())) == 1:
+                selected_capacity = capacity
+                break
+
+    assert selected_capacity is not None
+    bounded, metadata, prompt, ids, _ = bind(context(conflict=True), selected_capacity)
+    selection = metadata["prior_self_model_prompt_selection"]
+    [omitted_group] = selection["omitted_conflict_groups"]
+    assert omitted_group["claim_ids"] == [
+        "conflict-current", "conflict-historical"]
+    assert selection["omitted_conflict_groups_digest"] == cognition_module._digest(
+        selection["omitted_conflict_groups"])
+    assert "Do not treat withheld claims as absent, resolved" in bounded["instruction"]
+    _validate_self_model_prompt_selection({
+        "self_model_projection_present": True,
+        "self_model_projection_digest": "sha256:" + "c" * 64,
+        "self_model_claim_ids": ["conflict-current", "conflict-historical"],
+        "self_model_claim_digests": ["sha256:" + "a" * 64,
+            "sha256:" + "b" * 64],
+        "prior_self_model_prompt_selection": selection,
+    })
+    full_bound, full_metadata, full_prompt, _, _ = bind(
+        context(conflict=True), 10_000)
+    assert full_metadata["prior_self_model_prompt_selection"][
+        "selected_claim_ids"] == ["conflict-current", "conflict-historical"]
+    assert len(full_prompt) <= 10_000
 
 
 def test_task_family_retrieval_prioritizes_bound_current_model_before_probe_overlap(
@@ -14923,12 +15076,15 @@ def test_daemon_tick_routes_recovery_evidence_through_next_tick_cognition_and_pl
     assert first_plan["authority"] is False
     assert first_plan["execution_performed"] is False
     assert first_plan["prior_epistemic_projection_digest"] is not None
-    assert first_plan["deferred_goals"] == [{
-        "goal_id": "recovery-followup",
-        "reason": "epistemic_review_required",
-    }]
+    [deferred_feedback] = first_plan["deferred_goals"]
+    assert deferred_feedback["goal_id"] == "recovery-followup"
+    assert deferred_feedback["reason"] == "epistemic_review_required"
     state = epistemics.current_state(proposition.proposition_id)
     assert state is not None
+    [position_feedback] = deferred_feedback["epistemic_positions"]
+    assert position_feedback["proposition_id"] == proposition.proposition_id
+    assert position_feedback["state_digest"] == state.state_digest
+    assert position_feedback["posture"] == "review_required"
     assert state.stance == "provisionally_supported"
     assert not any(state.authority.values())
     cognition_requests = [request for request in fake.requests

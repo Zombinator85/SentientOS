@@ -26,12 +26,181 @@ from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import ResidentDevelopmentalCognitionError
 from sentientos.rootless_experimental_epistemic_session import MAX_PROMPT_CHARS
 from sentientos.persistent_epistemic_state import (
-    FALSE_AUTHORITY, PersistentEpistemicStateOwner, make_evidence_binding,
-    semantic_packets_for_projection,
+    FALSE_AUTHORITY, EpistemicStateError, PersistentEpistemicStateOwner,
+    PropositionRelation, make_evidence_binding, make_proposition,
+    semantic_packets_for_projection, validate_cognitive_projection,
 )
+from sentientos.resident_developmental_cognition import _bind_epistemic_context
 
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def test_verified_proposition_relations_reach_later_bounded_cognition(
+        tmp_path: Path) -> None:
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "related-epistemics",
+        allowed_namespaces=("embodiment",))
+    propositions = [make_proposition(namespace="embodiment", subject="sensor:g9",
+        predicate="reports_temperature", object_value=value, polarity="positive",
+        qualifiers={}, temporal_scope={"window": "prior"}, context_scope={},
+        proposition_class="environmental") for value in (18, 28, 23, 19)]
+    for proposition in propositions:
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=(), correlation_id=f"initialize:{proposition.proposition_id}",
+            tick=1, recorded_at="2026-01-01T00:00:00Z")
+    unlinked_projection = epistemic.cognitive_projection(max_states=2,
+        current_tick=4,
+        prioritized_proposition_ids=(propositions[0].proposition_id,))
+    assert unlinked_projection is not None
+    unlinked_peer = min(propositions[1:], key=lambda item: item.proposition_id)
+    linked_peers = sorted(propositions[1:], key=lambda item: item.proposition_id)[1:]
+    assert set(unlinked_projection.proposition_ids) == {
+        propositions[0].proposition_id, unlinked_peer.proposition_id}
+    for index, (peer, relation_kind) in enumerate(zip(
+            linked_peers, ("contradicts", "supersedes")), start=2):
+        epistemic.add_relation(PropositionRelation(
+            source_proposition_id=(propositions[0].proposition_id
+                if index == 2 else linked_peers[0].proposition_id),
+            target_proposition_id=peer.proposition_id,
+            relation=relation_kind,
+            recorded_at=f"2026-01-0{index}T00:00:00Z"))
+
+    projection = epistemic.cognitive_projection(max_states=3, current_tick=4,
+        prioritized_proposition_ids=(propositions[0].proposition_id,))
+    assert projection is not None
+    assert projection.schema_version == "sentientos.epistemic_cognitive_projection:v8"
+    packets = semantic_packets_for_projection(projection)
+    assert len(packets) == 3
+    assert set(projection.proposition_ids) == {
+        propositions[0].proposition_id,
+        *(peer.proposition_id for peer in linked_peers)}
+    assert projection.omission_manifest is not None
+    assert projection.omission_manifest["selection_policy"] == (
+        "relation_bundle_then_existing_priority_order")
+    assert {relation["relation_digest"] for packet in packets
+        for relation in packet["proposition_relations"]} == {
+            relation["relation_digest"] for relation in projection.proposition_relations}
+    for packet in packets:
+        assert packet["proposition_relations"]
+        assert all(relation["relation"] in {"contradicts", "supersedes"}
+            for relation in packet["proposition_relations"])
+        assert packet["relation_interpretation"] == (
+            "recorded_prior_link_not_truth_or_authority")
+        assert packet["authority"] is False
+
+    context, metadata, prompt = _bind_epistemic_context(
+        context={"instruction": "Assess the two prior readings.",
+            "companion_question": "Which prior temperature readings conflict?"},
+        projection=projection, max_input_chars=30_000)
+    prior = context["prior_epistemic_state"]
+    assert len(prior["semantic_packets"]) == 3
+    assert "recorded prior links, not truth or authority" in context["instruction"]
+    assert prior["omitted_proposition_relations"] == []
+    assert metadata["epistemic_owner_packet_count"] == 3
+    assert "contradicts" in prompt
+    observed_packet_counts = set()
+    zero_packet_relation_manifest = None
+    for budget in range(4_000, 30_001, 500):
+        try:
+            bounded, _bounded_metadata, _bounded_prompt = _bind_epistemic_context(
+                context={"instruction": "Assess the two prior readings.",
+                    "companion_question": "Which prior temperature readings conflict?"},
+                projection=projection, max_input_chars=budget)
+        except ResidentDevelopmentalCognitionError as exc:
+            assert exc.code == "cognition_input_budget_exceeded"
+            continue
+        bounded_prior = bounded["prior_epistemic_state"]
+        packet_count = len(bounded_prior["semantic_packets"])
+        observed_packet_counts.add(packet_count)
+        if packet_count == 0:
+            zero_packet_relation_manifest = bounded_prior[
+                "omitted_proposition_relations"]
+    assert observed_packet_counts <= {0, 3}
+    assert 0 in observed_packet_counts
+    assert zero_packet_relation_manifest == [{key: relation[key] for key in (
+        "source_proposition_id", "target_proposition_id", "relation",
+        "relation_digest")} for relation in projection.proposition_relations]
+    capped_projection = epistemic.cognitive_projection(max_states=1,
+        current_tick=4, prioritized_proposition_ids=(propositions[0].proposition_id,))
+    assert capped_projection is not None
+    assert capped_projection.omission_manifest is not None
+    [capped_packet] = semantic_packets_for_projection(capped_projection)
+    capped_relations = capped_packet["proposition_relations"]
+    assert len(capped_projection.states) == 1
+    capped_relation = next(relation for relation in capped_relations
+        if relation["target_proposition_id"] == linked_peers[0].proposition_id)
+    assert {relation["relation"] for relation in capped_relations} == {
+        "contradicts"}
+    peer_meaning = capped_relation["omitted_endpoint_proposition"]
+    assert peer_meaning["proposition_id"] == linked_peers[0].proposition_id
+    assert peer_meaning["object_value"] == linked_peers[0].object_value
+    omitted_peer_states = [row for row in
+        capped_projection.omission_manifest["omitted_state_identities"]
+        if row["proposition_id"] in {peer.proposition_id for peer in linked_peers}]
+    assert len(omitted_peer_states) == 2
+    assert {row["stance"] for row in omitted_peer_states} == {"supported"}
+    assert capped_projection.authority is False
+    forged_peer = {**peer_meaning, "object_value": 29}
+    forged_relation = {**capped_relation,
+        "omitted_endpoint_proposition": forged_peer}
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_relation_peer_proposition_invalid"):
+        validate_cognitive_projection(replace(capped_projection,
+            proposition_relations=(forged_relation,)))
+    malformed_relation = {**capped_relation,
+        "source_proposition_id": ["not", "an", "identity"]}
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_relation_projection_invalid"):
+        validate_cognitive_projection(replace(capped_projection,
+            proposition_relations=(malformed_relation,)))
+
+    class RelationAwareFixtureInvoker(FakeInvoker):
+        def __init__(self):
+            super().__init__()
+            self.outputs = {}
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.purpose == "resident_developmental_retrieval_cognition":
+                prior = json.loads(request.prompt)["prior_epistemic_state"]
+                has_contradiction_link = any(
+                    relation.get("relation") == "contradicts"
+                    for packet in prior.get("semantic_packets", ())
+                    for relation in packet.get("proposition_relations", ()))
+                self.lesson_statement = ("The prior positions are linked by a recorded conflict; "
+                    "reconcile their evidence before choosing a direction."
+                    if has_contradiction_link else
+                    "The prior positions have no recorded relation in this projection.")
+                self.lesson_uncertainty = "high" if has_contradiction_link else "medium"
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            self.outputs[request.request_id] = receipt.output_text
+            return receipt
+
+    outcomes = []
+    for label, prior_projection in (("unlinked", unlinked_projection),
+            ("contradiction-linked", capped_projection)):
+        invoker = RelationAwareFixtureInvoker()
+        _context, _metadata, prompt = _bind_epistemic_context(context={
+            "instruction": "Assess the prior temperature readings.",
+            "companion_question": "How should the prior readings guide this decision?"},
+            projection=prior_projection, max_input_chars=16_000)
+        inference_request = invoker.build_request(
+            purpose="resident_developmental_retrieval_cognition", prompt=prompt,
+            caller="relation_counterfactual_fixture", correlation_id=f"relation:{label}",
+            expected_output_format="text", structured_output_schema=None,
+            upstream_evidence={}, linkage={})
+        receipt = invoker.invoke(inference_request, persist=False,
+            include_output_in_receipt=True)
+        assert receipt.output_text is not None
+        outcome = json.loads(invoker.outputs[inference_request.request_id])
+        outcomes.append(outcome)
+    assert outcomes[0]["uncertainty"] == "medium"
+    assert outcomes[1]["uncertainty"] == "high"
+    assert outcomes[0]["recommendation"] != outcomes[1]["recommendation"]
 
 
 def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
