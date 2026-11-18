@@ -1290,8 +1290,11 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
                     calibration_history["omitted_identity_digest"]),
                 "calibration_posture": (
                     "historical_outcome_comparisons_not_current_truth")})
-        if projection.schema_version in {COGNITIVE_PROJECTION_SCHEMA_V6,
-                COGNITIVE_PROJECTION_SCHEMA_V7, COGNITIVE_PROJECTION_SCHEMA_V8, COGNITIVE_PROJECTION_SCHEMA_V9}:
+        if (projection.schema_version in {COGNITIVE_PROJECTION_SCHEMA_V6,
+                COGNITIVE_PROJECTION_SCHEMA_V7, COGNITIVE_PROJECTION_SCHEMA_V8,
+                COGNITIVE_PROJECTION_SCHEMA_V9}
+                and (context_history["bindings"]
+                    or context_history["omitted_count"])):
             packet.update({
                 "unverified_context_evidence_bindings": [dict(item)
                     for item in context_history["bindings"]],
