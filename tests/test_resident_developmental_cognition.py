@@ -10168,6 +10168,12 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     decoy = acquisition_owner.run_tick(snapshot=snapshot(2),
         tick_id="semantic-history-newer-decoy")
     assert relevant.written_record_id and decoy.written_record_id
+    for index in range(191):
+        acquisition_fake.history_interpretation = (
+            f"A newer retained observation about an unrelated cloud chamber {index}.")
+        intervening = acquisition_owner.run_tick(snapshot(index + 3),
+            tick_id=f"semantic-history-intervening-{index:03d}")
+        assert intervening.written_record_id
 
     def fake_encode(texts, *, model_id, revision):
         vectors = [(1.0, 0.0)]
