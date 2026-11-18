@@ -34,6 +34,8 @@ experience -> retained interpretation -> later retrieval
 
 Required evidence includes history ablation/restoration, calibration, learned-procedure persistence, unfinished-commitment behavior, environment perturbation, authorship audits, and negative results. Retrieval and output difference are not sufficient.
 
+Resident companion history now also supports opt-in semantic reranking through a locally cached, immutable-revision sentence embedder pinned to CPU. It ranks at most 256 nonempty history texts, keeps decision-polarity matching ahead of semantic similarity, preserves correction groups, and binds the embedder identity digest into retrieval lineage. If the embedder is unavailable or returns malformed vectors, selection falls back to the existing lexical policy. This extends candidate selection; it does not establish that retrieved lessons improve later conduct. The deterministic retrieval counterfactual is covered by a controlled vector double. Real embedding quality, long-horizon learning, and outcome attribution remain unverified.
+
 ## Bridge: model replacement to system continuity
 
 Use the current intervention to separate effects following history, current model, training lineage, runtime generation, and environment. Extend from frozen context to governed temporal transitions without assuming the conclusion. System lineage, model lineage, model-development lineage, and software lineage must remain independently reconstructable.
