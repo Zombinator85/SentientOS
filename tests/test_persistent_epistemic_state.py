@@ -696,11 +696,32 @@ def test_update_candidate_histories_follow_canonical_projection_state_order(tmp_
     assert projection is not None
     assert projection.proposition_ids == tuple(
         item.proposition_id for item in propositions)
+    canonical_states = tuple(owner.current_state(item.proposition_id)
+        for item in propositions)
+    assert all(state is not None for state in canonical_states)
     for proposition_id, candidate_history in zip(
             projection.proposition_ids, projection.update_candidate_histories):
         assert len(candidate_history["candidates"]) == 1
         assert candidate_history["candidates"][0]["candidate"][
             "proposition_id"] == proposition_id
+    for invalid_histories in (
+            projection.update_candidate_histories[:-1],
+            projection.update_candidate_histories
+                + (projection.update_candidate_histories[0],)):
+        with pytest.raises(EpistemicStateError,
+                match="epistemic_semantic_projection_pairing_invalid"):
+            make_cognitive_projection(canonical_states,
+                source_tick=projection.source_tick,
+                current_tick=projection.current_tick,
+                propositions=projection.propositions,
+                active_evidence_bindings=projection.active_evidence_bindings,
+                removed_evidence_bindings=projection.removed_evidence_bindings,
+                update_events=projection.update_events,
+                omission_manifest=projection.omission_manifest,
+                calibration_histories=projection.calibration_histories,
+                unverified_context_evidence=projection.unverified_context_evidence,
+                proposition_relations=projection.proposition_relations,
+                update_candidate_histories=invalid_histories)
 
 
 

@@ -397,11 +397,13 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
     context_rows = (() if unverified_context_evidence is None else tuple(
             dict(unverified_context_evidence[index]) for index in state_order))
     relation_rows = tuple(dict(item) for item in proposition_relations or ())
-    candidate_history_rows = (() if update_candidate_histories is None else tuple(
-        dict(update_candidate_histories[index]) for index in state_order))
+    candidate_history_rows = tuple(dict(item)
+        for item in update_candidate_histories or ())
     if update_candidate_histories is not None:
         if len(candidate_history_rows) != len(states):
             raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
+        candidate_history_rows = tuple(candidate_history_rows[index]
+            for index in state_order)
         schema = COGNITIVE_PROJECTION_SCHEMA_V9
         if calibration_histories is None:
             calibration_rows = tuple({"events": (), "evidence_bindings": (),
