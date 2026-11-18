@@ -5577,13 +5577,13 @@ def _current_evidence_prompt_payload(
     """Project known embodiment facts without repeating their custody envelopes.
 
     The exact projection digest and every fact/source identity remain in the prompt
-    and invocation receipt. Unknown schemas and conflicts retain their full form,
-    so compaction cannot silently discard evidence the projection owner cannot type.
+    and invocation receipt. Unknown schemas retain their full form. Typed conflicts
+    remain complete and reference the compacted facts by their original IDs.
     """
     full = current.semantic_payload()
     encoded_full = json.dumps(full, sort_keys=True, separators=(",", ":"),
         ensure_ascii=False)
-    if current.conflicts or len(encoded_full) <= 12_000:
+    if len(encoded_full) <= 12_000:
         return full
     candidate = {"selected_fact_ids": list(current.fact_ids),
         "selected_facts": [dict(fact) for fact in current.facts]}
@@ -5611,8 +5611,16 @@ def _current_evidence_prompt_payload(
             summary.get("evidence_strength"), summary.get("effect_proven"),
             summary.get("observed_at"), summary.get("reported_values"),
         ])
-    return {
-        "schema_version": "sentientos.current_world_state_cognitive_projection_summary:v4",
+    raw_conflicts = full.get("conflicts", ())
+    if (not isinstance(raw_conflicts, (list, tuple))
+            or any(not isinstance(item, Mapping) for item in raw_conflicts)):
+        return full
+    conflicts = [dict(item) for item in raw_conflicts]
+    prompt_payload: dict[str, Any] = {
+        "schema_version": (
+            "sentientos.current_world_state_cognitive_projection_summary:v5"
+            if conflicts else
+            "sentientos.current_world_state_cognitive_projection_summary:v4"),
         "fact_row_schema": "sentientos.current_world_state_fact_row:v2",
         "fact_row_fields": list(fact_row_fields),
         "projection_id": current.projection_id,
@@ -5624,8 +5632,8 @@ def _current_evidence_prompt_payload(
         "facts": current_summaries,
         "source_count": len(current.sources),
         "sources_digest": _digest(list(current.sources)),
-        "conflict_count": 0,
-        "conflicts_digest": _digest([]),
+        "conflict_count": len(conflicts),
+        "conflicts_digest": _digest(conflicts),
         "read_only": True, "evidence_only": True,
         "evidence_posture": {"current_observation": True,
             "historical_only": False, "current_truth": False, "authority": False,
@@ -5635,6 +5643,12 @@ def _current_evidence_prompt_payload(
         "projection_posture": (
             "typed_bounded_view_with_per_fact_source_freshness_bound_to_exact_projection_digest"),
     }
+    if conflicts:
+        # Conflict membership is an atomic relation over the selected fact IDs.
+        # Preserve the complete owner-issued rows while compacting only the
+        # recognized typed fact payloads above.
+        prompt_payload["conflicts"] = conflicts
+    return prompt_payload
 
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:
