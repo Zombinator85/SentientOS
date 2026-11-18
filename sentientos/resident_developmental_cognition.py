@@ -5087,7 +5087,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
-                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v12:[0-9a-f]{64}",
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13):[0-9a-f]{64}",
                     selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
@@ -8260,13 +8260,26 @@ class ResidentDevelopmentalCognitionOwner:
                 "semantic_history_model_revision", None)
             if model_id is not None and model_revision is not None:
                 # Keep CPU work bounded: score at most 192 recent records and
-                # 64 older lexical hits. This does not create an unbounded index.
+                # 64 older records. Reserve up to half of the older slots for
+                # lexical hits; distribute remaining slots across the retained
+                # older history so lexically disjoint experience can still be
+                # considered without building an unbounded index.
                 recent_candidates = list(reversed(ids[-192:]))
+                older_ids = ids[:-192]
                 older_lexical_hits = [record_id for record_id in
-                    reversed(ids[:-192]) if document_term_weights[record_id].keys()
-                        & query_terms][:64]
+                    reversed(older_ids) if document_term_weights[record_id].keys()
+                        & query_terms][:32]
+                older_lexical_set = set(older_lexical_hits)
+                older_sample_pool = [record_id for record_id in older_ids
+                    if record_id not in older_lexical_set]
+                older_sample_count = min(
+                    64 - len(older_lexical_hits), len(older_sample_pool))
+                older_sampled = ([older_sample_pool[((2 * index + 1)
+                    * len(older_sample_pool)) // (2 * older_sample_count)]
+                    for index in range(older_sample_count)]
+                    if older_sample_count else [])
                 candidate_ids = [record_id for record_id in
-                    dict.fromkeys(recent_candidates + older_lexical_hits)
+                    dict.fromkeys(recent_candidates + older_lexical_hits + older_sampled)
                     if document_texts[record_id].strip()]
                 try:
                     from semantic_embeddings import encode_semantic
@@ -8296,7 +8309,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "query_decision_polarity_then_semantic_then_overlap_with_"
                     "identity_bound_correction_groups_decision_contrasts_"
                     "embodied_reports_and_elliptical_session_context_then_"
-                    f"recency_fill:v12:{semantic_identity_digest}")
+                    f"recency_fill:v13:{semantic_identity_digest}")
             ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):

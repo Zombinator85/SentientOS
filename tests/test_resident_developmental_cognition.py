@@ -6472,6 +6472,83 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
     assert "Where should we shelter" in observed["texts"][0]
 
 
+def test_semantic_history_samples_older_lexically_disjoint_experience(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    record_ids = [f"history-{index:04d}" for index in range(400)]
+    target_id = record_ids[100]
+    lexical_id = record_ids[207]
+    candidates = {record_id: {"selected_facts": [], "interpretation":
+        f"Unrelated retained observation number {index}."}
+        for index, record_id in enumerate(record_ids)}
+    candidates[target_id]["interpretation"] = (
+        "The elevated basalt outpost remained dry through cyclonic rainfall.")
+    candidates[lexical_id]["interpretation"] = (
+        "The stone refuge sheltered travellers through one earlier storm.")
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, selected_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(selected_ids))
+
+    observed = {}
+
+    def fake_encode(texts, *, model_id, revision):
+        observed["texts"] = tuple(texts)
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "basalt outpost" in text
+            else (0.0, 1.0) for text in texts[1:])
+        return SimpleNamespace(identity_digest="d" * 64, vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": f"tick-{index}", "record_id": record_id}
+        for index, record_id in enumerate(record_ids)]}
+
+    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-monsoon-query",
+        relevance_query="Where is the refuge during the monsoon?")
+
+    embedded_texts = observed["texts"][1:]
+    assert len(embedded_texts) == 256
+    assert any("basalt outpost" in text for text in embedded_texts)
+    assert any("stone refuge" in text for text in embedded_texts)
+    assert selected.requested_record_ids == (target_id,)
+    assert selected.retrieval_policy_id == (
+        "query_decision_polarity_then_semantic_then_overlap_with_"
+        "identity_bound_correction_groups_decision_contrasts_embodied_"
+        "reports_and_elliptical_session_context_then_recency_fill:v13:"
+        + "d" * 64)
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": selected.retrieval_policy_id,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
 def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
         monkeypatch: pytest.MonkeyPatch) -> None:
     import semantic_embeddings
