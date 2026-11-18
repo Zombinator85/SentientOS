@@ -5021,27 +5021,27 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                     == "sentientos.epistemic_revision_answer:v2"):
             visible_binding_ids: set[str] = set()
             for packet in consumed:
-                for collection_name in ("active_evidence_bindings",
-                        "removed_evidence_history"):
-                    collection = packet.get(collection_name, ())
-                    if not isinstance(collection, (list, tuple)):
+                # Removed bindings remain visible in the packet's audit history,
+                # but they cannot be cited as evidence for the current stance.
+                collection = packet.get("active_evidence_bindings", ())
+                if not isinstance(collection, (list, tuple)):
+                    raise ResidentDevelopmentalCognitionError(
+                        "epistemic_probe_evidence_bindings_invalid")
+                for row in collection:
+                    if (not isinstance(row, Mapping)
+                            or not isinstance(row.get("binding_id"), str)
+                            or not row["binding_id"]):
                         raise ResidentDevelopmentalCognitionError(
                             "epistemic_probe_evidence_bindings_invalid")
-                    for row in collection:
-                        if (not isinstance(row, Mapping)
-                                or not isinstance(row.get("binding_id"), str)
-                                or not row["binding_id"]):
-                            raise ResidentDevelopmentalCognitionError(
-                                "epistemic_probe_evidence_bindings_invalid")
-                        if (row.get("source_class") == "operator_input"
-                                and row.get("source_schema") ==
-                                    "sentientos.local_operator_feedback:v5"
-                                and row.get("evidence_relation") == "contextualizes"
-                                and row.get("dependency_kind") == "unknown_dependency"
-                                and row.get("reliability_posture") ==
-                                    "operator_assertion_unverified_context_only"):
-                            continue
-                        visible_binding_ids.add(str(row["binding_id"]))
+                    if (row.get("source_class") == "operator_input"
+                            and row.get("source_schema") ==
+                                "sentientos.local_operator_feedback:v5"
+                            and row.get("evidence_relation") == "contextualizes"
+                            and row.get("dependency_kind") == "unknown_dependency"
+                            and row.get("reliability_posture") ==
+                                "operator_assertion_unverified_context_only"):
+                        continue
+                    visible_binding_ids.add(str(row["binding_id"]))
             candidate["epistemic_revision_probe"] = {
                 **dict(probe),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
