@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -572,7 +573,7 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
 
 
 def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        tmp_path: Path) -> None:
     epistemic = PersistentEpistemicStateOwner(
         tmp_path / "epistemic", allowed_namespaces=["embodiment"])
     proposition = make_proposition(namespace="embodiment", subject="sensor:g1",
@@ -613,9 +614,19 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
         recorded_at="2026-01-02T00:00:00Z")
     projection = epistemic.cognitive_projection(max_states=1, current_tick=3)
     assert projection is not None
-    cognition, _ = owner(tmp_path / "cognition", invoker=StructuredFixtureInvoker())
-    from contextlib import nullcontext
-    monkeypatch.setattr(cognition, "_composition_lock", lambda: nullcontext())
+    cognition_root = tmp_path / "cognition"
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(cognition_root, "state")
+        ensure_private_child_directory(cognition_root, "history")
+    else:
+        cognition_root.mkdir(mode=0o700)
+        (cognition_root / "state").mkdir(mode=0o700)
+        (cognition_root / "history").mkdir(mode=0o700)
+    cognition, _ = owner(cognition_root, invoker=StructuredFixtureInvoker())
+    seed = cognition.run_tick(snapshot=snapshot(), tick_id="probe-history-seed")
+    assert seed.written_record_id is not None
 
     preview = cognition.preview_epistemic_revision_probe_prompt(
         snapshot=snapshot(), tick_id="compact-epistemic-probe",
@@ -636,6 +647,10 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
         "sentientos.epistemic_revision_probe_context:v1")
     assert context["prior_epistemic_state"]["source_projection_schema_version"] == (
         projection.schema_version)
+    assert "developmental_history" not in context
+    assert "historical_embodiment_reports" not in context
+    assert not any(seed.written_record_id in json.dumps(value)
+        for key, value in context.items() if key.startswith("developmental_history"))
     assert packet["schema_version"] == (
         "sentientos.epistemic_revision_probe_packet_view:v1")
     assert packet["source_packet_schema_version"] == source_packet["schema_version"]
@@ -672,6 +687,14 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
         context=baseline_context, projection=projection,
         max_input_chars=MAX_PROMPT_CHARS)
     assert len(preview["prompt"]) < len(baseline_prompt)
+    result = cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="probe-with-history-present", prior_epistemic_state=projection,
+        expected_prompt_digest=preview["prompt_digest"])
+    assert result.status == "epistemic_revision_probe_completed"
+    request = cognition.invoker.requests[-1]
+    production_context = json.loads(request.prompt)
+    assert "developmental_history" not in production_context
+    assert "historical_embodiment_reports" not in production_context
 
 
 def test_verified_captures_feed_the_existing_pair_scorer(tmp_path: Path) -> None:

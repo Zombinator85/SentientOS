@@ -4800,6 +4800,7 @@ _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
     "developmental_history_target_model_identity",
     "developmental_history_task_family_history_required",
     "developmental_history_task_family_id",
+    "historical_embodiment_reports",
 )
 
 
@@ -10721,7 +10722,10 @@ class ResidentDevelopmentalCognitionOwner:
                     "composition_state_retention_limit_exceeded")
             prior = self._prior_projection(state, tick_id)
             current = self._current_projection(snapshot)
-            with_history = bool(prior.requested_record_ids)
+            # The bounded epistemic probe scores the supplied prior state and
+            # current evidence only. Developmental records are not part of its
+            # treatment and must not add packets or history-specific guidance.
+            with_history = False
             try:
                 self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
                     projection=prior, with_history=with_history,
@@ -10982,7 +10986,8 @@ class ResidentDevelopmentalCognitionOwner:
             current = self._exclude_retained_task_facts(current, prior.records, family_id)
         observations: list[ResidentCognitionObservation] = []
         measurement_id: str | None = None
-        has_developmental_history = bool(prior.requested_record_ids)
+        has_developmental_history = (
+            bool(prior.requested_record_ids) and not epistemic_revision_probe)
         has_prior_self_model = prior_self_model is not None
         has_prior_epistemic_state = prior_epistemic_state is not None
         should_cognize = (has_developmental_history or has_prior_self_model

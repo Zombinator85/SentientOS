@@ -45,8 +45,11 @@ contradiction together, limits citations to the exact evidence-binding
 allowlist, and denies truth or action authority to model output. The probe's
 model-facing context uses a dedicated
 `sentientos.epistemic_revision_probe_context:v1` view. It omits unrelated
-developmental-history fields and removes a packet's `last_update_event` only
-when it exactly duplicates the final item in `update_event_history`. It retains
+developmental-history records and report projections even when such records
+exist, along with their retrieval metadata, and removes a packet's
+`last_update_event` only when it exactly duplicates the final item in
+`update_event_history`. A retained-history-present fixture verifies that the
+production probe path still excludes those records. It retains
 the full projection ID/digest, source packet ID/digest and schema, proposition,
 state, all active and removed evidence bindings with their qualifiers, and the
 complete update-event history. A paired prompt-builder counterfactual with two
