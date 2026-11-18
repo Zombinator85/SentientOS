@@ -683,7 +683,8 @@ def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner
         proposition_id=p.proposition_id, expected_predecessor_digest=None,
         stance="unknown", reason="initialization", active_binding_ids=(),
         candidate=candidate, mutation_binding={
-            "candidate_id": candidate.candidate_id, "candidate_digest": "sha256:fixture",
+            "candidate_id": candidate.candidate_id,
+            "candidate_digest": candidate.candidate_digest,
             "admission_id": "admission:fixture", "admission_binding_digest": "sha256:admission",
             "operation_id": "operation:fixture", "correlation_id": "correlation:fixture"},
         correlation_id="correlation:fixture", tick=1, recorded_at="2026-01-01T00:00:00Z")
