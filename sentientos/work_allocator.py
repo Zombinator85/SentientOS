@@ -183,6 +183,15 @@ def _epistemic_positions_for_goal(
         relation_review_digests = scope.get("relation_review_digests")
         if isinstance(relation_review_digests, (list, tuple)):
             position["relation_review_digests"] = list(relation_review_digests)
+        correction_binding_ids = scope.get("unverified_correction_binding_ids")
+        if isinstance(correction_binding_ids, (list, tuple)):
+            position["unverified_correction_binding_ids"] = list(
+                correction_binding_ids)
+        omitted_correction_context = scope.get(
+            "omitted_unverified_correction_context")
+        if isinstance(omitted_correction_context, Mapping):
+            position["omitted_unverified_correction_context"] = dict(
+                omitted_correction_context)
         positions.append(position)
     return tuple(positions)
 

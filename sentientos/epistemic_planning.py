@@ -47,6 +47,20 @@ def review_required_applicability(
         proposition_id = packet["proposition"]["proposition_id"]
         scope = dict(packet["proposition"].get("context_scope", {}))
         relation_digests = sorted(relation_review_digests.get(proposition_id, ()))
+        correction_binding_ids = sorted({
+            item["binding_id"] for item in packet.get(
+                "unverified_context_evidence_bindings", ())
+            if item.get("source_schema") == "sentientos.local_operator_feedback:v5"
+            and item.get("source_class") == "operator_input"
+            and item.get("evidence_relation") == "contextualizes"
+            and item.get("reliability_posture")
+                == "operator_assertion_unverified_context_only"})
+        omitted_correction_count = packet.get(
+            "omitted_unverified_context_evidence_count", 0)
+        omitted_correction_digest = packet.get(
+            "omitted_unverified_context_identity_digest")
+        correction_review_pending = bool(
+            correction_binding_ids or omitted_correction_count)
         positive_current = (
             state["stance"] in {"provisionally_supported", "supported"}
             and not state["dependency_unresolved"]
@@ -54,19 +68,28 @@ def review_required_applicability(
         # Unscoped positive history does not constrain canonical planning. A
         # task-family or model-bound positive position must remain visible so
         # planning can prove it still applies to the observed model identity.
-        if positive_current and not relation_digests and not any(
-                key in scope for key in ("task_family_id",
-                    "active_model_identity_digest")):
+        if (positive_current and not relation_digests
+                and not correction_review_pending
+                and not any(key in scope for key in (
+                    "task_family_id", "active_model_identity_digest"))):
             continue
-        # A position linked by explicit contradiction, or explicitly
-        # superseded by another proposition, requires review even when its
-        # individual evidence posture is positive. This state is derived from
-        # the verified relation projection, never from proposition context.
+        # Conflicts, supersession, and source-bound but unverified corrections
+        # require review even when the evidence posture is positive. A
+        # correction is a review signal only; it never revises state or serves
+        # as supporting/contradicting evidence.
         scope["position_posture"] = (
-            "verified_positive_current"
-            if positive_current and not relation_digests else "review_required")
+            "verified_positive_current" if (positive_current
+                and not relation_digests and not correction_review_pending)
+            else "review_required")
         if relation_digests:
             scope["relation_review_digests"] = relation_digests
+        if correction_binding_ids:
+            scope["unverified_correction_binding_ids"] = correction_binding_ids
+        if omitted_correction_count:
+            scope["omitted_unverified_correction_context"] = {
+                "count": omitted_correction_count,
+                "identity_digest": omitted_correction_digest,
+            }
         scope["position_identity"] = {
             "schema_version": "sentientos.epistemic_review_position_identity:v1",
             "state_id": state["state_id"],
