@@ -12,6 +12,7 @@ import math
 import os
 import re
 import stat
+import threading
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
@@ -85,6 +86,7 @@ from .resident_developmental_writeback import (
     _read_store_file,
     _publish_store_json,
 )
+from .semantic_history_index import SemanticHistoryIndex
 from .runtime_admission import RuntimeAdmissionAuthority
 from .world_state_board import WorldStateSnapshot, digest as _world_state_digest, validate_snapshot
 
@@ -5087,7 +5089,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
-                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}",
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14|15):[0-9a-f]{64}|query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v16:[0-9a-f]{64}:[0-9a-f]{64}",
                     selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
@@ -6020,6 +6022,8 @@ class ResidentDevelopmentalCognitionOwner:
         self.measurements_root = config.state_root / "changed_cognition_measurements"
         self.experiments = DevelopmentalExperimentStore(config.state_root,
             invocation_verifier=self._verify_observation_invocation)
+        self._semantic_history_index_lock = threading.Lock()
+        self._semantic_history_indexes: dict[str, SemanticHistoryIndex] = {}
         # Exact output text is held only until its separately admitted candidate
         # is committed in the same tick. It is never written as a cognition receipt.
         self._pending_cognition_candidates: dict[str, tuple[Any, str, Mapping[str, Any]]] = {}
@@ -8189,6 +8193,7 @@ class ResidentDevelopmentalCognitionOwner:
                 for order, record_id in enumerate(ids)}
             document_term_weights: dict[str, dict[str, int]] = {}
             document_texts: dict[str, str] = {}
+            document_record_digests: dict[str, str] = {}
             correction_targets_by_record: dict[
                 str, set[tuple[str, str, str]]] = {}
             for record_id in ids:
@@ -8198,6 +8203,10 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "relevant_history_recovery_failed") from exc
                 candidate = record.candidate
+                record_digest = getattr(record, "record_digest", None)
+                if (isinstance(record_digest, str)
+                        and re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest)):
+                    document_record_digests[record_id] = record_digest[7:]
                 term_weights: dict[str, int] = {}
                 searchable_parts = ([str(candidate.get(key, "")) for key in
                     ("interpretation", "uncertainty", "epistemic_status")]
@@ -8255,6 +8264,7 @@ class ResidentDevelopmentalCognitionOwner:
                 query_terms & _HISTORY_DECISION_NEGATION_TERMS)
             semantic_scores: dict[str, float] = {}
             semantic_identity_digest: str | None = None
+            semantic_selection_digest: str | None = None
             model_id = getattr(self.config, "semantic_history_model_id", None)
             model_revision = getattr(self.config,
                 "semantic_history_model_revision", None)
@@ -8303,6 +8313,82 @@ class ResidentDevelopmentalCognitionOwner:
                             zip(query_vector, vector)) for record_id, vector in
                             zip(candidate_ids, embedded.vectors[1:])}
                         semantic_identity_digest = embedded.identity_digest
+                        candidate_vector_rows = [{
+                            "record_id": record_id,
+                            "record_digest": document_record_digests.get(record_id),
+                            "text_digest": hashlib.sha256(
+                                document_texts[record_id].encode("utf-8")).hexdigest(),
+                            "vector": list(vector),
+                        } for record_id, vector in zip(candidate_ids,
+                            embedded.vectors[1:])]
+                        indexed_entries_digest = hashlib.sha256(json.dumps([], sort_keys=True,
+                            separators=(",", ":")).encode("utf-8")).hexdigest()
+                        state_root = getattr(self.config, "state_root", None)
+                        if (isinstance(state_root, (str, Path))
+                                and isinstance(semantic_identity_digest, str)
+                                and re.fullmatch(r"[0-9a-f]{64}",
+                                    semantic_identity_digest)):
+                            expected_records = {record_id: (
+                                document_record_digests[record_id], hashlib.sha256(
+                                    document_texts[record_id].encode("utf-8")).hexdigest())
+                                for record_id in ids
+                                if record_id in document_record_digests
+                                    and document_texts.get(record_id, "").strip()}
+                            current_tick_digest = hashlib.sha256(
+                                tick_id.encode("utf-8")).hexdigest()
+                            # Reused vectors are cache-only ranking hints. Vectors
+                            # first observed during this tick are excluded here;
+                            # their current-query scores come from the exact
+                            # bounded batch above. This keeps same-tick selection
+                            # independent of other queries made during that tick.
+                            index = None
+                            cached_vectors = {}
+                            try:
+                                with self._semantic_history_index_lock:
+                                    index = self._semantic_history_indexes.get(
+                                        semantic_identity_digest)
+                                    if index is None:
+                                        index = SemanticHistoryIndex(
+                                            state_root=Path(state_root),
+                                            embedder_identity_digest=semantic_identity_digest)
+                                        self._semantic_history_indexes[
+                                            semantic_identity_digest] = index
+                                indexed_snapshot = index.load(
+                                    expected_records=expected_records,
+                                    current_tick_digest=current_tick_digest)
+                                cached_vectors = dict(indexed_snapshot.vectors)
+                                indexed_entries_digest = indexed_snapshot.digest
+                            except Exception:
+                                # Index custody is optional; the exact current
+                                # bounded semantic batch remains usable.
+                                index = None
+                            for record_id, vector in cached_vectors.items():
+                                if len(vector) == len(query_vector):
+                                    semantic_scores[record_id] = sum(a * b for a, b
+                                        in zip(query_vector, vector))
+                            if index is not None:
+                                for record_id, vector in zip(candidate_ids,
+                                        embedded.vectors[1:]):
+                                    if record_id not in expected_records:
+                                        continue
+                                    try:
+                                        index.publish(record_id=record_id,
+                                            record_digest=expected_records[record_id][0],
+                                            text_digest=expected_records[record_id][1],
+                                            indexed_tick_digest=current_tick_digest,
+                                            vector=vector)
+                                    except Exception:
+                                        # A derived cache failure cannot invalidate
+                                        # the current bounded semantic ranking.
+                                        continue
+                        semantic_selection_digest = hashlib.sha256(json.dumps({
+                            "schema_version": "sentientos.semantic_history_selection_inputs:v1",
+                            "embedder_identity_digest": semantic_identity_digest,
+                            "query_vector": list(query_vector),
+                            "indexed_entries_digest": indexed_entries_digest,
+                            "current_candidate_vectors": candidate_vector_rows,
+                        }, sort_keys=True, separators=(",", ":"),
+                            ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
                 except Exception:
                     # Optional semantic retrieval must fail closed to the
                     # established lexical ranking.
@@ -8316,7 +8402,8 @@ class ResidentDevelopmentalCognitionOwner:
                     "query_decision_polarity_then_semantic_then_overlap_with_"
                     "identity_bound_correction_groups_decision_contrasts_"
                     "embodied_reports_and_elliptical_session_context_then_"
-                    f"recency_fill:v15:{semantic_identity_digest}")
+                    f"recency_fill:v16:{semantic_identity_digest}:"
+                    f"{semantic_selection_digest or hashlib.sha256(b'').hexdigest()}")
             ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):

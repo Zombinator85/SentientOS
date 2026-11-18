@@ -96,6 +96,7 @@ def publish_immutable_replay_bytes(
         "epistemic_transactions": r"[0-9a-f]{24}\.json",
         "epistemic_mutation_intent": r"[0-9a-f]{24}\.json",
         "epistemic_mutation_receipt": r"epistemic-mutation-receipt-[0-9a-f]{24}\.json",
+        "resident_semantic_history_index": r"semantic-[0-9a-f]{64}\.json",
     }
     epistemic_artifact_match = (re.fullmatch(
         epistemic_artifact_patterns[filename_policy], path.name)

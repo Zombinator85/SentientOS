@@ -108,6 +108,31 @@ observation, inference receipt, and response digests, then verifies those bindin
 on idempotent recovery instead of invoking cognition a second time. This stored
 reply remains distinct from developmental-history writeback.
 
+### Semantic history beyond the per-query sample
+
+When an immutable-revision CPU sentence embedder is configured, each query still
+embeds at most 256 records: the newest 192 and up to 64 older lexical/stratified
+candidates. Successfully embedded records also enter an immutable derived vector
+cache under the cognition-state root. Each entry binds the exact durable history
+record digest, the digest of the text projection supplied to the embedder, the
+embedder identity, the tick when it was first indexed, and the vector digest; it
+stores no history text. A later tick may rank all matching cached vectors, up to
+the 4,096-record history bound, while current-tick additions remain unavailable
+to same-tick ranking. The v16 retrieval policy identity binds the embedder and
+the exact cached/current vector inputs used for selection. Cache custody or
+validation failure does not discard the current bounded semantic batch, and an
+unavailable or malformed embedder still selects under the explicit lexical
+fallback policy.
+
+`tests/test_resident_developmental_cognition.py::test_indexed_semantic_history_changes_later_fake_decision_across_restart`
+uses deterministic vectors to place a lexically disjoint old record in one
+tick's bounded sample, then demonstrates that a fresh owner can retrieve and
+apply it on a later tick even when it is absent from that tick's embedding
+batch. Withholding removes the decision effect; restoring the history and
+reopening the owner restores it. This is a synthetic retrieval/application
+counterfactual. It does not establish real embedding quality, real-model
+adherence, generalized learning, or improved decisions.
+
 An explicitly operator-confirmed companion developmental cycle can also use a
 configured longitudinal self-model owner. The bridge captures the eligible
 prior self-model projection before cognition, runs the existing governed
