@@ -10158,16 +10158,12 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     relevant_text = (
         "After torrential rainfall the elevated stone refuge stayed dry while "
         "lowland camps flooded.")
-    decoy_text = "A high-altitude cloud chamber mapped crystalline dust spectra."
     acquisition_fake = FakeInvoker()
     acquisition_owner, _ = owner(tmp_path / "cognition", invoker=acquisition_fake)
     acquisition_fake.history_interpretation = relevant_text
     relevant = acquisition_owner.run_tick(snapshot=snapshot(),
         tick_id="semantic-history-relevant-experience")
-    acquisition_fake.history_interpretation = decoy_text
-    decoy = acquisition_owner.run_tick(snapshot=snapshot(2),
-        tick_id="semantic-history-newer-decoy")
-    assert relevant.written_record_id and decoy.written_record_id
+    assert relevant.written_record_id
 
     def fake_encode(texts, *, model_id, revision):
         vectors = [(1.0, 0.0)]
@@ -10207,6 +10203,26 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
         max_retrieved_records=1,
         semantic_history_model_id="test/local-embedder",
         semantic_history_model_revision="b" * 40)
+    intervening_ids = tuple(f"fixture-decoy-{index:03d}" for index in range(192))
+    load_state = application_owner._state
+    def state_with_long_history():
+        state = load_state()
+        state["completed_ticks"] = [
+            {"tick_id": "semantic-history-relevant-experience",
+                "record_id": relevant.written_record_id},
+            *({"tick_id": f"fixture-tick-{index:03d}",
+                "record_id": record_id} for index, record_id in enumerate(intervening_ids)),
+        ]
+        return state
+    application_owner._state = state_with_long_history
+    store_get = application_owner.writeback.store.get
+    def get_with_intervening_decoys(record_id):
+        if record_id in intervening_ids:
+            return SimpleNamespace(candidate={"selected_facts": [],
+                "interpretation": "A newer retained observation about an unrelated cloud chamber."})
+        return store_get(record_id)
+    monkeypatch.setattr(application_owner.writeback.store, "get",
+        get_with_intervening_decoys)
     result = application_owner.run_companion_history_intervention(
         snapshot=snapshot(3), tick_id="semantic-history-application",
         question="Where was the safe place during the water emergency?")
@@ -10221,7 +10237,7 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
     assert present["retrieved_record_ids"] == restored["retrieved_record_ids"] == [
         relevant.written_record_id]
     assert withheld["retrieved_record_ids"] == []
-    assert decoy.written_record_id not in present["retrieved_record_ids"]
+    assert not set(intervening_ids).intersection(present["retrieved_record_ids"])
     assert result.restored_prompt_matches is True
     assert result.authority is False and result.action_authority is False
     assert result.canonical_explicit_user_retention_mutated is False
