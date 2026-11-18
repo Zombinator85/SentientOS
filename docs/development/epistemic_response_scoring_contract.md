@@ -38,6 +38,21 @@ discrimination among its bindings. The dedicated probe schema instead exposes
 exact evidence-binding IDs and checks them directly against the held-out key.
 Use the probe path when a case requires per-evidence discrimination.
 
+The bounded probe now uses a task-specific instruction instead of the ordinary
+cross-domain cognition instructions. It still requires evaluation of active
+bindings and their source qualifiers, preserves unresolved support and
+contradiction together, limits citations to the exact evidence-binding
+allowlist, and denies truth or action authority to model output. A deterministic
+prompt-preview fixture measures an 8,548-character prompt and checks that the
+instruction is under 2,000 characters. This verifies assembly, not model
+behavior. The uncompressed four-condition protocol timed out on its first call
+with both Hermes 4 14B and Hermes 3 3B. With the compact prompt, a Hermes 3 3B
+run again timed out on its first call after 180 seconds with zero output; during
+that call, Ollama reported CPU-only placement despite the configured GPU-layer
+limit. The correction and pressure behavior therefore remains unverified with a
+real model, and the prompt reduction did not resolve this machine's inference
+latency.
+
 ## Stance meanings
 
 Stance labels describe the proposition's epistemic status, not a word that may
