@@ -453,7 +453,11 @@ def test_v5_operator_correction_targets_cited_state_but_only_independent_evidenc
     assert projection.proposition_ids == (proposition.proposition_id,)
     assert binding.binding_id in {
         item["binding_id"] for item in projection.active_evidence_bindings[0]}
-    assert projection.unverified_context_evidence == ()
+    # Schema v9 keeps a per-state empty-history sentinel for stable packet
+    # pairing; it must not imply that unverified context was actually retained.
+    [context_history] = projection.unverified_context_evidence
+    assert context_history["bindings"] == ()
+    assert context_history["omitted_count"] == 0
     [integrated_packet] = semantic_packets_for_projection(projection)
     assert binding.binding_id in {
         row["binding_id"] for row in integrated_packet["active_evidence_bindings"]}
