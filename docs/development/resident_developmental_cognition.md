@@ -110,6 +110,15 @@ reply remains distinct from developmental-history writeback.
 
 ### Semantic history beyond the per-query sample
 
+The embedding runtime is opt-in. Run `python -m pip install ".[semantic-history]"`
+with Python 3.10+ to provide the CPU sentence-embedding package. This extra is
+excluded from the base and `full` installs because it brings the PyTorch runtime.
+The model itself
+must already be present in the local Hugging Face cache at the configured
+immutable revision. Retrieval pins loading and encoding to CPU and does not
+download a model; if the package or cached revision is unavailable, selection
+uses the explicit lexical fallback policy.
+
 When an immutable-revision CPU sentence embedder is configured, each query still
 embeds at most 256 records: the newest 192 and up to 64 older lexical/stratified
 candidates. Successfully embedded records also enter an immutable derived vector
