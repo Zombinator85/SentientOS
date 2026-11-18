@@ -6540,7 +6540,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     assert selected.retrieval_policy_id == (
         "query_decision_polarity_then_semantic_then_overlap_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
-        "reports_and_elliptical_session_context_then_recency_fill:v14:"
+        "reports_and_elliptical_session_context_then_recency_fill:v15:"
         + "d" * 64)
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
@@ -6556,7 +6556,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
         "retrieved_record_ids": [], "retrieved_record_digests": []})
 
 
-def test_semantic_history_query_phases_reach_complementary_older_records(
+def test_semantic_history_tick_phases_reach_complementary_older_records(
         monkeypatch: pytest.MonkeyPatch) -> None:
     from sentientos.resident_developmental_cognition import (
         ResidentDevelopmentalCognitionOwner,
@@ -6611,7 +6611,7 @@ def test_semantic_history_query_phases_reach_complementary_older_records(
         "cyclonic inundation.")
 
     omitted = ResidentDevelopmentalCognitionOwner._prior_projection(
-        fake_owner, state, "later-question-2", relevance_query=base_query)
+        fake_owner, state, "later-question-1", relevance_query=base_query)
     repeated_phase_ids = set(encoded_ids)
     assert repeated_phase_ids == first_phase_ids
     assert omitted_target_id not in repeated_phase_ids
@@ -6619,10 +6619,9 @@ def test_semantic_history_query_phases_reach_complementary_older_records(
 
     recovered = None
     for variant in range(1, 65):
-        query = f"{base_query} Rephrase {variant}."
         projection = ResidentDevelopmentalCognitionOwner._prior_projection(
             fake_owner, state, f"later-question-variant-{variant}",
-            relevance_query=query)
+            relevance_query=base_query)
         assert len(encoded_ids) == 256
         if omitted_target_id in encoded_ids:
             recovered = projection
