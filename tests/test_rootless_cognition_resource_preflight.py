@@ -698,6 +698,9 @@ def test_guard_keeps_loading_reserve_for_nonresident_model_and_runtime_floor_whe
     guarded = runner._ResourceGuardedInvoker(
         delegate, SimpleNamespace(), 9 * 1024**3, evidence, model_name="hermes")
     monkeypatch.setattr(runner, "_model_residency_observed", lambda name: True)
+    monkeypatch.setattr(runner, "_model_gpu_placement_observed",
+        lambda name: {"status": "gpu_offloaded", "model_name": name,
+            "size_bytes": 100, "size_vram_bytes": 100})
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: {"evaluation_id": "fresh", "gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
@@ -712,6 +715,63 @@ def test_guard_keeps_loading_reserve_for_nonresident_model_and_runtime_floor_whe
     assert evidence[0]["model_resident_at_preflight"] is True
     assert evidence[0]["required_gpu_headroom_bytes"] == (
         runner._GPU_RESIDENT_INFERENCE_RESERVE_BYTES)
+
+
+@pytest.mark.parametrize("placement,reason", [
+    ({"status": "cpu_only", "model_name": "hermes", "size_bytes": 100,
+        "size_vram_bytes": 0}, "gpu_model_cpu_fallback"),
+    (None, "gpu_model_placement_unverified"),
+])
+def test_guard_rejects_unacceptable_model_placement(
+        runner, monkeypatch, placement, reason):
+    class Delegate:
+        def invoke(self, request, **kwargs):
+            return "must_not_be_accepted"
+
+    evidence: list[dict[str, Any]] = []
+    guarded = runner._ResourceGuardedInvoker(
+        Delegate(), SimpleNamespace(), 9 * 1024**3, evidence, model_name="hermes")
+    monkeypatch.setattr(runner, "_model_residency_observed", lambda name: True)
+    monkeypatch.setattr(runner, "_model_gpu_placement_observed", lambda name: placement)
+    monkeypatch.setattr(runner, "_stop_ollama_model",
+        lambda name: {"status": "stop_requested"})
+    monkeypatch.setattr(runner, "_refresh_resource_evidence",
+        lambda *args, **kwargs: {"evaluation_id": "fresh", "gpu_utilization_percent": 0})
+    monkeypatch.setattr(runner, "_gpu_snapshot",
+        lambda: {"memory_free_mib": 12000, "memory_total_mib": 12288,
+            "gpu_utilization_percent": 0, "temperature_celsius": 45,
+            "sampled_at": "2026-11-10T00:00:00+00:00", "source": "nvidia-smi",
+            "scope": "host_wide_invocation_boundary_sample_not_process_attributed"})
+    monkeypatch.setattr(runner, "_INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS", 0.01)
+
+    with pytest.raises(runner.RootlessExperimentalError, match=reason):
+        guarded.invoke(object())
+
+    assert evidence[0]["model_gpu_placement_status"] == (
+        "cpu_fallback_detected" if placement is not None else "unverified")
+    if placement is not None:
+        assert evidence[0]["model_stop_attempted"] is True
+        assert evidence[0]["model_stop_result"]["status"] == "stop_requested"
+
+
+def test_ollama_stop_tolerates_non_utf8_cli_output(runner, monkeypatch):
+    class Completed:
+        returncode = 0
+        stdout = b"\x8f"
+        stderr = b""
+
+    monkeypatch.setattr(runner.shutil, "which", lambda name: "ollama.exe")
+
+    def run(args, **kwargs):
+        assert args == ["ollama.exe", "stop", "hermes"]
+        assert kwargs["capture_output"] is True
+        assert "text" not in kwargs
+        return Completed()
+
+    monkeypatch.setattr(runner.subprocess, "run", run)
+
+    assert runner._stop_ollama_model("hermes") == {
+        "status": "stop_requested", "return_code": 0}
 
 def test_guard_preserves_post_inference_resource_sample_when_backend_fails(
         runner, monkeypatch):
