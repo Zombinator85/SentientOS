@@ -367,17 +367,18 @@ def make_cognitive_projection(states: Sequence[EpistemicState], *, source_tick: 
             state_ids=state_ids, state_digests=state_digests,
             generations=generations, evidence_set_digests=evidence_set_digests,
             states=state_rows)
-    if any(value is None for value in (propositions, active_evidence_bindings,
-            removed_evidence_bindings, update_events)):
+    if (propositions is None or active_evidence_bindings is None
+            or removed_evidence_bindings is None or update_events is None):
         raise EpistemicStateError("epistemic_semantic_projection_incomplete")
-    paired_collections = (propositions, active_evidence_bindings,
-        removed_evidence_bindings, update_events)
-    if any(len(rows) != len(states) for rows in paired_collections):
+    if (len(propositions) != len(states)
+            or len(active_evidence_bindings) != len(states)
+            or len(removed_evidence_bindings) != len(states)
+            or len(update_events) != len(states)):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
-    if ((calibration_histories is not None
-                and len(calibration_histories) != len(states))
-            or (unverified_context_evidence is not None
-                and len(unverified_context_evidence) != len(states))):
+    if calibration_histories is not None and len(calibration_histories) != len(states):
+        raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
+    if (unverified_context_evidence is not None
+            and len(unverified_context_evidence) != len(states)):
         raise EpistemicStateError("epistemic_semantic_projection_pairing_invalid")
     semantic_rows = tuple(dict(propositions[index]) for index in state_order)
     active_rows = tuple(tuple(dict(item) for item in
