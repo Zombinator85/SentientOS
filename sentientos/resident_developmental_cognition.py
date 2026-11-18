@@ -5830,6 +5830,36 @@ def _current_history_relevance_context(
     return " ".join(pieces)
 
 
+def _canonical_memory_history_relevance_context(
+        context: Mapping[str, Any] | None, *, maximum_chars: int = 2000) -> str:
+    """Use selected retained-memory text for history ranking, never as evidence."""
+    if not isinstance(context, Mapping):
+        return ""
+    records = context.get("records")
+    if not isinstance(records, list):
+        return ""
+    corrected_memory_ids = {
+        relation.get("corrected_memory_id")
+        for relation in context.get("correction_relations", ())
+        if isinstance(relation, Mapping)
+            and relation.get("posture") == "explicit_user_correction_unverified"
+    }
+    pieces: list[str] = []
+    remaining = maximum_chars
+    for record in records:
+        if remaining <= 0 or not isinstance(record, Mapping):
+            continue
+        memory_id = record.get("memory_id")
+        text = record.get("text")
+        if (memory_id in corrected_memory_ids or not isinstance(text, str)
+                or not text.strip()):
+            continue
+        text = text[:remaining]
+        pieces.append(text)
+        remaining -= len(text)
+    return " ".join(pieces)
+
+
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:
     status: str
@@ -10633,12 +10663,15 @@ class ResidentDevelopmentalCognitionOwner:
             state = self._state()
             current = self._current_projection(snapshot, question=question)
             current_relevance = _current_history_relevance_context(current)
+            memory_relevance = _canonical_memory_history_relevance_context(
+                canonical_memory_context)
             prior_user_text = (next((row["text"] for row in reversed(
                 conversation_context.get("turns", ()))
                 if row.get("role") == "user"), None)
                 if conversation_context is not None else None)
-            relevance_context = " ".join(text[:2000] for text in (
-                prior_user_text, current_relevance) if isinstance(text, str)
+            relevance_context = " ".join(text[:limit] for text, limit in (
+                (prior_user_text, 1000), (current_relevance, 1500),
+                (memory_relevance, 1500)) if isinstance(text, str)
                 and text.strip())[:4000]
             projection = self._prior_projection(state, tick_id,
                 relevance_query=question,

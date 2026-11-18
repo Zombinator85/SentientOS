@@ -5782,6 +5782,143 @@ def test_current_world_state_retrieves_applicable_history_for_elliptical_decisio
     assert ordinary_tick.prior_record_ids == (acquired.written_record_id,)
 
 
+def test_retained_user_context_retrieves_applicable_history_for_elliptical_decision(
+        tmp_path: Path) -> None:
+    class MemoryAwareFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if (request.purpose == "resident_developmental_retrieval_cognition"
+                    and "disposition" in schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                history_text = " ".join(str(row.get("interpretation", ""))
+                    for row in prompt.get("developmental_history", ())
+                    if isinstance(row, Mapping))
+                if "deep watering" in history_text:
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": "The retained experience supports deep watering early in the morning.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"],
+                        "memory_record_ids": [memory_id],
+                    }
+                else:
+                    self.companion_output_override = {
+                        "disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
+            return super().invoke(request, **kwargs)
+
+    memory_id = "memory-" + "b" * 24
+    corrected_memory_id = "memory-" + "a" * 24
+    memory_text = (
+        "My vegetable garden has sandy soil and needs deep watering early in the morning.")
+
+    def memory_record(record_id: str, text: str, marker: str) -> dict[str, Any]:
+        return {
+            "memory_id": record_id, "text": text,
+            "text_digest": digest_payload({"text": text}),
+            "memory_record_digest": marker * 64,
+            "source_turn_id": "turn-" + marker * 24,
+            "source_turn_text_digest": digest_payload({"text": text}),
+            "admission_receipt_digest": marker * 64,
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "historical_only": True, "current_truth": False, "authority": False,
+        }
+
+    corrected_memory_text = (
+        "My vegetable garden has clay soil and needs shallow afternoon watering.")
+    memory_semantic = {
+        "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
+        "source_snapshot_digest": "a" * 64,
+        "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "records": [memory_record(corrected_memory_id,
+            corrected_memory_text, "c"),
+            memory_record(memory_id, memory_text, "d")],
+        "correction_relations": [{
+            "correcting_memory_id": memory_id,
+            "corrected_memory_id": corrected_memory_id,
+            "corrected_memory_record_digest": "c" * 64,
+            "posture": "explicit_user_correction_unverified",
+        }],
+        "read_only": True, "historical_only": True,
+        "current_truth": False, "authority": False, "mutation_performed": False,
+    }
+    memory_context = {**memory_semantic,
+        "selection_digest": digest_payload(memory_semantic)}
+    from sentientos.resident_developmental_cognition import (
+        _canonical_memory_history_relevance_context,
+    )
+    ranking_context = _canonical_memory_history_relevance_context(memory_context)
+    assert "sandy soil" in ranking_context and "deep watering" in ranking_context
+    assert "clay soil" not in ranking_context and "shallow afternoon" not in ranking_context
+
+    def situation(description: str):
+        return WorldStateBoardBuilder().build([{
+            "source_id": "unrelated-current-situation",
+            "source_kind": "capability_registry", "subject_id": "desk-lamp",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-11-18T12:00:00+00:00",
+            "payload": {"description": description},
+        }])
+
+    fake = MemoryAwareFakeInvoker()
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+        ensure_private_child_directory(tmp_path, "history")
+    cognition, _ = owner(tmp_path, invoker=fake,
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+        max_retrieved_records=1)
+    current = situation("A desk lamp is switched on in the workshop.")
+    fake.history_interpretation = (
+        "A prior sandy-soil garden experience suggests deep watering early in the morning.")
+    relevant = cognition.run_tick(snapshot=current, tick_id="garden-experience")
+    assert relevant.written_record_id is not None
+    fake.history_interpretation = "The orbital telescope captured a clear image of Saturn."
+    recent = cognition.run_tick(snapshot=situation(
+        "A desk lamp illuminates the telescope control desk."),
+        tick_id="recent-telescope-experience")
+    assert recent.written_record_id is not None
+
+    records_before_interactions = cognition.writeback.store.records()
+    receipts_before_interactions = cognition.writeback.store.receipts()
+    without_memory = cognition.run_companion_interaction(snapshot=current,
+        request_id="garden-followup-without-retained-memory", question="What next?")
+    with_memory = cognition.run_companion_interaction(snapshot=current,
+        request_id="garden-followup-with-retained-memory", question="What next?",
+        canonical_memory_context=memory_context)
+    assert without_memory.prior_record_ids == (recent.written_record_id,)
+    assert without_memory.disposition == "abstain"
+    assert with_memory.prior_record_ids == (relevant.written_record_id,)
+    assert with_memory.history_record_ids == (relevant.written_record_id,)
+    assert with_memory.memory_record_ids == (memory_id,)
+    assert with_memory.canonical_user_memory_selection_digest == (
+        memory_context["selection_digest"])
+    assert with_memory.canonical_explicit_user_retention_mutated is False
+    assert "deep watering early in the morning" in with_memory.response
+    assert with_memory.evidence_ids == ()
+    assert with_memory.authority is False and with_memory.current_truth is False
+
+    specific = cognition.run_companion_interaction(snapshot=current,
+        request_id="specific-telescope-question-with-retained-memory",
+        question="What did the telescope capture?",
+        canonical_memory_context=memory_context)
+    assert specific.prior_record_ids == (recent.written_record_id,)
+    assert specific.disposition == "abstain"
+    assert specific.memory_record_ids == ()
+    assert specific.canonical_explicit_user_retention_mutated is False
+    assert cognition.writeback.store.records() == records_before_interactions
+    assert cognition.writeback.store.receipts() == receipts_before_interactions
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert next(row["text"] for row in prompt["canonical_user_memory_context"]["records"]
+        if row["memory_id"] == memory_id) == memory_text
+    assert "desk lamp is switched on" in json.dumps(prompt["current_evidence"])
+    assert prompt["current_evidence"].get("facts")
+
+
 def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
         tmp_path: Path) -> None:
     class FactSensitiveInvoker(FakeInvoker):

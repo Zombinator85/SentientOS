@@ -623,3 +623,14 @@ counterfactual shows a matching older experience reaching the real companion
 prompt and changing the fake invoker's decision over a recent unrelated record.
 Real-model use of that context and longitudinal decision improvement remain
 unverified.
+
+Elliptical companion history selection also uses bounded text from the selected,
+source-turn-verified canonical user memories. When a selected memory correction
+marks an older memory as superseded, only the correcting memory contributes
+ranking terms; the bound memory prompt still preserves both records and their
+correction lineage. These terms only rank developmental history and do not
+become evidence or authority. A deterministic counterfactual shows a retained
+garden constraint selecting a matching older experience over a recent unrelated
+record, while a specific telescope question stays question-driven. The
+experiment uses a fake invoker and does not establish real-model adherence or
+improved outcomes.

@@ -146,6 +146,17 @@ counterfactual in `tests/test_resident_developmental_cognition.py` shows an
 older hot-battery lesson displacing a recent unrelated telescope record for an
 elliptical follow-up. This establishes retrieval and prompt delivery, not that a
 real model will apply the lesson correctly or improve outcomes.
+For elliptical companion requests, selected source-turn-verified canonical user
+memories also contribute bounded ranking terms to developmental-history
+selection. A memory correction suppresses the superseded memory's terms while
+both records and their correction lineage remain in the separately bound
+memory prompt. These terms affect history selection only: retained memories do
+not become current evidence, and selected history remains historical and
+non-authoritative. A deterministic counterfactual demonstrates an explicitly
+retained garden constraint selecting an older applicable experience over a
+recent unrelated telescope record; a specific telescope question remains
+question-driven. This shows retrieval integration, not real-model adherence or
+better deployed outcomes.
 Validated v4 operator-feedback reports that target the same exact conversation
 session, turn ID, and turn-text digest are selected as one bounded retrieval
 unit. A query that matches one report therefore retains the other reports about
