@@ -249,10 +249,17 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "not_scored_local_cognition_response_contract_has_no_reason_code")
     prior = context.get("prior_epistemic_state")
     delivered = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
+    expected_visible_packet = expected_packet
+    if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
+        from .resident_developmental_cognition import (
+            _epistemic_revision_probe_packet_view,
+        )
+        expected_visible_packet = _epistemic_revision_probe_packet_view(expected_packet)
     complete = (isinstance(prior, dict)
         and prior.get("projection_digest") == projection.projection_digest
         and observation.get("epistemic_projection_digest") == projection.projection_digest
-        and any(_canonical(packet) == _canonical(expected_packet) for packet in delivered)
+        and any(_canonical(packet) == _canonical(expected_visible_packet)
+            for packet in delivered)
         and expected_packet["packet_id"] in observation.get("epistemic_consumed_packet_ids", ())
         and expected_packet["packet_digest"] in observation.get("epistemic_consumed_packet_digests", ()))
     result: dict[str, Any] = {"observation_id": observation_id,

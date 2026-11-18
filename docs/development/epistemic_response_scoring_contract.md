@@ -52,7 +52,12 @@ exist, along with their retrieval metadata, and removes a packet's
 production probe path still excludes those records. It retains
 the full projection ID/digest, source packet ID/digest and schema, proposition,
 state, all active and removed evidence bindings with their qualifiers, and the
-complete update-event history. A paired prompt-builder counterfactual with two
+latest eight update events. Longer histories include a digest, count, generation
+range, and tick range for omitted earlier events; the persistent owner retains
+the complete history, and the probe instruction forbids claims about omitted
+events. The qualification scorer reconstructs this exact bounded view from the
+owner projection before counting the packet as delivered, so omitted or altered
+context cannot pass the delivery check. A paired prompt-builder counterfactual with two
 evidence bindings and one withdrawal reduced the prompt from 11,608 to 10,067
 characters (13.28%). This is deterministic assembly evidence, not model
 behavior. The uncompressed four-condition protocol timed out on its first call

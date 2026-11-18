@@ -550,6 +550,8 @@ EPISTEMIC_REVISION_PROBE_INSTRUCTION = (
     "reliability, dependency, and withdrawal posture. Use only active, non-withdrawn bindings; "
     "removed bindings are historical. If no relevant evidence or update has changed, preserve "
     "the recorded stance rather than inventing a conflict from limited corroboration alone. "
+    "If update_event_history_compaction is present, older events remain in owner custody but "
+    "are omitted from this view; do not claim to have reviewed them or infer their details. "
     "When both remain unresolved, represent the conclusion as contested: active supporting "
     "and contradicting bindings must remain together; cite every relevant binding from both "
     "sides. Insufficient "
@@ -4790,7 +4792,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
 EPISTEMIC_REVISION_PROBE_CONTEXT_SCHEMA = (
     "sentientos.epistemic_revision_probe_context:v1")
 EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA = (
-    "sentientos.epistemic_revision_probe_packet_view:v1")
+    "sentientos.epistemic_revision_probe_packet_view:v2")
+MAX_EPISTEMIC_PROBE_UPDATE_EVENTS = 8
 EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT = (
     "sentientos.epistemic_revision_answer:v2")
 _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
@@ -4806,7 +4809,7 @@ _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
 
 def _epistemic_revision_probe_packet_view(
         packet: Mapping[str, Any]) -> dict[str, Any]:
-    """Keep canonical packet lineage while omitting a duplicated latest event."""
+    """Keep packet lineage and a bounded, verifiable view of update history."""
     event_history = packet.get("update_event_history")
     last_event = packet.get("last_update_event")
     view = {key: value for key, value in packet.items()
@@ -4815,6 +4818,22 @@ def _epistemic_revision_probe_packet_view(
             and isinstance(last_event, Mapping)
             and dict(last_event) == event_history[-1]):
         view.pop("last_update_event", None)
+    if (isinstance(event_history, (list, tuple))
+            and len(event_history) > MAX_EPISTEMIC_PROBE_UPDATE_EVENTS):
+        omitted = list(event_history[:-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS])
+        view["update_event_history"] = list(
+            event_history[-MAX_EPISTEMIC_PROBE_UPDATE_EVENTS:])
+        first_omitted, last_omitted = omitted[0], omitted[-1]
+        view["update_event_history_compaction"] = {
+            "schema_version": "sentientos.epistemic_update_history_compaction:v1",
+            "total_event_count": len(event_history),
+            "omitted_event_count": len(omitted),
+            "omitted_event_history_digest": _digest(omitted),
+            "omitted_generation_range": [first_omitted["generation"],
+                last_omitted["generation"]],
+            "omitted_tick_range": [first_omitted["tick"], last_omitted["tick"]],
+            "posture": "older_events_retained_by_owner_but_omitted_from_model_context",
+        }
     return {
         "schema_version": EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA,
         "source_packet_schema_version": packet.get("schema_version"),
