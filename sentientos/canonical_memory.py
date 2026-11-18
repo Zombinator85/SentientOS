@@ -520,7 +520,8 @@ class CanonicalMemoryStore:
                     # Bad or absent time never outranks a valid retained record.
                     recency = float("-inf")
                 ranked.append((score, recency, str(record.get("id", "")), record))
-        selected: list[dict[str, Any]]=[]; used=0; omitted=[]
+        selected: list[dict[str, Any]]=[]; used=0
+        omitted: list[tuple[tuple[Any, str], str]] = []
         # Relevance remains primary. Recency only orders equally relevant
         # retained reports; it is not evidence that a newer statement is true.
         ranked = sorted(ranked, key=lambda row: (-row[0], -row[1], row[2]))
