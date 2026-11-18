@@ -5087,7 +5087,7 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
-                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13):[0-9a-f]{64}",
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v(?:12|13|14):[0-9a-f]{64}",
                     selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
@@ -8262,8 +8262,10 @@ class ResidentDevelopmentalCognitionOwner:
                 # Keep CPU work bounded: score at most 192 recent records and
                 # 64 older records. Reserve up to half of the older slots for
                 # lexical hits; distribute remaining slots across the retained
-                # older history so lexically disjoint experience can still be
-                # considered without building an unbounded index.
+                # older history with a query-derived phase. Repeated exact
+                # queries stay deterministic while changed query wording can
+                # expose complementary lexically disjoint history without an
+                # unbounded index.
                 recent_candidates = list(reversed(ids[-192:]))
                 older_ids = ids[:-192]
                 older_lexical_hits = [record_id for record_id in
@@ -8274,18 +8276,21 @@ class ResidentDevelopmentalCognitionOwner:
                     if record_id not in older_lexical_set]
                 older_sample_count = min(
                     64 - len(older_lexical_hits), len(older_sample_pool))
-                older_sampled = ([older_sample_pool[((2 * index + 1)
-                    * len(older_sample_pool)) // (2 * older_sample_count)]
-                    for index in range(older_sample_count)]
+                query_text = relevance_query
+                if len(query_terms) < 2 and relevance_context:
+                    query_text = f"{relevance_context} {relevance_query}"
+                sample_phase = (int.from_bytes(hashlib.sha256(
+                    query_text[:4000].encode("utf-8")).digest()[:8], "big")
+                    % len(older_sample_pool) if older_sample_pool else 0)
+                older_sampled = ([older_sample_pool[(sample_phase + ((2 * index + 1)
+                    * len(older_sample_pool)) // (2 * older_sample_count))
+                    % len(older_sample_pool)] for index in range(older_sample_count)]
                     if older_sample_count else [])
                 candidate_ids = [record_id for record_id in
                     dict.fromkeys(recent_candidates + older_lexical_hits + older_sampled)
                     if document_texts[record_id].strip()]
                 try:
                     from semantic_embeddings import encode_semantic
-                    query_text = relevance_query
-                    if len(query_terms) < 2 and relevance_context:
-                        query_text = f"{relevance_context} {relevance_query}"
                     embedded = encode_semantic(
                         [query_text[:4000]] + [document_texts[record_id]
                             for record_id in candidate_ids],
@@ -8309,7 +8314,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "query_decision_polarity_then_semantic_then_overlap_with_"
                     "identity_bound_correction_groups_decision_contrasts_"
                     "embodied_reports_and_elliptical_session_context_then_"
-                    f"recency_fill:v13:{semantic_identity_digest}")
+                    f"recency_fill:v14:{semantic_identity_digest}")
             ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):
