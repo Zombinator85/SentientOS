@@ -9,6 +9,7 @@ _QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")
 _QUERY_NEGATION_CONTRACTION_PATTERN = re.compile(
     r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"
     r"shouldn|wasn|weren|won|wouldn)['’]t\b")
+_QUERY_CANNOT_PATTERN = re.compile(r"\b(?:cannot|can\s+not)\b")
 _QUERY_NEGATION_CONTRACTION_FRAGMENTS = frozenset((
     "ain", "aren", "couldn", "didn", "doesn", "don", "hadn", "hasn",
     "haven", "isn", "mustn", "shouldn", "wasn", "weren", "won", "wouldn"))
@@ -85,6 +86,16 @@ def cognition_tokens(text: str) -> tuple[str, ...]:
         for token in re.findall(r"[^\W_]{3,}", normalized_text))
 
 
+def cognition_negation_terms(text: str) -> frozenset[str]:
+    """Normalize explicit negation cues used to retrieve prior decisions."""
+    normalized = unicodedata.normalize("NFC", text.casefold())
+    terms = set(_QUERY_NEGATION_WORD_PATTERN.findall(normalized))
+    if (_QUERY_NEGATION_CONTRACTION_PATTERN.search(normalized)
+            or _QUERY_CANNOT_PATTERN.search(normalized)):
+        terms.add("not")
+    return frozenset(terms)
+
+
 def cognition_query_terms(text: str) -> set[str]:
     """Return normalized topic terms while preserving explicit query negation."""
     terms: set[str] = set()
@@ -93,7 +104,5 @@ def cognition_query_terms(text: str) -> set[str]:
                 or token in _QUERY_NEGATION_CONTRACTION_FRAGMENTS):
             continue
         terms.add(token)
-    terms.update(_QUERY_NEGATION_WORD_PATTERN.findall(text.casefold()))
-    if _QUERY_NEGATION_CONTRACTION_PATTERN.search(text.casefold()):
-        terms.add("not")
+    terms.update(cognition_negation_terms(text))
     return terms

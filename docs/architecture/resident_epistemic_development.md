@@ -788,6 +788,16 @@ selects the older positive record. This demonstrates polarity-sensitive
 historical record selection with deterministic fixtures; it does not validate
 real-model interpretation, current truth, or execution authority.
 
+Both history retrieval and same-session transcript retrieval now normalize
+“cannot” and “can not” to the same negative decision marker already used for
+“not” and common contractions. Their paired counterfactuals put the positive
+approval most recently while storing the older negative decision as “cannot
+approve”; the negative query retrieves that older record, while a positive
+query still retrieves the recent approval. This closes a wording gap in the
+existing lexical polarity selector without treating retrieved statements as
+truth or authority. It remains deterministic retrieval evidence, not proof that
+a model will interpret the selected correction correctly.
+
 ### Rootless Windows epistemic-series execution (2026-11-17)
 
 The Ollama correction-pressure runner now creates its Windows run, cognition,

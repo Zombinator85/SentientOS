@@ -6320,10 +6320,10 @@ def test_history_query_prefers_matching_decision_polarity_over_recency() -> None
     from sentientos.cognition_retrieval import cognition_query_terms
 
     candidates = {
-        "older-positive": {"selected_facts": [],
+        "older-negative": {"selected_facts": [],
+            "interpretation": "I cannot approve the west sensor."},
+        "newer-positive": {"selected_facts": [],
             "interpretation": "I approved the west sensor."},
-        "newer-negative": {"selected_facts": [],
-            "interpretation": "I did not approve the west sensor."},
     }
 
     class Store:
@@ -6342,22 +6342,24 @@ def test_history_query_prefers_matching_decision_polarity_over_recency() -> None
     fake_owner = SimpleNamespace(writeback=writeback,
         config=SimpleNamespace(max_retrieved_records=1), objective_task=None)
     state = {"completed_ticks": [
-        {"tick_id": "tick-0", "record_id": "older-positive"},
-        {"tick_id": "tick-1", "record_id": "newer-negative"},
+        {"tick_id": "tick-0", "record_id": "older-negative"},
+        {"tick_id": "tick-1", "record_id": "newer-positive"},
     ]}
 
     negative_query = "What didn't I approve about the west sensor?"
     positive_query = "What did I approve about the west sensor?"
     assert "not" in cognition_query_terms(negative_query)
     assert "didn" not in cognition_query_terms(negative_query)
+    assert "not" in cognition_query_terms(
+        "I cannot approve the west sensor.")
 
     negative_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-negative", relevance_query=negative_query)
     positive_projection = ResidentDevelopmentalCognitionOwner._prior_projection(
         fake_owner, state, "later-positive", relevance_query=positive_query)
 
-    assert negative_projection.requested_record_ids == ("newer-negative",)
-    assert positive_projection.requested_record_ids == ("older-positive",)
+    assert negative_projection.requested_record_ids == ("older-negative",)
+    assert positive_projection.requested_record_ids == ("newer-positive",)
 
 
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:

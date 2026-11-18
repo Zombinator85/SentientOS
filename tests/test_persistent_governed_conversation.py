@@ -2136,26 +2136,46 @@ def test_transcript_recall_normalizes_shared_inflections() -> None:
     assert transcript_recall_terms("approved") == frozenset({"approve"})
 
 
+def test_transcript_recall_normalizes_cannot_as_negative_decision() -> None:
+    from sentientos.conversation_session import rank_transcript_exchange_terms
+
+    negative = transcript_recall_terms("I cannot approve the west sensor.")
+    positive = transcript_recall_terms("I approved the west sensor.")
+    negative_query = transcript_recall_terms(
+        "What didn't I approve about the west sensor?")
+    positive_query = transcript_recall_terms(
+        "What did I approve about the west sensor?")
+
+    assert rank_transcript_exchange_terms(
+        negative_query, (negative, positive))[0][3] == 0
+    assert rank_transcript_exchange_terms(
+        positive_query, (negative, positive))[0][3] == 1
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="durable conversation publication is POSIX-only")
 def test_bounded_exchange_retrieval_preserves_decision_polarity(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     store = ConversationSessionStore(tmp_path / "sessions")
     session = store.create(model_identity={})
     session_id = session["session_id"]
+    rejected = store.append_turn(session_id, role="user",
+        text="I cannot approve the west sensor installation.")
+    rejected_reply = store.append_turn(session_id, role="assistant",
+        text="I cannot approve the west sensor installation.",
+        linkage={"source_user_turn_id": rejected["turn_id"]})
     approved = store.append_turn(session_id, role="user",
         text="I approved the west sensor inspection.")
     approved_reply = store.append_turn(session_id, role="assistant",
         text="I approved the west sensor inspection.",
         linkage={"source_user_turn_id": approved["turn_id"]})
-    rejected = store.append_turn(session_id, role="user",
-        text="I do not approve the west sensor installation.")
-    rejected_reply = store.append_turn(session_id, role="assistant",
-        text="I do not approve the west sensor installation.",
-        linkage={"source_user_turn_id": rejected["turn_id"]})
 
     negative_query = "What didn't I approve about the west sensor?"
     positive_query = "What did I approve about the west sensor?"
     assert "not" in transcript_recall_terms(negative_query)
     assert "not" in transcript_recall_terms("I can't approve this change.")
+    assert "not" in transcript_recall_terms(
+        "I cannot approve this change.")
     assert "no" in transcript_recall_terms("No sensor was approved.")
 
     negative = store.reconstruct(session_id, budget_chars=1000,

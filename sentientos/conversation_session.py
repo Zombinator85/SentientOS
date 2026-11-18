@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Any, Iterator, Mapping, Sequence
 
-from .cognition_retrieval import cognition_tokens
+from .cognition_retrieval import cognition_negation_terms, cognition_tokens
 from .platform_fcntl import fcntl, require_flock
 from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .windows_handle_custody import read_explicit_file, verify_explicit_directory
@@ -44,13 +44,10 @@ _TRANSCRIPT_RECALL_STOP_WORDS = frozenset((
     "exact", "foreground", "game", "gameplay", "guess", "our", "reply",
     "replied", "screen", "see", "they", "two", "word", "words",
 ))
-_TRANSCRIPT_RECALL_NEGATION_WORDS = frozenset(("no", "not", "nor"))
-_TRANSCRIPT_RECALL_NEGATION_CONTRACTION = re.compile(
-    r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"
-    r"shouldn|wasn|weren|won|wouldn)['’]t\b")
 _TRANSCRIPT_RECALL_DECISION_TERMS = frozenset((
     "accept", "agree", "allow", "approve", "authorize", "confirm",
     "consent", "decide", "permit", "support"))
+_TRANSCRIPT_RECALL_NEGATION_TERMS = frozenset(("no", "nor", "not"))
 
 
 def transcript_recall_terms(text: str) -> frozenset[str]:
@@ -60,11 +57,7 @@ def transcript_recall_terms(text: str) -> frozenset[str]:
     terms: set[str] = set()
     # Negation changes the meaning of a remembered decision. Keep these
     # markers alongside content words so polarity participates in ranking.
-    terms.update(re.findall(
-        r"\b(?:" + "|".join(sorted(_TRANSCRIPT_RECALL_NEGATION_WORDS))
-        + r")\b", text.casefold()))
-    if _TRANSCRIPT_RECALL_NEGATION_CONTRACTION.search(text.casefold()):
-        terms.add("not")
+    terms.update(cognition_negation_terms(text))
     for token in cognition_tokens(text):
         if len(token) <= 2 or token in _TRANSCRIPT_RECALL_STOP_WORDS:
             continue
@@ -90,7 +83,8 @@ def rank_transcript_exchange_terms(
         return []
     query_decision_polarity = bool(
         query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
-    query_is_negative_decision = bool(query_terms & _TRANSCRIPT_RECALL_NEGATION_WORDS)
+    query_is_negative_decision = bool(
+        query_terms & _TRANSCRIPT_RECALL_NEGATION_TERMS)
     document_frequency = {term: sum(term in terms for terms in exchange_terms)
         for term in query_terms}
     term_weights = {term: math.log((len(exchange_terms) + 1)
@@ -105,7 +99,7 @@ def rank_transcript_exchange_terms(
             terms & query_terms & _TRANSCRIPT_RECALL_DECISION_TERMS)
         exchange_is_negative_decision = (
             exchange_mentions_decision
-            and bool(terms & _TRANSCRIPT_RECALL_NEGATION_WORDS))
+            and bool(terms & _TRANSCRIPT_RECALL_NEGATION_TERMS))
         polarity_match = int(
             not query_decision_polarity
             or not exchange_mentions_decision
