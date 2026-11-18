@@ -359,6 +359,7 @@ SCHEMA = "sentientos.resident_developmental_cognition:v1"
 CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
 CONFIG_SCHEMA_V3 = "sentientos.resident_developmental_cognition_config:v3"
+CONFIG_SCHEMA_V4 = "sentientos.resident_developmental_cognition_config:v4"
 COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
@@ -5079,6 +5080,10 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9",
                 "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10",
                 "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"}
+            and not (isinstance(selection.get("retrieval_policy_id"), str)
+                and re.fullmatch(
+                    r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v12:[0-9a-f]{64}",
+                    selection["retrieval_policy_id"]))
             or selection.get("treatment") not in {"present", "withheld"}
             or claimed != _digest(semantic)):
         raise ResidentDevelopmentalCognitionError("developmental_history_selection_identity_invalid")
@@ -5270,6 +5275,8 @@ class ResidentDevelopmentalCognitionConfig:
     model_replacement_artifact_root: Path | None = None
     max_inference_timeout_seconds: int = 30
     max_inference_input_chars: int | None = None
+    semantic_history_model_id: str | None = None
+    semantic_history_model_revision: str | None = None
 
 
 @dataclass(frozen=True)
@@ -5892,6 +5899,9 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
         CONFIG_SCHEMA_V2: common | {"model_replacement_artifact_root"},
         CONFIG_SCHEMA_V3: common | {"model_replacement_artifact_root",
             "max_inference_timeout_seconds"},
+        CONFIG_SCHEMA_V4: common | {"model_replacement_artifact_root",
+            "max_inference_timeout_seconds", "semantic_history_model_id",
+            "semantic_history_model_revision"},
     }
     expected = expected_shapes.get(schema) if isinstance(schema, str) else None
     if not isinstance(payload, dict) or expected is None or set(payload) != expected:
@@ -5905,24 +5915,35 @@ def load_config(path: str | Path) -> ResidentDevelopmentalCognitionConfig:
             or not isinstance(history_maximum, int) or not 1 <= history_maximum <= MAX_HISTORY
             or not isinstance(payload.get("history_root"), str) or not payload["history_root"]
             or not isinstance(payload.get("state_root"), str) or not payload["state_root"]
-            or (schema == CONFIG_SCHEMA_V3 and (
+            or (schema in {CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4} and (
                 type(payload.get("max_inference_timeout_seconds")) is not int
                 or not 1 <= payload["max_inference_timeout_seconds"]
                     <= MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS))):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     provenance_root = payload.get("model_replacement_artifact_root")
-    if schema in {CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3} and (
+    if schema in {CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4} and (
             not isinstance(provenance_root, str) or not provenance_root):
+        raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
+    semantic_model_id = payload.get("semantic_history_model_id")
+    semantic_revision = payload.get("semantic_history_model_revision")
+    if schema == CONFIG_SCHEMA_V4 and (
+            (semantic_model_id is None) != (semantic_revision is None)
+            or (semantic_model_id is not None and (
+                not isinstance(semantic_model_id, str) or not semantic_model_id
+                or len(semantic_model_id) > 256
+                or not isinstance(semantic_revision, str)
+                or re.fullmatch(r"[0-9a-f]{40}", semantic_revision) is None))):
         raise ResidentDevelopmentalCognitionError("configuration_values_invalid")
     history_root, state_root = Path(payload["history_root"]), Path(payload["state_root"])
     artifact_root = Path(provenance_root) if provenance_root is not None else None
     _validate_root_separation(history_root, state_root, artifact_root)
     inference_timeout = (payload["max_inference_timeout_seconds"]
-        if schema == CONFIG_SCHEMA_V3 else 30)
+        if schema in {CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4} else 30)
     return ResidentDevelopmentalCognitionConfig(history_root, state_root,
         tuple(sorted(kinds)), maximum, history_maximum,
         payload["comparison_enabled"], payload["enabled"], artifact_root,
-        inference_timeout)
+        inference_timeout, semantic_history_model_id=semantic_model_id,
+        semantic_history_model_revision=semantic_revision)
 
 
 def _unsafe_legacy_objective_cognition_fact(fact: Any) -> bool:
@@ -8033,6 +8054,7 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError("history_relevance_context_invalid")
         family = task_family_id or (self.objective_task.public_descriptor().get("task_family_id")
             if self.objective_task is not None else None)
+        retrieval_policy_id: str | None = None
         task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
         task_family_unsettled_outcome_groups: tuple[tuple[str, str], ...] = ()
         if isinstance(family, str):
@@ -8161,6 +8183,7 @@ class ResidentDevelopmentalCognitionOwner:
             checkpoint_order = {record_id: order
                 for order, record_id in enumerate(ids)}
             document_term_weights: dict[str, dict[str, int]] = {}
+            document_texts: dict[str, str] = {}
             correction_targets_by_record: dict[
                 str, set[tuple[str, str, str]]] = {}
             for record_id in ids:
@@ -8218,22 +8241,64 @@ class ResidentDevelopmentalCognitionOwner:
                 for term in cognition_query_terms(" ".join(searchable_parts)):
                     term_weights[term] = max(term_weights.get(term, 0), 1)
                 document_term_weights[record_id] = term_weights
+                document_texts[record_id] = " ".join(searchable_parts)[:4000]
             document_frequency = {term: sum(term in weights
                 for weights in document_term_weights.values()) for term in query_terms}
             query_decision_polarity = bool(
                 query_terms & _HISTORY_DECISION_PREDICATE_TERMS)
             query_is_negative_decision = bool(
                 query_terms & _HISTORY_DECISION_NEGATION_TERMS)
-            ranked: list[tuple[int, float, int, str]] = []
+            semantic_scores: dict[str, float] = {}
+            semantic_identity_digest: str | None = None
+            model_id = getattr(self.config, "semantic_history_model_id", None)
+            model_revision = getattr(self.config,
+                "semantic_history_model_revision", None)
+            if model_id is not None and model_revision is not None:
+                # Keep CPU work bounded: score at most 192 recent records and
+                # 64 older lexical hits. This does not create an unbounded index.
+                recent_candidates = list(reversed(ids[-192:]))
+                older_lexical_hits = [record_id for record_id in
+                    reversed(ids[:-192]) if document_term_weights[record_id].keys()
+                        & query_terms][:64]
+                candidate_ids = [record_id for record_id in
+                    dict.fromkeys(recent_candidates + older_lexical_hits)
+                    if document_texts[record_id].strip()]
+                try:
+                    from semantic_embeddings import encode_semantic
+                    query_text = relevance_query
+                    if len(query_terms) < 2 and relevance_context:
+                        query_text = f"{relevance_context} {relevance_query}"
+                    embedded = encode_semantic(
+                        [query_text[:4000]] + [document_texts[record_id]
+                            for record_id in candidate_ids],
+                        model_id=model_id, revision=model_revision)
+                    if embedded is not None and len(embedded.vectors) == len(candidate_ids) + 1:
+                        query_vector = embedded.vectors[0]
+                        semantic_scores = {record_id: sum(a * b for a, b in
+                            zip(query_vector, vector)) for record_id, vector in
+                            zip(candidate_ids, embedded.vectors[1:])}
+                        semantic_identity_digest = embedded.identity_digest
+                except Exception:
+                    # Optional semantic retrieval must fail closed to the
+                    # established lexical ranking.
+                    semantic_scores = {}
+                    semantic_identity_digest = None
+            if semantic_identity_digest is not None:
+                retrieval_policy_id = (
+                    "query_decision_polarity_then_semantic_then_overlap_with_"
+                    "identity_bound_correction_groups_decision_contrasts_"
+                    "embodied_reports_and_elliptical_session_context_then_"
+                    f"recency_fill:v12:{semantic_identity_digest}")
+            ranked: list[tuple[int, float, float, int, str]] = []
             document_count = max(1, len(document_term_weights))
             for order, record_id in enumerate(ids):
                 weights = document_term_weights[record_id]
                 shared = query_terms & weights.keys()
                 relevance_score = sum(weights[term] * (math.log((document_count + 1) /
                     (document_frequency[term] + 0.5)) + 1) ** 2 for term in shared)
-                if relevance_score:
-                    exchange_mentions_decision = bool(
-                        shared & _HISTORY_DECISION_PREDICATE_TERMS)
+                exchange_mentions_decision = bool(
+                    weights.keys() & _HISTORY_DECISION_PREDICATE_TERMS)
+                if relevance_score or record_id in semantic_scores:
                     exchange_is_negative_decision = (
                         exchange_mentions_decision
                         and bool(weights.keys() & _HISTORY_DECISION_NEGATION_TERMS))
@@ -8243,7 +8308,9 @@ class ResidentDevelopmentalCognitionOwner:
                             and not query_is_negative_decision)
                         or query_is_negative_decision
                             == exchange_is_negative_decision)
-                    ranked.append((polarity_match, relevance_score, order, record_id))
+                    ranked.append((polarity_match,
+                        semantic_scores.get(record_id, 0.0), relevance_score,
+                        order, record_id))
             ranked.sort(reverse=True)
 
             # Keep feedback records about the same exact cited turn together.
@@ -8281,23 +8348,29 @@ class ResidentDevelopmentalCognitionOwner:
             for record_id in ids:
                 unit_members.setdefault(find_group(record_id), []).append(record_id)
             ranked_score_by_id = {record_id: score
-                for _polarity, score, _order, record_id in ranked}
+                for _polarity, _semantic, score, _order, record_id in ranked}
+            ranked_semantic_by_id = {record_id: score
+                for _polarity, score, _overlap, _order, record_id in ranked}
             ranked_polarity_by_id = {record_id: polarity
-                for polarity, _score, _order, record_id in ranked}
+                for polarity, _semantic, _score, _order, record_id in ranked}
             unit_ranking = []
             for members in unit_members.values():
                 score = max((ranked_score_by_id.get(record_id, 0.0)
+                    for record_id in members), default=0.0)
+                semantic_score = max((ranked_semantic_by_id.get(record_id, 0.0)
                     for record_id in members), default=0.0)
                 polarity_match = max((ranked_polarity_by_id.get(record_id, 0)
                     for record_id in members), default=0)
                 newest_order = max(checkpoint_order[record_id]
                     for record_id in members)
-                if score > 0:
-                    unit_ranking.append((polarity_match, score, newest_order, members))
-            unit_ranking.sort(key=lambda item: (item[0], item[1], item[2]), reverse=True)
+                if score > 0 or any(record_id in semantic_scores
+                        for record_id in members):
+                    unit_ranking.append((polarity_match, semantic_score,
+                        score, newest_order, members))
+            unit_ranking.sort(key=lambda item: item[:4], reverse=True)
             selected_record_ids: list[str] = []
             selected_general_set: set[str] = set()
-            for _polarity_match, _score, _newest_order, members in unit_ranking:
+            for _polarity_match, _semantic_score, _score, _newest_order, members in unit_ranking:
                 if (len(selected_record_ids) + len(members)
                         > self.config.max_retrieved_records):
                     continue
@@ -8318,14 +8391,18 @@ class ResidentDevelopmentalCognitionOwner:
                 selected_general_set.update(members)
             # History budgeting keeps a complete suffix. Put strongest query
             # matches last so ranking survives a smaller input budget.
-            polarity_by_id = {item[3]: item[0] for item in ranked}
-            overlap_by_id = {item[3]: item[1] for item in ranked}
+            polarity_by_id = {item[4]: item[0] for item in ranked}
+            semantic_by_id = {item[4]: item[1] for item in ranked}
+            overlap_by_id = {item[4]: item[2] for item in ranked}
             ids = sorted(selected_record_ids, key=lambda record_id: (
                 polarity_by_id.get(record_id, 0),
+                semantic_by_id.get(record_id, 0),
                 overlap_by_id.get(record_id, 0), checkpoint_order[record_id]))
         ids = ids[-self.config.max_retrieved_records:]
         projection = self.writeback.retrieve(ids,
             limit=self.config.max_retrieved_records)
+        if retrieval_policy_id is not None:
+            projection = replace(projection, retrieval_policy_id=retrieval_policy_id)
         if (task_family_outcome_corroboration
                 or task_family_unsettled_outcome_groups):
             return replace(projection,
@@ -9320,6 +9397,10 @@ class ResidentDevelopmentalCognitionOwner:
                 "current truth, or authority. Do not transfer this pattern beyond its "
                 "recorded task and source-model scope.")
         context["developmental_history_retrieval_policy_id"] = (
+            getattr(projection, "retrieval_policy_id", None)
+            if (getattr(projection, "retrieval_policy_id", None) is not None
+                and interaction_question is not None
+                and condition_id == "companion-interaction") else
             "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"
             if (isinstance(task_family_id, str)
                 and isinstance(observed_target_identity, Mapping)

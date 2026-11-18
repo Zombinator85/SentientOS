@@ -2355,6 +2355,7 @@ class DevelopmentalHistoryProjection:
     canonical_explicit_user_retention: bool = False
     task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
     task_family_unsettled_outcome_groups: tuple[tuple[str, str], ...] = ()
+    retrieval_policy_id: str | None = None
 
 
 @dataclass(frozen=True)

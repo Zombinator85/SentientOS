@@ -151,7 +151,7 @@ where = ["."]
 include = ["sentientos", "api", "gui", "apps", "scripts", "privilege_lint"]
 
 [tool.setuptools]
-py-modules = ["sentient_api"]
+py-modules = ["sentient_api", "semantic_embeddings"]
 
 [tool.mypy]
 python_version = "3.11"

@@ -37,7 +37,7 @@ from sentientos.local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE, digest_payload,
 )
 from sentientos.resident_developmental_cognition import (
-    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3,
+    CONFIG_SCHEMA, CONFIG_SCHEMA_V2, CONFIG_SCHEMA_V3, CONFIG_SCHEMA_V4,
     ResidentDevelopmentalCognitionConfig,
     ResidentDevelopmentalCognitionError,
     ResidentDevelopmentalCognitionOwner, load_config, _bind_epistemic_context,
@@ -6414,6 +6414,167 @@ def test_history_query_polarity_precedes_stronger_opposite_lexical_overlap() -> 
     assert positive_projection.requested_record_ids == ("newer-positive",)
 
 
+def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-lesson": {"selected_facts": [], "interpretation":
+            "In a severe storm, the ridge shelter stayed dry while the valley flooded."},
+        "newer-unrelated": {"selected_facts": [], "interpretation":
+            "The orbital telescope captured a clear image of Saturn."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            self.selected = tuple(record_ids)
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=self.selected)
+
+    observed = {}
+
+    def fake_encode(texts, *, model_id, revision):
+        observed["texts"] = tuple(texts)
+        observed["model"] = (model_id, revision)
+        document_vectors = [(0.99, 0.01) if "storm" in text else (0.0, 1.0)
+            for text in texts[1:]]
+        return SimpleNamespace(identity_digest="d" * 64,
+            vectors=((1.0, 0.0), *document_vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    state = {"completed_ticks": [
+        {"tick_id": "tick-0", "record_id": "older-lesson"},
+        {"tick_id": "tick-1", "record_id": "newer-unrelated"},
+    ]}
+
+    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, state, "later-question",
+        relevance_query="Where should we shelter during a flood?")
+
+    assert selected.requested_record_ids == ("older-lesson",)
+    assert observed["model"] == ("test/local-embedder", "a" * 40)
+    assert selected.retrieval_policy_id.endswith(":" + "d" * 64)
+    assert "Where should we shelter" in observed["texts"][0]
+
+
+def test_semantic_embedding_api_is_cpu_pinned_and_never_falls_back(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    monkeypatch.setattr(semantic_embeddings, "_SEMANTIC_MODELS", {})
+    calls = {}
+
+    class FakeModel:
+        def __init__(self, model_id, **kwargs):
+            calls["load"] = (model_id, kwargs)
+
+        def encode(self, texts, **kwargs):
+            calls["encode"] = kwargs
+            return [[1.0, 0.0] for _ in texts]
+
+    monkeypatch.setattr(semantic_embeddings, "SentenceTransformer", FakeModel)
+    result = semantic_embeddings.encode_semantic(["a bounded sentence"],
+        model_id="test/local", revision="b" * 40)
+
+    assert result is not None
+    assert calls["load"][1] == {"revision": "b" * 40,
+        "local_files_only": True, "device": "cpu", "trust_remote_code": False}
+    assert calls["encode"]["device"] == "cpu"
+    assert len(result.identity_digest) == 64
+
+    class BrokenModel:
+        def encode(self, texts, **kwargs):
+            return [[float("nan"), 0.0] for _ in texts]
+
+    semantic_embeddings._SEMANTIC_MODELS[("test/broken", "c" * 40)] = BrokenModel()
+    assert semantic_embeddings.encode_semantic(["bounded sentence"],
+        model_id="test/broken", revision="c" * 40) is None
+
+
+def test_semantic_retrieval_identity_is_accepted_by_history_lineage_validator() -> None:
+    from sentientos import resident_developmental_cognition as cognition_module
+
+    selection = {"schema_version": "sentientos.developmental_history_selection:v1",
+        "policy": "most_recent_complete_record_suffix:v1",
+        "retrieval_policy_id": "query_decision_polarity_then_semantic_then_overlap_"
+            "with_identity_bound_correction_groups_decision_contrasts_embodied_"
+            "reports_and_elliptical_session_context_then_recency_fill:v12:" + "d" * 64,
+        "task_family_id": None, "treatment": "present",
+        "available_records": [], "selected_records": [], "omitted_records": [],
+        "omitted_records_digest": cognition_module._digest([]),
+        "omission_reason": None}
+    selection["selection_digest"] = cognition_module._digest(selection)
+    cognition_module._validate_developmental_history_selection({
+        "developmental_history_selection": selection,
+        "retrieved_record_ids": [], "retrieved_record_digests": []})
+
+
+def test_semantic_similarity_cannot_override_decision_polarity(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "older-negative": {"selected_facts": [], "interpretation":
+            "I cannot approve the west sensor after repeated calibration failure."},
+        "newer-positive": {"selected_facts": [], "interpretation":
+            "I approved the west sensor after certification and successful validation."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        # The positive, newer record is a closer vector match to the negative
+        # query. Decision polarity must still rank ahead of this similarity.
+        vectors = [(1.0, 0.0)]
+        vectors.extend([(0.99, 0.01) if "approved" in text else (0.8, 0.6)
+            for text in texts[1:]])
+        return SimpleNamespace(identity_digest="e" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local",
+            semantic_history_model_revision="f" * 40), objective_task=None)
+    selected = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "older-negative"},
+            {"tick_id": "tick-1", "record_id": "newer-positive"}]},
+        "later-decision",
+        relevance_query="Should I not approve the west sensor after certification?")
+
+    assert selected.requested_record_ids == ("older-negative",)
+    assert selected.retrieval_policy_id is not None
+
+
 def test_compact_history_prompt_retains_lesson_scope_and_uncertainty() -> None:
     from sentientos import resident_developmental_cognition as cognition_module
 
@@ -12271,6 +12432,20 @@ def test_configuration_is_exact_and_malformed_configuration_fails_closed(tmp_pat
 
     path.write_text(json.dumps(version_three))
     assert load_config(path).max_inference_timeout_seconds == 90
+    version_four = {
+        **version_three,
+        "schema": CONFIG_SCHEMA_V4,
+        "semantic_history_model_id": "sentence-transformers/test-model",
+        "semantic_history_model_revision": "a" * 40,
+    }
+    path.write_text(json.dumps(version_four))
+    configured = load_config(path)
+    assert configured.semantic_history_model_id == "sentence-transformers/test-model"
+    assert configured.semantic_history_model_revision == "a" * 40
+    path.write_text(json.dumps({**version_four,
+        "semantic_history_model_revision": None}))
+    with pytest.raises(ResidentDevelopmentalCognitionError, match="values_invalid"):
+        load_config(path)
     path.write_text(json.dumps({
         **version_three, "max_inference_timeout_seconds": 121}))
     with pytest.raises(ResidentDevelopmentalCognitionError, match="values_invalid"):
