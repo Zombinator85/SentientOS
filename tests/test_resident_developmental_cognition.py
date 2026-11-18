@@ -9511,8 +9511,8 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
     contrast_retrieval_prompt = json.loads(
         contrast_retrieval_fake.requests[-1].prompt)
     assert contrast_retrieval_prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_correction_groups_decision_contrasts_"
-        "embodied_reports_and_elliptical_session_context_then_recency_fill:v10")
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_"
+        "embodied_reports_and_elliptical_session_context_then_recency_fill:v11")
 
     other_identity_owner, other_identity_fake = owner(
         tmp_path / "cognition", invoker=FakeInvoker(),
@@ -10361,9 +10361,9 @@ def test_companion_history_keeps_same_target_corrections_together_under_cap(
     assert unrelated_record_ids[0] not in interaction.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
     assert prompt["developmental_history_retrieval_policy_id"] == (
-        "query_overlap_with_identity_bound_correction_groups_decision_"
+        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_"
         "contrasts_embodied_reports_and_elliptical_session_context_then_"
-        "recency_fill:v10")
+        "recency_fill:v11")
     reports = [report for packet in prompt["developmental_history"]
         for report in packet.get("operator_feedback_context", ())]
     assert {report["assertion_text"] for report in reports} == {
