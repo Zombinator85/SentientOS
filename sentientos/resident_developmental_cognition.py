@@ -5616,7 +5616,7 @@ def _current_evidence_prompt_payload(
             or any(not isinstance(item, Mapping) for item in raw_conflicts)):
         return full
     conflicts = [dict(item) for item in raw_conflicts]
-    summary: dict[str, Any] = {
+    prompt_payload: dict[str, Any] = {
         "schema_version": (
             "sentientos.current_world_state_cognitive_projection_summary:v5"
             if conflicts else
@@ -5647,8 +5647,8 @@ def _current_evidence_prompt_payload(
         # Conflict membership is an atomic relation over the selected fact IDs.
         # Preserve the complete owner-issued rows while compacting only the
         # recognized typed fact payloads above.
-        summary["conflicts"] = conflicts
-    return summary
+        prompt_payload["conflicts"] = conflicts
+    return prompt_payload
 
 @dataclass(frozen=True)
 class ResidentDevelopmentalCycleResult:
