@@ -360,6 +360,10 @@ CONFIG_SCHEMA = "sentientos.resident_developmental_cognition_config:v1"
 CONFIG_SCHEMA_V2 = "sentientos.resident_developmental_cognition_config:v2"
 CONFIG_SCHEMA_V3 = "sentientos.resident_developmental_cognition_config:v3"
 CONFIG_SCHEMA_V4 = "sentientos.resident_developmental_cognition_config:v4"
+SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID = (
+    "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_"
+    "decision_contrasts_embodied_reports_and_elliptical_session_context_then_"
+    "recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1")
 COGNITION_OBSERVATION_SCHEMA_V2 = "sentientos.resident_cognition_observation:v2"
 COGNITION_OBSERVATION_SCHEMA_V3 = "sentientos.resident_cognition_observation:v3"
 COGNITION_OBSERVATION_SCHEMA_V4 = "sentientos.resident_cognition_observation:v4"
@@ -5079,7 +5083,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "query_overlap_with_embodied_reports_and_elliptical_session_context_then_recency_fill:v8",
                 "query_overlap_with_identity_bound_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v9",
                 "query_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v10",
-                "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"}
+                "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11",
+                SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID}
             and not (isinstance(selection.get("retrieval_policy_id"), str)
                 and re.fullmatch(
                     r"query_decision_polarity_then_semantic_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v12:[0-9a-f]{64}",
@@ -8283,6 +8288,9 @@ class ResidentDevelopmentalCognitionOwner:
                     # established lexical ranking.
                     semantic_scores = {}
                     semantic_identity_digest = None
+                if semantic_identity_digest is None:
+                    retrieval_policy_id = (
+                        SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID)
             if semantic_identity_digest is not None:
                 retrieval_policy_id = (
                     "query_decision_polarity_then_semantic_then_overlap_with_"
