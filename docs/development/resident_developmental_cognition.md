@@ -554,6 +554,15 @@ and citation lineage, not real-model adherence or improved decisions.
 
 Cognition can receive a separately typed, prior-tick epistemic projection binding exact proposition IDs, state IDs/digests, generations, and evidence-set digests. Current World-State evidence outranks a conflicting stale position for current-condition reasoning. Same-tick projections fail closed, so a cognition cannot certify its own update. See [persistent epistemic state](../architecture/persistent_epistemic_state.md).
 
+Large current World-State evidence may use a typed bounded prompt projection while
+remaining bound to the exact source projection digest. Every selected fact ID,
+source freshness, and typed report value remains represented. When selected facts
+conflict, the compact view preserves each complete conflict row and all member
+fact IDs so context pressure cannot turn a contradiction into a one-sided report.
+Unknown fact schemas or conflict rows remain in full form instead of being
+silently summarized. This compaction changes prompt size only; it does not
+resolve a conflict, establish current truth, or grant authority.
+
 When the inference input cannot carry every complete semantic packet, selection
 prioritizes proposition terms matching the current question before epistemic
 severity and stable identity. Matching also preserves typed identifiers such as
