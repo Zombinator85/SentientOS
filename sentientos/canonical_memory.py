@@ -585,7 +585,7 @@ class CanonicalMemoryStore:
             for candidate_terms in document_terms) for term in terms}
         term_weights = {term: math.log((len(eligible) + 1) /
             (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
-        ranked: list[tuple[float, float, str, Mapping[str, Any]]] = []
+        ranked: list[tuple[float, float, str, dict[str, Any]]] = []
         composition_query = _is_response_composition_query(query)
         for record, candidate_terms in zip(eligible, document_terms):
             # Corpus rarity lets a distinctive anchor outweigh several common
@@ -617,7 +617,7 @@ class CanonicalMemoryStore:
         elif semantic_model_id is not None or semantic_model_revision is not None:
             if semantic_model_id is None or semantic_model_revision is None:
                 semantic_retrieval_posture = "unavailable"
-                semantic_scores = {}
+                semantic_scores: dict[str, float] = {}
             else:
                 semantic_scores, semantic_identity_digest, semantic_selection_digest, \
                     semantic_retrieval_posture = _semantic_memory_scores(query, eligible,
