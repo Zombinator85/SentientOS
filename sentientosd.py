@@ -3221,7 +3221,12 @@ class RuntimeMaintenanceSurfaces:
                         state_update_rows.append(asdict(state_update))
                         if state_update.status == "state_advanced":
                             updated_propositions_this_tick.add(proposition_id)
-                            outcome_rows[row_indexes[-1]].update({
+                            state_row_index = next((index for index in
+                                reversed(row_indexes)
+                                if outcome_rows[index].get(
+                                    "new_binding_count", 0) > 0),
+                                row_indexes[-1])
+                            outcome_rows[state_row_index].update({
                                 "status": "state_advanced",
                                 "state_receipt_ids": list(
                                     state_update.state_receipt_ids),

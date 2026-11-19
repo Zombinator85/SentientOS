@@ -5548,7 +5548,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     replay_feedback = surfaces.run_epistemic_development(tick_id=replay_tick)
     assert {row["status"] for row in replay_feedback[
         "verified_task_family_outcomes"]} == {"already_applied"}
-    assert epistemic_ledger.current_sequence() == 4
+    assert epistemic_ledger.current_sequence() == 3
     assert epistemics.current_state(proposition.proposition_id) == state
     all_outcome_bindings = epistemics.bindings(proposition.proposition_id)
     assert len(all_outcome_bindings) == 2
