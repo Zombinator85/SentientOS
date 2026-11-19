@@ -746,6 +746,13 @@ omission count and digest. This improves which unverified reports reach the
 model under context pressure; it does not interpret a report or increase its
 evidentiary weight.
 
+Each such projection also carries a versioned selection record: the ranking
+policy, a digest of the query (never the query text), and the retained binding
+IDs in packet order. The record is part of the projection identity and is
+validated before packet assembly, so reviewers can distinguish query-ranked
+context from recency fallback and detect altered selection provenance. It
+does not make the query or the unverified reports evidence, truth, or authority.
+
 When the correction is compared with a cited prior epistemic state, the later
 response now names that state as an earlier evidence-bound position and cites
 its exact state ID alongside the feedback record and historical dialogue turn.

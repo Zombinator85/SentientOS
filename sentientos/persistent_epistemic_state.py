@@ -1047,8 +1047,9 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 COGNITIVE_PROJECTION_SCHEMA_V7, COGNITIVE_PROJECTION_SCHEMA_V8, COGNITIVE_PROJECTION_SCHEMA_V9}:
             context_history = unverified_context_raw[i]
             if (not isinstance(context_history, Mapping)
-                    or set(context_history) != {"bindings", "omitted_count",
-                        "omitted_identity_digest"}):
+                    or set(context_history) not in ({"bindings", "omitted_count",
+                        "omitted_identity_digest"}, {"bindings", "omitted_count",
+                        "omitted_identity_digest", "selection_provenance"})):
                 raise EpistemicStateError(
                     "epistemic_semantic_unverified_context_projection_invalid")
             context_binding_rows = context_history.get("bindings")
@@ -1065,6 +1066,30 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                 raise EpistemicStateError(
                     "epistemic_semantic_unverified_context_projection_invalid")
             context_bindings: list[EvidenceBinding] = []
+            selection_provenance = context_history.get("selection_provenance")
+            if selection_provenance is not None:
+                selected_binding_ids = (selection_provenance.get("selected_binding_ids")
+                    if isinstance(selection_provenance, Mapping) else None)
+                if (not isinstance(selection_provenance, Mapping)
+                        or set(selection_provenance) != {"schema_version",
+                            "selection_policy", "query_digest", "selected_binding_ids"}
+                        or selection_provenance.get("schema_version") !=
+                            "sentientos.epistemic_context_selection_provenance:v1"
+                        or selection_provenance.get("selection_policy") not in {
+                            "query_token_overlap_then_recency_then_binding_id",
+                            "recency_then_binding_id"}
+                        or (selection_provenance.get("query_digest") is not None
+                            and (not isinstance(selection_provenance.get("query_digest"), str)
+                                or not re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                    selection_provenance["query_digest"])))
+                        or not isinstance(selected_binding_ids, (list, tuple))
+                        or tuple(selected_binding_ids) != tuple(
+                            item.get("binding_id") for item in context_binding_rows)
+                        or (selection_provenance.get("selection_policy") ==
+                                "query_token_overlap_then_recency_then_binding_id"
+                            and selection_provenance.get("query_digest") is None)):
+                    raise EpistemicStateError(
+                        "epistemic_semantic_unverified_context_selection_provenance_invalid")
             for context_binding_raw in context_binding_rows:
                 if not isinstance(context_binding_raw, Mapping):
                     raise EpistemicStateError(
@@ -1346,6 +1371,12 @@ def semantic_packets_for_projection(projection: EpistemicCognitiveProjection) ->
                 "unverified_context_interpretation": (
                     "operator_context_only_not_state_evidence_or_truth"),
             })
+            if "selection_provenance" in context_history:
+                packet["unverified_context_selection_provenance"] = {
+                    **dict(context_history["selection_provenance"]),
+                    "selected_binding_ids": list(context_history[
+                        "selection_provenance"]["selected_binding_ids"]),
+                }
         packet_identity = _identity("epistemic-packet", packet)
         packets.append({**packet, "packet_id": packet_identity[0],
             "packet_digest": packet_identity[1]})
@@ -2476,10 +2507,22 @@ class PersistentEpistemicStateOwner:
                 if item.binding_id not in retained_context_ids]
             omitted_context_identities = [{"binding_id": item.binding_id,
                 "binding_digest": item.binding_digest} for item in omitted_context]
-            context_histories.append({
+            context_history = {
                 "bindings": tuple(item.record() for item in retained_context),
                 "omitted_count": len(omitted_context),
-                "omitted_identity_digest": digest(omitted_context_identities)})
+                "omitted_identity_digest": digest(omitted_context_identities),
+                "selection_provenance": {
+                "schema_version": "sentientos.epistemic_context_selection_provenance:v1",
+                "selection_policy": (
+                    "query_token_overlap_then_recency_then_binding_id"
+                    if context_query_terms else "recency_then_binding_id"),
+                "query_digest": (digest(relevance_query)
+                    if isinstance(relevance_query, str) else None),
+                "selected_binding_ids": tuple(item.binding_id
+                    for item in retained_context),
+                },
+            }
+            context_histories.append(context_history)
             has_unverified_context = has_unverified_context or bool(pending_context)
         return make_cognitive_projection(selected, source_tick=source_tick,
             current_tick=projection_tick,
