@@ -28,7 +28,9 @@ output digests and diversity, restoration stability, and bounded all-trial boole
 For scored probe suites it also records each probe's condition-outcome counts and
 cross-condition transitions across replications. Answered-probe totals exclude
 invalid, unavailable, and truncated responses; those remain separately classified
-from selective abstentions in the outcome counts.
+from selective abstentions in the outcome counts. The report builder checks that
+per-probe correct, answered, abstained, and transition counts reconcile with its
+aggregate totals before publishing the immutable report.
 Zero effects, A-only, B-only, both-model effects, output variation, and restoration
 instability are valid descriptive outcomes.
 

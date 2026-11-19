@@ -774,6 +774,31 @@ class DevelopmentalModelReplacementCampaign:
                                 "outcomes": transition_counts[name]}
                             for name in comparison_pairs},
                     })
+                for condition in CONDITION_ORDER:
+                    outcome_totals = {outcome: sum(
+                        row["condition_outcome_counts"][condition][outcome]
+                        for row in probe_rows)
+                        for outcome in ("correct", "incorrect", "abstained",
+                            "invalid_answer", "unscoreable")}
+                    if (outcome_totals["correct"] != objective_summary[
+                            "condition_correct_probe_count"][condition]
+                            or outcome_totals["correct"]
+                                + outcome_totals["incorrect"]
+                                != objective_summary[
+                                    "condition_answered_probe_count"][condition]
+                            or outcome_totals["abstained"] != objective_summary[
+                                "condition_abstained_probe_count"][condition]
+                            or sum(outcome_totals.values()) != count * len(probes)):
+                        raise DevelopmentalModelReplacementError(
+                            "campaign_objective_probe_aggregate_mismatch")
+                for name in comparison_pairs:
+                    for probe_row in probe_rows:
+                        transitions = probe_row["comparison_transition_counts"][name]
+                        if (sum(transitions["outcomes"].values())
+                                != transitions["comparable_trial_count"]
+                                or transitions["comparable_trial_count"] > count):
+                            raise DevelopmentalModelReplacementError(
+                                "campaign_objective_probe_transition_mismatch")
                 objective_summary["per_probe_replication"] = probe_rows
         semantic = {"campaign_id": self.protocol.campaign_id, "campaign_digest": self.protocol.campaign_digest,
             "planned_trial_count": count, "completed_valid_trial_count": count,
