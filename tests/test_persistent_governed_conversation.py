@@ -1906,6 +1906,81 @@ def test_failed_memory_source_verification_forces_resident_clarification(
 
 @pytest.mark.skipif(os.name == "nt",
     reason="conversation persistence is unavailable on Windows")
+def test_ordinary_chat_applies_only_source_verified_retained_memory(
+        tmp_path: Path) -> None:
+    import hashlib
+
+    class MemoryApplyingInvoker(FakeInvoker):
+        def invoke(self, request):
+            self.last_prompt = request.prompt
+            retained = "The west station configuration is twelve units."
+            output = ("The retained setting is twelve units."
+                if retained in request.prompt else
+                "I do not have a retained west station setting.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False, request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    question = "What is the west station configuration?"
+    baseline_invoker = MemoryApplyingInvoker()
+    baseline_app = service(tmp_path / "baseline", baseline_invoker)
+    baseline_session = baseline_app.create_session()
+    baseline = baseline_app.chat(question, session_id=baseline_session,
+        request_id="without-retained-setting")
+    assert baseline.response == "I do not have a retained west station setting."
+
+    invoker = MemoryApplyingInvoker()
+    app = service(tmp_path / "with-memory", invoker)
+    source_session = app.create_session()
+    retained_text = "The west station configuration is twelve units."
+    retained = app.chat(retained_text, session_id=source_session,
+        request_id="retain-west-station-setting", retain=True)
+    assert retained.retention["status"] == "memory_retention_committed"
+    [valid_path] = app.memories.raw.glob("*.json")
+    valid_record = json.loads(valid_path.read_text(encoding="utf-8"))
+
+    # These newer, matching records carry copied retention metadata but altered
+    # record identities and no admission receipts for their content. Without
+    # source validation they occupy the normal four-record retrieval cap.
+    for index in range(4):
+        decoy = dict(valid_record)
+        decoy_id = "memory-" + hashlib.sha256(
+            f"{valid_record['id']}:{index}".encode()).hexdigest()[:24]
+        decoy_text = ("The west station configuration is twelve units. "
+            f"UNVERIFIED-DECOY-{index}")
+        decoy.update({"id": decoy_id, "text": decoy_text,
+            "text_digest": chat_service.digest_payload({"text": decoy_text}),
+            "timestamp": f"2099-01-01T00:00:0{index}+00:00"})
+        (app.memories.raw / f"{decoy_id}.json").write_text(
+            json.dumps(decoy, sort_keys=True) + "\n", encoding="utf-8")
+
+    unverified_selection = app.memories.retrieve(question, limit=4,
+        budget_chars=app.memory_budget_chars)
+    assert len(unverified_selection["memories"]) == 4
+    assert all("UNVERIFIED-DECOY-" in row["text"]
+        for row in unverified_selection["memories"])
+
+    query_session = app.create_session()
+    answer = app.chat(question, session_id=query_session,
+        request_id="apply-verified-west-station-setting")
+    assert answer.response == "The retained setting is twelve units."
+    assert answer.response != baseline.response
+    assert retained_text in invoker.last_prompt
+    assert "UNVERIFIED-DECOY-" not in invoker.last_prompt
+    [raw_status] = invoker.last_prompt.split(
+        "[MEMORY_RETRIEVAL_STATUS]\n", 1)[1].splitlines()[:1]
+    status = json.loads(raw_status)
+    assert status["retrieval_posture"] == "partial_source_verification"
+    assert status["selection_posture"] == "matching_records_omitted"
+    assert status["selected_memory_count"] == 1
+    assert status["omitted_memory_count"] == 4
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
 def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
@@ -3876,14 +3951,27 @@ def test_gaming_chat_trims_supplemental_memory_before_recent_transcript(
     app.set_workload_mode("gaming")
 
     memory_text = "Supplemental historical memory: " + "M" * 1500
+    memory_record = {"id": "memory-" + "a" * 24, "text": memory_text,
+        "text_digest": chat_service.digest_payload({"text": memory_text}),
+        "timestamp": "2026-01-01T00:00:00+00:00"}
 
-    def retrieve_memory(_query: str, *, budget_chars: int) -> dict[str, object]:
+    app._verify_resident_canonical_memory_record = lambda record, **_kwargs: (
+        {"text": record["text"]} if record.get("id") == memory_record["id"]
+        else None)
+
+    def retrieve_memory(_query: str, *, limit: int, budget_chars: int,
+            record_validator) -> dict[str, object]:
+        assert limit == 4
+        verified = record_validator(memory_record)
         selected = len(memory_text) <= budget_chars
+        selected = selected and verified
         return {
-            "memories": ([{"text": memory_text}] if selected else []),
+            "memories": ([memory_record] if selected else []),
+            "selected_memory_ids": ([memory_record["id"]] if selected else []),
             "snapshot_digest": ("a" if selected else "b") * 64,
             "retrieval_posture": "complete",
             "legacy_sidecar_posture": "missing",
+            "record_validation_posture": "inspected_candidates_passed",
             "selection_posture": ("all_matching_records_selected" if selected
                                   else "matching_records_omitted"),
             "omitted_memory_count": 0 if selected else 1,

@@ -682,6 +682,21 @@ counterfactual checks this distinction. The bound is a conservative reservation
 based on each file's maximum size, not a measure of actual bytes read. Real-model
 application remains untested.
 
+The ordinary `PersistentConversationService` prompt path now uses the same source
+receipt verifier before canonical memories enter a normal chat prompt. Exact
+transcript recall and check-ins that intentionally suppress memory do not scan
+retained records. For other requests, records with invalid or deferred source
+verification are omitted before the four-record selection cap, and the ordinary
+prompt's retrieval status reports partial verification. A deterministic fake
+invoker counterfactual places four newer, altered records ahead of one valid
+retained statement: raw lexical retrieval selects the altered records, while the
+interactive chat path supplies only the receipt-verified statement and the fake
+decision changes accordingly. This establishes source-governed context assembly
+for both ordinary chat and resident cognition; it does not establish real-model
+interpretation, current truth, or improved outcomes. Direct low-level
+`CanonicalMemoryStore.retrieve` calls without a validator remain unverified
+retrieval results and must not be treated as prompt-safe evidence.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports

@@ -2557,12 +2557,10 @@ class PersistentConversationService:
             "authority": False,
         }
 
-    def _resident_canonical_memory_context(self, question: str, *,
-            relevance_query: str | None = None) -> dict[str, Any] | None:
-        """Select retained memories only after their source-turn receipts verify."""
-        query = question if relevance_query is None else relevance_query
-        if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
-            raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
+    def _canonical_memory_source_verifier(self) -> tuple[
+            Callable[[Mapping[str, Any]], bool],
+            dict[str, tuple[str, dict[str, Any]]]]:
+        """Build one bounded verifier shared by chat and resident retrieval."""
         source_session_cache: dict[str, Mapping[str, Any] | None] = {}
         source_session_budget_remaining = [
             MAX_RESIDENT_MEMORY_SOURCE_BYTES_PER_RETRIEVAL]
@@ -2586,6 +2584,88 @@ class PersistentConversationService:
                 return False
             verified_records[memory_id] = (record_digest, verified)
             return True
+
+        return validate_record, verified_records
+
+    def _verified_chat_memory_snapshot(self, query: str, *,
+            budget_chars: int) -> dict[str, Any]:
+        """Filter ordinary chat memory through exact retention source custody."""
+        if (not isinstance(query, str) or len(query) > 4000
+                or type(budget_chars) is not int or budget_chars < 0):
+            raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
+        if not query.strip():
+            # Exact transcript recall and check-ins deliberately suppress memory.
+            # Avoid loading source sessions when no query can select a record.
+            empty = self.memories.retrieve(query, limit=4, budget_chars=0)
+            if (not isinstance(empty, Mapping)
+                    or empty.get("read_only") is not True
+                    or not isinstance(empty.get("snapshot_digest"), str)
+                    or empty.get("memories") != []):
+                raise ChatRequestStateError("canonical_memory_snapshot_invalid")
+            return dict(empty)
+        validate_record, verified_records = self._canonical_memory_source_verifier()
+        retrieved = self.memories.retrieve(query, limit=4,
+            budget_chars=budget_chars, record_validator=validate_record)
+        if (not isinstance(retrieved, Mapping)
+                or retrieved.get("read_only") is not True
+                or not isinstance(retrieved.get("snapshot_digest"), str)
+                or not isinstance(retrieved.get("memories"), list)):
+            raise ChatRequestStateError("canonical_memory_snapshot_invalid")
+
+        selected: list[dict[str, Any]] = []
+        for record in retrieved["memories"]:
+            if not isinstance(record, Mapping):
+                continue
+            memory_id = record.get("id")
+            if not isinstance(memory_id, str):
+                continue
+            verified = verified_records.get(memory_id)
+            if (verified is None
+                    or verified[0] != digest_payload(dict(record))):
+                continue
+            selected.append(dict(record))
+
+        validation_posture = retrieved.get("record_validation_posture")
+        recognized_validation_postures = {
+            "inspected_candidates_passed", "inspected_candidates_rejected",
+            "inspected_candidates_deferred"}
+        filtered_count = len(retrieved["memories"]) - len(selected)
+        source_verification_incomplete = (
+            validation_posture not in recognized_validation_postures
+            or validation_posture in {"inspected_candidates_rejected",
+                "inspected_candidates_deferred"}
+            or filtered_count > 0)
+        retrieval_posture = (
+            "partial_source_verification_budget"
+            if validation_posture == "inspected_candidates_deferred" else
+            "partial_source_verification" if source_verification_incomplete else
+            str(retrieved.get("retrieval_posture", "unknown")))
+        selection_omitted = (len(selected) < len(retrieved["memories"])
+            or retrieved.get("selection_posture") == "matching_records_omitted"
+            or source_verification_incomplete)
+        result = dict(retrieved)
+        result["memories"] = selected
+        result["retrieval_posture"] = retrieval_posture
+        result["selection_posture"] = (
+            "matching_records_omitted" if selection_omitted else
+            str(retrieved.get("selection_posture", "unknown")))
+        result["record_validation_posture"] = (
+            validation_posture if validation_posture in recognized_validation_postures
+            else "source_verification_unavailable")
+        result["selected_memory_ids"] = [str(record.get("id", ""))
+            for record in selected]
+        if filtered_count and type(retrieved.get("omitted_memory_count")) is int:
+            result["omitted_memory_count"] = (
+                retrieved["omitted_memory_count"] + filtered_count)
+        return result
+
+    def _resident_canonical_memory_context(self, question: str, *,
+            relevance_query: str | None = None) -> dict[str, Any] | None:
+        """Select retained memories only after their source-turn receipts verify."""
+        query = question if relevance_query is None else relevance_query
+        if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
+            raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
+        validate_record, verified_records = self._canonical_memory_source_verifier()
 
         retrieve_kwargs: dict[str, Any] = {
             "limit": MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
@@ -3984,7 +4064,8 @@ class PersistentConversationService:
         memory_query = ("" if recent_session_recall or social_checkin
                         or current_runtime_question or self_contained_echo else message)
         memory_budget = self.memory_budget_chars
-        memory = self.memories.retrieve(memory_query, budget_chars=memory_budget)
+        memory = self._verified_chat_memory_snapshot(memory_query,
+            budget_chars=memory_budget)
         # Keep check-ins independent of unrelated transcript and retrieved
         # memories while grounding them in verified runtime state. Explicit
         # follow-ups may include only the immediately preceding exchange.
@@ -4180,8 +4261,8 @@ class PersistentConversationService:
                 # it first so a long-running conversation keeps its recent turns.
                 if memory_budget > 0:
                     memory_budget = max(0, memory_budget - overflow)
-                    memory = self.memories.retrieve(
-                        memory_query, budget_chars=memory_budget)
+                    memory = self._verified_chat_memory_snapshot(memory_query,
+                        budget_chars=memory_budget)
                 elif history_budget > 0:
                     next_budget = max(0, history_budget - overflow)
                     if next_budget == history_budget:
