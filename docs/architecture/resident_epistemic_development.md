@@ -32,10 +32,15 @@ to task families named by an enabled epistemic rule and does not invoke a model;
 the run owner rechecks the complete scored protocol and derives the evidence
 relation from its frozen comparison. Generic World-State adaptation does not
 duplicate task-family evidence or assign a different family's run to a configured
-proposition. A proposition advances at most once per maintenance tick; additional
-verified runs for that proposition remain pending for a later tick. Repeated
-maintenance ticks reconcile the same run idempotently. Run events later than the
-daemon tick remain ineligible.
+proposition. The daemon admits a bounded set of exact run bindings before
+deriving one state update per proposition from the complete active evidence set.
+Same-tick support and contradiction therefore produce one contested
+next-tick position instead of a one-sided intermediate generation. Binding and
+proposition limits defer excess work to later ticks; when a binding limit leaves
+a same-proposition batch incomplete, its state update also waits so the partial
+batch cannot create a directional intermediate position. Repeated maintenance
+ticks reconcile the same run idempotently. Run events later than the daemon tick
+remain ineligible.
 The resulting owner state remains next-tick-only and is available to canonical
 plan-only allocation after reconstruction. Missing, mismatched, ambiguous, or
 future-dated run evidence remains explicitly unresolved and does not create an
