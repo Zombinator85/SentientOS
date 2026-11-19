@@ -827,7 +827,13 @@ examples to carry exact same-model, different-model, or unbound applicability
 posture. Missing identity remains explicitly unbound and does not disable
 history retrieval. This describes provenance and does not imply successful
 transfer. The prompt treats these relations as applicability metadata, not
-performance evidence. The deterministic
+performance evidence. The provider also accepts an optional bounded record
+allowlist for controlled callers. The owner revalidates that every requested
+record is in its completed history before projecting it. The returned
+selection identifies the allowlist policy and any records omitted for prompt
+budget, so a future ordinary-chat intervention can verify that present and
+restored conditions used the same exact set. This is a projection seam, not
+yet a matched-condition runner or scored result. The deterministic
 `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
 counterfactual demonstrates a changed fake fallback answer when the relevant
 verified history is present, and the paired prompt test checks tampering is

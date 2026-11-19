@@ -9223,8 +9223,9 @@ class ResidentDevelopmentalCognitionOwner:
         return tuple((unique_turn_references + additional_report_references)[:16])
 
     def ordinary_chat_developmental_history_context_for_model(self, *, question: str,
-            target_model_identity: Mapping[str, Any] | None,
-            max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS
+            target_model_identity: Mapping[str, Any] | None = None,
+            max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
+            record_allowlist: tuple[str, ...] | None = None
             ) -> dict[str, Any] | None:
         """Project ordinary-chat history with exact source-to-serving model relations."""
         if (target_model_identity is not None
@@ -9234,11 +9235,13 @@ class ResidentDevelopmentalCognitionOwner:
         return self.ordinary_chat_developmental_history_context(
             question=question, max_input_chars=max_input_chars,
             target_model_identity=(target_model_identity
-                if target_model_identity else None))
+                if target_model_identity else None),
+            record_allowlist=record_allowlist)
 
     def ordinary_chat_developmental_history_context(self, *, question: str,
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
-            target_model_identity: Mapping[str, Any] | None = None
+            target_model_identity: Mapping[str, Any] | None = None,
+            record_allowlist: tuple[str, ...] | None = None
             ) -> dict[str, Any] | None:
         """Project bounded, verified developmental history for ordinary chat."""
         if (not isinstance(question, str) or not question.strip()
@@ -9246,7 +9249,14 @@ class ResidentDevelopmentalCognitionOwner:
                 or type(max_input_chars) is not int
                 or not 128 <= max_input_chars <= MAX_RESIDENT_COGNITION_INPUT_CHARS
                 or (target_model_identity is not None
-                    and not isinstance(target_model_identity, Mapping))):
+                    and not isinstance(target_model_identity, Mapping))
+                or (record_allowlist is not None
+                    and (not isinstance(record_allowlist, tuple)
+                        or not record_allowlist
+                        or len(record_allowlist) > self.config.max_retrieved_records
+                        or any(not isinstance(record_id, str) or not record_id
+                            for record_id in record_allowlist)
+                        or len(set(record_allowlist)) != len(record_allowlist)))):
             raise ResidentDevelopmentalCognitionError(
                 "ordinary_chat_developmental_history_request_invalid")
         tick_id = "ordinary-chat-" + hashlib.sha256(
@@ -9254,7 +9264,8 @@ class ResidentDevelopmentalCognitionOwner:
         with self._composition_lock():
             projection = self._prior_projection(self._state(), tick_id,
                 relevance_query=question, use_semantic_retrieval=False,
-                target_model_identity=target_model_identity)
+                target_model_identity=target_model_identity,
+                record_allowlist=record_allowlist)
         if not projection.records:
             return None
         instruction = (
@@ -9278,7 +9289,9 @@ class ResidentDevelopmentalCognitionOwner:
                 for record in projection.records[:count]]
             selection = {
                 "schema_version": "sentientos.ordinary_chat_developmental_history_selection:v1",
-                "policy": "resident_owner_question_ranked_prefix:v1",
+                "policy": ("resident_owner_exact_allowlist_ranked_prefix:v1"
+                    if record_allowlist is not None else
+                    "resident_owner_question_ranked_prefix:v1"),
                 "retrieval_policy_id": getattr(projection,
                     "retrieval_policy_id", None) or "owner_default:v1",
                 "available_records": all_refs,
