@@ -686,8 +686,16 @@ class OrdinaryChatHistoryChatInferenceAdapter:
             INTERVENTION_LINKAGE_KEY: {"protocol_id": protocol.get("protocol_id"),
                 "protocol_digest": protocol.get("protocol_digest"),
                 "condition": condition}}
-        correlation = (f"ordinary-history:{protocol.get('run_id')}:"
-            f"{condition}:{protocol.get('trial_index')}")
+        # Keep the invocation owner's bounded correlation field independent of
+        # the caller-supplied run ID length. The immutable protocol ID already
+        # commits to the run, source turn, prompts, and trial schedule.
+        protocol_id = protocol.get("protocol_id")
+        trial_index = protocol.get("trial_index")
+        if (not isinstance(protocol_id, str) or not protocol_id
+                or type(trial_index) is not int or trial_index < 0):
+            raise ValueError("ordinary_chat_history_chat_protocol_binding_invalid")
+        correlation = (f"ordinary-history:{protocol_id[-24:]}:{trial_index}:"
+            f"{condition}")
         receipt = self._inference.generate(prompt=prompt, caller="chat_service",
             correlation_id=correlation, budget=self._budget,
             caller_linkage=linkage)
