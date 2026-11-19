@@ -17,6 +17,7 @@ from sentientos.rootless_experimental_ollama_epistemic_session import (
     ROOTLESS_OLLAMA_CPU_THREADS,
     _rootless_ollama_model_options,
     RootlessExperimentalOllamaEpistemicSession,
+    RootlessExperimentalOllamaDevelopmentalSession,
 )
 
 
@@ -80,6 +81,27 @@ def test_rootless_ollama_gpu_placement_requires_bounded_explicit_selection():
             match="ollama_gpu_layer_limit_invalid"):
         _rootless_ollama_model_options(model_name="hermes-fixture",
             manifest_digest="a" * 64, gpu_layers=129)
+
+
+def test_developmental_ollama_session_forwards_explicit_gpu_layers(monkeypatch,
+        tmp_path):
+    import sentientos.rootless_experimental_ollama_epistemic_session as module
+
+    captured = {}
+
+    def base_init(self, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(module.RootlessExperimentalOllamaEpistemicSession,
+        "__init__", base_init)
+    result = RootlessExperimentalOllamaDevelopmentalSession(
+        model_manifest_path=tmp_path / "manifest.json",
+        model_name="hermes-fixture", root=tmp_path,
+        session_binding={}, gpu_layers=48)
+
+    assert isinstance(result, RootlessExperimentalOllamaDevelopmentalSession)
+    assert captured["developmental_cycle"] is True
+    assert captured["gpu_layers"] == 48
 
 
 

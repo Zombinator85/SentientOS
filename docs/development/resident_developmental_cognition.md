@@ -660,3 +660,14 @@ garden constraint selecting a matching older experience over a recent unrelated
 record, while a specific telescope question stays question-driven. The
 experiment uses a fake invoker and does not establish real-model adherence or
 improved outcomes.
+
+In the chat path, canonical-memory source receipts are checked before the
+retrieval candidate cap. If the memory directory contains more than the normal
+1,024-record bound, this verified path scans at most 4,096 entries and 16 MiB,
+then keeps at most the 1,024 newest source-verified records for relevance
+selection. Invalid records therefore cannot consume the ordinary record bound
+and hide a verified match. Generic retrieval without source verification keeps
+the original 1,024-record bound, and directories exceeding the scan or byte
+limits still fail closed. A CPU fixture with 1,024 invalid decoys and one
+verified target demonstrates this bounded behavior; it does not establish
+real-model use or decision improvement.

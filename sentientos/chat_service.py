@@ -63,6 +63,7 @@ from .conversation_session import (
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
+from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
@@ -473,6 +474,19 @@ def _is_social_checkin_request(message: str) -> bool:
             or asks_for_one_question is not None
             or companion_shift_checkin is not None
             or companion_day_checkin is not None)
+
+
+_NON_TOPIC_ACKNOWLEDGMENTS = frozenset({
+    "thanks", "thank you", "thanks a lot", "thank you very much",
+    "got it", "okay", "ok", "understood", "sounds good", "great",
+    "sure", "yes", "yep", "i see", "cool", "all right", "alright",
+})
+
+
+def _is_non_topic_acknowledgment(text: str) -> bool:
+    """Identify short acknowledgments that should not replace a dialogue topic cue."""
+    normalized = " ".join(re.findall(r"[^\W_]+", text.casefold()))
+    return normalized in _NON_TOPIC_ACKNOWLEDGMENTS
 
 
 def _is_social_checkin_continuation(message: str) -> bool:
@@ -2459,11 +2473,119 @@ class PersistentConversationService:
                 "memory_record_digest": digest_payload(dict(record))})
         return targets
 
-    def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
-        """Bind only explicitly retained, source-turn-verified memories for cognition."""
-        retrieved = self.memories.retrieve(question,
-            limit=MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
-            budget_chars=self.memory_budget_chars)
+    def _verify_resident_canonical_memory_record(self, record: Mapping[str, Any], *,
+            source_session_cache: dict[str, Mapping[str, Any] | None]
+            ) -> dict[str, Any] | None:
+        """Return a prompt-safe record only after its source turn and receipt verify."""
+        memory_id, text, text_digest = (
+            record.get("id"), record.get("text"), record.get("text_digest"))
+        meta = record.get("meta")
+        if (not isinstance(memory_id, str) or not memory_id
+                or not isinstance(text, str) or not text
+                or not isinstance(text_digest, str)
+                or digest_payload({"text": text}) != text_digest
+                or record.get("source") != "conversation_user_turn"
+                or record.get("category") != "event"
+                or record.get("tags") != ["explicit-retention"]
+                or type(record.get("importance")) is not float
+                or record.get("importance") != 1.0
+                or not isinstance(meta, Mapping)):
+            return None
+        source_session_id, source_turn_id = (
+            meta.get("session_id"), meta.get("turn_id"))
+        admission_digest = meta.get("admission_receipt_digest")
+        if (not isinstance(source_session_id, str) or not source_session_id
+                or not isinstance(source_turn_id, str) or not source_turn_id
+                or not isinstance(admission_digest, str)
+                or len(admission_digest) != 64):
+            return None
+        if source_session_id not in source_session_cache:
+            try:
+                source_session_cache[source_session_id] = self.sessions.load(
+                    source_session_id)
+            except Exception:
+                source_session_cache[source_session_id] = None
+        source_session = source_session_cache[source_session_id]
+        if not isinstance(source_session, Mapping):
+            return None
+        source_turn = next((turn for turn in source_session.get("turns", ())
+            if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
+        receipt = (source_turn.get("retention_receipt")
+            if isinstance(source_turn, Mapping) else None)
+        try:
+            verification = (self.retention_writer.verify_committed_artifact(
+                receipt, source_turn, source_session_id)
+                if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping)
+                else {})
+        except Exception:
+            verification = {}
+        if (not isinstance(source_turn, Mapping)
+                or source_turn.get("role") != "user"
+                or source_turn.get("retention_state") != "retained"
+                or source_turn.get("text") != text
+                or source_turn.get("text_digest") != text_digest
+                or verification.get("artifact_status") != "verified"
+                or verification.get("admission_status")
+                    != "policy_recomputed_not_execution_attested"
+                or verification.get("memory_id") != memory_id
+                or verification.get("record_digest") != digest_payload(dict(record))
+                or verification.get("admission_receipt_digest") != admission_digest):
+            return None
+        return {
+            "memory_id": memory_id, "text": text,
+            "text_digest": text_digest,
+            "memory_record_digest": digest_payload(dict(record)),
+            "source_turn_id": source_turn_id,
+            "source_turn_text_digest": str(source_turn["text_digest"]),
+            "admission_receipt_digest": admission_digest,
+            "timestamp": str(record.get("timestamp", "")),
+            "historical_only": True, "current_truth": False,
+            "authority": False,
+        }
+
+    def _resident_canonical_memory_context(self, question: str, *,
+            relevance_query: str | None = None) -> dict[str, Any] | None:
+        """Select retained memories only after their source-turn receipts verify."""
+        query = question if relevance_query is None else relevance_query
+        if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
+            raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
+        source_session_cache: dict[str, Mapping[str, Any] | None] = {}
+        verified_records: dict[str, tuple[str, dict[str, Any]]] = {}
+        verification_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
+
+        def validate_record(record: Mapping[str, Any]) -> bool:
+            memory_id = record.get("id")
+            if not isinstance(memory_id, str) or not memory_id:
+                return False
+            record_digest = digest_payload(dict(record))
+            cache_key = (memory_id, record_digest)
+            if cache_key not in verification_cache:
+                verification_cache[cache_key] = (
+                    self._verify_resident_canonical_memory_record(record,
+                        source_session_cache=source_session_cache))
+            verified = verification_cache[cache_key]
+            if verified is None:
+                return False
+            verified_records[memory_id] = (record_digest, verified)
+            return True
+
+        retrieve_kwargs: dict[str, Any] = {
+            "limit": MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
+            "budget_chars": self.memory_budget_chars,
+            "record_validator": validate_record,
+        }
+        bridge = self._resident_cognition_bridge
+        semantic_config = getattr(bridge, "semantic_memory_retrieval_config", None)
+        if callable(semantic_config):
+            try:
+                configured = semantic_config()
+            except Exception:
+                configured = None
+            if (isinstance(configured, tuple) and len(configured) == 2
+                    and all(isinstance(value, str) and value for value in configured)):
+                retrieve_kwargs.update(semantic_model_id=configured[0],
+                    semantic_model_revision=configured[1])
+        retrieved = self.memories.retrieve(query, **retrieve_kwargs)
         if (not isinstance(retrieved, Mapping)
                 or retrieved.get("read_only") is not True
                 or not isinstance(retrieved.get("snapshot_digest"), str)
@@ -2477,64 +2599,19 @@ class PersistentConversationService:
                 break
             if not isinstance(record, Mapping):
                 continue
-            memory_id, text, text_digest = (
-                record.get("id"), record.get("text"), record.get("text_digest"))
-            meta = record.get("meta")
-            if (not isinstance(memory_id, str) or not memory_id
-                    or memory_id in seen_ids or not isinstance(text, str)
-                    or not text or len(text) > self.memory_budget_chars
-                    or not isinstance(text_digest, str)
-                    or digest_payload({"text": text}) != text_digest
-                    or record.get("source") != "conversation_user_turn"
-                    or record.get("category") != "event"
-                    or record.get("tags") != ["explicit-retention"]
-                    or type(record.get("importance")) is not float
-                    or record.get("importance") != 1.0
-                    or not isinstance(meta, Mapping)):
+            memory_id = record.get("id")
+            if not isinstance(memory_id, str) or memory_id in seen_ids:
                 continue
-            source_session_id, source_turn_id = (
-                meta.get("session_id"), meta.get("turn_id"))
-            admission_digest = meta.get("admission_receipt_digest")
-            if (not isinstance(source_session_id, str) or not source_session_id
-                    or not isinstance(source_turn_id, str) or not source_turn_id
-                    or not isinstance(admission_digest, str)
-                    or len(admission_digest) != 64):
+            verified = verified_records.get(memory_id)
+            if (verified is None or verified[0] != digest_payload(dict(record))):
                 continue
-            try:
-                source_session = self.sessions.load(source_session_id)
-                source_turn = next((turn for turn in source_session.get("turns", ())
-                    if isinstance(turn, Mapping) and turn.get("turn_id") == source_turn_id), None)
-                receipt = source_turn.get("retention_receipt") if isinstance(source_turn, Mapping) else None
-                verification = (self.retention_writer.verify_committed_artifact(
-                    receipt, source_turn, source_session_id)
-                    if isinstance(receipt, Mapping) and isinstance(source_turn, Mapping) else {})
-            except Exception:
-                continue
-            if (not isinstance(source_turn, Mapping)
-                    or source_turn.get("role") != "user"
-                    or source_turn.get("retention_state") != "retained"
-                    or source_turn.get("text") != text
-                    or source_turn.get("text_digest") != text_digest
-                    or verification.get("artifact_status") != "verified"
-                    or verification.get("admission_status")
-                        != "policy_recomputed_not_execution_attested"
-                    or verification.get("memory_id") != memory_id
-                    or verification.get("record_digest") != digest_payload(dict(record))
-                    or verification.get("admission_receipt_digest") != admission_digest):
+            payload = verified[1]
+            text = payload["text"]
+            if len(text) > self.memory_budget_chars:
                 continue
             if used + len(text) > self.memory_budget_chars:
                 continue
-            selected.append({
-                "memory_id": memory_id, "text": text,
-                "text_digest": text_digest,
-                "memory_record_digest": digest_payload(dict(record)),
-                "source_turn_id": source_turn_id,
-                "source_turn_text_digest": str(source_turn["text_digest"]),
-                "admission_receipt_digest": admission_digest,
-                "timestamp": str(record.get("timestamp", "")),
-                "historical_only": True, "current_truth": False,
-                "authority": False,
-            })
+            selected.append(payload)
             used += len(text)
             seen_ids.add(memory_id)
         if not selected:
@@ -2560,7 +2637,9 @@ class PersistentConversationService:
                             != "explicit_user_correction_unverified"):
                     continue
                 correction_relations.append(dict(relation))
-        source_binding_omitted = len(selected) < len(retrieved["memories"])
+        source_binding_omitted = (len(selected) < len(retrieved["memories"])
+            or retrieved.get("record_validation_posture")
+                == "inspected_candidates_rejected")
         selection_posture = ("matching_records_omitted" if source_binding_omitted
             else str(retrieved.get("selection_posture", "unknown")))
         retrieval_posture = ("partial_source_verification" if source_binding_omitted
@@ -2570,6 +2649,10 @@ class PersistentConversationService:
             "source_snapshot_digest": retrieved["snapshot_digest"],
             "retrieval_posture": retrieval_posture,
             "selection_posture": selection_posture,
+            "retrieval_policy_id": retrieved.get("retrieval_policy_id",
+                "lexical_only:v1"),
+            "semantic_retrieval_posture": retrieved.get(
+                "semantic_retrieval_posture", "disabled"),
             "records": selected, "correction_relations": correction_relations,
             "read_only": True,
             "historical_only": True, "current_truth": False,
@@ -2725,7 +2808,6 @@ class PersistentConversationService:
         if bridge is None:
             raise RuntimeError("resident_cognition_bridge_unavailable")
         request_id = f"{session_id}:{user_turn['turn_id']}"
-        canonical_memory_context = self._resident_canonical_memory_context(question)
         conversation_context = None
         selected_turns = _select_resident_conversation_context_turns(
             history.turns, question=question)
@@ -2746,6 +2828,19 @@ class PersistentConversationService:
                     "text": text, "text_digest": turn["text_digest"],
                     "linkage_digest": digest_payload(dict(linkage)),
                 })
+            memory_query = question
+            if is_sparse_or_elliptical_cognition_query(question):
+                prior_user_text = next((row["text"] for row in reversed(context_turns)
+                    if row["role"] == "user"
+                    and row["turn_id"] != user_turn.get("turn_id")
+                    and not _is_non_topic_acknowledgment(row["text"])), None)
+                if isinstance(prior_user_text, str):
+                    memory_query = f"{question} {prior_user_text[:1000]}"[:4000]
+            if memory_query == question:
+                canonical_memory_context = self._resident_canonical_memory_context(question)
+            else:
+                canonical_memory_context = self._resident_canonical_memory_context(
+                    question, relevance_query=memory_query)
             # Carry forward only citations from assistant outputs whose durable
             # cognition observation, inference receipt, and transcript linkage
             # still verify. They are retrieval hints, never truth or authority.
@@ -2798,6 +2893,8 @@ class PersistentConversationService:
             }
             conversation_context = {**semantic_context,
                 "selection_digest": digest_payload(semantic_context)}
+        else:
+            canonical_memory_context = self._resident_canonical_memory_context(question)
         historical_citation_context = self._resident_historical_citation_context(
             bridge=bridge, request_id=request_id, question=question,
             conversation_context=conversation_context)

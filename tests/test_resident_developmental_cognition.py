@@ -6199,6 +6199,94 @@ def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
     assert battery.current_truth is False and moon.current_truth is False
 
 
+def test_elliptical_companion_uses_prior_user_context_to_select_current_evidence(
+        tmp_path: Path) -> None:
+    class ContextSensitiveInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                self.last_prompt = prompt
+                facts = prompt.get("current_evidence", {}).get("facts", ())
+                serialized = json.dumps(facts, sort_keys=True).casefold()
+                if "battery" in serialized and "voltage" in serialized:
+                    response = "The battery sensor reports 9 volts."
+                elif "moon" in serialized and "phase" in serialized:
+                    response = "The moon phase sensor reports waxing."
+                else:
+                    response = "The selected observation is insufficient."
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": list(request.upstream_evidence.get(
+                        "current_fact_ids", ())), "history_record_ids": [],
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    current = WorldStateBoardBuilder(clock=lambda: now).build([
+        {"source_id": "source-a-moon", "source_kind": "capability_registry",
+            "subject_id": "moon-phase-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": now.isoformat(),
+            "payload": {"description": "The moon phase sensor reports waxing."}},
+        {"source_id": "source-z-battery", "source_kind": "capability_registry",
+            "subject_id": "battery-voltage-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": now.isoformat(),
+            "payload": {"description": "The battery sensor reports 9 volts."}},
+    ])
+    battery_fact_id = next(fact.fact_id for fact in current.facts
+        if fact.source.source_id == "source-z-battery")
+    moon_fact_id = next(fact.fact_id for fact in current.facts
+        if fact.source.source_id == "source-a-moon")
+    cognition, invoker = owner(tmp_path, invoker=ContextSensitiveInvoker(),
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+    (tmp_path / "state").mkdir(parents=True)
+
+    prior_text = "What is the battery voltage?"
+    prior_turn = {"turn_id": "turn-" + "4" * 24, "role": "user",
+        "text": prior_text, "text_digest": digest_payload({"text": prior_text}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-current-context",
+        "source_snapshot_digest": "c" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+
+    no_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-current-no-context", question="What now?")
+    contextual = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-current-with-context", question="What now?",
+        conversation_context=conversation_context)
+    specific = cognition.run_companion_interaction(snapshot=current,
+        request_id="specific-current-with-context", question="What is the moon phase?",
+        conversation_context=conversation_context)
+
+    assert no_context.evidence_ids == (moon_fact_id,)
+    assert contextual.evidence_ids == (battery_fact_id,)
+    assert contextual.response == "The battery sensor reports 9 volts."
+    assert specific.evidence_ids == (moon_fact_id,)
+    assert specific.response == "The moon phase sensor reports waxing."
+    assert invoker.last_prompt["companion_question"] == "What is the moon phase?"
+    assert invoker.last_prompt["session_conversation_context"]["historical_only"] is True
+    assert invoker.last_prompt["current_evidence"]["selection_policy"] == (
+        "sparse_or_elliptical_session_context_then_existing_priority_conflict_closed:v4")
+
+    forward_no_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-forward-no-context", question="What happens next?")
+    forward_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-forward-with-context", question="What happens next?",
+        conversation_context=conversation_context)
+    assert forward_no_context.evidence_ids == (moon_fact_id,)
+    assert forward_context.evidence_ids == (battery_fact_id,)
+    assert forward_context.response == "The battery sensor reports 9 volts."
+
+
 def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
         tmp_path: Path) -> None:
     class FactOnlyInvoker(FakeInvoker):
@@ -6207,12 +6295,19 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             if request.structured_output_schema and "disposition" in (
                     request.structured_output_schema.get("required", ())):
                 prompt = json.loads(request.prompt)
+                self.last_prompt = prompt
                 current = prompt.get("current_evidence", {})
                 facts = current.get("facts", ())
                 text = json.dumps(facts, sort_keys=True).casefold()
                 has_safe = "safe for entry" in text
                 has_unsafe = "unsafe for entry" in text
-                if has_safe and not has_unsafe:
+                if (current.get("withheld_conflict_reasons")
+                        or current.get("relevant_conflict_present")):
+                    decision = {"disposition": "answer",
+                        "response": "The entry is safe.",
+                        "evidence_ids": ([facts[0].get("fact_id")] if facts else []),
+                        "history_record_ids": []}
+                elif has_safe and not has_unsafe:
                     decision = {"disposition": "answer",
                         "response": "The selected observation says entry is safe.",
                         "evidence_ids": ["__CURRENT_FACT__"],
@@ -6221,6 +6316,7 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
                     decision = {"disposition": "ask",
                         "response": "The available current evidence is insufficient.",
                         "evidence_ids": [], "history_record_ids": []}
+                self.last_model_decision = decision
                 self.companion_output_override = decision
             return super().invoke(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
@@ -6235,32 +6331,80 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             "subject_id": "east-entry", "stage": "observation",
             "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
             "payload": {"description": "The east entry is unsafe for entry."}},
+        {"source_id": "entry-lighting", "source_kind": "capability_registry",
+            "subject_id": "east-entry-lighting", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The east entry has bright lights."}},
     ])
     assert len(current.conflicts) == 1
     conflict_fact_ids = set(current.conflicts[0].fact_ids)
 
     bounded, bounded_invoker = owner(tmp_path / "bounded",
         invoker=FactOnlyInvoker(), max_selected_facts=1)
+    (tmp_path / "bounded" / "state").mkdir(parents=True)
     bounded_projection = bounded._current_projection(current,
         question="Is the east entry safe for entry?")
-    assert bounded_projection.fact_ids == ()
+    assert len(bounded_projection.fact_ids) == 1
+    assert set(bounded_projection.fact_ids).isdisjoint(conflict_fact_ids)
+    assert bounded_projection.withheld_conflict_reasons == ("fact_budget_group_exceeded",)
     bounded_result = bounded.run_companion_interaction(snapshot=current,
         request_id="conflicting-entry-bounded", question="Is the east entry safe for entry?")
     assert bounded_result.disposition == "ask"
+    assert bounded_invoker.last_model_decision["disposition"] == "answer"
+    assert "cannot assess this as uncontested" in bounded_result.response
     assert bounded_result.evidence_ids == ()
-    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == []
+    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == [
+        bounded_projection.fact_ids[0]]
+    bounded_prompt = bounded_invoker.last_prompt
+    bounded_prompt_text = json.dumps(bounded_prompt, sort_keys=True)
+    assert bounded_prompt["current_evidence"]["withheld_conflict_reasons"] == [
+        "fact_budget_group_exceeded"]
+    assert "Do not interpret omission as absence of conflict" in bounded_prompt["instruction"]
+    assert "unsafe for entry" not in bounded_prompt_text
+    assert "entry-denial" not in bounded_prompt_text
+    assert all(fact_id not in bounded_prompt_text for fact_id in conflict_fact_ids)
 
     complete, complete_invoker = owner(tmp_path / "complete",
         invoker=FactOnlyInvoker(), max_selected_facts=2)
+    (tmp_path / "complete" / "state").mkdir(parents=True)
     complete_projection = complete._current_projection(current,
         question="Is the east entry safe for entry?")
     assert set(complete_projection.fact_ids) == conflict_fact_ids
+    assert complete_projection.relevant_conflict_present is True
     complete_result = complete.run_companion_interaction(snapshot=current,
         request_id="conflicting-entry-complete", question="Is the east entry safe for entry?")
     assert complete_result.disposition == "ask"
+    assert complete_invoker.last_model_decision["disposition"] == "answer"
+    assert "relevant current evidence is conflicting" in complete_result.response
+    complete_prompt = complete_invoker.last_prompt
+    assert complete_prompt["current_evidence"]["relevant_conflict_present"] is True
+    assert "Treat those observations as unresolved disagreement" in complete_prompt[
+        "instruction"]
     assert set(complete_result.evidence_ids).isdisjoint(conflict_fact_ids)
     assert (set(complete_invoker.requests[-1].upstream_evidence["current_fact_ids"])
         == conflict_fact_ids)
+
+    unrelated_question_snapshot = WorldStateBoardBuilder().build([
+        {"source_id": "entry-permit-unrelated", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The east entry is safe for entry."}},
+        {"source_id": "entry-denial-unrelated", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The east entry is unsafe for entry."}},
+        {"source_id": "temperature-unrelated", "source_kind": "capability_registry",
+            "subject_id": "room-temperature", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The room temperature is 18 C."}},
+    ])
+    unrelated_projection = complete._current_projection(unrelated_question_snapshot,
+        question="What is the room temperature now?")
+    temperature_fact_ids = {fact.fact_id for fact in unrelated_question_snapshot.facts
+        if fact.source.source_id == "temperature-unrelated"}
+    assert set(unrelated_projection.fact_ids) == temperature_fact_ids
+    assert unrelated_projection.withheld_conflict_reasons == ()
+    assert unrelated_projection.relevant_conflict_present is False
 
     partially_eligible = WorldStateBoardBuilder().build([
         {"source_id": "eligible-entry-permit", "source_kind": "capability_registry",
@@ -6271,11 +6415,32 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             "subject_id": "west-entry", "stage": "observation",
             "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
             "payload": {"description": "The west entry is unsafe for entry."}},
+        {"source_id": "west-entry-lighting", "source_kind": "capability_registry",
+            "subject_id": "west-entry-lighting", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The west entry has bright lights."}},
     ])
-    policy_bounded, _ = owner(tmp_path / "policy-bounded",
-        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
-    assert policy_bounded._current_projection(partially_eligible,
-        question="Is the west entry safe for entry?").fact_ids == ()
+    policy_bounded, policy_invoker = owner(tmp_path / "policy-bounded",
+        invoker=FactOnlyInvoker(), allowed_source_kinds=("capability_registry",),
+        max_selected_facts=1)
+    (tmp_path / "policy-bounded" / "state").mkdir(parents=True)
+    policy_projection = policy_bounded._current_projection(partially_eligible,
+        question="Is the west entry safe for entry?")
+    assert len(policy_projection.fact_ids) == 1
+    assert policy_projection.withheld_conflict_reasons == (
+        "source_policy_member_unavailable",)
+    policy_result = policy_bounded.run_companion_interaction(snapshot=partially_eligible,
+        request_id="conflicting-west-policy-bounded",
+        question="Is the west entry safe for entry?")
+    assert policy_result.disposition == "ask"
+    assert policy_invoker.last_model_decision["disposition"] == "answer"
+    assert "cannot assess this as uncontested" in policy_result.response
+    policy_prompt = policy_invoker.last_prompt
+    assert policy_prompt["current_evidence"]["withheld_conflict_reasons"] == [
+        "source_policy_member_unavailable"]
+    assert "Do not interpret omission as absence of conflict" in policy_prompt["instruction"]
+    assert "unsafe for entry" not in json.dumps(policy_prompt, sort_keys=True)
+    assert "reported-entry-denial" not in json.dumps(policy_prompt, sort_keys=True)
 
 
 def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_ones(
@@ -8325,6 +8490,104 @@ def test_resident_inference_timeout_is_bounded_and_applied_to_owned_request(
         owner(tmp_path / "bool", max_inference_timeout_seconds=True)
 
 
+def test_pressure_deferred_writeback_is_visible_and_retried_on_a_later_tick(
+        tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    class DeferredFirstWritebackInvoker(FakeInvoker):
+        deferred = False
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            if (request.purpose == "resident_developmental_interpretation"
+                    and not self.deferred):
+                self.deferred = True
+                return replace(receipt, status="deferred",
+                    reason_codes=(
+                        "runtime_governor:deferred_background_inference_under_host_pressure",),
+                    output_text=None, output_digest=None, output_size_bytes=0,
+                    effects={"local_model_inference": False})
+            return receipt
+
+    fake = DeferredFirstWritebackInvoker()
+    (tmp_path / "state").mkdir(parents=True)
+    cognition, _ = owner(tmp_path, invoker=fake)
+    source = snapshot()
+    deferred = cognition.run_tick(snapshot=source, tick_id="pressure-deferred-tick")
+
+    assert deferred.status == "writeback_deferred"
+    assert deferred.writeback_deferral_reason == (
+        "runtime_governor:deferred_background_inference_under_host_pressure")
+    assert deferred.written_record_id is None
+    deferred_facts = deferred.selected_fact_ids
+    state = cognition._state()
+    first_checkpoint = next(row for row in state["completed_ticks"]
+        if row["tick_id"] == "pressure-deferred-tick")
+    assert first_checkpoint["writeback_status"] == "deferred_resource_pressure"
+    assert first_checkpoint["deferred_selection_id"]
+    assert not set(deferred_facts).intersection(state["processed_selection_ids"])
+    request_count = len(fake.requests)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="tick_already_completed"):
+        cognition.run_tick(snapshot=source, tick_id="pressure-deferred-tick")
+    assert len(fake.requests) == request_count
+
+    later_source = WorldStateBoardBuilder().build([
+        {"source_id": "source-b", "source_kind": "audit_trust",
+            "subject_id": "b", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 9}},
+        {"source_id": "source-a", "source_kind": "capability_registry",
+            "subject_id": "a", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 1}},
+        {"source_id": "source-c", "source_kind": "capability_registry",
+            "subject_id": "c", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 3}},
+    ])
+    assert later_source.snapshot_id != source.snapshot_id
+    assert {fact.fact_id for fact in later_source.facts} == {
+        fact.fact_id for fact in source.facts}
+    restarted, _ = owner(tmp_path, invoker=fake)
+    retried = restarted.run_tick(snapshot=later_source, tick_id="pressure-retry-tick")
+    assert retried.status == "completed"
+    assert retried.written_record_id
+    assert set(retried.selected_fact_ids) == set(deferred_facts)
+    record = restarted.writeback.store.get(retried.written_record_id)
+    assert set(record.candidate["selected_fact_ids"]) == set(deferred_facts)
+    assert set(deferred_facts).issubset(restarted._state()["processed_selection_ids"])
+
+
+def test_unrecognized_writeback_deferral_remains_fail_closed(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    class OtherDeferralInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            if request.purpose == "resident_developmental_interpretation":
+                return replace(receipt, status="deferred",
+                    reason_codes=("runtime_governor:deferred_for_an_unrecognized_reason",),
+                    output_text=None, output_digest=None, output_size_bytes=0,
+                    effects={"local_model_inference": False})
+            return receipt
+
+    (tmp_path / "state").mkdir(parents=True)
+    cognition, fake = owner(tmp_path, invoker=OtherDeferralInvoker())
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_inference_not_completed"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="unrecognized-deferral-tick")
+    assert cognition._state()["processed_selection_ids"] == []
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="tick_already_completed"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="unrecognized-deferral-tick")
+    assert len([request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation"]) == 1
+
+
 def test_developmental_resource_context_owner_is_consumed_per_condition(
         tmp_path: Path) -> None:
     class ContextOwner:
@@ -9673,6 +9936,177 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
     assert calls[-1] == {"max_states": 8, "current_tick": 101,
         "prioritized_state_ids": ("epistemic-state:" + "a" * 24,),
         "relevance_query": question}
+
+
+def test_companion_bridge_uses_session_topic_only_for_sparse_prior_projection_queries(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    cognition, _fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",))
+    calls = []
+
+    class SelfModelOwner:
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return None
+
+        def reconcile(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(cognition, "selected_current_relevance_context",
+        lambda _snapshot, **_kwargs: "")
+    interaction_calls = []
+
+    def capture_interaction(**kwargs):
+        interaction_calls.append(kwargs)
+        return SimpleNamespace(status="admitted_completed")
+
+    monkeypatch.setattr(cognition, "run_companion_interaction", capture_interaction)
+    config = SimpleNamespace(enabled=True, cognitive_consumption_enabled=True,
+        max_projection_claims=4, allowed_predicates=("battery_health",))
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        self_model_owner=SelfModelOwner(), self_model_config=config,
+        clock=lambda: now)
+
+    prior_text = "What is the battery voltage?"
+    prior_turn = {"turn_id": "turn-" + "5" * 24, "role": "user",
+        "text": prior_text, "text_digest": digest_payload({"text": prior_text}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-projection-query",
+        "source_snapshot_digest": "d" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+    screen = {"modality": "screen", "text": "A fresh local observation.",
+        "capture_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    bridge.respond(request_id="sparse-projection-query", question="What now?",
+        screen_observation=screen, conversation_context=conversation_context)
+    bridge.respond(request_id="specific-projection-query",
+        question="What is the moon phase?", screen_observation=screen,
+        conversation_context=conversation_context)
+
+    assert "What is the battery voltage?" in calls[0]["relevance_query"]
+    assert calls[1]["relevance_query"] == "What is the moon phase?"
+    assert interaction_calls[0]["question"] == "What now?"
+    assert interaction_calls[0]["conversation_context"] == conversation_context
+
+
+def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, _fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",))
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    battery = make_proposition(namespace="embodiment", subject="sensor:battery",
+        predicate="reported_voltage", object_value="12.4 volts", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The battery sensor reported 12.4 volts.")
+    moon = make_proposition(namespace="embodiment", subject="sensor:moon",
+        predicate="reported_phase", object_value="waxing crescent", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The moon sensor reported a waxing crescent phase.")
+    for index, proposition in enumerate((battery, moon), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"session-prior-projection-{index}", tick=index,
+            recorded_at=f"2026-11-19T11:00:0{index}Z")
+
+    # Isolate the historical topic cue from current screen observations. The
+    # real projection owner remains active so this checks a retrieval outcome.
+    monkeypatch.setattr(cognition, "selected_current_relevance_context",
+        lambda _snapshot, **_kwargs: "")
+    projection_calls = []
+    project = epistemic.cognitive_projection
+
+    def capture_projection(**kwargs):
+        projection = project(**kwargs)
+        projection_calls.append((kwargs, projection))
+        return projection
+
+    monkeypatch.setattr(epistemic, "cognitive_projection", capture_projection)
+
+    interaction_calls = []
+
+    def capture_interaction(**kwargs):
+        interaction_calls.append(kwargs)
+        return SimpleNamespace(status="admitted_completed")
+
+    monkeypatch.setattr(cognition, "run_companion_interaction", capture_interaction)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": "A fresh neutral observation.",
+        "capture_digest": "f" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query="What happens next?")
+    assert baseline is not None
+
+    target = moon if baseline.proposition_ids == (battery.proposition_id,) else battery
+    target_question = ("What moon phase was reported?" if target is moon
+        else "What battery voltage was reported?")
+    prior_turn = {"turn_id": "turn-" + "6" * 24, "role": "user",
+        "text": target_question,
+        "text_digest": digest_payload({"text": target_question}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-real-prior-projection",
+        "source_snapshot_digest": "a" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+
+    bridge.respond(request_id="baseline-sparse-projection",
+        question="What happens next?",
+        screen_observation=screen)
+    bridge.respond(request_id="topic-resolved-sparse-projection",
+        question="What happens next?", screen_observation=screen,
+        conversation_context=conversation_context)
+    bridge.respond(request_id="specific-projection-with-prior-topic",
+        question="What is the moon phase?", screen_observation=screen,
+        conversation_context=conversation_context)
+
+    baseline_projection = projection_calls[1][1]
+    topic_projection = projection_calls[2][1]
+    specific_projection = projection_calls[3][1]
+    assert baseline_projection is not None and topic_projection is not None
+    assert specific_projection is not None
+    assert baseline_projection.proposition_ids == baseline.proposition_ids
+    assert topic_projection.proposition_ids == (target.proposition_id,)
+    assert specific_projection.proposition_ids == (moon.proposition_id,)
+    assert topic_projection.projection_digest != baseline_projection.projection_digest
+    assert all(projection.current_truth is False and projection.authority is False
+        for projection in (baseline_projection, topic_projection, specific_projection))
+    assert interaction_calls[1]["question"] == "What happens next?"
+    assert interaction_calls[1]["conversation_context"]["turns"] == (
+        conversation_context["turns"])
+    assert conversation_context["selection_digest"] == digest_payload(context_semantic)
+    assert projection_calls[3][0]["relevance_query"] == "What is the moon phase?"
 
 
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:

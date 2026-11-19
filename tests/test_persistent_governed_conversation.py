@@ -939,6 +939,7 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
 
 def test_cognition_followup_uses_bounded_session_transcript() -> None:
     seen_contexts = []
+    seen_questions = []
 
     class CognitionBridge:
         def verify_committed_response(self, *, linkage, response_text, request_id):
@@ -949,6 +950,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         def respond(self, *, request_id, question, screen_observation=None,
                 conversation_context=None):
             seen_contexts.append(conversation_context)
+            seen_questions.append(question)
             prior_text = " ".join(row["text"] for row in
                 conversation_context["turns"]) if conversation_context else ""
             response = ("The earlier report said three degrees after warmup."
@@ -988,7 +990,13 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     app = object.__new__(PersistentConversationService)
     app._resident_cognition_bridge = CognitionBridge()
     app.sessions = SessionSink()
-    app._resident_canonical_memory_context = lambda _question: None
+    memory_queries = []
+
+    def capture_memory_query(question, *, relevance_query=None):
+        memory_queries.append((question, relevance_query))
+        return None
+
+    app._resident_canonical_memory_context = capture_memory_query
     app._avatar_output = None
     app._speech_output = None
     history = ContextSnapshot("session-followup", (*unrelated_turns,
@@ -1004,6 +1012,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
             "linkage": {"source_user_turn_id": "turn-" + "1" * 24,
                 "cognition_epistemic_state_citation_ids": [
                     "epistemic-state:" + "a" * 24]}},
+        {"turn_id": "turn-" + "7" * 24, "role": "user",
+            "text": "Thanks!", "text_digest": chat_service.digest_payload({
+                "text": "Thanks!"}), "linkage": {}},
     ), 4000, False, "a" * 64)
     followup = app._complete_resident_cognition_response(
         session_id="session-followup",
@@ -1016,12 +1027,28 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         user_turn={"turn_id": "turn-" + "4" * 24},
         question="How much did the west sensor drift?", history=control_history,
         screen_observation=None, on_content_chunk=None)
+    sparse_followup = app._complete_resident_cognition_response(
+        session_id="session-followup",
+        user_turn={"turn_id": "turn-" + "5" * 24},
+        question="What happens next?", history=history,
+        screen_observation=None, on_content_chunk=None)
+    sparse_control = app._complete_resident_cognition_response(
+        session_id="session-control",
+        user_turn={"turn_id": "turn-" + "6" * 24},
+        question="What happens next?", history=control_history,
+        screen_observation=None, on_content_chunk=None)
 
     assert "three degrees" in followup.response
     assert "do not have" in control.response
+    assert "three degrees" in sparse_followup.response
+    assert "do not have" in sparse_control.response
+    assert memory_queries[2] == ("What happens next?",
+        "What happens next? The west sensor drifted by three degrees after warmup.")
+    assert memory_queries[3] == ("What happens next?", None)
+    assert seen_questions[2] == "What happens next?"
     assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
         "turn-unrelated-18", "turn-unrelated-19",
-        "turn-" + "1" * 24, "turn-" + "2" * 24]
+        "turn-" + "1" * 24, "turn-" + "2" * 24, "turn-" + "7" * 24]
     assert seen_contexts[0]["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
     supplied = seen_contexts[0]
@@ -1029,7 +1056,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert supplied["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
     assert [row["role"] for row in supplied["turns"]] == [
-        "user", "assistant", "user", "assistant"]
+        "user", "assistant", "user", "assistant", "user"]
     assert supplied["turns"][2]["text"] == (
         "The west sensor drifted by three degrees after warmup.")
     assert supplied["historical_only"] is True
@@ -1045,6 +1072,48 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert followup.context["cognition_conversation_turn_citation_digests"] == [
         supplied["turns"][2]["text_digest"]]
     assert seen_contexts[1] is None
+    assert any(row["role"] == "user" and row["text"] == (
+        "The west sensor drifted by three degrees after warmup.")
+        for row in seen_contexts[2]["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
+        for row in seen_contexts[2]["turns"])
+    assert seen_contexts[3] is None
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="canonical retained-memory publication requires POSIX descriptor custody")
+def test_sparse_topic_ranks_only_source_verified_retained_canonical_memories(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    battery_session_id = app.create_session()
+    battery_text = "The battery calibration archive is stored in drawer amber."
+    app.chat(battery_text, session_id=battery_session_id,
+        request_id="retain-battery-calibration-archive", retain=True)
+    moon_session_id = app.create_session()
+    moon_text = "The moon observation archive is stored in cabinet blue."
+    app.chat(moon_text, session_id=moon_session_id,
+        request_id="retain-moon-observation-archive", retain=True)
+    battery_turn = next(turn for turn in app.sessions.load(
+        battery_session_id)["turns"] if turn.get("retention_state") == "retained")
+    moon_turn = next(turn for turn in app.sessions.load(
+        moon_session_id)["turns"] if turn.get("retention_state") == "retained")
+    battery_memory_id = battery_turn["retention_receipt"]["memory_id"]
+    moon_memory_id = moon_turn["retention_receipt"]["memory_id"]
+
+    baseline = app._resident_canonical_memory_context("What happens next?")
+    contextual = app._resident_canonical_memory_context("What happens next?",
+        relevance_query=("What happens next? Where is the battery calibration archive?"))
+    specific = app._resident_canonical_memory_context("Where is the moon archive?")
+
+    assert baseline is None
+    assert contextual is not None
+    assert [row["memory_id"] for row in contextual["records"]] == [battery_memory_id]
+    assert contextual["records"][0]["text"] == battery_text
+    assert contextual["records"][0]["authority"] is False
+    assert contextual["records"][0]["current_truth"] is False
+    assert specific is not None
+    assert [row["memory_id"] for row in specific["records"]] == [moon_memory_id]
+    assert specific["records"][0]["text"] == moon_text
 
 
 @pytest.mark.skipif(os.name == "nt",
@@ -1634,6 +1703,41 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
     assert remaining_context["retrieval_posture"] == "partial_source_verification"
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    session_id = app.create_session()
+    retained_text = "The cedar shelf is in the west workshop."
+    for index in range(chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1):
+        result = app.chat(retained_text, session_id=session_id,
+            request_id=f"memory-source-starvation-{index}", retain=True)
+        assert result.retention["status"] == "memory_retention_committed"
+
+    raw_candidates = app.memories.retrieve("cedar shelf",
+        limit=chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES)
+    candidate_ids = set(raw_candidates["selected_memory_ids"])
+    all_ids = {record["id"] for record in app.memories._records()[0]}
+    valid_target_ids = all_ids - candidate_ids
+    assert len(all_ids) == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1
+    assert len(valid_target_ids) == 1
+
+    for memory_id in candidate_ids:
+        memory_path = app.memories.raw / f"{memory_id}.json"
+        altered = json.loads(memory_path.read_text(encoding="utf-8"))
+        altered["forged_selection_decoy"] = True
+        memory_path.write_text(json.dumps(altered, sort_keys=True) + "\n",
+            encoding="utf-8")
+
+    context = app._resident_canonical_memory_context("cedar shelf")
+
+    assert context is not None
+    assert [record["memory_id"] for record in context["records"]] == list(valid_target_ids)
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert context["retrieval_posture"] == "partial_source_verification"
+
+
 def test_failed_memory_source_verification_forces_resident_clarification(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
@@ -1705,8 +1809,12 @@ def test_failed_memory_source_verification_forces_resident_clarification(
     assert observation["companion_memory_citation_ids"] == []
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
 def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    import semantic_embeddings
     from tests.test_resident_developmental_cognition import (
         FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
     )
@@ -1720,7 +1828,9 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
                 prompt = json.loads(request.prompt)
                 memory = prompt.get("canonical_user_memory_context", {})
                 records = memory.get("records", [])
-                applies = ("overheat" in prompt.get("companion_question", "").casefold()
+                question = prompt.get("companion_question", "").casefold()
+                applies = (question in {"could it overheat?", "what happens next?",
+                    "did the thermal assembly get too warm?"}
                     and any("overheating" in str(row.get("text", "")).casefold()
                         for row in records if isinstance(row, dict)))
                 cited_ids = ([row["memory_id"] for row in records
@@ -1763,6 +1873,11 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
             clock=lambda: now))
     baseline = baseline_app.chat("Could it overheat?", observe_screen=True)
     assert baseline.response == "I have no retained overheating note."
+    baseline_sparse = baseline_app.chat("What happens next?", observe_screen=True)
+    assert baseline_sparse.response == baseline.response
+    baseline_paraphrase = baseline_app.chat(
+        "Did the thermal assembly get too warm?", observe_screen=True)
+    assert baseline_paraphrase.response == baseline.response
 
     app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
@@ -1770,11 +1885,24 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     session_id = app.create_session()
     app.chat(retained_text, session_id=session_id,
         request_id="retained-memory-source", retain=True)
+    app.chat("The warm weather changed the astronomy group's star chart review.",
+        session_id=session_id, request_id="weak-lexical-decoy-source", retain=True)
     # Rebuild both resident cognition and the conversation service over the same
     # durable roots before applying the retained statement to a later question.
     restarted_invoker = MemoryApplyingInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
-        invoker=restarted_invoker)
+        invoker=restarted_invoker, semantic_history_model_id="test/local-embedder",
+        semantic_history_model_revision="a" * 40)
+
+    def encode_memory(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "cooling unit" in text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode_memory)
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(restarted_cognition,
             clock=lambda: now))
@@ -1799,6 +1927,45 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
     assert observation["companion_memory_citation_ids"] == [memory_id]
     assert observation["canonical_user_memory_record_ids"] == [memory_id]
+
+    paraphrased = restarted_app.chat(
+        "Did the thermal assembly get too warm?", session_id=query_session_id,
+        request_id="cited-resident-memory-paraphrase", observe_screen=True)
+    assert paraphrased.response == "The retained note described overheating."
+    paraphrase_turn = restarted_app.sessions.load(query_session_id)["turns"][-1]
+    assert paraphrase_turn["linkage"]["cognition_memory_citation_ids"] == [memory_id]
+
+    # A bounded prior topic in this new session resolves a sparse follow-up to
+    # the retained memory. The same sparse question without that topic had no
+    # retrieval match, so this checks application of the retrieval result end
+    # to end rather than retrieval alone.
+    topic_session_id = restarted_app.create_session()
+    restarted_app.chat("The cooling unit showed overheating during testing.",
+        session_id=topic_session_id, request_id="sparse-memory-topic")
+    restarted_app.chat("Thanks!", session_id=topic_session_id,
+        request_id="sparse-memory-acknowledgment")
+    sparse_response = restarted_app.chat("What happens next?",
+        session_id=topic_session_id, request_id="sparse-memory-followup",
+        observe_screen=True)
+    assert sparse_response.response == "The retained note described overheating."
+    assert sparse_response.response != baseline_sparse.response
+    sparse_prompt = json.loads(restarted_invoker.requests[-1].prompt)
+    sparse_memory = sparse_prompt["canonical_user_memory_context"]
+    assert [row["memory_id"] for row in sparse_memory["records"]] == [memory_id]
+    sparse_context = sparse_prompt["session_conversation_context"]
+    assert any(row["role"] == "user"
+        and row["text"] == "The cooling unit showed overheating during testing."
+        for row in sparse_context["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
+        for row in sparse_context["turns"])
+    sparse_linkage = restarted_app.sessions.load(topic_session_id)["turns"][-1]["linkage"]
+    assert sparse_linkage["cognition_memory_citation_ids"] == [memory_id]
+    sparse_observation = restarted_cognition.verified_cognition_observation(
+        sparse_linkage["cognition_observation_id"],
+        sparse_linkage["cognition_observation_digest"])
+    assert sparse_observation["companion_memory_citation_ids"] == [memory_id]
+    assert sparse_observation["authority"] is False
+    assert sparse_observation["current_truth"] is False
 
     unrelated = restarted_app.chat("What about asteroids?",
         session_id=query_session_id, request_id="unrelated-memory-query",
@@ -1977,6 +2144,13 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                         "evidence_ids": [], "history_record_ids": [],
                         "memory_record_ids": sorted(correcting_ids),
                     }
+                elif not records:
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": "I have no retained answer-style preference.",
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
                 else:
                     assert relations == []
                     assert len(records) == 2
@@ -2027,7 +2201,11 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                 cognition, clock=lambda: now))
         query_session_id = restarted_app.create_session()
         assert query_session_id != source_session_id
-        response = restarted_app.chat("Draft a response for me.",
+        restarted_app.chat("We were discussing detailed answer style.",
+            session_id=query_session_id, request_id="resident-preference-topic")
+        restarted_app.chat("Thanks!", session_id=query_session_id,
+            request_id="resident-preference-acknowledgment")
+        response = restarted_app.chat("What happens next?",
             session_id=query_session_id, request_id="resident-preference-followup",
             observe_screen=True)
         prompt = json.loads(cognition_invoker.requests[-1].prompt)
@@ -2049,6 +2227,12 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         competing_prompt, competing_context, _competing_source_session,
         competing_query_session, competing_old_memory_id) = competing
 
+    no_topic_session_id = corrected_app.create_session()
+    no_topic_response = corrected_app.chat("What happens next?",
+        session_id=no_topic_session_id, request_id="resident-preference-no-topic",
+        observe_screen=True)
+    no_topic_prompt = json.loads(corrected_invoker.requests[-1].prompt)
+
     assert corrected_response.response == (
         "Your later retained statement says you prefer concise answers. I can use "
         "that as a defeasible preference, not as a verified current fact.")
@@ -2056,6 +2240,8 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         "I have retained both detailed and concise answer preferences without a "
         "correction link. Which should I use?")
     assert corrected_response.response != control_response.response
+    assert corrected_response.response != no_topic_response.response
+    assert no_topic_response.response == "I have no retained answer-style preference."
     assert source_session_id != query_session_id
     assert corrected_context["selection_posture"] == "all_matching_records_selected"
     assert len(corrected_context["records"]) == 1
@@ -2076,6 +2262,13 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         corrected_prompt["instruction"])
     assert "This relation does not resolve other material conflicts" in (
         corrected_prompt["instruction"])
+    assert corrected_prompt["companion_question"] == "What happens next?"
+    assert any(row["role"] == "user" and row["text"] ==
+        "We were discussing detailed answer style."
+        for row in corrected_prompt["session_conversation_context"]["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
+        for row in corrected_prompt["session_conversation_context"]["turns"])
+    assert no_topic_prompt["canonical_user_memory_context"]["records"] == []
     assert control_context["correction_relations"] == []
     assert len(control_context["records"]) == 2
     assert "correction_relations" not in control_prompt["instruction"]
@@ -2111,7 +2304,7 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
     assert set(competing_observation["canonical_user_memory_record_ids"]) == set(
         competing_cited_ids)
     assert competing_observation["companion_memory_citation_ids"] == competing_cited_ids
-    assert len(corrected_invoker.observed_contexts) == 1
+    assert len(corrected_invoker.observed_contexts) == 2
     assert len(control_invoker.observed_contexts) == 1
     assert len(competing_invoker.observed_contexts) == 1
 
@@ -3197,6 +3390,243 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
     assert result["retrieval_posture"] == "complete"
     assert unrelated_query["memories"] == []
+
+
+def test_canonical_memory_source_validation_precedes_bounded_selection(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    verified = {"id": "memory-verified",
+        "text": "The cedar shelf was assembled in the workshop.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unverified = {"id": "memory-unverified",
+        "text": "The cedar shelf was assembled in the workshop.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: ([verified, unverified], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    unfiltered = store.retrieve("cedar shelf", limit=1)
+    filtered = store.retrieve("cedar shelf", limit=1,
+        record_validator=lambda record: record["id"] == "memory-verified")
+
+    assert unfiltered["selected_memory_ids"] == ["memory-unverified"]
+    assert filtered["selected_memory_ids"] == ["memory-verified"]
+    assert filtered["record_validation_posture"] == "inspected_candidates_rejected"
+    assert filtered["omitted_memory_count"] == 1
+    assert filtered["selection_posture"] == "matching_records_omitted"
+    assert filtered["snapshot_digest"] != unfiltered["snapshot_digest"]
+
+
+def test_canonical_memory_source_validation_precedes_semantic_candidate_sampling(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    query = "Summarize the orbital shift."
+    target_text = "The north instrument showed a blue pattern."
+    decoys = [{"id": f"memory-decoy-{index:03d}",
+        "text": f"A neutral retained note number {index}.",
+        "timestamp": f"2026-01-02T00:{index // 60:02d}:{index % 60:02d}+00:00"}
+        for index in range(257)]
+    target = {"id": "memory-verified-target", "text": target_text,
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: ([*decoys, target], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    validated_ids: list[str] = []
+
+    def validate(record):
+        validated_ids.append(record["id"])
+        return record["id"] == target["id"]
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        assert texts == [query, target_text]
+        return SimpleNamespace(identity_digest="b" * 64,
+            vectors=[(1.0, 0.0), (1.0, 0.0)])
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    result = store.retrieve(query, limit=1, record_validator=validate,
+        semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+
+    assert len(validated_ids) == len(decoys) + 1
+    assert result["selected_memory_ids"] == [target["id"]]
+    assert result["semantic_retrieval_posture"] == "matched"
+    assert result["record_validation_posture"] == "inspected_candidates_rejected"
+
+
+def test_unverified_memory_correction_cannot_suppress_verified_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    original = {"id": "memory-verified-history",
+        "text": "The cedar shelf is in the west workshop.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unverified_correction = {"id": "memory-unverified-correction",
+        "text": "The shelf was moved elsewhere.",
+        "timestamp": "2026-01-02T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [{"memory_id": original["id"],
+                "memory_record_digest": digest(original)}]}}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: (
+        [original, unverified_correction], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    result = store.retrieve("Tell me about the cedar shelf.",
+        record_validator=lambda record: record["id"] == original["id"])
+
+    assert result["selected_memory_ids"] == [original["id"]]
+    assert result["record_validation_posture"] == "inspected_candidates_rejected"
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="canonical memory private-root custody is unavailable on Windows")
+def test_verified_memory_survives_invalid_records_beyond_default_record_cap(
+        tmp_path: Path) -> None:
+    store = CanonicalMemoryStore(tmp_path / "memory")
+    directory_fd = store.open_raw_directory(prepare_for_write=True)
+    os.close(directory_fd)
+    target_id = f"memory-{1024:024x}"
+    text = "The cedar shelf was assembled in the west workshop."
+    for index in range(1025):
+        memory_id = f"memory-{index:024x}"
+        record = {
+            "id": memory_id,
+            "text": text,
+            "text_digest": digest({"text": text}),
+            "timestamp": "2026-01-02T00:00:00+00:00" if index < 1024
+                else "2026-01-01T00:00:00+00:00",
+        }
+        path = store.raw / f"{memory_id}.json"
+        path.write_text(json.dumps(record, sort_keys=True) + "\n",
+            encoding="utf-8")
+        os.chmod(path, 0o600)
+
+    unverified = store.retrieve("cedar shelf")
+    verified = store.retrieve("cedar shelf", limit=1,
+        record_validator=lambda record: record["id"] == target_id)
+
+    assert unverified["memories"] == []
+    assert unverified["retrieval_posture"] == "memory_record_bound_exceeded"
+    assert [record["id"] for record in verified["memories"]] == [target_id]
+    assert verified["record_validation_posture"] == "inspected_candidates_rejected"
+    assert verified["omitted_memory_count"] == 1024
+    assert verified["selection_posture"] == "matching_records_omitted"
+
+
+def test_canonical_memory_semantic_refinement_displaces_weak_overlap_but_keeps_strong_lexical_priority(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    import semantic_embeddings
+
+    retained = {"id": "memory-overheat",
+        "text": "The cooling unit showed overheating during the test.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated = {"id": "memory-astronomy",
+        "text": "The warm weather changed the astronomy group's star chart review.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "cooling" in text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    query = "Did the thermal assembly get too warm?"
+    lexical_only = store.retrieve(query, limit=1)
+    weak_lexical = store.retrieve(query, limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+    lexical_match = store.retrieve("overheating", limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+
+    assert lexical_only["selected_memory_ids"] == ["memory-astronomy"]
+    assert weak_lexical["selected_memory_ids"] == ["memory-overheat"]
+    assert weak_lexical["semantic_retrieval_posture"] == "matched"
+    assert [row["id"] for row in weak_lexical["memories"]] == ["memory-overheat"]
+    assert weak_lexical["snapshot_digest"]
+    assert lexical_match["selected_memory_ids"] == ["memory-overheat"]
+    assert lexical_match["semantic_retrieval_posture"] == "lexical_match_preferred"
+
+
+def test_canonical_memory_semantic_fallback_degrades_to_lexical_when_encoder_unavailable(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    retained = {"id": "memory-overheat",
+        "text": "The cooling unit showed overheating during the test.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    weak_match = {"id": "memory-warm-weather",
+        "text": "The warm weather changed the astronomy group's star chart review.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, weak_match], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
+
+    result = store.retrieve("Did the thermal assembly get too warm?", limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+
+    assert result["selected_memory_ids"] == ["memory-warm-weather"]
+    assert result["semantic_retrieval_posture"] == "unavailable_lexical_fallback"
+
+
+def test_canonical_memory_semantic_candidates_cover_bounded_older_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import timedelta
+    from types import SimpleNamespace
+    import hashlib
+    import semantic_embeddings
+
+    query = "Did the thermal assembly get too warm?"
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    sample_pool_size = 76
+    sample_count = 32
+    phase = (int.from_bytes(hashlib.sha256(query.encode("utf-8")).digest()[:8],
+        "big") % sample_pool_size)
+    target_sample_position = (phase + sample_pool_size // (2 * sample_count)) \
+        % sample_pool_size
+    target_index = 224 + target_sample_position
+    target_text = "The cooling unit showed overheating during the test."
+    records = []
+    for index in range(300):
+        if index == target_index:
+            text = target_text
+        elif 192 <= index < 224:
+            text = f"The thermal report {index} was recorded."
+        else:
+            text = f"A retained neutral note number {index} was recorded."
+        records.append({"id": f"memory-{index:024x}", "text": text,
+            "timestamp": (base - timedelta(minutes=index)).isoformat()})
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    encoded_candidate_counts = []
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        encoded_candidate_counts.append(len(texts) - 1)
+        assert target_text in texts
+        assert len(texts) <= 257
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if text == target_text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    first = store.retrieve(query, limit=1, semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+    second = store.retrieve(query, limit=1, semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+
+    assert first["selected_memory_ids"] == [records[target_index]["id"]]
+    assert first["snapshot_digest"] == second["snapshot_digest"]
+    assert encoded_candidate_counts == [256, 256]
 
 
 def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
