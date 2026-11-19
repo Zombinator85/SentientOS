@@ -119,6 +119,52 @@ def test_inflected_query_selects_prior_epistemic_packet_with_provenance(tmp_path
     assert packet["authority"] is False
 
 
+def test_candidate_rationale_retrieves_its_generic_prior_proposition(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    propositions = sorted((
+        make_proposition(namespace="embodiment", subject="record:alpha",
+            predicate="has_prior_position", object_value="calibration",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive",
+            statement="A prior device position was recorded."),
+        make_proposition(namespace="embodiment", subject="record:beta",
+            predicate="has_prior_position", object_value="calibration",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive",
+            statement="A prior device position was recorded.")),
+        key=lambda item: item.proposition_id)
+    relevant, irrelevant = propositions[1], propositions[0]
+    for index, item in enumerate(propositions, start=1):
+        owner.register_proposition(item)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=item.proposition_id,
+            predecessor_state_digest=None, proposed_stance="unknown",
+            evidence_binding_ids=(), reason="initialization",
+            rationale=("Rapid charging caused battery overheating in the supervised trial."
+                if item.proposition_id == relevant.proposition_id else
+                "The laboratory door remained closed during review."),
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule", proposer_id=f"rationale-fixture-{index}")
+        owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(), candidate=candidate,
+            correlation_id=f"rationale-priority-{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+
+    baseline = owner.cognitive_projection(max_states=1, current_tick=3)
+    query_selected = owner.cognitive_projection(max_states=1, current_tick=3,
+        relevance_query="What did we learn when the battery overheated during rapid charging?")
+
+    assert baseline is not None and query_selected is not None
+    assert baseline.proposition_ids == (irrelevant.proposition_id,)
+    assert query_selected.proposition_ids == (relevant.proposition_id,)
+    [packet] = semantic_packets_for_projection(query_selected)
+    assert packet["update_candidate_history"][0]["candidate"]["rationale"] == (
+        "Rapid charging caused battery overheating in the supervised trial.")
+    assert packet["authority"] is False
+
+
 def test_projection_question_priority_ignores_propositions_without_prior_state():
     never_updated = make_proposition(namespace="embodiment",
         subject="sensor:west", predicate="reports_measurement",
@@ -158,7 +204,10 @@ def test_question_relevance_prefers_structured_terms_over_incidental_statement_m
 
     assert _question_relevant_proposition_ids(propositions,
         query="temperature",
-        limit=1) == (structured_match.proposition_id,)
+        limit=1,
+        candidate_rationales_by_proposition={
+            wording_match.proposition_id: ("A prior rationale also mentioned temperature.",)
+        }) == (structured_match.proposition_id,)
 
 
 def test_question_relevance_counts_each_query_term_once_per_proposition():

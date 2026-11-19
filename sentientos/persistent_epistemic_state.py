@@ -58,6 +58,13 @@ MAX_COGNITIVE_PROJECTION_PRIORITIES = 512
 MAX_COGNITIVE_PROJECTION_CALIBRATIONS_PER_STATE = 16
 MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE = 4
 MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE = 2
+_COGNITIVE_CORRECTION_REASONS = frozenset({
+    "evidence_withdrawal", "contradiction_arrival",
+    "duplicate_evidence_correction", "dependency_correction",
+    "source_reliability_revision", "proposition_refinement",
+    "update_rule_correction", "calibration_outcome",
+    "operator_error_correction",
+})
 PROPOSITION_CLASSES = frozenset({"descriptive", "predictive", "causal_hypothesis", "capability", "environmental", "relational", "system_hypothesis"})
 RELATIONS = frozenset({"refines", "narrows", "broadens", "supersedes", "contradicts", "related_to"})
 EVIDENCE_RELATIONS = frozenset({"supports", "contradicts", "undercuts", "contextualizes", "resolves", "predictive_outcome", "reliability_evidence"})
@@ -90,8 +97,14 @@ def _epistemic_query_terms(text: str) -> set[str]:
 
 
 def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
-        query: str | None, limit: int) -> tuple[str, ...]:
-    """Rank proposition identities by lexical overlap with a bounded user question."""
+        query: str | None, limit: int,
+        candidate_rationales_by_proposition: Mapping[str, Sequence[str]] | None = None
+        ) -> tuple[str, ...]:
+    """Rank propositions by overlap with the question and retained rationales.
+
+    Candidate rationale is only a low-weight retrieval hint. It does not
+    upgrade a proposal into evidence, truth, or authority.
+    """
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
         raise EpistemicStateError("epistemic_projection_query_bound_invalid")
     query_terms = _epistemic_query_terms(query) if isinstance(query, str) else set()
@@ -113,6 +126,11 @@ def _question_relevant_proposition_ids(propositions: Mapping[str, Any], *,
                 separators=(",", ":"), ensure_ascii=False))
             for term in field_terms:
                 term_weights[term] = max(term_weights.get(term, 0), weight)
+        for rationale in (candidate_rationales_by_proposition or {}).get(
+                proposition_id, ()):
+            if isinstance(rationale, str):
+                for term in query_terms & _epistemic_query_terms(rationale):
+                    term_weights[term] = max(term_weights.get(term, 0), 1)
         relevance = sum(term_weights.values())
         if relevance:
             ranked.append((relevance, proposition_id))
@@ -124,7 +142,9 @@ def _projection_priority_ids(propositions: Mapping[str, Any], *,
         available_proposition_ids: set[str],
         prioritized_proposition_ids: Sequence[str], query: str | None,
         cited_proposition_ids: Sequence[str] = (),
-        limit: int) -> tuple[str, ...]:
+        limit: int,
+        candidate_rationales_by_proposition: Mapping[str, Sequence[str]] | None = None
+        ) -> tuple[str, ...]:
     """Order goals, direct query matches, cited context, then stable fill."""
     active_explicit = tuple(item for item in prioritized_proposition_ids
         if item in available_proposition_ids)
@@ -133,13 +153,31 @@ def _projection_priority_ids(propositions: Mapping[str, Any], *,
         if proposition_id in available_proposition_ids}
     remaining_slots = max(0, limit - len(active_explicit))
     active_query = _question_relevant_proposition_ids(eligible_propositions,
-        query=query, limit=remaining_slots)
+        query=query, limit=remaining_slots,
+        candidate_rationales_by_proposition=candidate_rationales_by_proposition)
     preceding = active_explicit + tuple(item for item in active_query
         if item not in active_explicit)
     remaining_slots = max(0, limit - len(preceding))
     active_cited = tuple(item for item in cited_proposition_ids
         if item in available_proposition_ids and item not in preceding)[:remaining_slots]
     return preceding + active_cited
+
+
+def _retained_update_candidate_rows(
+        candidate_rows: Sequence[Mapping[str, Any]]) -> tuple[Mapping[str, Any], ...]:
+    """Apply the projection's bounded candidate-history retention policy."""
+    ordered = sorted(candidate_rows, key=lambda item: (
+        item["generation"], item["event_id"]))
+    if len(ordered) <= MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE:
+        return tuple(ordered)
+    correction_candidates = [item for item in ordered
+        if item["candidate"]["reason"] in _COGNITIVE_CORRECTION_REASONS]
+    preferred = correction_candidates[-1:] if correction_candidates else []
+    other_candidates = [item for item in ordered if item not in preferred]
+    newest_other = other_candidates[-1:] if other_candidates else []
+    return tuple(sorted((preferred + newest_other)[-
+        MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE:],
+        key=lambda item: (item["generation"], item["event_id"])))
 
 
 def _proposition_priorities_from_state_citations(
@@ -2107,6 +2145,26 @@ class PersistentEpistemicStateOwner:
                 if all(event.tick < current_tick for event in
                     events_by_proposition.get(proposition_id, ()))}
         available_by_id = {item.proposition_id: item for item in latest.values()}
+        # Use the same bounded candidate subset in ranking that will be
+        # delivered in the semantic packet. This lets a retained correction's
+        # rationale help retrieve its proposition without letting older or
+        # omitted candidate text affect the model's context selection.
+        candidate_rationales_by_proposition: dict[str, tuple[str, ...]] = {}
+        for proposition_id, proposition_events in events_by_proposition.items():
+            projected_state = available_by_id.get(proposition_id)
+            if projected_state is None:
+                continue
+            candidate_rows = [transaction_candidates[item.event_id]
+                for item in proposition_events
+                if (item.event_id in transaction_candidates
+                    and item.generation <= projected_state.generation
+                    and (current_tick is None or item.tick < current_tick))]
+            candidate_rows = _retained_update_candidate_rows(candidate_rows)
+            rationales = tuple(item["candidate"]["rationale"]
+                for item in candidate_rows
+                if isinstance(item["candidate"].get("rationale"), str))
+            if rationales:
+                candidate_rationales_by_proposition[proposition_id] = rationales
         # A verified citation names a historical state generation. Resolve its
         # proposition lineage, then project only that proposition's latest
         # eligible prior state so a correction supersedes the cited generation.
@@ -2117,6 +2175,7 @@ class PersistentEpistemicStateOwner:
             prioritized_proposition_ids=requested_priorities,
             query=relevance_query,
             cited_proposition_ids=state_priorities,
+            candidate_rationales_by_proposition=candidate_rationales_by_proposition,
             limit=min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES))
         active_explicit_priorities = tuple(item for item in requested_priorities
             if item in available_by_id)
@@ -2124,6 +2183,7 @@ class PersistentEpistemicStateOwner:
             {proposition_id: proposition_by_id[proposition_id]
                 for proposition_id in available_by_id},
             query=relevance_query,
+            candidate_rationales_by_proposition=candidate_rationales_by_proposition,
             limit=max(0, min(max_states, MAX_COGNITIVE_PROJECTION_PRIORITIES)
                 - len(active_explicit_priorities)))
         active_query_priorities = tuple(item for item in active_query_candidates
@@ -2353,13 +2413,6 @@ class PersistentEpistemicStateOwner:
         candidate_histories: list[Mapping[str, Any]] = []
         has_unverified_context = False
         has_update_candidate_history = False
-        correction_reasons = {
-            "evidence_withdrawal", "contradiction_arrival",
-            "duplicate_evidence_correction", "dependency_correction",
-            "source_reliability_revision", "proposition_refinement",
-            "update_rule_correction", "calibration_outcome",
-            "operator_error_correction",
-        }
         for state in selected:
             active_ids = tuple(sorted(active_by_proposition.get(state.proposition_id, set())))
             history = event_histories_by_state[state.proposition_id]
@@ -2380,19 +2433,7 @@ class PersistentEpistemicStateOwner:
             event_histories.append(tuple(asdict(item) for item in history))
             candidate_rows = [transaction_candidates[item.event_id]
                 for item in history if item.event_id in transaction_candidates]
-            candidate_rows.sort(key=lambda item: (item["generation"], item["event_id"]))
-            retained_candidates = candidate_rows
-            if len(candidate_rows) > MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE:
-                correction_candidates = [item for item in candidate_rows
-                    if item["candidate"]["reason"] in correction_reasons]
-                preferred = correction_candidates[-1:] if correction_candidates else []
-                other_candidates = [item for item in candidate_rows
-                    if item not in preferred]
-                newest_other = other_candidates[-1:] if other_candidates else []
-                retained_candidates = sorted(
-                    (preferred + newest_other)[-
-                        MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE:],
-                    key=lambda item: (item["generation"], item["event_id"]))
+            retained_candidates = _retained_update_candidate_rows(candidate_rows)
             retained_ids = {item["event_id"] for item in retained_candidates}
             omitted_candidates = [item for item in candidate_rows
                 if item["event_id"] not in retained_ids]
