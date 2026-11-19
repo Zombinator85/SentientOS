@@ -135,6 +135,38 @@ session context contributes topic terms only when the current question has
 fewer than two distinctive terms, supporting elliptical follow-ups without
 letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
+For ordinary cognition ticks, the bounded selected current World-State fact
+projection also contributes ranking terms to history selection when no
+objective, family, intervention, or epistemic-revision protocol is active. For
+companion interactions, those terms join the previous user turn only for an
+elliptical question. Current facts remain in their separate evidence channel;
+they are not copied into history packets, and this retrieval context does not
+grant historical records authority or current-truth status. A deterministic
+counterfactual in `tests/test_resident_developmental_cognition.py` shows an
+older hot-battery lesson displacing a recent unrelated telescope record for an
+elliptical follow-up. This establishes retrieval and prompt delivery, not that a
+real model will apply the lesson correctly or improve outcomes.
+For elliptical companion requests, selected source-turn-verified canonical user
+memories also contribute bounded ranking terms to developmental-history
+selection. A memory correction suppresses the superseded memory's terms while
+both records and their correction lineage remain in the separately bound
+memory prompt. These terms affect history selection only: retained memories do
+not become current evidence, and selected history remains historical and
+non-authoritative. A deterministic counterfactual demonstrates an explicitly
+retained garden constraint selecting an older applicable experience over a
+recent unrelated telescope record; a specific telescope question remains
+question-driven. This shows retrieval integration, not real-model adherence or
+better deployed outcomes.
+The live companion bridge also uses its bounded selected current World-State
+facts to rank prior self-model and epistemic projections when a question has
+fewer than two distinctive terms. Specific questions keep question-only
+projection ranking. Current observations stay in the current-evidence channel;
+they are not promoted into prior positions or used to change their posture. The
+deterministic bridge counterfactual in
+`tests/test_resident_developmental_cognition.py::test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval`
+shows a short follow-up selecting the matching older epistemic position while a
+specific query selects a different position. It demonstrates retrieval under
+a deterministic fixture, not real-model application or improved outcomes.
 Validated v4 operator-feedback reports that target the same exact conversation
 session, turn ID, and turn-text digest are selected as one bounded retrieval
 unit. A query that matches one report therefore retains the other reports about
@@ -306,9 +338,15 @@ places an older lesson whose scope matches battery calibration behind four
 newer astronomy lessons whose interpretations contain no query match. The
 scoped lesson survives the four-record retrieval bound, showing that context
 selection can use the learned applicability metadata when the interpretation
-wording differs. The remaining open work is to measure whether relevant
-experience changes resident responses appropriately across controlled tasks,
-and to evaluate semantic retrieval beyond lexical overlap.
+wording differs. Optional pinned CPU semantic retrieval now also selects
+lexically disjoint history through bounded embedding batches and a restart-safe
+vector index. Policy v18 rejects matches below a 0.25 cosine floor and ranks
+lexical relevance ahead of semantic similarity, while allowing above-floor
+lexically disjoint matches to outrank recency. Deterministic tests cover
+near-threshold lexical priority and strong lexically disjoint retrieval. The
+remaining open work is to calibrate the floor against real embedding behavior
+and measure whether relevant experience improves appropriate later responses;
+no real-model benefit is established.
 
 ## Experience application under controlled conditions
 

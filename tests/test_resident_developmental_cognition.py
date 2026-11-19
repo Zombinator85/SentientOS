@@ -78,7 +78,8 @@ from sentientosd import (
 )
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition, make_evidence_binding, make_cognitive_projection,
-    MeaningBearingEpistemicCognitiveProjection)
+    MeaningBearingEpistemicCognitiveProjection,
+    make_epistemic_update_candidate)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -5700,6 +5701,225 @@ def test_companion_interaction_uses_existing_history_without_learning_from_curre
     assert result.response not in durable
 
 
+def test_current_world_state_retrieves_applicable_history_for_elliptical_decision(
+        tmp_path: Path) -> None:
+    class SituationAwareFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if (request.purpose == "resident_developmental_retrieval_cognition"
+                    and "disposition" in schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                history_text = " ".join(str(row.get("interpretation", ""))
+                    for row in prompt.get("developmental_history", ())
+                    if isinstance(row, Mapping))
+                self.companion_output_override = (
+                    {"disposition": "answer",
+                        "response": "Use low-power charging; the current hot-battery condition matches the retained experience.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"]}
+                    if "low-power charging" in history_text else
+                    {"disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": []})
+            return super().invoke(request, **kwargs)
+
+    def situation(description: str):
+        return WorldStateBoardBuilder().build([{
+            "source_id": "current-situation",
+            "source_kind": "capability_registry",
+            "subject_id": "battery-condition",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-11-18T12:00:00+00:00",
+            "payload": {"description": description},
+        }])
+
+    fake = SituationAwareFakeInvoker()
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+        ensure_private_child_directory(tmp_path, "history")
+    cognition, _ = owner(tmp_path, invoker=fake,
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+        max_retrieved_records=1)
+    current_hot_battery = situation(
+        "The battery is hot and temperature is rising during charging.")
+    fake.history_interpretation = (
+        "An earlier hot battery experience suggests low-power charging when "
+        "temperature is rising to reduce overheating.")
+    acquired = cognition.run_tick(snapshot=current_hot_battery,
+        tick_id="hot-battery-experience")
+    assert acquired.written_record_id is not None
+
+    fake.history_interpretation = (
+        "The orbital telescope recorded a clear image of Saturn.")
+    recent = cognition.run_tick(snapshot=situation(
+        "The orbital telescope captured Saturn in a clear sky."),
+        tick_id="recent-telescope-experience")
+    assert recent.written_record_id is not None
+
+    baseline = cognition._prior_projection(cognition._state(),
+        "elliptical-history-baseline", relevance_query="What now?")
+    assert baseline.requested_record_ids == (recent.written_record_id,)
+
+    state_before_interaction = cognition.state_path.read_bytes()
+    result = cognition.run_companion_interaction(snapshot=current_hot_battery,
+        request_id="hot-battery-elliptical-followup", question="What next?")
+    assert result.prior_record_ids == (acquired.written_record_id,)
+    assert result.history_record_ids == (acquired.written_record_id,)
+    assert "Use low-power charging" in result.response
+    assert result.evidence_ids == ()
+    assert result.authority is False and result.current_truth is False
+    assert cognition.state_path.read_bytes() == state_before_interaction
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert "temperature is rising during charging" in json.dumps(
+        prompt.get("current_evidence", {}))
+    assert "low-power charging" in json.dumps(
+        prompt.get("developmental_history", []))
+    assert all(row.get("current_truth") is False and row.get("authority") is False
+        for row in prompt.get("developmental_history", []))
+
+    ordinary_tick = cognition.run_tick(snapshot=current_hot_battery,
+        tick_id="hot-battery-ordinary-cognition-followup")
+    assert ordinary_tick.prior_record_ids == (acquired.written_record_id,)
+
+
+def test_retained_user_context_retrieves_applicable_history_for_elliptical_decision(
+        tmp_path: Path) -> None:
+    class MemoryAwareFakeInvoker(FakeInvoker):
+        def invoke(self, request, **kwargs):
+            schema = request.structured_output_schema or {}
+            if (request.purpose == "resident_developmental_retrieval_cognition"
+                    and "disposition" in schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                history_text = " ".join(str(row.get("interpretation", ""))
+                    for row in prompt.get("developmental_history", ())
+                    if isinstance(row, Mapping))
+                if "deep watering" in history_text:
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": "The retained experience supports deep watering early in the morning.",
+                        "evidence_ids": [],
+                        "history_record_ids": ["__CURRENT_HISTORY__"],
+                        "memory_record_ids": [memory_id],
+                    }
+                else:
+                    self.companion_output_override = {
+                        "disposition": "abstain",
+                        "response": "No applicable retained experience is available.",
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
+            return super().invoke(request, **kwargs)
+
+    memory_id = "memory-" + "b" * 24
+    corrected_memory_id = "memory-" + "a" * 24
+    memory_text = (
+        "My vegetable garden has sandy soil and needs deep watering early in the morning.")
+
+    def memory_record(record_id: str, text: str, marker: str) -> dict[str, Any]:
+        return {
+            "memory_id": record_id, "text": text,
+            "text_digest": digest_payload({"text": text}),
+            "memory_record_digest": marker * 64,
+            "source_turn_id": "turn-" + marker * 24,
+            "source_turn_text_digest": digest_payload({"text": text}),
+            "admission_receipt_digest": marker * 64,
+            "timestamp": "2026-01-01T00:00:00+00:00",
+            "historical_only": True, "current_truth": False, "authority": False,
+        }
+
+    corrected_memory_text = (
+        "My vegetable garden has clay soil and needs shallow afternoon watering.")
+    memory_semantic = {
+        "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
+        "source_snapshot_digest": "a" * 64,
+        "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "records": [memory_record(corrected_memory_id,
+            corrected_memory_text, "c"),
+            memory_record(memory_id, memory_text, "d")],
+        "correction_relations": [{
+            "correcting_memory_id": memory_id,
+            "corrected_memory_id": corrected_memory_id,
+            "corrected_memory_record_digest": "c" * 64,
+            "posture": "explicit_user_correction_unverified",
+        }],
+        "read_only": True, "historical_only": True,
+        "current_truth": False, "authority": False, "mutation_performed": False,
+    }
+    memory_context = {**memory_semantic,
+        "selection_digest": digest_payload(memory_semantic)}
+    from sentientos.resident_developmental_cognition import (
+        _canonical_memory_history_relevance_context,
+    )
+    ranking_context = _canonical_memory_history_relevance_context(memory_context)
+    assert "sandy soil" in ranking_context and "deep watering" in ranking_context
+    assert "clay soil" not in ranking_context and "shallow afternoon" not in ranking_context
+
+    def situation(description: str):
+        return WorldStateBoardBuilder().build([{
+            "source_id": "unrelated-current-situation",
+            "source_kind": "capability_registry", "subject_id": "desk-lamp",
+            "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-11-18T12:00:00+00:00",
+            "payload": {"description": description},
+        }])
+
+    fake = MemoryAwareFakeInvoker()
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "state")
+        ensure_private_child_directory(tmp_path, "history")
+    cognition, _ = owner(tmp_path, invoker=fake,
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+        max_retrieved_records=1)
+    current = situation("A desk lamp is switched on in the workshop.")
+    fake.history_interpretation = (
+        "A prior sandy-soil garden experience suggests deep watering early in the morning.")
+    relevant = cognition.run_tick(snapshot=current, tick_id="garden-experience")
+    assert relevant.written_record_id is not None
+    fake.history_interpretation = "The orbital telescope captured a clear image of Saturn."
+    recent = cognition.run_tick(snapshot=situation(
+        "A desk lamp illuminates the telescope control desk."),
+        tick_id="recent-telescope-experience")
+    assert recent.written_record_id is not None
+
+    records_before_interactions = cognition.writeback.store.records()
+    receipts_before_interactions = cognition.writeback.store.receipts()
+    without_memory = cognition.run_companion_interaction(snapshot=current,
+        request_id="garden-followup-without-retained-memory", question="What next?")
+    with_memory = cognition.run_companion_interaction(snapshot=current,
+        request_id="garden-followup-with-retained-memory", question="What next?",
+        canonical_memory_context=memory_context)
+    assert without_memory.prior_record_ids == (recent.written_record_id,)
+    assert without_memory.disposition == "abstain"
+    assert with_memory.prior_record_ids == (relevant.written_record_id,)
+    assert with_memory.history_record_ids == (relevant.written_record_id,)
+    assert with_memory.memory_record_ids == (memory_id,)
+    assert with_memory.canonical_user_memory_selection_digest == (
+        memory_context["selection_digest"])
+    assert with_memory.canonical_explicit_user_retention_mutated is False
+    assert "deep watering early in the morning" in with_memory.response
+    assert with_memory.evidence_ids == ()
+    assert with_memory.authority is False and with_memory.current_truth is False
+
+    specific = cognition.run_companion_interaction(snapshot=current,
+        request_id="specific-telescope-question-with-retained-memory",
+        question="What did the telescope capture?",
+        canonical_memory_context=memory_context)
+    assert specific.prior_record_ids == (recent.written_record_id,)
+    assert specific.disposition == "abstain"
+    assert specific.memory_record_ids == ()
+    assert specific.canonical_explicit_user_retention_mutated is False
+    assert cognition.writeback.store.records() == records_before_interactions
+    assert cognition.writeback.store.receipts() == receipts_before_interactions
+    prompt = json.loads(fake.requests[-1].prompt)
+    assert next(row["text"] for row in prompt["canonical_user_memory_context"]["records"]
+        if row["memory_id"] == memory_id) == memory_text
+    assert "desk lamp is switched on" in json.dumps(prompt["current_evidence"])
+    assert prompt["current_evidence"].get("facts")
+
+
 def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
         tmp_path: Path) -> None:
     class FactSensitiveInvoker(FakeInvoker):
@@ -6470,11 +6690,93 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
     assert observed["model"] == ("test/local-embedder", "a" * 40)
     policy_prefix, embedder_digest, selection_digest = (
         selected.retrieval_policy_id.rsplit(":", 2))
-    assert policy_prefix.endswith(":v16")
+    assert policy_prefix.endswith(":v18")
     assert embedder_digest == "d" * 64
     assert len(selection_digest) == 64
     assert all(character in "0123456789abcdef" for character in selection_digest)
     assert "Where should we shelter" in observed["texts"][0]
+
+
+def test_weak_semantic_matches_do_not_displace_lexical_or_recent_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
+
+    candidates = {
+        "weak-semantic": {"selected_facts": [], "interpretation":
+            "A stone courtyard was mentioned in earlier rainfall."},
+        "near-semantic": {"selected_facts": [], "interpretation":
+            "A near threshold stone courtyard shelters visitors during rainfall."},
+        "recent-unrelated": {"selected_facts": [], "interpretation":
+            "The orbital telescope captured Saturn."},
+        "lexical-match": {"selected_facts": [], "interpretation":
+            "Protected place guidance when rivers rise recommends raised land."},
+    }
+
+    class Store:
+        def get(self, record_id):
+            return SimpleNamespace(candidate=candidates[record_id])
+
+    class Writeback:
+        store = Store()
+
+        def retrieve(self, record_ids, *, limit):
+            return DevelopmentalHistoryProjection(records=(),
+                requested_record_ids=tuple(record_ids))
+
+    def fake_encode(texts, *, model_id, revision):
+        vectors = [(1.0, 0.0)]
+        vectors.extend((0.26, 0.965660398791) if "near threshold" in text
+            else (0.1, 0.994987437) if "stone courtyard" in text
+            else (0.0, 1.0) for text in texts[1:])
+        return SimpleNamespace(identity_digest="f" * 64,
+            vectors=tuple(vectors))
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    fake_owner = SimpleNamespace(writeback=Writeback(),
+        config=SimpleNamespace(max_retrieved_records=1,
+            semantic_history_model_id="test/local-embedder",
+            semantic_history_model_revision="a" * 40), objective_task=None)
+    query = "Where can people find a protected place after high water?"
+
+    recent_fallback = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "weak-semantic"},
+            {"tick_id": "tick-1", "record_id": "recent-unrelated"}]},
+        "weak-semantic-query", relevance_query=query)
+    assert recent_fallback.requested_record_ids == ("recent-unrelated",)
+
+    lexical_priority = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "weak-semantic"},
+            {"tick_id": "tick-1", "record_id": "lexical-match"},
+            {"tick_id": "tick-2", "record_id": "recent-unrelated"}]},
+        "weak-semantic-lexical-query", relevance_query=query)
+    assert lexical_priority.requested_record_ids == ("lexical-match",)
+    assert lexical_priority.retrieval_policy_id is not None
+    assert ":v18:" in lexical_priority.retrieval_policy_id
+
+    near_threshold_lexical_priority = (
+        ResidentDevelopmentalCognitionOwner._prior_projection(
+            fake_owner, {"completed_ticks": [
+                {"tick_id": "tick-0", "record_id": "near-semantic"},
+                {"tick_id": "tick-1", "record_id": "lexical-match"},
+                {"tick_id": "tick-2", "record_id": "recent-unrelated"}]},
+            "near-threshold-semantic-query", relevance_query=query))
+    assert near_threshold_lexical_priority.requested_record_ids == (
+        "lexical-match",)
+
+    fake_owner.config.max_retrieved_records = 2
+    bounded_pair = ResidentDevelopmentalCognitionOwner._prior_projection(
+        fake_owner, {"completed_ticks": [
+            {"tick_id": "tick-0", "record_id": "near-semantic"},
+            {"tick_id": "tick-1", "record_id": "lexical-match"},
+            {"tick_id": "tick-2", "record_id": "recent-unrelated"}]},
+        "near-threshold-semantic-bounded-query", relevance_query=query)
+    assert bounded_pair.requested_record_ids[-1] == "lexical-match"
 
 
 def test_semantic_history_samples_older_lexically_disjoint_experience(
@@ -6494,7 +6796,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     candidates[target_id]["interpretation"] = (
         "The elevated basalt outpost remained dry through cyclonic rainfall.")
     candidates[lexical_id]["interpretation"] = (
-        "The stone refuge sheltered travellers through one earlier storm.")
+        "An old granite enclave sheltered travellers through one earlier storm.")
 
     class Store:
         def get(self, record_id):
@@ -6540,13 +6842,13 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
     assert selected is not None
     assert len(embedded_texts) == 256
     assert any("basalt outpost" in text for text in embedded_texts)
-    assert any("stone refuge" in text for text in embedded_texts)
+    assert any("granite enclave" in text for text in embedded_texts)
     assert selected.requested_record_ids == (target_id,)
     assert selected.retrieval_policy_id is not None
     assert selected.retrieval_policy_id.startswith(
-        "query_decision_polarity_then_semantic_then_overlap_with_"
+        "query_decision_polarity_then_overlap_then_semantic_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
-        "reports_and_elliptical_session_context_then_recency_fill:v16:"
+        "reports_and_elliptical_session_context_then_recency_fill:v18:"
         + "d" * 64 + ":")
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
@@ -9155,6 +9457,363 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
         "relevance_query": question}
 
 
+def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The west mechanism is overheating.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"bridge-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query="What now?")
+    assert baseline is not None
+    by_id = {item.proposition_id: item for item in (overheating, telescope)}
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = by_id[baseline.proposition_ids[0]]
+
+    class CapturingEpistemicOwner:
+        def __init__(self):
+            self.calls = []
+
+        def cognitive_projection(self, **kwargs):
+            projection = epistemic.cognitive_projection(**kwargs)
+            self.calls.append((kwargs, projection))
+            return projection
+
+    capture = CapturingEpistemicOwner()
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=capture,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": relevant.statement,
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    bridge.respond(request_id="elliptical-epistemic-retrieval",
+        question="What now?", screen_observation=screen)
+    bridge.respond(request_id="specific-epistemic-retrieval",
+        question=("What was observed about overheating?" if unrelated is overheating
+            else "What did the telescope capture?"),
+        screen_observation=screen)
+
+    elliptical_query, elliptical_projection = capture.calls[0]
+    specific_query, specific_projection = capture.calls[1]
+    assert elliptical_query["relevance_query"] != "What now?"
+    assert elliptical_projection is not None
+    assert elliptical_projection.proposition_ids == (relevant.proposition_id,)
+    assert specific_query["relevance_query"] == (
+        "What was observed about overheating?" if unrelated is overheating
+        else "What did the telescope capture?")
+    assert specific_projection is not None
+    assert specific_projection.proposition_ids == (unrelated.proposition_id,)
+    assert specific_projection.projection_digest != elliptical_projection.projection_digest
+    assert elliptical_projection.current_truth is False
+    assert elliptical_projection.authority is False
+    assert json.loads(fake.requests[0].prompt)["companion_question"] == "What now?"
+    assert json.loads(fake.requests[1].prompt)["companion_question"] == (
+        "What was observed about overheating?" if unrelated is overheating
+        else "What did the telescope capture?")
+
+
+def test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prior_epistemic_state(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",), max_selected_facts=1)
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="mechanism:west", predicate="has_status", object_value="active",
+        polarity="positive", qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive", statement="The west mechanism is overheating.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"cycle-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query=None)
+    assert baseline is not None
+    prior_states = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert prior_states is not None
+    by_id = {item.proposition_id: item for item in (overheating, telescope)}
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = by_id[baseline.proposition_ids[0]]
+
+    class CapturingEpistemicOwner:
+        def __init__(self):
+            self.calls = []
+
+        def cognitive_projection(self, **kwargs):
+            projection = epistemic.cognitive_projection(**kwargs)
+            self.calls.append((kwargs, projection))
+            return projection
+
+    capture = CapturingEpistemicOwner()
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=capture,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": relevant.statement,
+        "capture_digest": "d" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    cycle = bridge.run_developmental_cycle(
+        tick_id="current-observation-epistemic-retrieval",
+        screen_observation=screen)
+
+    query, projection = capture.calls[0]
+    assert cycle.status == "completed"
+    assert cycle.written_record_id is not None
+    assert query["relevance_query"]
+    assert relevant.statement in query["relevance_query"]
+    assert projection is not None
+    assert projection.proposition_ids == (relevant.proposition_id,)
+    assert projection.current_truth is False and projection.authority is False
+    assert projection.source_tick < int(now.timestamp())
+    cognition_request = next(item for item in fake.requests
+        if item.purpose == "resident_developmental_retrieval_cognition")
+    prompt = json.loads(cognition_request.prompt)
+    prior = prompt["prior_epistemic_state"]
+    assert prior["semantic_packets"][0]["proposition"]["statement"] == (
+        relevant.statement)
+    assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
+        projection.projection_digest)
+    assert cognition_request.upstream_evidence["current_fact_ids"] == list(
+        cycle.selected_fact_ids)
+    assert relevant.statement in json.dumps(prompt["current_evidence"])
+    after_cycle = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert after_cycle is not None
+    assert after_cycle.state_digests == prior_states.state_digests
+
+
+def test_daemon_cognition_current_observation_changes_later_epistemic_decision(
+        tmp_path: Path) -> None:
+    now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    overheating = make_proposition(namespace="embodiment",
+        subject="lesson:battery_overheat_isolation", predicate="prior_observed_outcome",
+        object_value="reduced_after_isolation", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="A prior device outcome was recorded.")
+    telescope = make_proposition(namespace="embodiment",
+        subject="telescope:orbital:1", predicate="captured_image",
+        object_value="Saturn", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The orbital telescope captured Saturn 1.")
+    for index, proposition in enumerate((overheating, telescope), start=1):
+        epistemic.register_proposition(proposition)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None, proposed_stance="unknown",
+            evidence_binding_ids=(), reason="initialization",
+            rationale=("Battery overheating was reduced after isolation in a prior trial."
+                if proposition.proposition_id == overheating.proposition_id else
+                "The orbital telescope captured an image of Saturn."),
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule",
+            proposer_id=f"daemon-current-retrieval-{index}")
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(), candidate=candidate,
+            correlation_id=f"daemon-current-retrieval-{index}", tick=index,
+            recorded_at=f"2026-11-18T11:00:0{index}Z")
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query=None)
+    assert baseline is not None
+    prior_states = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert prior_states is not None
+    relevant = next(item for item in (overheating, telescope)
+        if item.proposition_id != baseline.proposition_ids[0])
+    unrelated = next(item for item in (overheating, telescope)
+        if item.proposition_id == baseline.proposition_ids[0])
+    capture_calls = []
+
+    class CapturingEpistemicOwner:
+        def __init__(self, *, use_relevance_query: bool) -> None:
+            self.use_relevance_query = use_relevance_query
+
+        def cognitive_projection(self, **kwargs):
+            if not self.use_relevance_query:
+                kwargs.pop("relevance_query", None)
+            projection = epistemic.cognitive_projection(**kwargs)
+            capture_calls.append((kwargs, projection))
+            return projection
+
+    tick = now.isoformat()
+    current_snapshot = WorldStateBoardBuilder().build([{
+        "source_id": "daemon-current-observation",
+        "source_kind": "capability_registry",
+        "subject_id": "battery_thermal_sensor",
+        "stage": "observation", "disposition": "recorded",
+        "observed_at": tick,
+        "payload": {"status": "overheating", "component": "battery"},
+    }])
+
+    class ProjectionConditionedInvoker(FakeInvoker):
+        def __init__(self) -> None:
+            super().__init__()
+            self.receipts = []
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.purpose == "resident_developmental_retrieval_cognition":
+                body = json.loads(request.prompt)
+                packets = (body.get("prior_epistemic_state") or {}).get(
+                    "semantic_packets", ())
+                selected_ids = {packet.get("proposition", {}).get("proposition_id")
+                    for packet in packets if isinstance(packet, Mapping)}
+                if overheating.proposition_id in selected_ids:
+                    self.lesson_statement = (
+                        "Consider the prior battery isolation outcome, but verify "
+                        "that its scope matches the current overheating evidence.")
+                    self.lesson_uncertainty = "medium"
+                    self.lesson_uncertainty_rationale = (
+                        "The matching prior position is historical and its scope "
+                        "must still be checked.")
+                else:
+                    self.lesson_statement = (
+                        "The prior telescope position does not resolve the current "
+                        "battery overheating observation.")
+                    self.lesson_uncertainty = "high"
+                    self.lesson_uncertainty_rationale = (
+                        "No relevant prior battery outcome was selected.")
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            self.receipts.append(receipt)
+            return receipt
+
+    def run_daemon_cycle(label: str, *, use_relevance_query: bool):
+        cognition_root = tmp_path / f"{label}-cognition"
+        if os.name == "nt":
+            from sentientos.windows_handle_custody import ensure_private_child_directory
+            ensure_private_child_directory(tmp_path, f"{label}-cognition")
+            ensure_private_child_directory(cognition_root, "state")
+            ensure_private_child_directory(cognition_root, "history")
+        invoker = ProjectionConditionedInvoker()
+        cognition, _ = owner(cognition_root,
+            allowed_source_kinds=("capability_registry",), max_selected_facts=1,
+            invoker=invoker)
+        surfaces = RuntimeMaintenanceSurfaces(tmp_path,
+            runtime_state_root=tmp_path / f"runtime-{label}",
+            resident_developmental_owner=cognition,
+            epistemic_state_owner=CapturingEpistemicOwner(
+                use_relevance_query=use_relevance_query),
+            epistemic_state_config={"status": "configured",
+                "max_cognitive_projection_count": 1,
+                "cognitive_consumption_enabled": True})  # type: ignore[arg-type]
+        surfaces.build_world_state_board(tick_id=tick)
+        surfaces._world_state_snapshot = current_snapshot
+        feedback = surfaces.run_resident_developmental_cognition(tick_id=tick)
+        request = next(item for item in invoker.requests
+            if item.purpose == "resident_developmental_retrieval_cognition")
+        receipt = next(item for item in invoker.receipts
+            if item.purpose == "resident_developmental_retrieval_cognition")
+        return feedback, request, receipt
+
+    feedback, cognition_request, cognition_receipt = run_daemon_cycle(
+        "ranked", use_relevance_query=True)
+    baseline_feedback, baseline_request, baseline_receipt = run_daemon_cycle(
+        "baseline", use_relevance_query=False)
+
+    query, projection = capture_calls[0]
+    assert feedback["status"] == "completed"
+    assert baseline_feedback["status"] == "completed"
+    assert query["relevance_query"]
+    assert "battery" in query["relevance_query"]
+    assert "overheating" in query["relevance_query"]
+    assert projection is not None
+    assert projection.proposition_ids == (relevant.proposition_id,)
+    assert projection.proposition_ids != (unrelated.proposition_id,)
+    _, baseline_projection = capture_calls[1]
+    assert baseline_projection is not None
+    assert baseline_projection.proposition_ids == (unrelated.proposition_id,)
+    assert projection.current_truth is False and projection.authority is False
+    assert projection.source_tick < int(now.timestamp())
+    prompt = json.loads(cognition_request.prompt)
+    prior = prompt["prior_epistemic_state"]
+    assert prior["semantic_packets"][0]["proposition"]["proposition_id"] == (
+        relevant.proposition_id)
+    selected_packet = prior["semantic_packets"][0]
+    assert selected_packet["proposition"]["statement"] == (
+        "A prior device outcome was recorded.")
+    assert "Battery overheating" in selected_packet["update_candidate_history"][0][
+        "candidate"]["rationale"]
+    assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
+        projection.projection_digest)
+    assert "overheating" in json.dumps(prompt["current_evidence"])
+    baseline_prompt = json.loads(baseline_request.prompt)
+    assert baseline_prompt["current_evidence"] == prompt["current_evidence"]
+    assert baseline_prompt["prior_epistemic_state"]["semantic_packets"][0][
+        "proposition"]["proposition_id"] == unrelated.proposition_id
+    assert baseline_request.upstream_evidence["current_fact_ids"] == (
+        cognition_request.upstream_evidence["current_fact_ids"])
+    ranked_decision = json.loads(cognition_receipt.output_text)
+    baseline_decision = json.loads(baseline_receipt.output_text)
+    assert ranked_decision["recommendation"] == (
+        "Consider the prior battery isolation outcome, but verify that its scope "
+        "matches the current overheating evidence.")
+    assert baseline_decision["recommendation"] == (
+        "The prior telescope position does not resolve the current battery "
+        "overheating observation.")
+    assert ranked_decision["uncertainty"] == "medium"
+    assert baseline_decision["uncertainty"] == "high"
+    after_cycle = epistemic.cognitive_projection(max_states=2,
+        current_tick=int(now.timestamp()))
+    assert after_cycle is not None
+    assert after_cycle.state_digests == prior_states.state_digests
+
+
 def test_companion_bridge_binds_verified_citation_lineage_into_packet_context():
     from sentientos.developmental_companion_bridge import (
         ResidentDevelopmentalCompanionBridge,
@@ -9273,7 +9932,7 @@ def test_companion_interaction_validates_and_forwards_session_context(
     owner._state = lambda: object()
     owner._prior_projection = lambda _state, _tick, **_kwargs: SimpleNamespace(
         requested_record_ids=(), records=())
-    owner._current_projection = lambda _snapshot, **_kwargs: object()
+    owner._current_projection = lambda _snapshot, **_kwargs: SimpleNamespace(facts=())
 
     def cognize(**kwargs):
         captured.update(kwargs)

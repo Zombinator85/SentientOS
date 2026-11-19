@@ -3365,6 +3365,22 @@ class RuntimeMaintenanceSurfaces:
                 prior_self_model = None
                 prior_epistemic_state = None
                 epistemic_projection_tick: int | None = None
+                developmental_owner = self._resident_developmental_owner
+                unwrapped_owner = (developmental_owner._owner
+                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
+                    else developmental_owner)
+                owner_config = getattr(unwrapped_owner, "config", None)
+                staged_request = (load_objective_request(owner_config.state_root)
+                    if owner_config is not None else None)
+                relevance_query = None
+                if (staged_request is None
+                        and getattr(owner_config, "comparison_enabled", False) is not True
+                        and getattr(unwrapped_owner, "objective_task", None) is None):
+                    relevance_builder = getattr(
+                        unwrapped_owner, "selected_current_relevance_context", None)
+                    if callable(relevance_builder):
+                        relevance_query = relevance_builder(
+                            self._world_state_snapshot, maximum_chars=2800) or None
                 config = self._longitudinal_self_model_config
                 if self._epistemic_state_configuration_error is not None:
                     raise ValueError(self._epistemic_state_configuration_error)
@@ -3394,23 +3410,20 @@ class RuntimeMaintenanceSurfaces:
                         and self._longitudinal_self_model_owner is not None):
                     prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
                         before_tick=tick_id, max_claims=config.max_projection_claims,
-                        allowed_predicates=config.allowed_predicates)
+                        allowed_predicates=config.allowed_predicates,
+                        **({"relevance_query": relevance_query}
+                            if relevance_query is not None else {}))
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
                     assert epistemic_projection_tick is not None
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
-                        current_tick=epistemic_projection_tick)
+                        current_tick=epistemic_projection_tick,
+                        **({"relevance_query": relevance_query}
+                            if relevance_query is not None else {}))
                 objective_request_status = None
                 objective_measurement_summary = None
                 existing_objective_request = False
-                developmental_owner = self._resident_developmental_owner
-                unwrapped_owner = (developmental_owner._owner
-                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
-                    else developmental_owner)
-                owner_config = getattr(unwrapped_owner, "config", None)
-                staged_request = (load_objective_request(owner_config.state_root)
-                    if owner_config is not None else None)
                 if staged_request is not None:
                     request_id = str(staged_request["request_id"])
                     request_digest = str(staged_request["request_digest"])

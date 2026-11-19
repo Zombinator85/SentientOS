@@ -127,12 +127,23 @@ record digest, the digest of the text projection supplied to the embedder, the
 embedder identity, the tick when it was first indexed, and the vector digest; it
 stores no history text. A later tick may rank all matching cached vectors, up to
 the 4,096-record history bound, while current-tick additions remain unavailable
-to same-tick ranking. The v16 retrieval policy identity binds the embedder and
-the exact cached/current vector inputs used for selection. Cache custody or
-validation failure does not discard the current bounded semantic batch, and an
-unavailable or malformed embedder still selects under the explicit lexical
-fallback policy.
+to same-tick ranking. The v18 retrieval policy identity binds the embedder and
+the exact cached/current vector inputs used for selection. Decision polarity
+ranks first, then lexical relevance, then semantic similarity. Thus an
+above-floor semantic-only record can still outrank the recency fallback when
+no lexical match exists, while it cannot displace a lexically relevant record.
+A semantic score below 0.25 is excluded; the policy version binds both this
+fixed cosine floor and the ranking order. Cache custody or validation failure
+does not discard the current bounded semantic batch, and an unavailable or
+malformed embedder still selects under the explicit lexical fallback policy.
+The floor is a software default, not a claim that every embedder has equivalent
+similarity calibration.
 
+`tests/test_resident_developmental_cognition.py::test_weak_semantic_matches_do_not_displace_lexical_or_recent_history`
+checks that a sub-floor match falls back to recency and that an above-floor
+near-match cannot displace exact lexical relevance. Strong lexically disjoint
+retrieval is covered by
+`test_semantic_history_retrieval_recovers_lexically_disjoint_experience`.
 `tests/test_resident_developmental_cognition.py::test_indexed_semantic_history_changes_later_fake_decision_across_restart`
 uses deterministic vectors to place a lexically disjoint old record in one
 tick's bounded sample, then demonstrates that a fresh owner can retrieve and
@@ -144,7 +155,11 @@ adherence, generalized learning, or improved decisions.
 
 An explicitly operator-confirmed companion developmental cycle can also use a
 configured longitudinal self-model owner. The bridge captures the eligible
-prior self-model projection before cognition, runs the existing governed
+prior self-model and epistemic projections after constructing the cycle's
+validated World-State snapshot and before cognition. Bounded selected snapshot
+facts provide relevance terms for those prior projections; the facts remain in
+their separate current-evidence channel and do not alter prior posture. The
+bridge then runs the existing governed
 interpretation/writeback owner, then reconciles the same bounded World-State
 snapshot through that existing self-model owner. The reconciliation uses the
 snapshot's timestamp boundary rather than the request's opaque cycle ID. As in
@@ -153,6 +168,12 @@ that preceded it; only a later cognitive tick can select it. The cycle response
 reports reconciliation status and identity separately from developmental
 writeback, including a degraded status if reconciliation fails after writeback.
 This does not roll back or misreport an already committed writeback.
+The deterministic integration test
+`tests/test_resident_developmental_cognition.py::test_confirmed_developmental_cycle_uses_current_observation_to_retrieve_prior_epistemic_state`
+demonstrates a current observation selecting the matching prior position in the
+production cycle path. This proves selection and prompt delivery under a fake
+invoker; it does not establish that a real model applies the position
+appropriately.
 
 On Windows, longitudinal self-model reconciliations now use the existing
 handle-bound immutable publisher when the configured custody root already
@@ -600,3 +621,42 @@ Unverified linkage contributes no priority. CPU-only counterfactual tests show
 the verified handoff reaches the bridge and the production bridge selects the
 cited proposition over an unrelated state; they do not establish that a real
 model will apply the selected state correctly.
+
+
+History selection for ordinary cognition ticks now also considers bounded
+selected current World-State facts as ranking context, except in objective,
+family, intervention, and epistemic-revision paths. Companion retrieval adds
+those facts only for elliptical questions, alongside the previous user turn.
+The context affects which historical packets are selected; current evidence
+remains separate and history remains non-authoritative. A CPU-only deterministic
+counterfactual shows a matching older experience reaching the real companion
+prompt and changing the fake invoker's decision over a recent unrelated record.
+Real-model use of that context and longitudinal decision improvement remain
+unverified.
+
+The long-running daemon cognition path applies the same bounded selected
+World-State context when ranking prior self-model claims and epistemic states.
+It does so after the same-tick snapshot exists and before cognition, while
+staged objective requests and comparison cycles retain their experiment-specific
+projection selection. The selected observations stay in current evidence; the
+retrieved projections remain historical and non-authoritative. A deterministic
+daemon-path counterfactual shows a battery-overheating observation selecting
+the matching prior epistemic position over a newer unrelated telescope
+position, with the selected packet digest reaching the production cognition
+prompt and the epistemic owner state unchanged. A paired old-ordering control
+uses the same current evidence but selects the unrelated telescope position;
+the CPU fake invoker then gives a different recommendation and higher
+uncertainty. This demonstrates current-context retrieval changing a later
+daemon cognition result while preserving the evidence boundary. It does not
+establish real-model application or improved outcomes.
+
+Elliptical companion history selection also uses bounded text from the selected,
+source-turn-verified canonical user memories. When a selected memory correction
+marks an older memory as superseded, only the correcting memory contributes
+ranking terms; the bound memory prompt still preserves both records and their
+correction lineage. These terms only rank developmental history and do not
+become evidence or authority. A deterministic counterfactual shows a retained
+garden constraint selecting a matching older experience over a recent unrelated
+record, while a specific telescope question stays question-driven. The
+experiment uses a fake invoker and does not establish real-model adherence or
+improved outcomes.

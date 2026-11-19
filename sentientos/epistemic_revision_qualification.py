@@ -249,10 +249,17 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "not_scored_local_cognition_response_contract_has_no_reason_code")
     prior = context.get("prior_epistemic_state")
     delivered = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
+    expected_visible_packet = expected_packet
+    if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
+        from .resident_developmental_cognition import (
+            _epistemic_revision_probe_packet_view,
+        )
+        expected_visible_packet = _epistemic_revision_probe_packet_view(expected_packet)
     complete = (isinstance(prior, dict)
         and prior.get("projection_digest") == projection.projection_digest
         and observation.get("epistemic_projection_digest") == projection.projection_digest
-        and any(_canonical(packet) == _canonical(expected_packet) for packet in delivered)
+        and any(_canonical(packet) == _canonical(expected_visible_packet)
+            for packet in delivered)
         and expected_packet["packet_id"] in observation.get("epistemic_consumed_packet_ids", ())
         and expected_packet["packet_digest"] in observation.get("epistemic_consumed_packet_digests", ()))
     result: dict[str, Any] = {"observation_id": observation_id,
@@ -342,15 +349,18 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     current_evidence = context.get("current_evidence")
     available = (set(current_evidence.get("fact_ids", ()))
         if isinstance(current_evidence, Mapping) else set())
-    binding_ids = {row["binding_id"] for row in expected_packet["active_evidence_bindings"]}
-    binding_ids.update(row["binding_id"] for row in expected_packet["removed_evidence_history"])
+    active_binding_ids = {row["binding_id"]
+        for row in expected_packet["active_evidence_bindings"]}
+    historical_binding_ids = {row["binding_id"]
+        for row in expected_packet["removed_evidence_history"]}
+    binding_ids = active_binding_ids | historical_binding_ids
     available.update(binding_ids)
     available.add(str(expected_packet["packet_id"]))
     if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
         if not isinstance(probe, Mapping):
             raise ValueError("qualification_probe_evidence_allowlist_mismatch")
         allowed = probe.get("allowed_evidence_binding_ids")
-        expected_allowlist = sorted(binding_ids)
+        expected_allowlist = sorted(active_binding_ids)
         if (not isinstance(allowed, list)
                 or any(not isinstance(item, str) or not item for item in allowed)
                 or len(allowed) != len(set(allowed))
