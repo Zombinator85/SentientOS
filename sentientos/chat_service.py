@@ -494,6 +494,26 @@ def _is_non_topic_acknowledgment(text: str) -> bool:
     return normalized in _NON_TOPIC_ACKNOWLEDGMENTS
 
 
+def _ordinary_epistemic_relevance_query(question: str,
+        history: ContextSnapshot) -> str:
+    """Resolve sparse epistemic lookups from the latest verified prior user topic."""
+    if not is_sparse_or_elliptical_cognition_query(question):
+        return question
+    for turn in reversed(history.turns):
+        if not isinstance(turn, Mapping) or turn.get("role") != "user":
+            continue
+        text = turn.get("text")
+        if (not isinstance(text, str) or not text.strip() or len(text) > 1200
+                or turn.get("text_digest") != digest_payload({"text": text})
+                or _is_non_topic_acknowledgment(text)):
+            continue
+        cue_budget = min(1000, 1200 - len(question) - 1)
+        if cue_budget < 64:
+            return question
+        return f"{question} {text[:cue_budget]}"
+    return question
+
+
 def _is_social_checkin_continuation(message: str) -> bool:
     """Recognize a check-in that explicitly refers to the immediately prior exchange."""
     normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -4263,7 +4283,9 @@ class PersistentConversationService:
             provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
             if callable(provider):
                 try:
-                    candidate_context = provider(question=message,
+                    epistemic_query = _ordinary_epistemic_relevance_query(
+                        message, history)
+                    candidate_context = provider(question=epistemic_query,
                         max_input_chars=8000)
                     if isinstance(candidate_context, Mapping):
                         epistemic_context = candidate_context
