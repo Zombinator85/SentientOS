@@ -1791,18 +1791,19 @@ def run() -> dict[str, Any]:
             proprioception_provider=lambda: (pre_action_proprioception,),
             clock=lambda: pre_action_at)
         decision_question = (
-            "For this synthetic test, the avatar has the task goal of reaching "
-            "the marked target directly in front of it. Choose the allowed next "
-            "pose (reach or idle) that advances that goal, and predict the "
-            "resulting encoder pose using the supplied deterministic transition "
-            "table. The current encoder pose is idle and both poses are available. "
-            "The table means choosing reach predicts encoder pose reach; choosing "
-            "idle predicts encoder pose idle. In your response field, return "
-            "exactly one of these tokens with no prose: reach->reach, "
-            "reach->idle, idle->reach, or idle->idle. The first pose is the "
-            "requested action and the second is your prediction. This is a "
-            "proposal only; do not claim an action occurred. Base the choice on "
-            "the supplied current evidence and task goal.")
+            "For this hypothetical synthetic planning scenario, assume the "
+            "avatar starts in encoder pose idle, both poses are available, and "
+            "its stated goal is to reach the marked target directly in front. "
+            "The deterministic transition table says choosing reach predicts "
+            "encoder pose reach, while choosing idle predicts encoder pose idle. "
+            "Choose the allowed pose that advances the stated goal and predict "
+            "the resulting encoder pose. Treat the scenario as a stipulated "
+            "planning premise, not an observation about the real world; the "
+            "synthetic proprioception source is unverified. Return exactly one "
+            "token with no prose: reach->reach, reach->idle, idle->reach, or "
+            "idle->idle. The first pose is the requested action and the second "
+            "is your prediction. This is a proposal only; do not claim an action "
+            "occurred. Base the choice on the stated goal and scenario.")
         cognitive_decision = _verified_companion_replay(
             decision_bridge, decision_owner,
             request_id=RUN_ID + ":pre-action-decision", question=decision_question)
