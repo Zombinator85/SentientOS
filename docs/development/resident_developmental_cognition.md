@@ -929,7 +929,11 @@ so an operator cannot silently rerun the same preregistration and retain only
 the more favorable outputs. Result persistence also requires that execution
 claim. This is a one-shot custody boundary, not crash-resume support.
 
-Protocol v2 and result v2 bind a distinct scorer identity digest. The
+Protocol v3 binds a distinct scorer identity digest and a cohort digest over
+the session, task, scoring plan and scorer,
+serving-model identity, generation configuration, shared prompt, and
+selected-history projection. The result v2 packet binds each condition's
+outputs and scores back to that protocol. The
 `build_ordinary_chat_history_objective_scoring_plan` helper freezes an existing
 deterministic affine prediction task and evaluator source identity. The scoring
 plan's question must occur in all three matched prompts, and
@@ -941,18 +945,23 @@ with the protocol and plan digests, output digest, opaque sample ID, bounded
 score payload, and scorer identity digest. Result persistence and reload
 recompute each score against the stored task plan. This verifies score
 semantics under the bound local evaluator source; the source digest is not a
-cryptographically authenticated scorer identity. The artifact format requires
-the current protocol schema, while legacy protocol v1 artifacts remain
-readable for audit. After evaluator source changes, prior plans and score
-artifacts remain loadable and retain their digest bindings, but automatic
+cryptographically authenticated scorer identity. New score artifacts require
+protocol v3; protocol v1 and v2 artifacts remain readable for audit. After
+evaluator source changes, prior plans and score artifacts remain loadable and
+retain their digest bindings, but automatic
 semantic revalidation reports false; new scoring refuses a source mismatch.
 
-The intervention store also allocates a durable sequential schedule per source
-session and task commitment. `next_trial_index` exposes the next slot before
-prompt construction; protocol persistence claims that slot immutably and
+The intervention store allocates a durable sequential schedule per source
+session, task commitment, scorer plan and identity, serving-model identity,
+generation configuration, shared prompt, and selected-history projection. It
+creates an initial matched prompt bundle to derive that cohort identity before
+allocating a trial index.
+`next_trial_index` exposes the next slot before final condition ordering;
+protocol persistence claims that slot immutably and
 rejects skipped indices and a different protocol reusing a slot. The runner
-requires the matching sequential schedule claim before executing. Earlier v2 protocols without a schedule remain
-readable for audit but cannot enter the scheduled runner.
+requires the matching sequential schedule claim before executing. Existing v1
+and v2 protocols and v1 schedule claims remain readable for audit; only v3
+protocols use model-and-context-scoped schedules.
 
 `OrdinaryChatHistoryInterventionStore.prepare_intervention` now joins the
 preparation path: it builds the deterministic affine task and private scorer

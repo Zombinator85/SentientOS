@@ -26,7 +26,8 @@ from .developmental_history_intervention_experiment import (
 )
 
 LEGACY_PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v1"
-PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v2"
+PREVIOUS_PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v2"
+PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v3"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
@@ -37,7 +38,8 @@ SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
 SCORE_PLAN_ID_PREFIX = "ordinary-history-score-plan-"
-SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
+LEGACY_SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
+SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v2"
 SCHEDULE_ID_PREFIX = "ordinary-history-schedule-"
 EXECUTION_SCHEMA = "sentientos.ordinary_chat_history_execution_claim:v1"
 EXECUTION_ID_PREFIX = "ordinary-history-execution-"
@@ -58,9 +60,35 @@ _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 _BLIND_SAMPLE_ID = re.compile(r"blind-sample-[0-9a-f]{32}")
 
 
-def _schedule_key(session_id: str, task_commitment_digest: str) -> str:
-    return digest_payload({"session_id": session_id,
-        "task_commitment_digest": task_commitment_digest})[:24]
+def _schedule_key(session_id: str, task_commitment_digest: str, *,
+        cohort_digest: str | None = None) -> str:
+    semantic = {"session_id": session_id,
+        "task_commitment_digest": task_commitment_digest}
+    if cohort_digest is not None:
+        semantic["cohort_digest"] = cohort_digest
+    return digest_payload(semantic)[:24]
+
+
+def _schedule_cohort_digest(*, session_id: str, task_commitment_digest: str,
+        serving_model_identity_digest: str, generation_config_digest: str,
+        scoring_plan_digest: str, scorer_identity_digest: str,
+        prompt_verification: Mapping[str, Any]) -> str:
+    fields = ("matched_non_history_prompt_digest",
+        "developmental_history_prompt_block_digest",
+        "history_present_selection_digest", "history_restored_selection_digest")
+    if (not isinstance(prompt_verification, Mapping)
+            or any(not isinstance(prompt_verification.get(key), str)
+                or _HEX_DIGEST.fullmatch(prompt_verification[key]) is None
+                for key in fields)):
+        raise ValueError("ordinary_chat_history_schedule_cohort_prompt_invalid")
+    semantic = {"session_id": session_id,
+        "task_commitment_digest": task_commitment_digest,
+        "serving_model_identity_digest": serving_model_identity_digest,
+        "generation_config_digest": generation_config_digest,
+        "scoring_plan_digest": scoring_plan_digest,
+        "scorer_identity_digest": scorer_identity_digest,
+        **{key: prompt_verification[key] for key in fields}}
+    return digest_payload(semantic)
 
 
 def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
@@ -69,10 +97,19 @@ def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
             or not isinstance(protocol.get("session_id"), str)
             or not isinstance(protocol.get("task_commitment_digest"), str)):
         raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
+    is_current = protocol.get("schema_version") == PROTOCOL_SCHEMA
+    if is_current and (not isinstance(protocol.get("schedule_cohort_digest"), str)
+            or _HEX_DIGEST.fullmatch(protocol["schedule_cohort_digest"]) is None):
+        raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
+    if protocol.get("schema_version") not in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+        raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
+    cohort_digest = (protocol.get("schedule_cohort_digest") if is_current else None)
     schedule_id = (SCHEDULE_ID_PREFIX
-        + _schedule_key(protocol["session_id"], protocol["task_commitment_digest"])
+        + _schedule_key(protocol["session_id"], protocol["task_commitment_digest"],
+            cohort_digest=cohort_digest)
         + f"-{trial_index:08d}")
-    semantic = {"schema_version": SCHEDULE_SCHEMA,
+    semantic = {"schema_version": SCHEDULE_SCHEMA if is_current
+            else LEGACY_SCHEDULE_SCHEMA,
         "schedule_id": schedule_id,
         "session_id": protocol["session_id"],
         "task_commitment_digest": protocol["task_commitment_digest"],
@@ -81,35 +118,47 @@ def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
         "protocol_digest": protocol["protocol_digest"],
         "condition_order": list(protocol["condition_order"]),
         "authority": False}
+    if is_current:
+        semantic["schedule_cohort_digest"] = cohort_digest
     digest = digest_payload(semantic)
     return {**semantic, "schedule_digest": digest}
 
 
 def _verify_schedule_claim(claim: Mapping[str, Any], *,
         protocol: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    expected = {"schema_version", "schedule_id", "session_id",
+    legacy_fields = {"schema_version", "schedule_id", "session_id",
         "task_commitment_digest", "trial_index", "protocol_id",
         "protocol_digest", "condition_order", "authority", "schedule_digest"}
+    current_fields = legacy_fields | {"schedule_cohort_digest"}
+    schema = claim.get("schema_version") if isinstance(claim, Mapping) else None
+    expected = (legacy_fields if schema == LEGACY_SCHEDULE_SCHEMA else
+        current_fields if schema == SCHEDULE_SCHEMA else set())
     if not isinstance(claim, Mapping) or set(claim) != expected:
         raise ValueError("ordinary_chat_history_schedule_claim_invalid")
     semantic = {key: value for key, value in claim.items()
         if key != "schedule_digest"}
     trial_index = claim.get("trial_index")
-    if (claim.get("schema_version") != SCHEDULE_SCHEMA
+    allowed_orders = {tuple(ordinary_chat_history_condition_order(trial_index,
+        policy="balanced_six_permutations:v1"))}
+    if schema == LEGACY_SCHEDULE_SCHEMA:
+        allowed_orders.add(tuple(ordinary_chat_history_condition_order(trial_index,
+            policy="alternating_present_withheld_first:v1")))
+    if (schema not in {LEGACY_SCHEDULE_SCHEMA, SCHEDULE_SCHEMA}
             or type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
             or claim.get("authority") is not False
             or not isinstance(claim.get("session_id"), str)
             or not isinstance(claim.get("task_commitment_digest"), str)
             or not isinstance(claim.get("protocol_id"), str)
             or not isinstance(claim.get("protocol_digest"), str)
+            or (schema == SCHEDULE_SCHEMA and (
+                not isinstance(claim.get("schedule_cohort_digest"), str)
+                or _HEX_DIGEST.fullmatch(claim["schedule_cohort_digest"]) is None))
             or not isinstance(claim.get("condition_order"), list)
-            or tuple(claim["condition_order"]) not in {
-                tuple(ordinary_chat_history_condition_order(trial_index,
-                    policy="alternating_present_withheld_first:v1")),
-                tuple(ordinary_chat_history_condition_order(trial_index,
-                    policy="balanced_six_permutations:v1"))}
+            or tuple(claim["condition_order"]) not in allowed_orders
             or claim.get("schedule_id") != (SCHEDULE_ID_PREFIX
-                + _schedule_key(claim["session_id"], claim["task_commitment_digest"])
+                + _schedule_key(claim["session_id"], claim["task_commitment_digest"],
+                    cohort_digest=(claim.get("schedule_cohort_digest")
+                        if schema == SCHEDULE_SCHEMA else None))
                 + f"-{trial_index:08d}")
             or claim.get("schedule_digest") != digest_payload(semantic)):
         raise ValueError("ordinary_chat_history_schedule_claim_invalid")
@@ -121,6 +170,7 @@ def _verify_schedule_claim(claim: Mapping[str, Any], *,
         "schedule_id": claim["schedule_id"],
         "schedule_digest": claim["schedule_digest"],
         "protocol_id": claim["protocol_id"],
+        "schedule_cohort_digest": claim.get("schedule_cohort_digest"),
         "trial_index": trial_index,
         "condition_order": list(claim["condition_order"]),
         "authority": False}
@@ -264,7 +314,8 @@ def build_ordinary_chat_history_score_artifact(*, protocol: Mapping[str, Any],
         sample_id: str, output_digest: str, scorer_identity_digest: str,
         score_payload: Mapping[str, Any]) -> dict[str, Any]:
     if (not isinstance(protocol, Mapping)
-            or protocol.get("schema_version") != PROTOCOL_SCHEMA
+            or protocol.get("schema_version") not in {
+                PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}
             or not isinstance(protocol.get("protocol_id"), str)
             or not isinstance(protocol.get("protocol_digest"), str)
             or not isinstance(protocol.get("scoring_plan_digest"), str)
@@ -491,7 +542,8 @@ def build_ordinary_chat_history_intervention_result(*,
     """
     verified = verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
-    if protocol.get("schema_version") != PROTOCOL_SCHEMA:
+    if protocol.get("schema_version") not in {
+            PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
         raise ValueError("ordinary_chat_history_result_requires_current_protocol")
     if not isinstance(conditions, Mapping) or set(conditions) != set(CONDITIONS):
         raise ValueError("ordinary_chat_history_result_conditions_invalid")
@@ -621,7 +673,8 @@ def build_ordinary_chat_history_intervention_evaluation(*,
     checked = verify_ordinary_chat_history_intervention_result(result,
         protocol=protocol, prompt_bundle=prompt_bundle,
         score_artifacts=score_artifacts, scoring_plan=scoring_plan)
-    if (checked["score_artifact_bindings_verified"] is not True
+    if (protocol.get("schema_version") != PROTOCOL_SCHEMA
+            or checked["score_artifact_bindings_verified"] is not True
             or checked["score_semantics_verified"] is not True):
         raise ValueError("ordinary_chat_history_evaluation_scores_unverified")
     condition_metrics: dict[str, dict[str, Any]] = {}
@@ -699,6 +752,7 @@ def build_ordinary_chat_history_intervention_evaluation(*,
         "scorer_identity_digest": protocol["scorer_identity_digest"],
         "serving_model_identity_digest": protocol["serving_model_identity_digest"],
         "generation_config_digest": protocol["generation_config_digest"],
+        "schedule_cohort_digest": protocol["schedule_cohort_digest"],
         "matched_non_history_prompt_digest": prompt_bundle["verification"][
             "matched_non_history_prompt_digest"],
         "developmental_history_prompt_block_digest": prompt_bundle["verification"][
@@ -760,6 +814,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     identity_fields = ("session_id", "task_commitment_digest",
         "scoring_plan_digest", "scorer_identity_digest",
         "serving_model_identity_digest", "generation_config_digest",
+        "schedule_cohort_digest",
         "matched_non_history_prompt_digest",
         "developmental_history_prompt_block_digest",
         "history_present_selection_digest",
@@ -768,6 +823,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         "result_id", "result_digest", "session_id", "task_commitment_digest",
         "scoring_plan_digest", "scorer_identity_digest",
         "serving_model_identity_digest", "generation_config_digest",
+        "schedule_cohort_digest",
         "matched_non_history_prompt_digest",
         "developmental_history_prompt_block_digest",
         "history_present_selection_digest", "history_restored_selection_digest",
@@ -870,10 +926,11 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         "scorer_identity_digest": cohort_identity[3],
         "serving_model_identity_digest": cohort_identity[4],
         "generation_config_digest": cohort_identity[5],
-        "matched_non_history_prompt_digest": cohort_identity[6],
-        "developmental_history_prompt_block_digest": cohort_identity[7],
-        "history_present_selection_digest": cohort_identity[8],
-        "history_restored_selection_digest": cohort_identity[9],
+        "schedule_cohort_digest": cohort_identity[6],
+        "matched_non_history_prompt_digest": cohort_identity[7],
+        "developmental_history_prompt_block_digest": cohort_identity[8],
+        "history_present_selection_digest": cohort_identity[9],
+        "history_restored_selection_digest": cohort_identity[10],
         "trial_count": len(ordered), "counterbalance_block_count": len(ordered) // 6,
         "trial_indices": indices, "trial_evaluation_digests": [
             item["evaluation_digest"] for item in ordered],
@@ -1216,10 +1273,13 @@ def verify_ordinary_chat_history_intervention_protocol(
         "protocol_digest",
     }
     schema = protocol.get("schema_version") if isinstance(protocol, Mapping) else None
-    if schema == PROTOCOL_SCHEMA:
+    if schema in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
         expected_fields.add("scorer_identity_digest")
+    if schema == PROTOCOL_SCHEMA:
+        expected_fields.add("schedule_cohort_digest")
     if (not isinstance(protocol, Mapping) or set(protocol) != expected_fields
-            or schema not in {LEGACY_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}
+            or schema not in {LEGACY_PROTOCOL_SCHEMA, PREVIOUS_PROTOCOL_SCHEMA,
+                PROTOCOL_SCHEMA}
             or not isinstance(protocol.get("run_id"), str)
             or _RUN_ID.fullmatch(protocol["run_id"]) is None
             or not isinstance(protocol.get("session_id"), str)
@@ -1235,7 +1295,7 @@ def verify_ordinary_chat_history_intervention_protocol(
         if not isinstance(protocol.get(key), str) or _HEX_DIGEST.fullmatch(
                 protocol[key]) is None:
             raise ValueError("ordinary_chat_history_protocol_digest_invalid")
-    if schema == PROTOCOL_SCHEMA:
+    if schema in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
         scorer_digest = protocol.get("scorer_identity_digest")
         if (not isinstance(scorer_digest, str)
                 or _HEX_DIGEST.fullmatch(scorer_digest) is None
@@ -1246,6 +1306,20 @@ def verify_ordinary_chat_history_intervention_protocol(
             or protocol.get("serving_model_identity_digest")
                 != digest_payload(dict(identity))):
         raise ValueError("ordinary_chat_history_protocol_model_identity_invalid")
+    if schema == PROTOCOL_SCHEMA:
+        if bundle_verification.get("condition_order_policy") != (
+                "balanced_six_permutations:v1"):
+            raise ValueError("ordinary_chat_history_protocol_schedule_policy_invalid")
+        expected_cohort_digest = _schedule_cohort_digest(
+            session_id=protocol["session_id"],
+            task_commitment_digest=protocol["task_commitment_digest"],
+            serving_model_identity_digest=protocol["serving_model_identity_digest"],
+            generation_config_digest=protocol["generation_config_digest"],
+            scoring_plan_digest=protocol["scoring_plan_digest"],
+            scorer_identity_digest=protocol["scorer_identity_digest"],
+            prompt_verification=prompt_bundle["verification"])
+        if protocol.get("schedule_cohort_digest") != expected_cohort_digest:
+            raise ValueError("ordinary_chat_history_protocol_schedule_cohort_mismatch")
     trial_index = protocol.get("trial_index")
     try:
         order = ordinary_chat_history_condition_order(trial_index,
@@ -1298,7 +1372,7 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
         source_assistant_turn_id: str, source_assistant_response_digest: str,
         serving_model_identity: Mapping[str, Any], generation_config_digest: str,
         task_commitment_digest: str, scoring_plan_digest: str,
-        scorer_identity_digest: str) -> dict[str, Any]:
+        scorer_identity_digest: str, schedule_cohort_digest: str) -> dict[str, Any]:
     """Freeze exact prompts, serving identity, and independent scoring plan."""
     if not isinstance(prompt_bundle, Mapping):
         raise ValueError("ordinary_chat_history_protocol_prompt_bundle_invalid")
@@ -1322,6 +1396,7 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
         "serving_model_identity_digest": digest_payload(
             dict(serving_model_identity)),
         "generation_config_digest": generation_config_digest,
+        "schedule_cohort_digest": schedule_cohort_digest,
         "prompt_bundle_digest": verified_bundle["prompt_bundle_digest"],
         "condition_order": list(verified_bundle["condition_order"]),
         "condition_prompt_digests": dict(
@@ -1368,14 +1443,33 @@ class OrdinaryChatHistoryInterventionStore:
         question = scoring_plan["task_descriptor"].get("question")
         if context_arguments.get("current_message") != question:
             raise ValueError("ordinary_chat_history_preparation_task_prompt_mismatch")
-        trial_index = self.next_trial_index(session_id=session_id,
-            task_commitment_digest=scoring_plan["task_commitment_digest"])
-        prompt_bundle = build_ordinary_chat_history_intervention_prompts(
+        initial_prompt_bundle = build_ordinary_chat_history_intervention_prompts(
             context_arguments=context_arguments,
             history_present=history_present,
             history_withheld=history_withheld,
             history_restored=history_restored,
-            trial_index=trial_index)
+            trial_index=0)
+        if not isinstance(serving_model_identity, Mapping) or not serving_model_identity:
+            raise ValueError("ordinary_chat_history_protocol_model_identity_invalid")
+        model_identity_digest = digest_payload(dict(serving_model_identity))
+        schedule_cohort_digest = _schedule_cohort_digest(
+            session_id=session_id,
+            task_commitment_digest=scoring_plan["task_commitment_digest"],
+            serving_model_identity_digest=model_identity_digest,
+            generation_config_digest=generation_config_digest,
+            scoring_plan_digest=scoring_plan["scoring_plan_digest"],
+            scorer_identity_digest=scoring_plan["scorer_identity_digest"],
+            prompt_verification=initial_prompt_bundle["verification"])
+        trial_index = self.next_trial_index(session_id=session_id,
+            task_commitment_digest=scoring_plan["task_commitment_digest"],
+            schedule_cohort_digest=schedule_cohort_digest)
+        prompt_bundle = (initial_prompt_bundle if trial_index == 0 else
+            build_ordinary_chat_history_intervention_prompts(
+                context_arguments=context_arguments,
+                history_present=history_present,
+                history_withheld=history_withheld,
+                history_restored=history_restored,
+                trial_index=trial_index))
         verify_ordinary_chat_history_objective_scoring_plan(
             scoring_plan, prompt_bundle=prompt_bundle)
         protocol = build_ordinary_chat_history_intervention_protocol(
@@ -1387,7 +1481,8 @@ class OrdinaryChatHistoryInterventionStore:
             generation_config_digest=generation_config_digest,
             task_commitment_digest=scoring_plan["task_commitment_digest"],
             scoring_plan_digest=scoring_plan["scoring_plan_digest"],
-            scorer_identity_digest=scoring_plan["scorer_identity_digest"])
+            scorer_identity_digest=scoring_plan["scorer_identity_digest"],
+            schedule_cohort_digest=schedule_cohort_digest)
         protocol_id = self.persist_protocol(protocol,
             prompt_bundle=prompt_bundle, scoring_plan=scoring_plan)
         reloaded = self.load_protocol(protocol_id, prompt_bundle=prompt_bundle,
@@ -1400,9 +1495,10 @@ class OrdinaryChatHistoryInterventionStore:
             "inference_started": False, "authority": False}
 
     def _schedule_path(self, session_id: str, task_commitment_digest: str,
-            trial_index: int) -> Path:
+            trial_index: int, *, schedule_cohort_digest: str | None = None) -> Path:
         schedule_id = (SCHEDULE_ID_PREFIX + _schedule_key(session_id,
-            task_commitment_digest) + f"-{trial_index:08d}")
+            task_commitment_digest, cohort_digest=schedule_cohort_digest)
+            + f"-{trial_index:08d}")
         return self._store.protocols / f"{schedule_id}.json"
 
     def _execution_path(self, protocol: Mapping[str, Any]) -> Path:
@@ -1471,9 +1567,11 @@ class OrdinaryChatHistoryInterventionStore:
         return evaluation["evaluation_id"]
 
     def _next_trial_index(self, session_id: str, task_commitment_digest: str, *,
+            schedule_cohort_digest: str | None = None,
             retry_protocol_id: str | None = None) -> int:
         for trial_index in range(MAX_SCHEDULED_TRIALS):
-            path = self._schedule_path(session_id, task_commitment_digest, trial_index)
+            path = self._schedule_path(session_id, task_commitment_digest, trial_index,
+                schedule_cohort_digest=schedule_cohort_digest)
             try:
                 claim = self._store._read_json(path)
             except FileNotFoundError:
@@ -1481,6 +1579,8 @@ class OrdinaryChatHistoryInterventionStore:
             _verify_schedule_claim(claim)
             if (claim.get("session_id") != session_id
                     or claim.get("task_commitment_digest") != task_commitment_digest
+                    or (schedule_cohort_digest is not None
+                        and claim.get("schedule_cohort_digest") != schedule_cohort_digest)
                     or claim.get("trial_index") != trial_index):
                 raise ValueError("ordinary_chat_history_schedule_sequence_invalid")
             if claim.get("protocol_id") == retry_protocol_id:
@@ -1498,29 +1598,38 @@ class OrdinaryChatHistoryInterventionStore:
                     or prior.get("protocol_digest") != claim.get("protocol_digest")
                     or prior.get("session_id") != session_id
                     or prior.get("task_commitment_digest") != task_commitment_digest
+                    or prior.get("schedule_cohort_digest") != claim.get(
+                        "schedule_cohort_digest")
                     or prior.get("trial_index") != trial_index
                     or prior.get("condition_order") != claim.get("condition_order")):
                 raise ValueError("ordinary_chat_history_schedule_protocol_binding_invalid")
         raise ValueError("ordinary_chat_history_schedule_trial_limit_reached")
 
     def next_trial_index(self, *, session_id: str,
-            task_commitment_digest: str) -> int:
-        """Return the next durable counterbalance slot for this session/task."""
+            task_commitment_digest: str,
+            schedule_cohort_digest: str | None = None) -> int:
+        """Return the next durable slot for the exact session/task/model/context."""
         if (not isinstance(session_id, str) or _SESSION_ID.fullmatch(session_id) is None
                 or not isinstance(task_commitment_digest, str)
-                or _HEX_DIGEST.fullmatch(task_commitment_digest) is None):
+                or _HEX_DIGEST.fullmatch(task_commitment_digest) is None
+                or (schedule_cohort_digest is not None
+                    and (not isinstance(schedule_cohort_digest, str)
+                        or _HEX_DIGEST.fullmatch(schedule_cohort_digest) is None))):
             raise ValueError("ordinary_chat_history_schedule_key_invalid")
-        return self._next_trial_index(session_id, task_commitment_digest)
+        return self._next_trial_index(session_id, task_commitment_digest,
+            schedule_cohort_digest=schedule_cohort_digest)
 
     def _persist_schedule_claim(self, protocol: Mapping[str, Any]) -> dict[str, Any]:
         claim = _build_schedule_claim(protocol)
         index = self._next_trial_index(protocol["session_id"],
             protocol["task_commitment_digest"],
+            schedule_cohort_digest=protocol.get("schedule_cohort_digest"),
             retry_protocol_id=protocol["protocol_id"])
         if index != protocol["trial_index"]:
             raise ValueError("ordinary_chat_history_trial_index_not_next")
         path = self._schedule_path(protocol["session_id"],
-            protocol["task_commitment_digest"], index)
+            protocol["task_commitment_digest"], index,
+            schedule_cohort_digest=protocol.get("schedule_cohort_digest"))
         self._store._write_immutable(path, claim)
         reloaded = self._store._read_json(path)
         _verify_schedule_claim(reloaded, protocol=protocol)
@@ -1531,11 +1640,13 @@ class OrdinaryChatHistoryInterventionStore:
             raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
         next_index = self._next_trial_index(protocol["session_id"],
             protocol["task_commitment_digest"],
+            schedule_cohort_digest=protocol.get("schedule_cohort_digest"),
             retry_protocol_id=protocol["protocol_id"])
         if next_index != protocol["trial_index"]:
             raise ValueError("ordinary_chat_history_schedule_sequence_invalid")
         path = self._schedule_path(protocol["session_id"],
-            protocol["task_commitment_digest"], protocol["trial_index"])
+            protocol["task_commitment_digest"], protocol["trial_index"],
+            schedule_cohort_digest=protocol.get("schedule_cohort_digest"))
         try:
             claim = self._store._read_json(path)
         except FileNotFoundError as exc:
