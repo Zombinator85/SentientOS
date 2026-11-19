@@ -300,6 +300,17 @@ def test_pinned_semantic_context_ranking_applies_older_matching_correction(
     assert packet["unverified_context_interpretation"] == (
         "operator_context_only_not_state_evidence_or_truth")
     assert packet["authority"] is False
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    model_context, _, prompt = _bind_epistemic_context(
+        context={"instruction": EXPERIMENT_CONTEXT_INSTRUCTION},
+        projection=projection)
+    [bound_packet] = model_context["prior_epistemic_state"]["semantic_packets"]
+    assert corrections[0].binding_id in {
+        item["binding_id"] for item in
+        bound_packet["unverified_context_evidence_bindings"]}
+    assert '"authority":false' in prompt
+    assert "operator_context_only_not_state_evidence_or_truth" in prompt
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
     fallback = owner.cognitive_projection(max_states=1, current_tick=2,
         relevance_query="What is the west temperature sensor condition?",
