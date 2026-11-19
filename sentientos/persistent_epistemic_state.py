@@ -57,6 +57,12 @@ MAX_COGNITIVE_PROJECTION_OMISSIONS = 16_384
 MAX_COGNITIVE_PROJECTION_PRIORITIES = 512
 MAX_COGNITIVE_PROJECTION_CALIBRATIONS_PER_STATE = 16
 MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE = 4
+EPISTEMIC_CONTEXT_MIN_COSINE_SIMILARITY = 0.25
+LEGACY_SEMANTIC_CONTEXT_SELECTION_POLICY = (
+    "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id")
+SEMANTIC_CONTEXT_SELECTION_POLICY = (
+    "pinned_cpu_semantic_sample_lexical_overlap_then_cosine_desc_floor_0_25_"
+    "then_recency_then_binding_id")
 MAX_COGNITIVE_PROJECTION_UPDATE_CANDIDATES_PER_STATE = 2
 _COGNITIVE_CORRECTION_REASONS = frozenset({
     "evidence_withdrawal", "contradiction_arrival",
@@ -1074,6 +1080,8 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                     if isinstance(selection_provenance, Mapping) else None)
                 semantic_provenance = provenance_schema == (
                     "sentientos.epistemic_context_selection_provenance:v2")
+                semantic_policies = {LEGACY_SEMANTIC_CONTEXT_SELECTION_POLICY,
+                    SEMANTIC_CONTEXT_SELECTION_POLICY}
                 expected_provenance_keys = ({"schema_version", "selection_policy",
                     "query_digest", "selected_binding_ids", "embedder_identity_digest",
                     "candidate_count", "candidate_identity_digest"}
@@ -1086,16 +1094,15 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                             "sentientos.epistemic_context_selection_provenance:v2"}
                         or selection_provenance.get("selection_policy") not in {
                             "query_token_overlap_then_recency_then_binding_id",
-                            "recency_then_binding_id",
-                            "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"}
+                            "recency_then_binding_id", *semantic_policies}
                         or (selection_provenance.get("query_digest") is not None
                             and (not isinstance(selection_provenance.get("query_digest"), str)
                                 or not re.fullmatch(r"sha256:[0-9a-f]{64}",
                                     selection_provenance["query_digest"])))
                         or not isinstance(selected_binding_ids, (list, tuple))
                         or (semantic_provenance and (
-                            selection_provenance.get("selection_policy") !=
-                                "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"
+                            selection_provenance.get("selection_policy") not in
+                                semantic_policies
                             or selection_provenance.get("query_digest") is None
                             or type(selection_provenance.get("candidate_count")) is not int
                             or not 1 <= selection_provenance["candidate_count"] <= 256
@@ -1104,8 +1111,7 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
                                     selection_provenance[key]) for key in (
                                         "embedder_identity_digest", "candidate_identity_digest"))))
                         or (not semantic_provenance and selection_provenance.get(
-                            "selection_policy") ==
-                                "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id")
+                            "selection_policy") in semantic_policies)
                         or tuple(selected_binding_ids) != tuple(
                             item.get("binding_id") for item in context_binding_rows)
                         or (selection_provenance.get("selection_policy") ==
@@ -2563,8 +2569,15 @@ class PersistentEpistemicStateOwner:
                         scores = {item.binding_id: sum(a * b for a, b in zip(
                             query_vector, vector)) for item, vector in zip(
                                 semantic_candidates, embedded.vectors[1:])}
-                        ranked_context.sort(key=lambda item: scores.get(
-                            item.binding_id, -2.0), reverse=True)
+                        def semantic_context_score(item: EvidenceBinding) -> float:
+                            score = scores.get(item.binding_id)
+                            return (score if score is not None
+                                and score >= EPISTEMIC_CONTEXT_MIN_COSINE_SIMILARITY
+                                else -2.0)
+                        ranked_context.sort(key=semantic_context_score, reverse=True)
+                        ranked_context.sort(key=lambda item: len(context_query_terms
+                            & _epistemic_query_terms(
+                                item.unverified_context_text or "")), reverse=True)
                         semantic_identity_digest = (embedded.identity_digest
                             if embedded.identity_digest.startswith("sha256:") else
                             "sha256:" + embedded.identity_digest)
@@ -2588,7 +2601,7 @@ class PersistentEpistemicStateOwner:
                 "schema_version": ("sentientos.epistemic_context_selection_provenance:v2"
                     if semantic_scored else "sentientos.epistemic_context_selection_provenance:v1"),
                 "selection_policy": (
-                    "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"
+                    SEMANTIC_CONTEXT_SELECTION_POLICY
                     if semantic_scored else ("query_token_overlap_then_recency_then_binding_id"
                         if context_query_terms else "recency_then_binding_id")),
                 "query_digest": (digest(relevance_query)
