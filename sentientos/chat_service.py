@@ -59,7 +59,7 @@ from .conversation_session import (
     MAX_SESSION_BYTES, ContextSnapshot, ConversationChatLockTimeout,
     ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, rank_transcript_exchange_terms,
-    transcript_recall_terms,
+    transcript_recall_terms, ordinary_chat_developmental_history_prompt_block_digest,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS,
@@ -1346,6 +1346,8 @@ def _ordinary_developmental_history_exposure(
     record_ids = linkage.get("ordinary_developmental_history_record_ids", [])
     record_digests = linkage.get(
         "ordinary_developmental_history_record_digests", [])
+    prompt_block_digest = linkage.get(
+        "ordinary_developmental_history_prompt_block_digest")
     if (not isinstance(posture, str)
             or posture not in _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES
             or not isinstance(record_ids, list) or not isinstance(record_digests, list)
@@ -1355,7 +1357,11 @@ def _ordinary_developmental_history_exposure(
             or len(set(record_ids)) != len(record_ids)
             or any(not isinstance(item, str)
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
-                for item in record_digests)):
+                for item in record_digests)
+            or (prompt_block_digest is not None
+                and (not isinstance(prompt_block_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None))
+            or (prompt_block_digest is not None and posture != "selected")):
         raise ChatRequestStateError(
             "ordinary_developmental_history_exposure_invalid")
     if posture == "selected":
@@ -1378,6 +1384,13 @@ def _ordinary_developmental_history_response_context(
     exposure = _ordinary_developmental_history_exposure(linkage)
     if exposure is None:
         return {}
+    prompt_block_digest = linkage.get(
+        "ordinary_developmental_history_prompt_block_digest")
+    if isinstance(prompt_block_digest, str):
+        return {"developmental_history_exposure": {
+            "schema_version": "sentientos.ordinary_developmental_history_exposure:v2",
+            **exposure, "prompt_block_digest": prompt_block_digest,
+            "influence_posture": "not_measured"}}
     return {"developmental_history_exposure": {
         "schema_version": "sentientos.ordinary_developmental_history_exposure:v1",
         **exposure, "influence_posture": "not_measured"}}
@@ -4501,6 +4514,7 @@ class PersistentConversationService:
                 on_content_chunk=on_content_chunk)
         epistemic_context = None
         developmental_history_context = None
+        developmental_history_prompt_block_digest: str | None = None
         developmental_history_context_posture = "not_considered"
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
@@ -4549,12 +4563,17 @@ class PersistentConversationService:
                                     and screen_observation is not None),
                                 recent_session_recall=recent_session_recall,
                                 earliest_session_recall=earliest_session_recall)
+                            candidate_history_prompt_block_digest = (
+                                ordinary_chat_developmental_history_prompt_block_digest(
+                                    candidate_prompt))
                         except Exception:
                             developmental_history_context_posture = (
                                 "context_validation_failed")
                         else:
                             if len(candidate_prompt) <= 8000:
                                 developmental_history_context = candidate_history
+                                developmental_history_prompt_block_digest = (
+                                    candidate_history_prompt_block_digest)
                                 developmental_history_context_posture = "selected"
                                 prompt = candidate_prompt
                             else:
@@ -4683,6 +4702,10 @@ class PersistentConversationService:
                     "ordinary_developmental_history_record_digests"] = [
                     row["record_digest"] for row in selected_records
                     if isinstance(row, Mapping) and isinstance(row.get("record_digest"), str)]
+            if isinstance(developmental_history_prompt_block_digest, str):
+                developmental_history_lineage[
+                    "ordinary_developmental_history_prompt_block_digest"] = (
+                    developmental_history_prompt_block_digest)
         linkage.update(developmental_history_lineage)
         if predecessor_runtime_lineage is not None:
             linkage["verified_predecessor_runtime_handoff_digest"] = str(

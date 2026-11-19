@@ -1145,6 +1145,25 @@ def verify_ordinary_chat_history_projection_triplet(*,
     }
 
 
+def ordinary_chat_developmental_history_prompt_block_digest(prompt: str) -> str:
+    """Digest the exact ordinary-chat history guidance and data block."""
+    if not isinstance(prompt, str) or len(prompt) > 8000:
+        raise ValueError("ordinary_chat_history_prompt_invalid")
+    guidance_marker = "[DEVELOPMENTAL_HISTORY_GUIDANCE]"
+    data_marker = "[DEVELOPMENTAL_HISTORY_DATA]"
+    if (prompt.count(guidance_marker) != 1 or prompt.count(data_marker) != 1):
+        raise ValueError("ordinary_chat_history_prompt_markers_invalid")
+    start = prompt.index(guidance_marker)
+    if prompt.index(data_marker) < start:
+        raise ValueError("ordinary_chat_history_prompt_markers_invalid")
+    boundaries = [position for position in (
+        prompt.find("\n[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]", start),
+        prompt.find("\n[SESSION_HISTORY_DATA]", start)) if position >= 0]
+    if not boundaries:
+        raise ValueError("ordinary_chat_history_prompt_boundary_missing")
+    return digest_payload({"prompt_block": prompt[start:min(boundaries)]})
+
+
 def _ordinary_chat_history_prompt_bundle_digest(*,
         prompts: Mapping[str, str], verification: Mapping[str, Any]) -> str:
     return digest_payload({
@@ -1255,7 +1274,8 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
         history_restored=projected_context)
     if (projected_withheld != withheld_prompt
             or verification.get("developmental_history_prompt_block_digest")
-                != digest_payload({"prompt_block": present_prompt[start:end]})
+                != ordinary_chat_developmental_history_prompt_block_digest(
+                    present_prompt)
             or verification.get("history_present_selection_digest")
                 != projected_history["history_present_selection_digest"]
             or verification.get("record_ids") != projected_history["record_ids"]

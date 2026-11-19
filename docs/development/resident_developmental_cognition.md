@@ -870,11 +870,13 @@ digests, and posture are copied to the assistant turn and compared with the
 receipt's caller lineage during idempotent recovery; legacy turns without this
 lineage remain recoverable under their earlier contract. Provider failures
 remain non-blocking for ordinary chat, and no raw prompt or exception text is
-retained. The chat response's bounded, versioned
-`context.developmental_history_exposure` (`sentientos.ordinary_developmental_history_exposure:v1`)
-also returns this validated selection lineage, with `influence_posture` set to
-`not_measured`. This gives API consumers an audit handle without presenting
-availability as evidence that the model used history.
+retained. When a history packet is selected, the exact prompt block's digest is
+also saved on the assistant turn and checked through the receipt's caller
+lineage. New chat responses expose this as
+`prompt_block_digest` in
+`sentientos.ordinary_developmental_history_exposure:v2`; legacy responses keep
+the v1 shape. The exposure reports `influence_posture` as `not_measured`, so
+the digest establishes what was presented, not whether the model used it.
 
 Ordinary-chat prompt guidance now distinguishes digest-verified record
 integrity from the truth of claims inside a record. When a selected packet
