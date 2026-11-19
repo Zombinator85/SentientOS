@@ -1348,6 +1348,8 @@ def _ordinary_developmental_history_exposure(
         "ordinary_developmental_history_record_digests", [])
     prompt_block_digest = linkage.get(
         "ordinary_developmental_history_prompt_block_digest")
+    has_prompt_block_digest = (
+        "ordinary_developmental_history_prompt_block_digest" in linkage)
     if (not isinstance(posture, str)
             or posture not in _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES
             or not isinstance(record_ids, list) or not isinstance(record_digests, list)
@@ -1358,10 +1360,10 @@ def _ordinary_developmental_history_exposure(
             or any(not isinstance(item, str)
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
                 for item in record_digests)
-            or (prompt_block_digest is not None
+            or (has_prompt_block_digest
                 and (not isinstance(prompt_block_digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None))
-            or (prompt_block_digest is not None and posture != "selected")):
+            or (has_prompt_block_digest and posture != "selected")):
         raise ChatRequestStateError(
             "ordinary_developmental_history_exposure_invalid")
     if posture == "selected":
@@ -1372,10 +1374,13 @@ def _ordinary_developmental_history_exposure(
     elif selection_digest is not None or record_ids or record_digests:
         raise ChatRequestStateError(
             "ordinary_developmental_history_exposure_invalid")
-    return {"context_posture": posture,
+    result = {"context_posture": posture,
         "selection_digest": selection_digest,
         "record_ids": list(record_ids),
         "record_digests": list(record_digests)}
+    if isinstance(prompt_block_digest, str):
+        result["prompt_block_digest"] = prompt_block_digest
+    return result
 
 
 def _ordinary_developmental_history_response_context(
@@ -1389,7 +1394,7 @@ def _ordinary_developmental_history_response_context(
     if isinstance(prompt_block_digest, str):
         return {"developmental_history_exposure": {
             "schema_version": "sentientos.ordinary_developmental_history_exposure:v2",
-            **exposure, "prompt_block_digest": prompt_block_digest,
+            **exposure,
             "influence_posture": "not_measured"}}
     return {"developmental_history_exposure": {
         "schema_version": "sentientos.ordinary_developmental_history_exposure:v1",

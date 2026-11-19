@@ -3530,9 +3530,14 @@ def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any], *,
     return searchable
 
 
-def _valid_operator_feedback_history_exposure(value: object) -> bool:
-    expected_fields = {"context_posture", "selection_digest", "record_ids",
+def _valid_operator_feedback_history_exposure(value: object, *,
+        prompt_block_digest_required: bool = False) -> bool:
+    base_fields = {"context_posture", "selection_digest", "record_ids",
         "record_digests"}
+    has_prompt_block_digest = (isinstance(value, Mapping)
+        and "prompt_block_digest" in value)
+    expected_fields = (base_fields | {"prompt_block_digest"}
+        if has_prompt_block_digest else base_fields)
     postures = {"selected", "provider_returned_no_context", "provider_unavailable",
         "provider_failed", "context_validation_failed", "prompt_budget_unavailable",
         "prompt_budget_rejected", "not_considered"}
@@ -3542,6 +3547,7 @@ def _valid_operator_feedback_history_exposure(value: object) -> bool:
     selection_digest = value.get("selection_digest")
     record_ids = value.get("record_ids")
     record_digests = value.get("record_digests")
+    prompt_block_digest = value.get("prompt_block_digest")
     if (not isinstance(posture, str) or posture not in postures
             or not isinstance(record_ids, list)
             or not isinstance(record_digests, list)
@@ -3551,7 +3557,12 @@ def _valid_operator_feedback_history_exposure(value: object) -> bool:
             or len(set(record_ids)) != len(record_ids)
             or any(not isinstance(item, str)
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
-                for item in record_digests)):
+                for item in record_digests)
+            or (has_prompt_block_digest != prompt_block_digest_required)
+            or (has_prompt_block_digest
+                and (not isinstance(prompt_block_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None
+                    or posture != "selected"))):
         return False
     if posture == "selected":
         return (bool(record_ids) and isinstance(selection_digest, str)
@@ -3587,7 +3598,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
                     "sentientos.local_operator_feedback:v3",
                     "sentientos.local_operator_feedback:v4",
                     "sentientos.local_operator_feedback:v5",
-                    "sentientos.local_operator_feedback:v6"}
+                    "sentientos.local_operator_feedback:v6",
+                    "sentientos.local_operator_feedback:v7"}
                 or source.get("schema_version") != feedback_schema
                 or subject.get("subject_kind") != "operator_reported_companion_feedback"
                 or fact.get("stage") != "observation"
@@ -3613,7 +3625,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             expected_feedback_fields = legacy_feedback_fields | {
                 "conversation_citations", "conversation_session_id",
                 "correction_target"}
-        elif feedback_schema == "sentientos.local_operator_feedback:v6":
+        elif feedback_schema in {"sentientos.local_operator_feedback:v6",
+                "sentientos.local_operator_feedback:v7"}:
             expected_feedback_fields = legacy_feedback_fields | {
                 "conversation_citations", "conversation_session_id",
                 "developmental_history_exposure"}
@@ -3639,7 +3652,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
         if (feedback_schema in {"sentientos.local_operator_feedback:v3",
                     "sentientos.local_operator_feedback:v4",
                     "sentientos.local_operator_feedback:v5",
-                    "sentientos.local_operator_feedback:v6"}
+                    "sentientos.local_operator_feedback:v6",
+                    "sentientos.local_operator_feedback:v7"}
                 and (not isinstance(conversation_session_id, str)
                     or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
                         conversation_session_id) is None)):
@@ -3648,17 +3662,23 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
         if (feedback_schema == "sentientos.local_operator_feedback:v6"
                 and not _valid_operator_feedback_history_exposure(history_exposure)):
             continue
+        if (feedback_schema == "sentientos.local_operator_feedback:v7"
+                and not _valid_operator_feedback_history_exposure(
+                    history_exposure, prompt_block_digest_required=True)):
+            continue
         correction_target = payload.get("correction_target")
         has_correction_target = (feedback_schema in {
                 "sentientos.local_operator_feedback:v4",
                 "sentientos.local_operator_feedback:v5"}
-            or feedback_schema == "sentientos.local_operator_feedback:v6"
+            or feedback_schema in {"sentientos.local_operator_feedback:v6",
+                "sentientos.local_operator_feedback:v7"}
                 and "correction_target" in payload)
         if has_correction_target:
             correction_target_fields = {"turn_id", "text_digest"}
             has_target_state_ids = (feedback_schema ==
                     "sentientos.local_operator_feedback:v5"
-                or feedback_schema == "sentientos.local_operator_feedback:v6"
+                or feedback_schema in {"sentientos.local_operator_feedback:v6",
+                    "sentientos.local_operator_feedback:v7"}
                     and isinstance(correction_target, Mapping)
                     and "epistemic_state_citation_ids" in correction_target)
             if has_target_state_ids:
@@ -3725,7 +3745,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
             semantic["conversation_citations"] = conversation_citations
             semantic["conversation_session_id"] = conversation_session_id
             semantic["correction_target"] = dict(correction_target)
-        elif feedback_schema == "sentientos.local_operator_feedback:v6":
+        elif feedback_schema in {"sentientos.local_operator_feedback:v6",
+                "sentientos.local_operator_feedback:v7"}:
             semantic["conversation_citations"] = conversation_citations
             semantic["conversation_session_id"] = conversation_session_id
             semantic["developmental_history_exposure"] = dict(history_exposure)
@@ -3769,7 +3790,8 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
                 for item in conversation_citations]
             summary["conversation_session_id"] = conversation_session_id
             summary["correction_target"] = dict(correction_target)
-        elif feedback_schema == "sentientos.local_operator_feedback:v6":
+        elif feedback_schema in {"sentientos.local_operator_feedback:v6",
+                "sentientos.local_operator_feedback:v7"}:
             summary["conversation_citations"] = [dict(item)
                 for item in conversation_citations]
             summary["conversation_session_id"] = conversation_session_id
@@ -3823,7 +3845,8 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
                     not in {"sentientos.local_operator_feedback:v3",
                         "sentientos.local_operator_feedback:v4",
                         "sentientos.local_operator_feedback:v5",
-                        "sentientos.local_operator_feedback:v6"}):
+                        "sentientos.local_operator_feedback:v6",
+                        "sentientos.local_operator_feedback:v7"}):
                 continue
             session_id = report.get("conversation_session_id")
             citations = report.get("conversation_citations")
@@ -4408,7 +4431,8 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     isinstance(report, Mapping)
                     and report.get("source_schema_version") in {
                         "sentientos.local_operator_feedback:v5",
-                        "sentientos.local_operator_feedback:v6"}
+                        "sentientos.local_operator_feedback:v6",
+                        "sentientos.local_operator_feedback:v7"}
                     and isinstance(report.get("correction_target"), Mapping)
                     and isinstance(report["correction_target"].get(
                         "epistemic_state_citation_ids"), list)
@@ -5359,7 +5383,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                     if (row.get("source_class") == "operator_input"
                             and row.get("source_schema") in {
                                 "sentientos.local_operator_feedback:v5",
-                                "sentientos.local_operator_feedback:v6"}
+                                "sentientos.local_operator_feedback:v6",
+                                "sentientos.local_operator_feedback:v7"}
                             and row.get("evidence_relation") == "contextualizes"
                             and row.get("dependency_kind") == "unknown_dependency"
                             and row.get("reliability_posture") ==
@@ -8825,7 +8850,8 @@ class ResidentDevelopmentalCognitionOwner:
                         if (report.get("source_schema_version")
                                 not in {"sentientos.local_operator_feedback:v4",
                                     "sentientos.local_operator_feedback:v5",
-                                    "sentientos.local_operator_feedback:v6"}
+                                    "sentientos.local_operator_feedback:v6",
+                                    "sentientos.local_operator_feedback:v7"}
                                 or not isinstance(session_id, str)
                                 or not isinstance(target, Mapping)):
                             continue
@@ -9168,7 +9194,8 @@ class ResidentDevelopmentalCognitionOwner:
                         not in {"sentientos.local_operator_feedback:v3",
                             "sentientos.local_operator_feedback:v4",
                             "sentientos.local_operator_feedback:v5",
-                            "sentientos.local_operator_feedback:v6"}
+                            "sentientos.local_operator_feedback:v6",
+                            "sentientos.local_operator_feedback:v7"}
                         or not isinstance(report.get("conversation_session_id"), str)):
                     continue
                 citations = report.get("conversation_citations")

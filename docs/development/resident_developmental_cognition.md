@@ -876,7 +876,9 @@ lineage. New chat responses expose this as
 `prompt_block_digest` in
 `sentientos.ordinary_developmental_history_exposure:v2`; legacy responses keep
 the v1 shape. The exposure reports `influence_posture` as `not_measured`, so
-the digest establishes what was presented, not whether the model used it.
+the digest establishes what was presented, not whether the model used it. When
+operator feedback cites a v2 exposure, its v7 feedback record preserves the
+same prompt-block digest with the existing unverified-report posture.
 
 Ordinary-chat prompt guidance now distinguishes digest-verified record
 integrity from the truth of claims inside a record. When a selected packet

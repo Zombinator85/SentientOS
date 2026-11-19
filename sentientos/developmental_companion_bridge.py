@@ -228,8 +228,14 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     history_exposure: dict[str, Any] | None = None
     if developmental_history_exposure is not None:
-        expected_exposure_fields = {"context_posture", "selection_digest",
+        if not isinstance(developmental_history_exposure, Mapping):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_history_exposure_invalid")
+        base_exposure_fields = {"context_posture", "selection_digest",
             "record_ids", "record_digests"}
+        expected_exposure_fields = (base_exposure_fields | {"prompt_block_digest"}
+            if "prompt_block_digest" in developmental_history_exposure
+            else base_exposure_fields)
         exposure_postures = {
             "selected", "provider_returned_no_context", "provider_unavailable",
             "provider_failed", "context_validation_failed",
@@ -239,6 +245,9 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         selection_digest = developmental_history_exposure.get("selection_digest")
         record_ids = developmental_history_exposure.get("record_ids")
         record_digests = developmental_history_exposure.get("record_digests")
+        prompt_block_digest = developmental_history_exposure.get(
+            "prompt_block_digest")
+        has_prompt_block_digest = "prompt_block_digest" in developmental_history_exposure
         if (set(developmental_history_exposure) != expected_exposure_fields
                 or not isinstance(context_posture, str)
                 or context_posture not in exposure_postures
@@ -251,6 +260,10 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                 or any(not isinstance(item, str)
                     or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
                     for item in record_digests)
+                or (has_prompt_block_digest
+                    and (not isinstance(prompt_block_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None
+                        or context_posture != "selected"))
                 or (context_posture == "selected"
                     and (not record_ids or not isinstance(selection_digest, str)
                         or re.fullmatch(r"[0-9a-f]{64}", selection_digest) is None))
@@ -262,6 +275,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             "selection_digest": selection_digest,
             "record_ids": list(record_ids),
             "record_digests": list(record_digests)}
+        if has_prompt_block_digest:
+            history_exposure["prompt_block_digest"] = prompt_block_digest
     if (not isinstance(feedback, str) or not feedback.strip()
             or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
             or not isinstance(request_id, str) or not request_id
@@ -306,7 +321,10 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v6"
+    schema_version = ("sentientos.local_operator_feedback:v7"
+        if history_exposure is not None
+            and "prompt_block_digest" in history_exposure else
+        "sentientos.local_operator_feedback:v6"
         if history_exposure is not None else
         "sentientos.local_operator_feedback:v5"
         if correction_target_turn_id is not None
