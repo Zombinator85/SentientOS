@@ -569,6 +569,25 @@ class DevelopmentalModelReplacementCampaign:
         context manifests, objective plan, campaign state, and every referenced
         run artifact. It performs no inference and grants no authority.
         """
+        campaign = cls._reconstruct_from_artifacts(artifact_root=artifact_root,
+            experiment_state_root=experiment_state_root, campaign_id=campaign_id)
+        return campaign.load_report(report_id,
+            expected_report_digest=expected_report_digest)
+
+    @classmethod
+    def world_state_records_from_artifacts(cls, *, artifact_root: Path,
+            experiment_state_root: Path, campaign_id: str,
+            report_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Project verified reports without loading their historical model endpoints."""
+        campaign = cls._reconstruct_from_artifacts(artifact_root=artifact_root,
+            experiment_state_root=experiment_state_root, campaign_id=campaign_id)
+        return campaign.world_state_records(report_refs=report_refs)
+
+    @classmethod
+    def _reconstruct_from_artifacts(cls, *, artifact_root: Path,
+                                    experiment_state_root: Path,
+                                    campaign_id: str) -> "DevelopmentalModelReplacementCampaign":
+        """Build a report/projection verifier from persisted artifacts only."""
         if not isinstance(campaign_id, str) or not _CAMPAIGN_ID.fullmatch(campaign_id):
             raise DevelopmentalModelReplacementError("campaign_protocol_identity_invalid")
         campaign_store = CampaignStore(artifact_root)
@@ -605,8 +624,7 @@ class DevelopmentalModelReplacementCampaign:
                 objective_plan=plan, store=experiment_store)
             campaign = cls(experiment_view, campaign_protocol, campaign_store, state)
             campaign._verify_experiment()
-            return campaign.load_report(report_id,
-                expected_report_digest=expected_report_digest)
+            return campaign
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError(
                 "campaign_artifact_reconstruction_failed") from exc

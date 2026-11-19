@@ -43,6 +43,10 @@ protocol/context/objective-plan/run artifacts. It does not load, invoke, or requ
 either cognitive endpoint; endpoint independence here is a property of evidence
 recovery, not evidence that cognition or developmental continuity survived model
 replacement.
+`world_state_records_from_artifacts(artifact_root=...,
+experiment_state_root=..., campaign_id=..., report_refs=...)` uses that same
+read-only reconstruction to emit the explicitly selected, reverified historical
+World-State observations without requiring the original endpoint objects.
 The loader also reconstructs historical v1 aggregate-only and v2 per-probe
 reports using their original invalid-answer coverage semantics; new summaries
 are written only as v3.
