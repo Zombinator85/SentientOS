@@ -836,9 +836,13 @@ future ordinary-chat intervention can verify that present and restored
 conditions used the same exact content. The CPU-only
 `verify_ordinary_chat_history_projection_triplet` helper validates both
 projection digests and confirms the withheld context is absent; its result
-explicitly leaves effect and learning unestablished. It verifies the history
-projection only, not the complete prompt or any model response. This is a
-projection seam, not yet a matched-condition runner or scored result. The deterministic
+explicitly leaves effect and learning unestablished.
+`build_ordinary_chat_history_intervention_prompts` assembles the three prompts
+from one fixed context argument set, verifies present and restored prompts are
+identical, and checks that removing only the developmental-history block from
+the present prompt yields the withheld prompt. It returns prompt digests, not
+model outputs. This is prompt-control preparation, not yet an inference runner
+or scored result. The deterministic
 `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
 counterfactual demonstrates a changed fake fallback answer when the relevant
 verified history is present, and the paired prompt test checks tampering is

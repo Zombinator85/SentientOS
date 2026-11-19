@@ -1115,6 +1115,64 @@ def verify_ordinary_chat_history_projection_triplet(*,
     }
 
 
+def build_ordinary_chat_history_intervention_prompts(*,
+        context_arguments: Mapping[str, Any],
+        history_present: Mapping[str, Any] | None,
+        history_withheld: Mapping[str, Any] | None,
+        history_restored: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Build matched prompts and prove history is their only changed block."""
+    verification = verify_ordinary_chat_history_projection_triplet(
+        history_present=history_present, history_withheld=history_withheld,
+        history_restored=history_restored)
+    if (not isinstance(context_arguments, Mapping)
+            or "developmental_history_context" in context_arguments
+            or context_arguments.get("compact_history", False) is True
+            or context_arguments.get("compact_screen_context", False) is True):
+        raise ValueError("ordinary_chat_history_intervention_context_invalid")
+    common = dict(context_arguments)
+    prompts = {
+        "history_present": assemble_local_chat_context(
+            **common, developmental_history_context=history_present),
+        "history_withheld": assemble_local_chat_context(
+            **common, developmental_history_context=None),
+        "history_restored": assemble_local_chat_context(
+            **common, developmental_history_context=history_restored),
+    }
+    if any(len(prompt) > 8000 for prompt in prompts.values()):
+        raise ValueError("ordinary_chat_history_intervention_prompt_budget_exceeded")
+    if prompts["history_present"] != prompts["history_restored"]:
+        raise ValueError("ordinary_chat_history_restoration_prompt_mismatch")
+
+    guidance_marker = "[DEVELOPMENTAL_HISTORY_GUIDANCE]"
+    data_marker = "[DEVELOPMENTAL_HISTORY_DATA]"
+    present_prompt = prompts["history_present"]
+    if (present_prompt.count(guidance_marker) != 1
+            or present_prompt.count(data_marker) != 1
+            or guidance_marker in prompts["history_withheld"]
+            or data_marker in prompts["history_withheld"]):
+        raise ValueError("ordinary_chat_history_intervention_markers_invalid")
+    start = present_prompt.index(guidance_marker)
+    boundary_candidates = [
+        position for position in (
+            present_prompt.find("\n[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]", start),
+            present_prompt.find("\n[SESSION_HISTORY_DATA]", start))
+        if position >= 0]
+    if not boundary_candidates:
+        raise ValueError("ordinary_chat_history_intervention_boundary_missing")
+    end = min(boundary_candidates)
+    withheld_projection = present_prompt[:start] + present_prompt[end + 1:]
+    if withheld_projection != prompts["history_withheld"]:
+        raise ValueError("ordinary_chat_history_intervention_prompt_mismatch")
+    verification.update({
+        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v1",
+        "condition_prompt_digests": {condition: digest_payload({"prompt": prompt})
+            for condition, prompt in prompts.items()},
+        "withheld_diff_posture": "developmental_history_block_only",
+        "prompt_effect_established": False,
+    })
+    return {"verification": verification, "prompts": prompts}
+
+
 def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Mapping[str, Any],
                                 current_message: str,
                                 runtime_context: Mapping[str, Any] | None = None,
