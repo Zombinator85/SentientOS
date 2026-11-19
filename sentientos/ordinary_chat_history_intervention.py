@@ -1,7 +1,8 @@
-"""Pre-registration controls for ordinary-chat history interventions.
+"""Pre-registration and immutable result artifacts for ordinary-chat interventions.
 
-This module prepares and verifies a digest-bound protocol. It does not execute
-model calls, persist results, or claim that any effect or learning occurred.
+This module does not execute model calls or claim that any effect or learning
+occurred. Result packets bind external receipt and scoring references but do
+not verify those referenced artifacts.
 """
 from __future__ import annotations
 
@@ -47,11 +48,6 @@ def _validate_json_bound(value: Any, *, maximum_bytes: int, error_code: str) -> 
 def _semantic(protocol: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in protocol.items()
         if key not in {"protocol_id", "protocol_digest"}}
-
-
-def _result_semantic(result: Mapping[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in result.items()
-        if key not in {"result_id", "result_digest"}}
 
 
 def build_ordinary_chat_history_intervention_result(*,
