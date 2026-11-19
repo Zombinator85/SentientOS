@@ -92,9 +92,11 @@ execution authority.
 Epistemic propositions may also set `temporal_scope.max_evidence_age_seconds`
 when a positive position is only useful while its observation is recent. The
 allocator and resident cognition prompt binder evaluate the newest active,
-current supporting observation against the plan time or the World-State
-snapshot's captured time. An expired or unresolvable scoped position defers
-only goals tagged with that proposition and is marked historical-only in
+current supporting observation against the plan time or the cognition owner's
+timezone-aware evaluation clock. Snapshot custody time remains outside the
+World-State content identity and is not used for this decision. An expired or
+unresolvable scoped position defers only goals tagged with that proposition and
+is marked historical-only in
 cognition context; both paths carry the evidence binding, observed time,
 evaluation time, and age. A later admitted observation can make the position
 applicable again. These are applicability rules: they do not revise epistemic

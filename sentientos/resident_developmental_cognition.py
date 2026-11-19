@@ -15,7 +15,7 @@ import stat
 import threading
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Iterator, Mapping, Sequence, cast
@@ -6302,7 +6302,8 @@ class ResidentDevelopmentalCognitionOwner:
                  invoker: LocalModelInvoker,
                  current_sequence: Callable[[], int],
                  objective_task: Any | None = None,
-                 resource_context_owner: Any | None = None) -> None:
+                 resource_context_owner: Any | None = None,
+                 clock: Callable[[], datetime] | None = None) -> None:
         _validate_root_separation(config.history_root, config.state_root,
             config.model_replacement_artifact_root)
         if (type(config.max_inference_timeout_seconds) is not int
@@ -6324,6 +6325,7 @@ class ResidentDevelopmentalCognitionOwner:
         self.admission_authority = admission_authority
         self.invoker = invoker
         self.current_sequence = current_sequence
+        self.clock = clock or (lambda: datetime.now(timezone.utc))
         if (resource_context_owner is not None
                 and not callable(getattr(resource_context_owner, "next_context", None))):
             raise ResidentDevelopmentalCognitionError(
@@ -6349,6 +6351,16 @@ class ResidentDevelopmentalCognitionOwner:
         self._pending_objective_scores: dict[str, Mapping[str, Any]] = {}
         self._epistemic_probe_purpose = COGNITION_PURPOSE
         self._epistemic_probe_session_binding: Mapping[str, Any] | None = None
+
+    def _current_epistemic_evaluation_time(self) -> str | None:
+        try:
+            current = self.clock()
+        except Exception:
+            return None
+        if (not isinstance(current, datetime) or current.tzinfo is None
+                or current.utcoffset() is None):
+            return None
+        return current.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
     def _ensure_windows_state_collection(self, collection: Path) -> tuple[int, bytes]:
         if os.name != "nt" or collection.parent != self.config.state_root:
@@ -9850,8 +9862,7 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
-                evaluation_time=(snapshot.custody.get("observed_at")
-                    if isinstance(snapshot.custody, Mapping) else None),
+                evaluation_time=self._current_epistemic_evaluation_time(),
                 unsettled_task_family_outcome_groups=set(getattr(
                     projection, "task_family_unsettled_outcome_groups", ())),
                 # Interactive chat and objective-transfer cognition both run
@@ -11274,8 +11285,7 @@ class ResidentDevelopmentalCognitionOwner:
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
-                        evaluation_time=(snapshot.custody.get("observed_at")
-                            if isinstance(snapshot.custody, Mapping) else None),
+                        evaluation_time=self._current_epistemic_evaluation_time(),
                         unsettled_task_family_outcome_groups=set(getattr(
                             prior, "task_family_unsettled_outcome_groups", ())),
                         history_present=True, compact_history_for_input=(
