@@ -880,8 +880,11 @@ receipt references, and blinded score artifact references, and binds the packet
 back to the exact protocol and prompt bundle. The packet is immutable in the
 experiment run collection. The store reloads and verifies every referenced
 score artifact's digest and output/plan binding; receipt references are not
-reverified during result reload. Score semantics, effect, improvement, and
-learning remain unestablished.
+reverified during result reload. New result persistence requires a receipt
+verifier and publishes one immutable per-protocol finalization index bound to
+the execution claim and result digest; a competing result packet cannot replace
+the finalized result. Score semantics, effect, improvement, and learning remain
+unestablished.
 
 `execute_ordinary_chat_history_intervention` now supplies the dormant
 three-condition orchestration boundary. It follows the frozen counterbalanced

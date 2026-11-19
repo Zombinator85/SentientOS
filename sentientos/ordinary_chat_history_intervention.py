@@ -38,6 +38,8 @@ SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
 SCHEDULE_ID_PREFIX = "ordinary-history-schedule-"
 EXECUTION_SCHEMA = "sentientos.ordinary_chat_history_execution_claim:v1"
 EXECUTION_ID_PREFIX = "ordinary-history-execution-"
+FINAL_RESULT_SCHEMA = "sentientos.ordinary_chat_history_final_result_index:v1"
+FINAL_RESULT_ID_PREFIX = "ordinary-history-final-"
 MAX_SCHEDULED_TRIALS = 65_536
 INTERVENTION_LINKAGE_KEY = "ordinary_chat_history_intervention"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
@@ -161,6 +163,51 @@ def _verify_execution_claim(claim: Mapping[str, Any], *,
         "execution_claim_id": claim["execution_claim_id"],
         "execution_claim_digest": digest,
         "protocol_id": protocol["protocol_id"], "authority": False}
+
+
+def _build_final_result_index(protocol: Mapping[str, Any], *,
+        execution_claim: Mapping[str, Any], result: Mapping[str, Any]) -> dict[str, Any]:
+    semantic = {"schema_version": FINAL_RESULT_SCHEMA,
+        "protocol_id": protocol["protocol_id"],
+        "protocol_digest": protocol["protocol_digest"],
+        "execution_claim_id": execution_claim["execution_claim_id"],
+        "execution_claim_digest": execution_claim["execution_claim_digest"],
+        "result_id": result["result_id"],
+        "result_digest": result["result_digest"], "authority": False}
+    digest = digest_payload(semantic)
+    return {**semantic, "final_result_index_id": FINAL_RESULT_ID_PREFIX
+        + protocol["protocol_digest"][:24], "final_result_index_digest": digest}
+
+
+def _verify_final_result_index(index: Mapping[str, Any], *,
+        protocol: Mapping[str, Any], execution_claim: Mapping[str, Any],
+        result: Mapping[str, Any]) -> dict[str, Any]:
+    expected = {"schema_version", "protocol_id", "protocol_digest",
+        "execution_claim_id", "execution_claim_digest", "result_id",
+        "result_digest", "authority", "final_result_index_id",
+        "final_result_index_digest"}
+    if (not isinstance(index, Mapping) or set(index) != expected
+            or index.get("schema_version") != FINAL_RESULT_SCHEMA
+            or index.get("protocol_id") != protocol.get("protocol_id")
+            or index.get("protocol_digest") != protocol.get("protocol_digest")
+            or index.get("execution_claim_id") != execution_claim.get("execution_claim_id")
+            or index.get("execution_claim_digest") != execution_claim.get(
+                "execution_claim_digest")
+            or index.get("result_id") != result.get("result_id")
+            or index.get("result_digest") != result.get("result_digest")
+            or index.get("authority") is not False
+            or index.get("final_result_index_id") != FINAL_RESULT_ID_PREFIX
+                + str(protocol.get("protocol_digest", ""))[:24]):
+        raise ValueError("ordinary_chat_history_final_result_index_invalid")
+    semantic = {key: value for key, value in index.items()
+        if key not in {"final_result_index_id", "final_result_index_digest"}}
+    digest = digest_payload(semantic)
+    if index.get("final_result_index_digest") != digest:
+        raise ValueError("ordinary_chat_history_final_result_index_digest_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_final_result_index_verification:v1",
+        "final_result_index_id": index["final_result_index_id"],
+        "final_result_index_digest": digest, "protocol_id": protocol["protocol_id"],
+        "result_id": result["result_id"], "authority": False}
 
 
 def _validate_json_bound(value: Any, *, maximum_bytes: int, error_code: str) -> None:
@@ -1101,6 +1148,14 @@ class OrdinaryChatHistoryInterventionStore:
         _verify_execution_claim(claim, protocol=protocol)
         return claim
 
+    def _final_result_path(self, protocol: Mapping[str, Any]) -> Path:
+        protocol_digest = protocol.get("protocol_digest")
+        if not isinstance(protocol_digest, str) or _HEX_DIGEST.fullmatch(
+                protocol_digest) is None:
+            raise ValueError("ordinary_chat_history_final_result_protocol_invalid")
+        return self._store.runs / (
+            f"{FINAL_RESULT_ID_PREFIX}{protocol_digest[:24]}.json")
+
     def _next_trial_index(self, session_id: str, task_commitment_digest: str, *,
             retry_protocol_id: str | None = None) -> int:
         for trial_index in range(MAX_SCHEDULED_TRIALS):
@@ -1306,7 +1361,9 @@ class OrdinaryChatHistoryInterventionStore:
             invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
             ) -> str:
         """Immutably persist a result packet after rechecking its protocol links."""
-        self.load_execution_claim(protocol=protocol)
+        if not callable(invocation_receipt_verifier):
+            raise ValueError("ordinary_chat_history_result_receipt_verifier_required")
+        execution_claim = self.load_execution_claim(protocol=protocol)
         verification = verify_ordinary_chat_history_intervention_result(
             result, protocol=protocol, prompt_bundle=prompt_bundle,
             invocation_receipt_verifier=invocation_receipt_verifier)
@@ -1331,6 +1388,21 @@ class OrdinaryChatHistoryInterventionStore:
             invocation_receipt_verifier=invocation_receipt_verifier)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_result_persistence_mismatch")
+        index = _build_final_result_index(protocol,
+            execution_claim=execution_claim, result=reloaded)
+        index_path = self._final_result_path(protocol)
+        try:
+            self._store._write_immutable(index_path, index)
+        except ValueError as exc:
+            if str(exc) == "artifact_identity_collision":
+                raise ValueError(
+                    "ordinary_chat_history_protocol_result_already_finalized") from exc
+            raise
+        persisted_index = self._store._read_json(index_path)
+        _verify_final_result_index(persisted_index, protocol=protocol,
+            execution_claim=execution_claim, result=reloaded)
+        if persisted_index != index:
+            raise ValueError("ordinary_chat_history_protocol_result_already_finalized")
         return result_id
 
     def load_result(self, result_id: str, *, protocol: Mapping[str, Any],
@@ -1357,6 +1429,21 @@ class OrdinaryChatHistoryInterventionStore:
             protocol=protocol, prompt_bundle=prompt_bundle,
             score_artifacts=scores, scoring_plan=scoring_plan,
             invocation_receipt_verifier=invocation_receipt_verifier)
+        try:
+            execution_claim = self.load_execution_claim(protocol=protocol)
+        except ValueError as exc:
+            if str(exc) != "ordinary_chat_history_execution_not_claimed":
+                raise
+            execution_claim = None
+        if execution_claim is not None:
+            try:
+                final_index = self._store._read_json(
+                    self._final_result_path(protocol))
+            except FileNotFoundError as exc:
+                raise ValueError(
+                    "ordinary_chat_history_protocol_result_not_finalized") from exc
+            _verify_final_result_index(final_index, protocol=protocol,
+                execution_claim=execution_claim, result=result)
         if verification["result_id"] != result_id:
             raise ValueError("ordinary_chat_history_result_identity_mismatch")
         return result

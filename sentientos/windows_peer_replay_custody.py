@@ -94,6 +94,9 @@ def publish_immutable_replay_bytes(
     ordinary_chat_result_artifact_match = (
         re.fullmatch(r"ordinary-history-result-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_result" else None)
+    ordinary_chat_final_result_artifact_match = (
+        re.fullmatch(r"ordinary-history-final-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "ordinary_chat_history_final_result_index" else None)
     ordinary_chat_score_artifact_match = (
         re.fullmatch(r"ordinary-history-score-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_score" else None)
@@ -128,6 +131,7 @@ def publish_immutable_replay_bytes(
             or ordinary_chat_execution_artifact_match is not None
             or ordinary_chat_scoring_plan_artifact_match is not None
             or ordinary_chat_result_artifact_match is not None
+            or ordinary_chat_final_result_artifact_match is not None
             or ordinary_chat_score_artifact_match is not None
             or objective_artifact_match is not None
             or objective_archive_match is not None
@@ -139,6 +143,7 @@ def publish_immutable_replay_bytes(
         else 4_194_304 if filename_policy in {
             "developmental_experiment_protocol", "developmental_experiment_run",
             "ordinary_chat_history_protocol", "ordinary_chat_history_result",
+            "ordinary_chat_history_final_result_index",
             "ordinary_chat_history_score", "ordinary_chat_history_scoring_plan",
             "ordinary_chat_history_schedule", "ordinary_chat_history_execution_claim"}
         else 4_194_304 if filename_policy in {
@@ -155,6 +160,7 @@ def publish_immutable_replay_bytes(
                 and ordinary_chat_execution_artifact_match is None
                 and ordinary_chat_scoring_plan_artifact_match is None
                 and ordinary_chat_result_artifact_match is None
+                and ordinary_chat_final_result_artifact_match is None
                 and ordinary_chat_score_artifact_match is None
                 and objective_artifact_match is None
                 and objective_archive_match is None
