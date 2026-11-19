@@ -2159,9 +2159,9 @@ class PersistentEpistemicStateOwner:
                 if (item.event_id in transaction_candidates
                     and item.generation <= projected_state.generation
                     and (current_tick is None or item.tick < current_tick))]
-            candidate_rows = _retained_update_candidate_rows(candidate_rows)
+            retained_candidate_rows = _retained_update_candidate_rows(candidate_rows)
             rationales = tuple(item["candidate"]["rationale"]
-                for item in candidate_rows
+                for item in retained_candidate_rows
                 if isinstance(item["candidate"].get("rationale"), str))
             if rationales:
                 candidate_rationales_by_proposition[proposition_id] = rationales
