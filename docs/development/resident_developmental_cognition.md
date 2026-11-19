@@ -737,6 +737,14 @@ unchanged; `::test_local_chat_prompt_rejects_epistemic_context_with_authority_fl
 checks prompt assembly rejects self-authorizing flags. Real-model application
 and improved longitudinal outcomes remain unverified.
 
+When an ordinary fallback includes the projection, its selection digest is
+also carried in the governed invocation linkage and saved assistant-turn
+linkage. This gives later review a durable identity for the prior packet that
+was presented alongside that response, without claiming that the model relied
+on it. Responses without a selected packet do not receive this field. The
+ordinary fallback counterfactual checks that the digest matches in both
+places and is absent when no projection is selected.
+
 For sparse ordinary fallback questions, epistemic packet ranking also receives
 the latest digest-verified prior user topic from the already selected session
 history. Short acknowledgments and turns with invalid text digests do not
