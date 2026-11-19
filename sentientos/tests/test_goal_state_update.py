@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -52,5 +53,9 @@ def test_goal_state_becomes_blocked_after_repeated_failures(tmp_path: Path) -> N
     state = dict(repo_root=tmp_path, operating_mode="normal", pressure_level=0,
                  posture="balanced", quarantine_active=False, risk_budget_summary={})
     first = update_goal_state_from_run(graph, {}, run, blocked_threshold=2, **state)
-    second = update_goal_state_from_run(graph, first, run, blocked_threshold=2, **state)
+    replay = update_goal_state_from_run(graph, first, run, blocked_threshold=2, **state)
+    assert replay["g1"].failure_count == 1
+    assert replay["g1"].status == "active"
+    second = update_goal_state_from_run(graph, first,
+        replace(run, run_id="r2"), blocked_threshold=2, **state)
     assert second["g1"].status == "blocked"

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -207,6 +208,11 @@ def update_goal_state_from_run(
     risk_budget_summary: dict[str, object],
     blocked_threshold: int = 2,
 ) -> dict[str, GoalStateRecord]:
+    if not isinstance(run.run_id, str) or not run.run_id:
+        raise WorkPlanError("goal_state_work_run_identity_invalid")
+    run_digest = "sha256:" + hashlib.sha256(json.dumps(
+        run.to_dict(), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")).hexdigest()
     by_goal: dict[str, list[TaskRun]] = {}
     for task_run in run.task_runs:
         by_goal.setdefault(task_run.goal_id, []).append(task_run)
@@ -216,6 +222,12 @@ def update_goal_state_from_run(
         prev = result.get(goal.goal_id, default_goal_state_record())
         runs = by_goal.get(goal.goal_id, [])
         if not runs:
+            continue
+        if prev.last_work_run_id == run.run_id:
+            if prev.last_work_run_digest != run_digest:
+                raise WorkPlanError("goal_state_work_run_identity_conflict")
+            # Recovery may reapply the most recent immutable run. Its outcomes
+            # must not increment the failure streak or write completion twice.
             continue
         latest = runs[-1]
         evidence = tuple(sorted({artifact for row in runs for artifact in row.artifacts}))
@@ -265,9 +277,13 @@ def update_goal_state_from_run(
             partial = next((row for row in reversed(runs) if row.status == "partial"), None)
             last_result = "partial" if partial is not None else "skipped"
             blocked_reason = partial.reason if partial is not None else runs[-1].reason
+        else:
+            # A successful non-completing run breaks a consecutive failure
+            # streak; old failures remain historical evidence, not current debt.
+            failure_count = 0
 
         result[goal.goal_id] = GoalStateRecord(
-            schema_version=1,
+            schema_version=2,
             progress=progress,
             status=status,
             last_attempt_at=latest.finished_at,
@@ -275,6 +291,8 @@ def update_goal_state_from_run(
             last_evidence_paths=combined_evidence,
             blocked_reason=blocked_reason,
             failure_count=failure_count,
+            last_work_run_id=run.run_id,
+            last_work_run_digest=run_digest,
         )
 
     return result
