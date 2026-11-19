@@ -835,8 +835,9 @@ identifies the allowlist policy and any records omitted for prompt budget, so a
 future ordinary-chat intervention can verify that present and restored
 conditions used the same exact content. The CPU-only
 `verify_ordinary_chat_history_projection_triplet` helper validates both
-projection digests and confirms the withheld context is absent; its result
-explicitly leaves effect and learning unestablished.
+projection digests, the available/selected/omitted record partition, its
+prompt-budget omission digest and reason, and confirms the withheld context is
+absent. Its result explicitly leaves effect and learning unestablished.
 `build_ordinary_chat_history_intervention_prompts` assembles the three prompts
 from one fixed context argument set, verifies present and restored prompts are
 identical, and checks that removing only the developmental-history block from
