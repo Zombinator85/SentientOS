@@ -3492,9 +3492,22 @@ class RuntimeMaintenanceSurfaces:
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
                     assert epistemic_projection_tick is not None
+                    developmental_config = getattr(getattr(getattr(
+                        self._resident_developmental_owner, "_owner",
+                        self._resident_developmental_owner), "config", None),
+                        "semantic_history_model_id", None)
+                    developmental_revision = getattr(getattr(getattr(
+                        self._resident_developmental_owner, "_owner",
+                        self._resident_developmental_owner), "config", None),
+                        "semantic_history_model_revision", None)
+                    semantic_config = ({"semantic_model_id": developmental_config,
+                        "semantic_model_revision": developmental_revision}
+                        if developmental_config is not None
+                            and developmental_revision is not None else {})
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
                         current_tick=epistemic_projection_tick,
+                        **semantic_config,
                         **({"relevance_query": relevance_query}
                             if relevance_query is not None else {}))
                 objective_request_status = None

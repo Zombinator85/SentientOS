@@ -238,6 +238,91 @@ def test_query_relevance_keeps_older_matching_correction_in_bounded_context(
         bound_packet["unverified_context_evidence_bindings"]}
 
 
+def test_pinned_semantic_context_ranking_applies_older_matching_correction(
+        tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_condition", object_value="unknown",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={}, proposition_class="descriptive",
+        statement="The west sensor condition is unknown.")
+    owner.register_proposition(target)
+    support = binding(target, "semantic-context-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="semantic-context-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+    texts = ["The western thermal probe stopped responding.",
+        "The east battery needs replacement.", "Greenhouse humidity fell overnight.",
+        "A door latch needs lubrication.", "The dashboard color changed to blue."]
+    corrections = []
+    for index, text in enumerate(texts, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:semantic-context-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+            dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    def fake_encode(values, *, model_id, revision):
+        assert model_id == "local/model" and revision == "a" * 40
+        vectors = [(1.0, 0.0)] + [((1.0, 0.0) if "thermal probe" in value
+            else (0.0, 1.0)) for value in values[1:]]
+        return SimpleNamespace(vectors=tuple(vectors), identity_digest="sha256:" + "b" * 64)
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    projection = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [packet] = semantic_packets_for_projection(projection)
+    selection = packet["unverified_context_selection_provenance"]
+    assert selection["schema_version"] == (
+        "sentientos.epistemic_context_selection_provenance:v2")
+    assert selection["selection_policy"] == (
+        "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id")
+    assert corrections[0].binding_id in selection["selected_binding_ids"]
+    assert selection["candidate_count"] == len(corrections)
+    assert selection["embedder_identity_digest"] == "sha256:" + "b" * 64
+    assert packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+    assert packet["authority"] is False
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    model_context, _, prompt = _bind_epistemic_context(
+        context={"instruction": EXPERIMENT_CONTEXT_INSTRUCTION},
+        projection=projection)
+    [bound_packet] = model_context["prior_epistemic_state"]["semantic_packets"]
+    assert corrections[0].binding_id in {
+        item["binding_id"] for item in
+        bound_packet["unverified_context_evidence_bindings"]}
+    assert '"authority":false' in prompt
+    assert "operator_context_only_not_state_evidence_or_truth" in prompt
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
+    fallback = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [fallback_packet] = semantic_packets_for_projection(fallback)
+    fallback_selection = fallback_packet["unverified_context_selection_provenance"]
+    assert fallback_selection["schema_version"] == (
+        "sentientos.epistemic_context_selection_provenance:v1")
+    assert fallback_selection["selection_policy"] == (
+        "query_token_overlap_then_recency_then_binding_id")
+
+
 def test_candidate_rationale_retrieves_its_generic_prior_proposition(tmp_path):
     owner = PersistentEpistemicStateOwner(
         tmp_path, allowed_namespaces=["embodiment"])

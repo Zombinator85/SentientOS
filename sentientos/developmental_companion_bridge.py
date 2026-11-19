@@ -664,10 +664,19 @@ class ResidentDevelopmentalCompanionBridge:
                     or not 1 <= maximum <= 128):
                 raise DevelopmentalCompanionBridgeError(
                     "epistemic_projection_bound_invalid")
+            developmental_config = getattr(getattr(getattr(self, "_owner", None),
+                "config", None), "semantic_history_model_id", None)
+            developmental_revision = getattr(getattr(getattr(self, "_owner", None),
+                "config", None), "semantic_history_model_revision", None)
+            semantic_config = ({"semantic_model_id": developmental_config,
+                "semantic_model_revision": developmental_revision}
+                if developmental_config is not None and developmental_revision is not None
+                else {})
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                 max_states=maximum, current_tick=projection_tick,
                 prioritized_state_ids=prioritized_epistemic_state_ids,
-                relevance_query=relevance_query)
+                relevance_query=relevance_query,
+                **semantic_config)
         return prior_self_model, prior_epistemic_state
 
     def can_handle(self) -> bool:
