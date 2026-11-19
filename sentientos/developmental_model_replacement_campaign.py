@@ -678,6 +678,9 @@ class DevelopmentalModelReplacementCampaign:
                     answered = score.get("answered_count")
                     if type(answered) is int:
                         return answered
+                    if score.get("status") in {
+                            "invalid_answer", "output_unavailable", "output_truncated"}:
+                        return 0
                     count_value = score.get("correct_count")
                     return (plan["task_descriptor"].get("probe_count", 0)
                         if type(count_value) is int else 0)
