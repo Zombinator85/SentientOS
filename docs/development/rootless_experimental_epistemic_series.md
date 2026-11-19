@@ -37,7 +37,10 @@ runtime path.
 
 ## Bounded execution
 
-- CPU only, five threads, 8,192-token context.
+- CPU by default (`--gpu-layers 0`), five CPU threads (`num_thread=5`),
+  8,192-token context. A nonzero `--gpu-layers` value is an explicit bounded
+  placement choice; the run records GPU snapshots and the requested layer
+  count. It is not selected automatically.
 - Maximum 16,384 prompt characters, 128 generated tokens, 1,024 response
   characters, and four unique calls per run.
 - Temperature 0, one call per correlation, no retries.
@@ -153,3 +156,20 @@ complete at the maximum admitted deadline. A four-call result, cognition score,
 and any behavioral benefit remain unproven. The receipt is evidence of a
 bounded timeout, not evidence that the model's epistemic response was wrong or
 right.
+
+## Windows Hermes3 placement attempts (2026-11-19)
+
+Two bounded attempts used the installed `hermes3:3b-llama3.2-q4_K_M` through
+the governed resident epistemic owner. Run
+`rootless-epistemic-run-23f606892373446d8d28c8b2` requested CPU placement
+(`num_gpu=0`); run
+`rootless-epistemic-run-f06c46b4bb5b4fd98a80e925` requested 99 GPU layers.
+Both reached one governed inference request, whose receipt ended with
+`status=timeout` and no output digest. Their `execution-failure.json` records
+show `scoring_started=false`, so neither produced behavioral scores. During
+the second attempt, `ollama ps` reported `100% CPU`; requesting GPU layers did
+not establish GPU offload in this Windows Ollama runtime. The attempts remain
+in the private local experiment workspace
+`%TEMP%\sentientos-rootless-epistemic-20261119-a5c8f3` and are non-production.
+These failures characterize runtime placement and latency only; they provide
+no evidence about Hermes correction handling or pressure resistance.

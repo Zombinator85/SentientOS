@@ -88,7 +88,8 @@ def _candidate(tmp_path: Path, *, endpoint: str = "http://127.0.0.1:11434"):
     digest = hashlib.sha256(manifest.read_bytes()).hexdigest()
     candidate = ModelCandidate(path=manifest, engine="ollama", name="Qwen3 development",
         options={"api_base": endpoint, "model": "qwen3:8b",
-            "manifest_sha256": digest, "num_gpu": 99, "keep_alive": "15m",
+            "manifest_sha256": digest, "num_gpu": 99, "num_thread": 5,
+            "keep_alive": "15m",
             "think": False, "timeout_seconds": 30})
     config = ModelConfig([candidate], default_engine="ollama",
         max_context_tokens=4096, generation=GenerationConfig(max_new_tokens=96))
@@ -126,6 +127,7 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
     assert sent["stream"] is True
     assert sent["options"]["num_ctx"] == 4096
     assert sent["options"]["num_gpu"] == 99
+    assert sent["options"]["num_thread"] == 5
     assert sent["messages"] == [
         {"role": "system", "content": "Keep this trusted instruction.\n[VERIFIED_RUNTIME_CONTEXT]\n{}"},
         {"role": "user", "content": "[SESSION_HISTORY_DATA]\nUSER_DATA: hello"},
@@ -167,7 +169,8 @@ def test_ollama_backend_is_loopback_pinned_and_development_only(
         "load_duration_ns": 321, "tokens_generated": 0}
     preload_request = json.loads(_HTTPConnection.last_body)
     assert preload_request == {"model": "qwen3:8b", "stream": False,
-        "keep_alive": -1, "options": {"num_ctx": 4096, "num_gpu": 99}}
+        "keep_alive": -1, "options": {"num_ctx": 4096, "num_gpu": 99,
+            "num_thread": 5}}
     request_count = len(opener.requests)
     with pytest.raises(ModelLoadError, match="ollama_preload_keep_alive_invalid"):
         backend.preload_residency(keep_alive="0")
@@ -303,7 +306,6 @@ def test_ollama_backend_rejects_non_loopback_and_unpinned_manifest(
     assert "development_endpoint_not_loopback" in authority.records[0].reason_codes
     with pytest.raises(ModelLoadError, match="loopback"):
         LocalModel._initialise_backend(candidate, config)
-
     _manifest, _digest, candidate, config = _candidate(tmp_path)
     candidate.options["manifest_sha256"] = "0" * 64
     with pytest.raises(ModelLoadError, match="manifest_digest"):
@@ -312,4 +314,12 @@ def test_ollama_backend_rejects_non_loopback_and_unpinned_manifest(
     _manifest, _digest, candidate, config = _candidate(
         tmp_path, endpoint="http://127.0.0.1:99999")
     with pytest.raises(ModelLoadError, match="loopback"):
+        LocalModel._initialise_backend(candidate, config)
+
+
+def test_ollama_backend_rejects_unbounded_cpu_thread_count(tmp_path: Path) -> None:
+    _manifest, _digest, candidate, config = _candidate(tmp_path)
+    candidate.options["num_thread"] = 17
+
+    with pytest.raises(ModelLoadError, match="ollama_cpu_thread_limit_invalid"):
         LocalModel._initialise_backend(candidate, config)

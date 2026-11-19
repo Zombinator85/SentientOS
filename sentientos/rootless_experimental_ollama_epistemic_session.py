@@ -42,9 +42,28 @@ from .rootless_experimental_local_model import (
 
 
 ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED = 42
+ROOTLESS_OLLAMA_CPU_THREADS = 5
 ROOTLESS_RECEIPT_ID_RE = re.compile(r"^lmrec-[0-9a-f]{24}$")
 ROOTLESS_DEVELOPMENTAL_MAX_CALLS = 32
 ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS = 48_000
+
+
+def _rootless_ollama_model_options(*, model_name: str,
+        manifest_digest: str, gpu_layers: int = 0) -> dict[str, Any]:
+    """Bound experimental Ollama placement; acceleration is always explicit."""
+    if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:
+        raise RootlessExperimentalError("ollama_gpu_layer_limit_invalid")
+    return {
+        "api_base": "http://127.0.0.1:11434",
+        "model": model_name,
+        "manifest_sha256": manifest_digest,
+        "num_gpu": gpu_layers,
+        "num_thread": ROOTLESS_OLLAMA_CPU_THREADS,
+        "keep_alive": "15m",
+        "think": False,
+        "timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
+        "seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
+    }
 
 
 class RootlessExperimentalOllamaEpistemicSession(
@@ -54,7 +73,8 @@ class RootlessExperimentalOllamaEpistemicSession(
     def __init__(self, *, model_manifest_path: Path, model_name: str,
                  root: Path, session_binding: Mapping[str, Any],
                  kernel_factory: Any | None = None,
-                 developmental_cycle: bool = False) -> None:
+                 developmental_cycle: bool = False,
+                 gpu_layers: int = 0) -> None:
         self.root = validate_experiment_root(root)
         self.experimental_profile = ("developmental_cognition_cycle"
             if developmental_cycle else "epistemic_revision")
@@ -85,10 +105,8 @@ class RootlessExperimentalOllamaEpistemicSession(
         if (not isinstance(model_name, str) or not model_name
                 or len(model_name) > 128):
             raise RootlessExperimentalError("ollama_experimental_model_binding_invalid")
-        options = {"api_base": "http://127.0.0.1:11434", "model": model_name,
-            "manifest_sha256": manifest_digest, "num_gpu": 99, "keep_alive": "15m",
-            "think": False, "timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
-            "seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED}
+        options = _rootless_ollama_model_options(model_name=model_name,
+            manifest_digest=manifest_digest, gpu_layers=gpu_layers)
         self.config = ModelConfig(
             [ModelCandidate(path, "ollama", model_name, options)],
             default_engine="ollama", max_context_tokens=max_context_tokens,

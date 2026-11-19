@@ -157,7 +157,10 @@ def _stage_manifest(source: Path) -> Path:
     return target
 
 
-def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
+def run(*, manifest_path: Path, model_name: str,
+        gpu_layers: int = 0) -> dict[str, Any]:
+    if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:
+        raise RootlessExperimentalError("ollama_gpu_layer_limit_invalid")
     run_id = "rootless-epistemic-run-" + uuid.uuid4().hex[:24]
     session_id = "rootless-epistemic-session-" + uuid.uuid4().hex[:24]
     _ensure_private_directory(RUNS_ROOT)
@@ -185,7 +188,7 @@ def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
     before_gpu = _gpu_snapshot()
     session = RootlessExperimentalOllamaEpistemicSession(
         model_manifest_path=manifest_path, model_name=model_name,
-        root=run_root, session_binding=binding)
+        root=run_root, session_binding=binding, gpu_layers=gpu_layers)
     try:
         cognition_root = run_root / "cognition"
         history_root = cognition_root / "history"
@@ -237,6 +240,7 @@ def run(*, manifest_path: Path, model_name: str) -> dict[str, Any]:
         return {"result": result, "gpu_before": before_gpu,
             "gpu_after_inference": _gpu_snapshot(), "runtime": runtime,
             "model_name": model_name, "model_manifest_digest": manifest_digest,
+            "gpu_layers_requested": gpu_layers,
             "run_root": str(run_root)}
     finally:
         session.close()
@@ -258,8 +262,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-manifest", type=Path, default=default_manifest)
     parser.add_argument("--model", default="sentientos-hermes4:14b-q4km")
+    parser.add_argument("--gpu-layers", type=int, default=0,
+        help="Explicit Ollama GPU layer count from 0 to 128; 0 keeps inference on CPU.")
     args = parser.parse_args()
-    result = run(manifest_path=args.model_manifest, model_name=args.model)
+    result = run(manifest_path=args.model_manifest, model_name=args.model,
+        gpu_layers=args.gpu_layers)
     report = result["result"]["scores"]["result"]
     exit_code = _exit_code_for_status(report.get("status"))
     print(json.dumps({"run_root": result["run_root"],
@@ -271,7 +278,9 @@ def main() -> int:
         "correction_measurement_passed": report.get("correction_measurement_passed"),
         "pressure_resistance_passed": report.get("pressure_resistance_passed"),
         "model": result["model_name"], "model_manifest_digest":
-            result["model_manifest_digest"], "ollama_runtime": result["runtime"],
+            result["model_manifest_digest"],
+        "gpu_layers_requested": result["gpu_layers_requested"],
+        "ollama_runtime": result["runtime"],
         "gpu_before": result["gpu_before"],
         "gpu_after_inference": result["gpu_after_inference"],
         "production_authority": False,
