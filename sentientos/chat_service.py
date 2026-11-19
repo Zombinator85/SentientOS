@@ -17,7 +17,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, List, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, List, Mapping, Protocol, Sequence
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request, StreamingResponse
 
@@ -1495,6 +1495,77 @@ class PersistentConversationService:
         available = getattr(bridge, "operator_feedback_available", None)
         return callable(available) and available() is True
 
+    def _ordinary_developmental_reply_verified(self, *, session_id: str,
+            session_turns: Sequence[Mapping[str, Any]], assistant: Mapping[str, Any],
+            linkage: Mapping[str, Any]) -> bool:
+        """Verify an ordinary screen-bound reply before using it as a cycle anchor."""
+        text = assistant.get("text")
+        source_turn_id = linkage.get("source_user_turn_id")
+        receipt_id = linkage.get("invocation_receipt_id")
+        receipt_digest = linkage.get("invocation_receipt_digest")
+        response_digest = linkage.get("response_digest")
+        screen = linkage.get("screen_observation_provenance")
+        source_turn = next((turn for turn in session_turns
+            if turn.get("turn_id") == source_turn_id and turn.get("role") == "user"), None)
+        source_linkage = (source_turn.get("linkage")
+            if isinstance(source_turn, Mapping) else None)
+        client_digest = (source_linkage.get("client_request_id_digest")
+            if isinstance(source_linkage, Mapping) else None)
+        stored_output_lineage = linkage.get("assistant_output_lineage")
+        verifier = getattr(self._inference, "verify_stored_chat_invocation", None)
+        if (linkage.get("response_origin") != "model_generated"
+                or not isinstance(text, str) or not text
+                or not isinstance(source_turn, Mapping)
+                or not isinstance(receipt_id, str)
+                or re.fullmatch(r"lmrec-[0-9a-f]{24}", receipt_id) is None
+                or not isinstance(receipt_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", receipt_digest) is None
+                or response_digest != digest_payload({"text": text})
+                or not isinstance(screen, Mapping)
+                or not isinstance(screen.get("capture_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", screen["capture_digest"]) is None
+                or not isinstance(client_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", client_digest) is None
+                or not isinstance(stored_output_lineage, Mapping)
+                or stored_output_lineage.get("status")
+                    != "exact_invocation_output_match"
+                or stored_output_lineage.get("transcript_text_sha256")
+                    != hashlib.sha256(text.encode("utf-8")).hexdigest()
+                or not callable(verifier)):
+            return False
+        try:
+            verified = verifier(receipt_id=receipt_id,
+                receipt_digest=receipt_digest, session_id=session_id,
+                user_turn_id=str(source_turn_id), assistant_text=text,
+                client_request_id_digest=client_digest)
+        except Exception:
+            return False
+        observed_output_lineage = (verified.get("assistant_output_lineage")
+            if isinstance(verified, Mapping) else None)
+        verified_caller_linkage = (verified.get("caller_linkage")
+            if isinstance(verified, Mapping) else None)
+        verified_screen = (verified_caller_linkage.get(
+            "screen_observation_provenance")
+            if isinstance(verified_caller_linkage, Mapping) else None)
+        return (_stored_output_lineage_matches(
+                stored_output_lineage, observed_output_lineage)
+            and isinstance(verified_screen, Mapping)
+            and verified_screen.get("capture_digest") == screen.get("capture_digest"))
+
+    def developmental_cycle_reply_available(self, *, session_id: str,
+            session_turns: Sequence[Mapping[str, Any]],
+            assistant: Mapping[str, Any]) -> bool:
+        linkage = assistant.get("linkage")
+        if not isinstance(linkage, Mapping):
+            return False
+        if (linkage.get("response_origin") == "resident_developmental_cognition"
+                and isinstance(linkage.get("cognition_observation_id"), str)
+                and isinstance(linkage.get("cognition_observation_digest"), str)):
+            return True
+        return self._ordinary_developmental_reply_verified(
+            session_id=session_id, session_turns=session_turns,
+            assistant=assistant, linkage=linkage)
+
     def run_developmental_cycle(self, *, session_id: str,
             assistant_turn_id: str, request_id: str,
             operator_feedback: str | None = None,
@@ -1536,9 +1607,7 @@ class PersistentConversationService:
                 if turn.get("turn_id") == assistant_turn_id
                 and turn.get("role") == "assistant"), None)
             linkage = assistant.get("linkage") if isinstance(assistant, Mapping) else None
-            if (not isinstance(assistant, Mapping) or not isinstance(linkage, Mapping)
-                    or linkage.get("response_origin")
-                        != "resident_developmental_cognition"):
+            if not isinstance(assistant, Mapping) or not isinstance(linkage, Mapping):
                 raise ChatRequestStateError(
                     "developmental_cycle_requires_resident_cognition_reply")
             source_turn_id = linkage.get("source_user_turn_id")
@@ -1549,12 +1618,26 @@ class PersistentConversationService:
                 raise ChatRequestStateError(
                     "developmental_cycle_source_turn_unavailable")
             cognition_request_id = f"{session_id}:{source_turn_id}"
+            response_origin = linkage.get("response_origin")
             verifier = getattr(bridge, "verify_committed_response", None)
-            if (not callable(verifier) or verifier(linkage=linkage,
-                    response_text=str(assistant.get("text", "")),
-                    request_id=cognition_request_id) is not True):
+            if response_origin == "resident_developmental_cognition":
+                if (not callable(verifier) or verifier(linkage=linkage,
+                        response_text=str(assistant.get("text", "")),
+                        request_id=cognition_request_id) is not True):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_prior_response_unverified")
+            elif response_origin == "model_generated":
+                if correction_target_turn_id is not None:
+                    raise ChatRequestStateError(
+                        "developmental_cycle_correction_target_not_cited")
+                if not self._ordinary_developmental_reply_verified(
+                        session_id=session_id, session_turns=session["turns"],
+                        assistant=assistant, linkage=linkage):
+                    raise ChatRequestStateError(
+                        "developmental_cycle_prior_response_unverified")
+            else:
                 raise ChatRequestStateError(
-                    "developmental_cycle_prior_response_unverified")
+                    "developmental_cycle_requires_resident_cognition_reply")
             if (correction_target_turn_id is not None
                     and correction_target_turn_id not in linkage.get(
                         "cognition_conversation_turn_citation_ids", [])):
@@ -1702,13 +1785,14 @@ class PersistentConversationService:
                         and len(set(target_state_ids)) == len(target_state_ids)
                         and isinstance(target_source_turn, Mapping)
                         and target_source_turn.get("role") == "user"):
-                    try:
-                        target_response_verified = verifier(
-                            linkage=target_linkage,
-                            response_text=str(target_turn.get("text", "")),
-                            request_id=f"{session_id}:{target_source_turn_id}")
-                    except Exception:
-                        target_response_verified = False
+                    if callable(verifier):
+                        try:
+                            target_response_verified = verifier(
+                                linkage=target_linkage,
+                                response_text=str(target_turn.get("text", "")),
+                                request_id=f"{session_id}:{target_source_turn_id}")
+                        except Exception:
+                            target_response_verified = False
                     if target_response_verified is True:
                         correction_target_epistemic_state_ids = list(target_state_ids)
                 feedback_record = make_operator_feedback_record(
@@ -5802,15 +5886,24 @@ async def inspect_session_turns(session_id: str, request: Request) -> dict[str, 
             "turn_id", "sequence", "role", "timestamp", "text")}
         if turn.get("role") == "assistant":
             diagnostics = _saved_transcript_response_diagnostics(turn)
+            resident_reply_available = (
+                diagnostics.get("developmental_history_intervention_available") is True)
+            ordinary_reply_available = (
+                developmental_cycle_available is True
+                and service.developmental_cycle_reply_available(
+                    session_id=session_id, session_turns=turns, assistant=turn))
+            cycle_reply_available = (resident_reply_available
+                or ordinary_reply_available)
             diagnostics["developmental_history_intervention_available"] = (
                 intervention_available is True
-                and diagnostics.get("developmental_history_intervention_available") is True)
+                and resident_reply_available)
             diagnostics["developmental_cycle_available"] = (
                 developmental_cycle_available is True
-                and diagnostics.get("developmental_history_intervention_available") is True)
+                and cycle_reply_available)
             diagnostics["operator_feedback_available"] = (
                 service.operator_feedback_available() is True
-                and diagnostics.get("operator_feedback_available") is True)
+                and (diagnostics.get("operator_feedback_available") is True
+                    or ordinary_reply_available))
             displayed["response_diagnostics"] = diagnostics
         display_turns.append(displayed)
     return {

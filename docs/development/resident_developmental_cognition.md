@@ -256,29 +256,38 @@ The local development companion runner can opt in to this owner-level bridge
 with `--enable-resident-cognition`. It requires an explicit resident-cognition
 configuration, automatic foreground-game workload detection, and the supervised
 Windows observer edge. The bridge reuses the companion's governed local model
-invoker and the same resident history and state roots. Ordinary chat answers do
-not write developmental history. A separate **Learn from current scene (governed
-writeback)** control appears beside a verified resident-cognition reply when the
-normal resident owner and screen observer are available. The operator must
-confirm before it requests a fresh consented observation. It binds the request
-to that saved reply, serializes it with conversation work, and invokes the
-existing owner's ordinary run_tick and governed developmental-writeback
-controller. It creates no additional memory store or admission authority. The
-result distinguishes a retained record and receipt from a completed tick with no
-eligible lesson. When the verified reply has capture lineage, the operator may
+invoker and the same resident history and state roots. Ordinary chat does not
+write developmental history automatically. The **Learn from current scene
+(governed writeback)** control appears beside a verified resident-cognition
+reply as before. It now also appears beside a screen-bound `model_generated`
+reply only after the stored invocation receipt verifies against the session,
+source user turn, client request digest, exact transcript text, and saved output
+lineage. The ordinary reply is an anchor for an explicit cycle, not evidence for
+the developmental interpretation. The operator must confirm before the cycle
+requests a fresh consented observation. It serializes the request with
+conversation work and invokes the existing owner's ordinary `run_tick` and
+governed developmental-writeback controller. It creates no additional memory
+store or admission authority. The result distinguishes a retained record and
+receipt from a completed tick with no eligible lesson. For a receipt-verified
+ordinary reply, any operator report remains a separate
+`operator_assertion_unverified` World-State report bound to the assistant
+response digest and both screen-capture digests. It has no conversation
+correction target and cannot claim epistemic-state authority. The owner must
+already allow `operator_input`; otherwise feedback remains unavailable. The
+immediate interpretation treats a report as an assertion rather than direct
+observation and preserves conflict with scoped sensor or owner evidence.
+
+When a verified resident-cognition reply has capture lineage, the operator may
 also enter a bounded correction when `operator_input` is explicitly included
-in the resident cognition owner's `allowed_source_kinds`. That text is stored as
-a separate `operator_assertion_unverified` World-State report, bound by digest
-to the saved reply and both captures. The immediate interpretation treats it
-as a reported assertion rather than direct observation and preserves conflict
-with scoped sensor or owner evidence. If that reply cited prior conversation
-turns, the UI lets the operator optionally bind a correction to one cited turn.
-The report carries that turn ID and exact text digest, and later history context
-prioritizes the targeted excerpt when it is available. General observations may
-remain untargeted. The target identifies the operator's intended referent; it
-does not establish the dialogue or correction as true. Cognition compares the
-cited turn with a correction only when that exact dialogue text is available.
-When they conflict, the prompt directs cognition to surface the disagreement
+in the resident cognition owner's `allowed_source_kinds`. If that reply cited
+prior conversation turns, the UI lets the operator optionally bind a correction
+to one cited turn. The report carries that turn ID and exact text digest, and
+later history context prioritizes the targeted excerpt when it is available.
+General observations may remain untargeted. The target identifies the
+operator's intended referent; it does not establish the dialogue or correction
+as true. Cognition compares the cited turn with a correction only when that
+exact dialogue text is available. When they conflict, the prompt directs
+cognition to surface the disagreement
 and preserve uncertainty instead of automatically accepting either source. The
 report is not independent sensor
 evidence or proof that an action occurred. The UI asks for explicit confirmation
