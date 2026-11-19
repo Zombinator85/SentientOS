@@ -88,6 +88,22 @@ returned near its pre-run level. This demonstrates GPU placement and one
 synthetic, evidence-linked proposal, not experience retention, learning,
 transfer, or improved later decisions.
 
+### Pressure deferral recovery
+
+The pressure-limited run also exposed an opaque handoff: a governor-deferred
+writeback surfaced as the same generic incomplete-inference error as other
+failures, even though the selected fact identities were not marked processed.
+The resident owner now recognizes only the exact governed host-pressure
+deferral receipt, completes that tick with an explicit deferred status and
+selection identity, and leaves the source facts eligible for a later distinct
+tick. It does not replay the deferred tick or weaken any governor decision.
+Malformed output, other denials, and unrelated writeback failures remain
+fail-closed. A controlled CPU fake verifies that a deferred tick does not
+consume its facts and a subsequent tick writes a record bound to those same
+fact identities. This validates the retry handoff in software; it does not
+remove host pressure or substitute for repeating the full real-model transfer
+comparison under a newly preregistered protocol.
+
 The current blocker is a pressure-compliant run of the full developmental
 writeback and transfer comparison. Any further attempt requires a new
 protocol and seed; prior protocols and failure records are immutable and must

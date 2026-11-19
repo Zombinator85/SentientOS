@@ -77,6 +77,7 @@ from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
     CognitionObservation,
+    DevelopmentalInferenceDeferred,
     DevelopmentalHistoryProjection,
     DevelopmentalWritebackError,
     MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS,
@@ -6041,6 +6042,7 @@ class ResidentDevelopmentalCycleResult:
     changed_cognition_measurement_id: str | None = None
     same_tick_history_excluded: bool = True
     canonical_explicit_user_retention_mutated: bool = False
+    writeback_deferral_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -11685,6 +11687,7 @@ class ResidentDevelopmentalCognitionOwner:
         if len(set(state["processed_selection_ids"]) | set(fact_ids)) > MAX_RECOVERED_FACT_IDS:
             raise ResidentDevelopmentalCognitionError("composition_state_retention_limit_exceeded")
         record_id = receipt_id = None
+        writeback_deferral_reason: str | None = None
         qualifying_observation = next((item for item in observations
             if item.condition_id == "with-history"), None)
         pending = (self._pending_cognition_candidates.pop(
@@ -11706,11 +11709,17 @@ class ResidentDevelopmentalCognitionOwner:
         elif fact_ids:
             selection = self.writeback.select_evidence(snapshot, fact_ids=fact_ids)
             if selection.selection_id not in set(state["processed_selection_ids"]):
-                candidate = self.writeback.infer_candidate(
-                    selection, invoker=self.invoker,
-                    correlation_id=f"{tick_id}:resident_developmental_interpretation",
-                    timeout_seconds=self.config.max_inference_timeout_seconds,
-                    max_timeout_seconds=MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS)
+                try:
+                    candidate = self.writeback.infer_candidate(
+                        selection, invoker=self.invoker,
+                        correlation_id=f"{tick_id}:resident_developmental_interpretation",
+                        timeout_seconds=self.config.max_inference_timeout_seconds,
+                        max_timeout_seconds=MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS)
+                except DevelopmentalInferenceDeferred as exc:
+                    # A future tick may reconsider these facts. Do not consume
+                    # their selection identities unless an admitted record is
+                    # durably committed below.
+                    writeback_deferral_reason = exc.reason_code
         if candidate is not None:
             operation_id = f"resident-developmental-writeback:{tick_id}:{candidate.candidate_id}"
             config_digest = self.writeback.admission_configuration_digest(candidate, operation_id=operation_id)
@@ -11733,11 +11742,21 @@ class ResidentDevelopmentalCognitionOwner:
             state["processed_selection_ids"].extend(fact_ids)
         state["incomplete_ticks"] = [row for row in state["incomplete_ticks"]
                                       if row.get("tick_id") != tick_id]
-        state["completed_ticks"].append({"tick_id": tick_id, "snapshot_id": snapshot.snapshot_id,
-                                         "snapshot_digest": snapshot.digest, "record_id": record_id,
-                                         "receipt_id": receipt_id})
+        completed_row = {"tick_id": tick_id, "snapshot_id": snapshot.snapshot_id,
+            "snapshot_digest": snapshot.digest, "record_id": record_id,
+            "receipt_id": receipt_id}
+        if writeback_deferral_reason is not None:
+            completed_row.update({
+                "writeback_status": "deferred_resource_pressure",
+                "writeback_deferral_reason": writeback_deferral_reason,
+                "deferred_selection_id": (selection.selection_id
+                    if selection is not None else None),
+            })
+        state["completed_ticks"].append(completed_row)
         self._save_state(state)
         return ResidentDevelopmentalCycleResult(
-            "completed", tick_id, snapshot.snapshot_id, fact_ids, prior.requested_record_ids,
+            ("writeback_deferred" if writeback_deferral_reason is not None else "completed"),
+            tick_id, snapshot.snapshot_id, fact_ids, prior.requested_record_ids,
             record_id, receipt_id, tuple(item.observation_id for item in observations), measurement_id,
+            writeback_deferral_reason=writeback_deferral_reason,
         )

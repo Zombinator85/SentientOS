@@ -1871,6 +1871,9 @@ def run() -> dict[str, Any]:
             evidence["task_goal_evaluation_posture"])
         RUN_STAGE = "governed_developmental_writeback"
         first = owner.run_tick(snapshot=snapshot, tick_id=RUN_ID + ":consequence")
+        if first.status == "writeback_deferred":
+            raise RootlessExperimentalError(
+                "governed_developmental_writeback_deferred_under_host_pressure")
         if not first.written_record_id:
             raise RootlessExperimentalError("governed_developmental_writeback_not_created")
         durable = owner.writeback.store.get(first.written_record_id)

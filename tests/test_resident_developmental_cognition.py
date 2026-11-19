@@ -8325,6 +8325,89 @@ def test_resident_inference_timeout_is_bounded_and_applied_to_owned_request(
         owner(tmp_path / "bool", max_inference_timeout_seconds=True)
 
 
+def test_pressure_deferred_writeback_is_visible_and_retried_on_a_later_tick(
+        tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    class DeferredFirstWritebackInvoker(FakeInvoker):
+        deferred = False
+
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            if (request.purpose == "resident_developmental_interpretation"
+                    and not self.deferred):
+                self.deferred = True
+                return replace(receipt, status="deferred",
+                    reason_codes=(
+                        "runtime_governor:deferred_background_inference_under_host_pressure",),
+                    output_text=None, output_digest=None, output_size_bytes=0,
+                    effects={"local_model_inference": False})
+            return receipt
+
+    fake = DeferredFirstWritebackInvoker()
+    (tmp_path / "state").mkdir(parents=True)
+    cognition, _ = owner(tmp_path, invoker=fake)
+    source = snapshot()
+    deferred = cognition.run_tick(snapshot=source, tick_id="pressure-deferred-tick")
+
+    assert deferred.status == "writeback_deferred"
+    assert deferred.writeback_deferral_reason == (
+        "runtime_governor:deferred_background_inference_under_host_pressure")
+    assert deferred.written_record_id is None
+    deferred_facts = deferred.selected_fact_ids
+    state = cognition._state()
+    first_checkpoint = next(row for row in state["completed_ticks"]
+        if row["tick_id"] == "pressure-deferred-tick")
+    assert first_checkpoint["writeback_status"] == "deferred_resource_pressure"
+    assert first_checkpoint["deferred_selection_id"]
+    assert not set(deferred_facts).intersection(state["processed_selection_ids"])
+    request_count = len(fake.requests)
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="tick_already_completed"):
+        cognition.run_tick(snapshot=source, tick_id="pressure-deferred-tick")
+    assert len(fake.requests) == request_count
+
+    retried = cognition.run_tick(snapshot=source, tick_id="pressure-retry-tick")
+    assert retried.status == "completed"
+    assert retried.written_record_id
+    assert set(retried.selected_fact_ids) == set(deferred_facts)
+    record = cognition.writeback.store.get(retried.written_record_id)
+    assert set(record.candidate["selected_fact_ids"]) == set(deferred_facts)
+    assert set(deferred_facts).issubset(cognition._state()["processed_selection_ids"])
+
+
+def test_unrecognized_writeback_deferral_remains_fail_closed(tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    class OtherDeferralInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            receipt = super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+            if request.purpose == "resident_developmental_interpretation":
+                return replace(receipt, status="deferred",
+                    reason_codes=("runtime_governor:deferred_for_an_unrecognized_reason",),
+                    output_text=None, output_digest=None, output_size_bytes=0,
+                    effects={"local_model_inference": False})
+            return receipt
+
+    (tmp_path / "state").mkdir(parents=True)
+    cognition, fake = owner(tmp_path, invoker=OtherDeferralInvoker())
+    with pytest.raises(DevelopmentalWritebackError,
+            match="developmental_inference_not_completed"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="unrecognized-deferral-tick")
+    assert cognition._state()["processed_selection_ids"] == []
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="tick_already_completed"):
+        cognition.run_tick(snapshot=snapshot(), tick_id="unrecognized-deferral-tick")
+    assert len([request for request in fake.requests
+        if request.purpose == "resident_developmental_interpretation"]) == 1
+
+
 def test_developmental_resource_context_owner_is_consumed_per_condition(
         tmp_path: Path) -> None:
     class ContextOwner:
