@@ -908,6 +908,7 @@ class DevelopmentalModelReplacementCampaign:
                     "campaign_report_run_projection_ineligible")
             event_time: str | None = None
             event_time_posture = "verified_event_time_unavailable"
+            trial_event_times: list[dict[str, str]] = []
             if (all(isinstance(records_by_run[run_id].get("observed_at"), str)
                         for run_id, _ in run_refs)):
                 try:
@@ -924,6 +925,9 @@ class DevelopmentalModelReplacementCampaign:
                         "campaign_report_event_time_invalid")
                 event_time = max(instants).astimezone(timezone.utc).isoformat()
                 event_time_posture = "all_trial_condition_receipt_times_verified"
+                trial_event_times = [{"run_id": run_id, "run_digest": run_digest,
+                    "observed_at": records_by_run[run_id]["observed_at"]}
+                    for run_id, run_digest in run_refs]
             payload = {
                 "campaign_id": report["campaign_id"],
                 "campaign_digest": report["campaign_digest"],
@@ -937,6 +941,8 @@ class DevelopmentalModelReplacementCampaign:
                 "history_record_set_digest": self.protocol.history_record_set_digest,
                 "current_projection_digest": self.protocol.current_projection_digest,
                 "event_time_posture": event_time_posture,
+                "verified_trial_event_times": trial_event_times,
+                "campaign_observed_at": event_time,
                 "claims_posture": report["claims_posture"],
                 "non_claims": report["non_claims"],
                 "current_truth": False,

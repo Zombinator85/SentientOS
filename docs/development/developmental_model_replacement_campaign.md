@@ -43,6 +43,9 @@ when the underlying run projection verifies every condition receipt timestamp.
 If even one trial run is ineligible for World-State projection, the campaign
 projection fails closed rather than reintroducing its scores through the
 aggregate report.
+When present, the aggregate timestamp and each trial timestamp are also copied
+into the payload, which World-State includes in its content digest even though
+it excludes the top-level event-time field.
 An operator must still add the returned records to the desired World-State
 snapshot and pass them through ordinary history admission before any later
 cognition can consume them.
