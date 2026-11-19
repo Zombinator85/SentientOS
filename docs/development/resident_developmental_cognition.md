@@ -889,7 +889,9 @@ three-condition orchestration boundary. It follows the frozen counterbalanced
 order, requires a separate receipt-verification owner to bind every receipt to
 the exact prompt, output, serving identity, and generation configuration, then
 passes outputs to a scorer under freshly generated opaque sample IDs and a
-shuffled order. Only score artifact digests are copied into the result packet;
+shuffled order. The runner rejects anything other than completed,
+non-truncated, non-fallback inference and requires the scorer to echo the bound
+scoring-plan digest and blinded-scoring posture. Only score artifact digests are copied into the result packet;
 output text and scores are not retained by the runner. The runner does not
 instantiate a model, and no live run has been performed. Integrators must
 provide owner-backed callbacks; a callback's presence alone is not proof, and

@@ -150,6 +150,7 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
                 or set(invoked) != {"output_text", "invocation_receipt_id",
                     "invocation_receipt_digest"}
                 or not isinstance(invoked.get("output_text"), str)
+                or not invoked.get("output_text")
                 or len(invoked["output_text"].encode("utf-8")) > 65_536):
             raise ValueError("ordinary_chat_history_runner_invocation_invalid")
         output_text = invoked["output_text"]
@@ -173,7 +174,10 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
                 or receipt.get("serving_model_identity_digest")
                     != protocol["serving_model_identity_digest"]
                 or receipt.get("generation_config_digest")
-                    != protocol["generation_config_digest"]):
+                    != protocol["generation_config_digest"]
+                or receipt.get("status") != "admitted_completed"
+                or receipt.get("output_truncated") is not False
+                or receipt.get("fallback_occurred") is not False):
             raise ValueError("ordinary_chat_history_runner_receipt_verification_failed")
         outputs[condition] = output_text
         condition_evidence[condition] = {
@@ -194,6 +198,7 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
     score_map = scoring.get("score_artifact_digests") if isinstance(scoring, Mapping) else None
     if (not isinstance(scoring, Mapping)
             or scoring.get("scoring_plan_digest") != protocol["scoring_plan_digest"]
+            or scoring.get("blinding_posture") != "condition_blinded_independent_score:v1"
             or not isinstance(score_map, Mapping)
             or set(score_map) != set(sample_ids.values())
             or any(not isinstance(score_map.get(sample_id), str)
