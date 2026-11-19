@@ -85,6 +85,9 @@ def publish_immutable_replay_bytes(
     ordinary_chat_result_artifact_match = (
         re.fullmatch(r"ordinary-history-result-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_result" else None)
+    ordinary_chat_score_artifact_match = (
+        re.fullmatch(r"ordinary-history-score-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "ordinary_chat_history_score" else None)
     objective_artifact_match = (
         re.fullmatch(r"objective-task-plan-devexp-protocol-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "objective_task_plan" else
@@ -113,6 +116,7 @@ def publish_immutable_replay_bytes(
             or experiment_artifact_match is not None
             or ordinary_chat_experiment_artifact_match is not None
             or ordinary_chat_result_artifact_match is not None
+            or ordinary_chat_score_artifact_match is not None
             or objective_artifact_match is not None
             or objective_archive_match is not None
             or epistemic_artifact_match is not None) else 0)
@@ -122,7 +126,8 @@ def publish_immutable_replay_bytes(
         else 4_194_304 if filename_policy == "runtime_admission_ledger"
         else 4_194_304 if filename_policy in {
             "developmental_experiment_protocol", "developmental_experiment_run",
-            "ordinary_chat_history_protocol", "ordinary_chat_history_result"}
+            "ordinary_chat_history_protocol", "ordinary_chat_history_result",
+            "ordinary_chat_history_score"}
         else 4_194_304 if filename_policy in {
             "objective_task_plan", "objective_condition_score"}
         else 1_048_576 if filename_policy in {
@@ -134,6 +139,7 @@ def publish_immutable_replay_bytes(
                 and experiment_artifact_match is None
                 and ordinary_chat_experiment_artifact_match is None
                 and ordinary_chat_result_artifact_match is None
+                and ordinary_chat_score_artifact_match is None
                 and objective_artifact_match is None
                 and objective_archive_match is None
                 and epistemic_artifact_match is None

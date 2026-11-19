@@ -867,22 +867,19 @@ task commitment, independent scoring-plan digest, and counterbalanced trial
 index. Its verifier rechecks the prompt bundle and keeps authority, effect, and
 learning claims false. `OrdinaryChatHistoryInterventionStore` publishes and
 reloads this object immutably under the existing custody-checked experiment
-protocol store. It is not yet connected to model invocations; a future runner
-must load the persisted protocol before the first condition and independently
-verify each receipt and score.
+protocol store. The governed chat adapter and condition runner now consume the
+protocol, though no live experiment has used them.
 
 The result-side contract is now available through
 `build_ordinary_chat_history_intervention_result` and
 `OrdinaryChatHistoryInterventionStore.persist_result/load_result`. A result
 packet binds all three condition prompt digests to output digests, invocation
-receipt references, and blinded score artifact digests, and binds the packet
+receipt references, and blinded score artifact references, and binds the packet
 back to the exact protocol and prompt bundle. The packet is immutable in the
-experiment run collection. Its verifier checks internal digest and linkage
-consistency only: it explicitly reports that referenced invocation receipts
-and score artifacts remain unverified, and makes no effect, improvement, or
-learning claim. A runner still needs owner-backed receipt verification and an
-independent scoring implementation before these references can become
-verified experimental outcomes.
+experiment run collection. The store reloads and verifies every referenced
+score artifact's digest and output/plan binding; receipt references are not
+reverified during result reload. Score semantics, effect, improvement, and
+learning remain unestablished.
 
 `execute_ordinary_chat_history_intervention` now supplies the dormant
 three-condition orchestration boundary. It follows the frozen counterbalanced
@@ -891,12 +888,23 @@ the exact prompt, output, serving identity, and generation configuration, then
 passes outputs to a scorer under freshly generated opaque sample IDs and a
 shuffled order. The runner rejects anything other than completed,
 non-truncated, non-fallback inference and requires the scorer to echo the bound
-scoring-plan digest and blinded-scoring posture. Only score artifact digests are copied into the result packet;
-output text and scores are not retained by the runner. The runner does not
+scoring-plan digest, scorer identity digest, and blinded-scoring posture. Score
+artifact IDs and digests are copied into the result packet; output text and
+score values are not retained by the runner. The runner does not
 instantiate a model, and no live run has been performed. Integrators must
 provide owner-backed callbacks; a callback's presence alone is not proof, and
 the persisted result verifier continues to distinguish internal linkage from
 independent artifact verification.
+
+Protocol v2 and result v2 bind a distinct scorer identity digest. Score owners can
+publish immutable `ordinary-history-score-*` artifacts containing the protocol
+and scoring-plan digests, output digest, opaque sample ID, bounded structured
+score payload, and scorer identity digest. Result persistence reloads and
+checks every referenced score artifact against its condition's output digest.
+This verifies artifact custody and linkage; the scorer identity digest is not
+an authenticated identity, and score semantics are not yet verified by an
+independent scoring owner. The artifact format requires the current protocol
+schema, while legacy protocol v1 artifacts remain readable for audit.
 
 `OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
 and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
