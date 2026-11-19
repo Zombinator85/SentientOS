@@ -1193,8 +1193,13 @@ def build_ordinary_chat_history_intervention_prompts(*,
         raise ValueError("ordinary_chat_history_intervention_prompt_mismatch")
     verification.update({
         "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v1",
+        "condition_order": ["history_present", "history_withheld", "history_restored"],
         "condition_prompt_digests": {condition: digest_payload({"prompt": prompt})
             for condition, prompt in prompts.items()},
+        "matched_non_history_prompt_digest": digest_payload({
+            "prompt": prompts["history_withheld"]}),
+        "developmental_history_prompt_block_digest": digest_payload({
+            "prompt_block": present_prompt[start:end]}),
         "withheld_diff_posture": "developmental_history_block_only",
         "prompt_effect_established": False,
     })
