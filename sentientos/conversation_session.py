@@ -1145,6 +1145,17 @@ def verify_ordinary_chat_history_projection_triplet(*,
     }
 
 
+def _ordinary_chat_history_prompt_bundle_digest(*,
+        prompts: Mapping[str, str], verification: Mapping[str, Any]) -> str:
+    return digest_payload({
+        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v3",
+        "verification": {key: value for key, value in verification.items()
+            if key != "prompt_bundle_digest"},
+        "prompt_digests": {condition: digest_payload({"prompt": prompt})
+            for condition, prompt in prompts.items()},
+    })
+
+
 def verify_ordinary_chat_history_intervention_prompt_bundle(*,
         prompts: Mapping[str, Any], verification: Mapping[str, Any]) -> dict[str, Any]:
     """Recheck a transported, matched ordinary-history prompt bundle."""
@@ -1156,13 +1167,13 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
         "prompt_effect_established", "history_present_selection_digest",
         "history_withheld_context_absent", "history_restored_selection_digest",
         "restoration_exact", "record_ids", "record_digests", "effect_established",
-        "learning_established", "authority",
+        "learning_established", "authority", "prompt_bundle_digest",
     }
     if (not isinstance(prompts, Mapping) or set(prompts) != expected_conditions
             or not isinstance(verification, Mapping)
             or set(verification) != expected_verification_fields
             or verification.get("schema_version")
-                != "sentientos.ordinary_chat_history_intervention_prompts:v2"):
+                != "sentientos.ordinary_chat_history_intervention_prompts:v3"):
         raise ValueError("ordinary_chat_history_prompt_bundle_invalid")
     if any(not isinstance(prompt, str) or len(prompt) > 8000
             for prompt in prompts.values()):
@@ -1248,10 +1259,13 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
             or verification.get("history_present_selection_digest")
                 != projected_history["history_present_selection_digest"]
             or verification.get("record_ids") != projected_history["record_ids"]
-            or verification.get("record_digests") != projected_history["record_digests"]):
+            or verification.get("record_digests") != projected_history["record_digests"]
+            or verification.get("prompt_bundle_digest")
+                != _ordinary_chat_history_prompt_bundle_digest(
+                    prompts=prompts, verification=verification)):
         raise ValueError("ordinary_chat_history_prompt_bundle_diff_invalid")
     return {
-        "schema_version": "sentientos.ordinary_chat_history_prompt_bundle_verification:v1",
+        "schema_version": "sentientos.ordinary_chat_history_prompt_bundle_verification:v2",
         "condition_order": list(expected_order),
         "trial_index": trial_index,
         "condition_prompt_digests": dict(digest_map),
@@ -1259,6 +1273,7 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
             "matched_non_history_prompt_digest"],
         "developmental_history_prompt_block_digest": verification[
             "developmental_history_prompt_block_digest"],
+        "prompt_bundle_digest": verification["prompt_bundle_digest"],
         "history_only_prompt_difference_verified": True,
         "restoration_exact": True,
         "effect_established": False,
@@ -1321,7 +1336,7 @@ def build_ordinary_chat_history_intervention_prompts(*,
         if trial_index % 2 == 0 else
         ["history_withheld", "history_present", "history_restored"])
     verification.update({
-        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v2",
+        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v3",
         "condition_order": condition_order,
         "condition_order_policy": "alternating_present_withheld_first:v1",
         "trial_index": trial_index,
@@ -1334,6 +1349,8 @@ def build_ordinary_chat_history_intervention_prompts(*,
         "withheld_diff_posture": "developmental_history_block_only",
         "prompt_effect_established": False,
     })
+    verification["prompt_bundle_digest"] = _ordinary_chat_history_prompt_bundle_digest(
+        prompts=prompts, verification=verification)
     verify_ordinary_chat_history_intervention_prompt_bundle(
         prompts=prompts, verification=verification)
     return {"verification": verification, "prompts": prompts}
