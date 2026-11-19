@@ -6199,6 +6199,85 @@ def test_companion_current_evidence_selection_tracks_question_under_fact_cap(
     assert battery.current_truth is False and moon.current_truth is False
 
 
+def test_elliptical_companion_uses_prior_user_context_to_select_current_evidence(
+        tmp_path: Path) -> None:
+    class ContextSensitiveInvoker(FakeInvoker):
+        def invoke(self, request, *, persist, include_output_in_receipt,
+                resource_context=None):
+            if request.structured_output_schema and "disposition" in (
+                    request.structured_output_schema.get("required", ())):
+                prompt = json.loads(request.prompt)
+                self.last_prompt = prompt
+                facts = prompt.get("current_evidence", {}).get("facts", ())
+                serialized = json.dumps(facts, sort_keys=True).casefold()
+                if "battery" in serialized and "voltage" in serialized:
+                    response = "The battery sensor reports 9 volts."
+                elif "moon" in serialized and "phase" in serialized:
+                    response = "The moon phase sensor reports waxing."
+                else:
+                    response = "The selected observation is insufficient."
+                self.companion_output_override = {
+                    "disposition": "answer", "response": response,
+                    "evidence_ids": list(request.upstream_evidence.get(
+                        "current_fact_ids", ())), "history_record_ids": [],
+                }
+            return super().invoke(request, persist=persist,
+                include_output_in_receipt=include_output_in_receipt,
+                resource_context=resource_context)
+
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    current = WorldStateBoardBuilder(clock=lambda: now).build([
+        {"source_id": "source-a-moon", "source_kind": "capability_registry",
+            "subject_id": "moon-phase-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": now.isoformat(),
+            "payload": {"description": "The moon phase sensor reports waxing."}},
+        {"source_id": "source-z-battery", "source_kind": "capability_registry",
+            "subject_id": "battery-voltage-sensor", "stage": "observation",
+            "disposition": "recorded", "observed_at": now.isoformat(),
+            "payload": {"description": "The battery sensor reports 9 volts."}},
+    ])
+    battery_fact_id = next(fact.fact_id for fact in current.facts
+        if fact.source.source_id == "source-z-battery")
+    moon_fact_id = next(fact.fact_id for fact in current.facts
+        if fact.source.source_id == "source-a-moon")
+    cognition, invoker = owner(tmp_path, invoker=ContextSensitiveInvoker(),
+        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
+    (tmp_path / "state").mkdir(parents=True)
+
+    prior_text = "What is the battery voltage?"
+    prior_turn = {"turn_id": "turn-" + "4" * 24, "role": "user",
+        "text": prior_text, "text_digest": digest_payload({"text": prior_text}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-current-context",
+        "source_snapshot_digest": "c" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+
+    no_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-current-no-context", question="What now?")
+    contextual = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-current-with-context", question="What now?",
+        conversation_context=conversation_context)
+    specific = cognition.run_companion_interaction(snapshot=current,
+        request_id="specific-current-with-context", question="What is the moon phase?",
+        conversation_context=conversation_context)
+
+    assert no_context.evidence_ids == (moon_fact_id,)
+    assert contextual.evidence_ids == (battery_fact_id,)
+    assert contextual.response == "The battery sensor reports 9 volts."
+    assert specific.evidence_ids == (moon_fact_id,)
+    assert specific.response == "The moon phase sensor reports waxing."
+    assert invoker.last_prompt["companion_question"] == "What is the moon phase?"
+    assert invoker.last_prompt["session_conversation_context"]["historical_only"] is True
+    assert invoker.last_prompt["current_evidence"]["selection_policy"] == (
+        "sparse_question_then_session_user_context_then_existing_priority_conflict_closed:v3")
+
+
 def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
         tmp_path: Path) -> None:
     class FactOnlyInvoker(FakeInvoker):
