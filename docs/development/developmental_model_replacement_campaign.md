@@ -41,7 +41,8 @@ are written only as v3.
 `world_state_records(report_refs=...)` projects only explicitly selected,
 reverified campaign reports as digest-bound historical observations. It carries
 their trial/run references, model/context identities, and bounded objective
-outcomes; it does not write developmental history. Event time is included only
+outcomes, records the source report's actual schema version, and does not write
+developmental history. Event time is included only
 when the underlying run projection verifies every condition receipt timestamp.
 If even one trial run is ineligible for World-State projection, the campaign
 projection fails closed rather than reintroducing its scores through the

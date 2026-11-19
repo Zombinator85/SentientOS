@@ -31,6 +31,8 @@ STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
 LEGACY_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
 PREVIOUS_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
 REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
+WORLD_STATE_RECORD_SCHEMA = (
+    "sentientos.developmental_model_replacement_campaign_world_state_record:v1")
 MIN_TRIALS = 2
 MAX_TRIALS = 32
 CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
@@ -987,6 +989,7 @@ class DevelopmentalModelReplacementCampaign:
                 "campaign_digest": report["campaign_digest"],
                 "report_id": report["report_id"],
                 "report_digest": report["report_digest"],
+                "report_schema_version": report["schema_version"],
                 "trial_artifacts": [dict(item) for item in trial_refs],
                 "trial_count": report["completed_valid_trial_count"],
                 "classification_counts": report["classification_counts"],
@@ -1012,7 +1015,7 @@ class DevelopmentalModelReplacementCampaign:
             record: dict[str, Any] = {
                 "source_kind": "embodiment",
                 "source_id": report_id,
-                "schema_version": REPORT_SCHEMA,
+                "schema_version": WORLD_STATE_RECORD_SCHEMA,
                 "subject_id": report_id,
                 "subject_kind": "developmental_model_replacement_campaign",
                 "stage": "observation",
