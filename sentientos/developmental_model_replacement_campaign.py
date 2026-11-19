@@ -613,6 +613,8 @@ class DevelopmentalModelReplacementCampaign:
                     or campaign_protocol.objective_task_plan_digest is not None
                         and campaign_protocol.objective_task_plan_digest != plan.get("plan_digest")):
                 raise DevelopmentalModelReplacementError("campaign_artifact_binding_invalid")
+            # The persisted identity manifest was fully checked above; its
+            # projection payload is not needed to rebuild report aggregates.
             context_view = SimpleNamespace(
                 verify=lambda: None,
                 context_id=context["context_id"], context_digest=context["context_digest"],
