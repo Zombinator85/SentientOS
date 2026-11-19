@@ -1850,6 +1850,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     session_id = app.create_session()
     app.chat(retained_text, session_id=session_id,
         request_id="retained-memory-source", retain=True)
+    app.chat("The warm weather changed the astronomy group's star chart review.",
+        session_id=session_id, request_id="weak-lexical-decoy-source", retain=True)
     # Rebuild both resident cognition and the conversation service over the same
     # durable roots before applying the retained statement to a later question.
     restarted_invoker = MemoryApplyingInvoker()
@@ -3355,7 +3357,7 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert unrelated_query["memories"] == []
 
 
-def test_canonical_memory_semantic_fallback_recovers_paraphrase_without_overriding_lexical(
+def test_canonical_memory_semantic_refinement_displaces_weak_overlap_but_keeps_strong_lexical_priority(
         monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
     import semantic_embeddings
@@ -3364,7 +3366,7 @@ def test_canonical_memory_semantic_fallback_recovers_paraphrase_without_overridi
         "text": "The cooling unit showed overheating during the test.",
         "timestamp": "2026-01-01T00:00:00+00:00"}
     unrelated = {"id": "memory-astronomy",
-        "text": "The astronomy group reviewed a star chart.",
+        "text": "The warm weather changed the astronomy group's star chart review.",
         "timestamp": "2026-01-02T00:00:00+00:00"}
     store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
     monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
@@ -3381,15 +3383,16 @@ def test_canonical_memory_semantic_fallback_recovers_paraphrase_without_overridi
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
     query = "Did the thermal assembly get too warm?"
     lexical_only = store.retrieve(query, limit=1)
-    semantic = store.retrieve(query, limit=1,
+    weak_lexical = store.retrieve(query, limit=1,
         semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
     lexical_match = store.retrieve("overheating", limit=1,
         semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
 
-    assert lexical_only["memories"] == []
-    assert [row["id"] for row in semantic["memories"]] == ["memory-overheat"]
-    assert semantic["semantic_retrieval_posture"] == "matched"
-    assert semantic["snapshot_digest"]
+    assert lexical_only["selected_memory_ids"] == ["memory-astronomy"]
+    assert weak_lexical["selected_memory_ids"] == ["memory-overheat"]
+    assert weak_lexical["semantic_retrieval_posture"] == "matched"
+    assert [row["id"] for row in weak_lexical["memories"]] == ["memory-overheat"]
+    assert weak_lexical["snapshot_digest"]
     assert lexical_match["selected_memory_ids"] == ["memory-overheat"]
     assert lexical_match["semantic_retrieval_posture"] == "lexical_match_preferred"
 
@@ -3401,16 +3404,19 @@ def test_canonical_memory_semantic_fallback_degrades_to_lexical_when_encoder_una
     retained = {"id": "memory-overheat",
         "text": "The cooling unit showed overheating during the test.",
         "timestamp": "2026-01-01T00:00:00+00:00"}
+    weak_match = {"id": "memory-warm-weather",
+        "text": "The warm weather changed the astronomy group's star chart review.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
     store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
-    monkeypatch.setattr(store, "_records", lambda: ([retained], "complete"))
+    monkeypatch.setattr(store, "_records", lambda: ([retained, weak_match], "complete"))
     monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
 
     result = store.retrieve("Did the thermal assembly get too warm?", limit=1,
         semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
 
-    assert result["memories"] == []
-    assert result["semantic_retrieval_posture"] == "unavailable"
+    assert result["selected_memory_ids"] == ["memory-warm-weather"]
+    assert result["semantic_retrieval_posture"] == "unavailable_lexical_fallback"
 
 
 def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(

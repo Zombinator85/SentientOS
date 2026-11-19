@@ -18,6 +18,7 @@ MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_MEMORY_CORRECTION_TARGETS = 8
 MAX_SEMANTIC_MEMORY_CANDIDATES = 256
 SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY = 0.25
+SEMANTIC_MEMORY_MIN_LEXICAL_COVERAGE = 0.5
 _MEMORY_ID_PATTERN = re.compile(r"^memory-[0-9a-f]{24}$")
 _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "a", "about", "after", "again", "all", "am", "an", "and", "any", "are",
@@ -586,11 +587,16 @@ class CanonicalMemoryStore:
         term_weights = {term: math.log((len(eligible) + 1) /
             (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
         ranked: list[tuple[float, float, str, dict[str, Any]]] = []
+        total_query_weight = sum(term_weights.values())
+        best_lexical_coverage = 0.0
         composition_query = _is_response_composition_query(query)
         for record, candidate_terms in zip(eligible, document_terms):
             # Corpus rarity lets a distinctive anchor outweigh several common
             # words, while relevance remains lexical and does not imply truth.
-            score = sum(term_weights[term] for term in terms & candidate_terms)
+            overlap = terms & candidate_terms
+            score = sum(term_weights[term] for term in overlap)
+            coverage = (sum(term_weights[term] for term in overlap)
+                / total_query_weight if total_query_weight else 0.0)
             # A plainly stated response-style preference can affect new writing
             # even when the request uses different wording. Keep this bridge
             # narrow: it does not retrieve other preference kinds or answer
@@ -598,6 +604,8 @@ class CanonicalMemoryStore:
             if (score == 0 and composition_query
                     and _is_explicit_response_style_preference(record["text"])):
                 score = 1.0
+                coverage = 1.0
+            best_lexical_coverage = max(best_lexical_coverage, coverage)
             if score:
                 try:
                     timestamp = datetime.fromisoformat(
@@ -612,9 +620,13 @@ class CanonicalMemoryStore:
         semantic_identity_digest = None
         semantic_selection_digest = None
         semantic_retrieval_posture = "disabled"
-        if ranked:
+        semantic_requested = (semantic_model_id is not None
+            or semantic_model_revision is not None)
+        semantic_refinement_needed = (not ranked or best_lexical_coverage
+            < SEMANTIC_MEMORY_MIN_LEXICAL_COVERAGE)
+        if ranked and (not semantic_requested or not semantic_refinement_needed):
             semantic_retrieval_posture = "lexical_match_preferred"
-        elif semantic_model_id is not None or semantic_model_revision is not None:
+        elif semantic_requested:
             if semantic_model_id is None or semantic_model_revision is None:
                 semantic_retrieval_posture = "unavailable"
                 semantic_scores: dict[str, float] = {}
@@ -622,12 +634,23 @@ class CanonicalMemoryStore:
                 semantic_scores, semantic_identity_digest, semantic_selection_digest, \
                     semantic_retrieval_posture = _semantic_memory_scores(query, eligible,
                         model_id=semantic_model_id, revision=semantic_model_revision)
+            semantic_ranked = []
             for record in eligible:
                 record_id = str(record.get("id", ""))
                 semantic_score = semantic_scores.get(record_id)
                 if semantic_score is not None:
-                    ranked.append((semantic_score, _memory_record_timestamp(record),
-                        record_id, record))
+                    semantic_ranked.append((semantic_score,
+                        _memory_record_timestamp(record), record_id, record))
+            if semantic_ranked:
+                # Low-coverage lexical hits are weak cues. A qualifying semantic
+                # match refines them; if semantic retrieval has no usable result,
+                # retain the deterministic lexical answer.
+                ranked = semantic_ranked
+            elif ranked:
+                semantic_retrieval_posture = (
+                    "unavailable_lexical_fallback"
+                    if semantic_retrieval_posture == "unavailable"
+                    else "no_match_lexical_fallback")
         selected: list[dict[str, Any]]=[]; used=0
         omitted: list[tuple[tuple[Any, str], str]] = []
         # Relevance remains primary. Recency only orders equally relevant
@@ -684,7 +707,7 @@ class CanonicalMemoryStore:
                 "correction_relations":correction_relations,
                 "retrieval_posture":retrieval_posture,
                 "selection_posture":selection_posture,
-                "retrieval_policy_id": "lexical_then_pinned_semantic_fallback:v1",
+                "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
                 "semantic_retrieval_posture": semantic_retrieval_posture,
                 "semantic_embedder_identity_digest": semantic_identity_digest,
                 "omitted_memory_count":len(omitted),
@@ -693,7 +716,7 @@ class CanonicalMemoryStore:
                     "correction_relations":correction_relations,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
                     "legacy_sidecar_posture":legacy_sidecar_posture,
-                    "retrieval_policy_id": "lexical_then_pinned_semantic_fallback:v1",
+                    "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
                     "semantic_retrieval_posture": semantic_retrieval_posture,
                     "semantic_embedder_identity_digest": semantic_identity_digest,
                     "semantic_selection_digest": semantic_selection_digest})}
