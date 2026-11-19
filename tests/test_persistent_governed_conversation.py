@@ -2074,6 +2074,13 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                         "evidence_ids": [], "history_record_ids": [],
                         "memory_record_ids": sorted(correcting_ids),
                     }
+                elif not records:
+                    self.companion_output_override = {
+                        "disposition": "answer",
+                        "response": "I have no retained answer-style preference.",
+                        "evidence_ids": [], "history_record_ids": [],
+                        "memory_record_ids": [],
+                    }
                 else:
                     assert relations == []
                     assert len(records) == 2
@@ -2124,7 +2131,9 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                 cognition, clock=lambda: now))
         query_session_id = restarted_app.create_session()
         assert query_session_id != source_session_id
-        response = restarted_app.chat("Draft a response for me.",
+        restarted_app.chat("We were discussing detailed answer style.",
+            session_id=query_session_id, request_id="resident-preference-topic")
+        response = restarted_app.chat("What happens next?",
             session_id=query_session_id, request_id="resident-preference-followup",
             observe_screen=True)
         prompt = json.loads(cognition_invoker.requests[-1].prompt)
@@ -2146,6 +2155,12 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         competing_prompt, competing_context, _competing_source_session,
         competing_query_session, competing_old_memory_id) = competing
 
+    no_topic_session_id = corrected_app.create_session()
+    no_topic_response = corrected_app.chat("What happens next?",
+        session_id=no_topic_session_id, request_id="resident-preference-no-topic",
+        observe_screen=True)
+    no_topic_prompt = json.loads(corrected_invoker.requests[-1].prompt)
+
     assert corrected_response.response == (
         "Your later retained statement says you prefer concise answers. I can use "
         "that as a defeasible preference, not as a verified current fact.")
@@ -2153,6 +2168,8 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         "I have retained both detailed and concise answer preferences without a "
         "correction link. Which should I use?")
     assert corrected_response.response != control_response.response
+    assert corrected_response.response != no_topic_response.response
+    assert no_topic_response.response == "I have no retained answer-style preference."
     assert source_session_id != query_session_id
     assert corrected_context["selection_posture"] == "all_matching_records_selected"
     assert len(corrected_context["records"]) == 1
@@ -2173,6 +2190,11 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         corrected_prompt["instruction"])
     assert "This relation does not resolve other material conflicts" in (
         corrected_prompt["instruction"])
+    assert corrected_prompt["companion_question"] == "What happens next?"
+    assert any(row["role"] == "user" and row["text"] ==
+        "We were discussing detailed answer style."
+        for row in corrected_prompt["session_conversation_context"]["turns"])
+    assert no_topic_prompt["canonical_user_memory_context"]["records"] == []
     assert control_context["correction_relations"] == []
     assert len(control_context["records"]) == 2
     assert "correction_relations" not in control_prompt["instruction"]
@@ -2208,7 +2230,7 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
     assert set(competing_observation["canonical_user_memory_record_ids"]) == set(
         competing_cited_ids)
     assert competing_observation["companion_memory_citation_ids"] == competing_cited_ids
-    assert len(corrected_invoker.observed_contexts) == 1
+    assert len(corrected_invoker.observed_contexts) == 2
     assert len(control_invoker.observed_contexts) == 1
     assert len(competing_invoker.observed_contexts) == 1
 
