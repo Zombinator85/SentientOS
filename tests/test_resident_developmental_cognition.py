@@ -13268,9 +13268,11 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
 
     current_snapshot = snapshot()
     current_projection = cognition._current_projection(current_snapshot)
+    epistemic_evaluation_time = cognition._current_epistemic_evaluation_time()
     cognition._cognize(snapshot=current_snapshot, current=current_projection,
         tick_id="repeat-corroboration-context-present", projection=selected,
         with_history=True, condition_id="with-history",
+        epistemic_evaluation_time=epistemic_evaluation_time,
         target_model_identity=identity, target_model_identity_observed=True)
     presented_prompt = fake.requests[-1].prompt
     assert "developmental_history_outcome_corroboration" in presented_prompt
@@ -13280,6 +13282,7 @@ def test_task_family_retrieval_prefers_repeat_run_favorable_evidence_over_newer_
     cognition._cognize(snapshot=current_snapshot, current=current_projection,
         tick_id="repeat-corroboration-context-withheld", projection=selected,
         with_history=False, condition_id="history-withheld",
+        epistemic_evaluation_time=epistemic_evaluation_time,
         target_model_identity=identity, target_model_identity_observed=True)
     withheld_prompt = fake.requests[-1].prompt
     assert "developmental_history_outcome_corroboration" not in withheld_prompt

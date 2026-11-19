@@ -24,6 +24,37 @@ def test_resident_epistemic_evaluation_clock_requires_known_timezone() -> None:
     assert owner._current_epistemic_evaluation_time() is None
 
 
+def test_resident_tick_captures_one_epistemic_evaluation_time() -> None:
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+    owner.config = SimpleNamespace(enabled=True)
+    clock_reads = []
+    clock_values = iter((
+        datetime(2026, 11, 18, 10, 4, 59, tzinfo=timezone.utc),
+        datetime(2026, 11, 18, 10, 5, 1, tzinfo=timezone.utc),
+    ))
+
+    def clock() -> datetime:
+        clock_reads.append(True)
+        return next(clock_values)
+
+    owner.clock = clock
+    owner._composition_lock = lambda: nullcontext()
+    owner._run_tick_locked = lambda **kwargs: kwargs
+    captured = owner._run_tick(snapshot=SimpleNamespace(snapshot_id="snapshot"),
+        tick_id="tick", prior_self_model=None, prior_epistemic_state=object(),
+        objective_task=None, objective_only=False, objective_request_id=None,
+        objective_request_digest=None)
+    assert len(clock_reads) == 1
+    assert captured["epistemic_evaluation_time"] == "2026-11-18T10:04:59Z"
+
+
 def test_task_family_review_requires_exact_model_applicability() -> None:
     proposition_id = "p-1"
     identity_digest = "sha256:" + "a" * 64

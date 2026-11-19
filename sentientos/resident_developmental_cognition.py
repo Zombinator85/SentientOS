@@ -9463,6 +9463,7 @@ class ResidentDevelopmentalCognitionOwner:
             projection_digest=digest)
 
     def _cognize(self, *, snapshot: WorldStateSnapshot, current: CurrentWorldStateCognitiveProjection, tick_id: str,
+                  epistemic_evaluation_time: str | None,
                   projection: DevelopmentalHistoryProjection, with_history: bool,
                   prior_self_model: CognitiveSelfModelProjection | None = None,
                   prior_epistemic_state: EpistemicCognitiveProjection | None = None,
@@ -9883,7 +9884,7 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
-                evaluation_time=self._current_epistemic_evaluation_time(),
+                evaluation_time=epistemic_evaluation_time,
                 unsettled_task_family_outcome_groups=set(getattr(
                     projection, "task_family_unsettled_outcome_groups", ())),
                 # Interactive chat and objective-transfer cognition both run
@@ -10764,6 +10765,8 @@ class ResidentDevelopmentalCognitionOwner:
                 historical_citation_context, records=projection.records,
                 conversation_context=conversation_context)
             observation = self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                epistemic_evaluation_time=(self._current_epistemic_evaluation_time()
+                    if prior_epistemic_state is not None else None),
                 projection=projection, with_history=bool(projection.requested_record_ids),
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 condition_id="companion-interaction", interaction_question=question,
@@ -10962,6 +10965,7 @@ class ResidentDevelopmentalCognitionOwner:
             with_history = False
             try:
                 self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                    epistemic_evaluation_time=self._current_epistemic_evaluation_time(),
                     projection=prior, with_history=with_history,
                     condition_id="with-history" if with_history else "prior-context",
                     prior_epistemic_state=prior_epistemic_state,
@@ -11046,7 +11050,13 @@ class ResidentDevelopmentalCognitionOwner:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
         if os.name != "posix":
+            # Freeze time once per logical tick so intervention conditions
+            # compare the same temporal applicability context.
+            epistemic_evaluation_time = (
+                self._current_epistemic_evaluation_time()
+                if prior_epistemic_state is not None else None)
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
+                epistemic_evaluation_time=epistemic_evaluation_time,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
@@ -11063,7 +11073,11 @@ class ResidentDevelopmentalCognitionOwner:
                 companion_intervention_trial_index=(
                     companion_intervention_trial_index))
         with self._composition_lock():
+            epistemic_evaluation_time = (
+                self._current_epistemic_evaluation_time()
+                if prior_epistemic_state is not None else None)
             return self._run_tick_locked(snapshot=snapshot, tick_id=tick_id,
+                epistemic_evaluation_time=epistemic_evaluation_time,
                 prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                 objective_task=objective_task, objective_only=objective_only,
                 objective_request_id=objective_request_id,
@@ -11081,6 +11095,7 @@ class ResidentDevelopmentalCognitionOwner:
                     companion_intervention_trial_index))
 
     def _run_tick_locked(self, *, snapshot: WorldStateSnapshot, tick_id: str,
+                 epistemic_evaluation_time: str | None = None,
                  prior_self_model: CognitiveSelfModelProjection | None = None,
                  prior_epistemic_state: EpistemicCognitiveProjection | None = None,
                  objective_task: Any | None = None, objective_only: bool = False,
@@ -11238,6 +11253,7 @@ class ResidentDevelopmentalCognitionOwner:
         if should_cognize:
             if not should_run_history_comparison:
                 observations.append(self._cognize(snapshot=snapshot, current=current, tick_id=tick_id,
+                                    epistemic_evaluation_time=epistemic_evaluation_time,
                                     projection=prior, with_history=has_developmental_history,
                                     condition_id="with-history" if has_developmental_history else "prior-context",
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
@@ -11306,7 +11322,7 @@ class ResidentDevelopmentalCognitionOwner:
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
-                        evaluation_time=self._current_epistemic_evaluation_time(),
+                        evaluation_time=epistemic_evaluation_time,
                         unsettled_task_family_outcome_groups=set(getattr(
                             prior, "task_family_unsettled_outcome_groups", ())),
                         history_present=True, compact_history_for_input=(
@@ -11412,6 +11428,7 @@ class ResidentDevelopmentalCognitionOwner:
                         {} if companion_intervention_question is not None else None)
                     observation = self._cognize(
                         snapshot=snapshot, current=current, tick_id=tick_id,
+                        epistemic_evaluation_time=epistemic_evaluation_time,
                         projection=prior, with_history=condition_id != "history_withheld",
                         condition_id=condition_id, purpose=EXPERIMENT_PURPOSE,
                         protocol=protocol, prior_self_model=prior_self_model,
