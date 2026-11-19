@@ -78,7 +78,8 @@ from sentientosd import (
 )
 from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner,
     make_proposition, make_evidence_binding, make_cognitive_projection,
-    MeaningBearingEpistemicCognitiveProjection)
+    MeaningBearingEpistemicCognitiveProjection,
+    make_epistemic_update_candidate)
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -9642,7 +9643,7 @@ def test_daemon_cognition_current_observation_changes_later_epistemic_decision(
         subject="lesson:battery_overheat_isolation", predicate="prior_observed_outcome",
         object_value="reduced_after_isolation", polarity="positive", qualifiers={},
         temporal_scope={}, context_scope={}, proposition_class="descriptive",
-        statement="Battery overheating was reduced after isolation.")
+        statement="A prior device outcome was recorded.")
     telescope = make_proposition(namespace="embodiment",
         subject="telescope:orbital:1", predicate="captured_image",
         object_value="Saturn", polarity="positive", qualifiers={},
@@ -9650,9 +9651,19 @@ def test_daemon_cognition_current_observation_changes_later_epistemic_decision(
         statement="The orbital telescope captured Saturn 1.")
     for index, proposition in enumerate((overheating, telescope), start=1):
         epistemic.register_proposition(proposition)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=proposition.proposition_id,
+            predecessor_state_digest=None, proposed_stance="unknown",
+            evidence_binding_ids=(), reason="initialization",
+            rationale=("Battery overheating was reduced after isolation in a prior trial."
+                if proposition.proposition_id == overheating.proposition_id else
+                "The orbital telescope captured an image of Saturn."),
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule",
+            proposer_id=f"daemon-current-retrieval-{index}")
         epistemic.commit_update(proposition_id=proposition.proposition_id,
             expected_predecessor_digest=None, stance="unknown",
-            reason="initialization", active_binding_ids=(),
+            reason="initialization", active_binding_ids=(), candidate=candidate,
             correlation_id=f"daemon-current-retrieval-{index}", tick=index,
             recorded_at=f"2026-11-18T11:00:0{index}Z")
     baseline = epistemic.cognitive_projection(max_states=1,
@@ -9773,11 +9784,18 @@ def test_daemon_cognition_current_observation_changes_later_epistemic_decision(
     prior = prompt["prior_epistemic_state"]
     assert prior["semantic_packets"][0]["proposition"]["proposition_id"] == (
         relevant.proposition_id)
+    selected_packet = prior["semantic_packets"][0]
+    assert selected_packet["proposition"]["statement"] == (
+        "A prior device outcome was recorded.")
+    assert "Battery overheating" in selected_packet["update_candidate_history"][0][
+        "candidate"]["rationale"]
     assert cognition_request.upstream_evidence["epistemic_projection_digest"] == (
         projection.projection_digest)
     assert "overheating" in json.dumps(prompt["current_evidence"])
     baseline_prompt = json.loads(baseline_request.prompt)
     assert baseline_prompt["current_evidence"] == prompt["current_evidence"]
+    assert baseline_prompt["prior_epistemic_state"]["semantic_packets"][0][
+        "proposition"]["proposition_id"] == unrelated.proposition_id
     assert baseline_request.upstream_evidence["current_fact_ids"] == (
         cognition_request.upstream_evidence["current_fact_ids"])
     ranked_decision = json.loads(cognition_receipt.output_text)
