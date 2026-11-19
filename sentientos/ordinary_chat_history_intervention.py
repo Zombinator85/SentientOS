@@ -36,6 +36,8 @@ SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
 SCORE_PLAN_ID_PREFIX = "ordinary-history-score-plan-"
 SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
 SCHEDULE_ID_PREFIX = "ordinary-history-schedule-"
+EXECUTION_SCHEMA = "sentientos.ordinary_chat_history_execution_claim:v1"
+EXECUTION_ID_PREFIX = "ordinary-history-execution-"
 MAX_SCHEDULED_TRIALS = 65_536
 INTERVENTION_LINKAGE_KEY = "ordinary_chat_history_intervention"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
@@ -117,6 +119,48 @@ def _verify_schedule_claim(claim: Mapping[str, Any], *,
         "trial_index": trial_index,
         "condition_order": list(claim["condition_order"]),
         "authority": False}
+
+
+def _build_execution_claim(protocol: Mapping[str, Any], *, nonce: str) -> dict[str, Any]:
+    if (not isinstance(protocol.get("protocol_id"), str)
+            or not isinstance(protocol.get("protocol_digest"), str)
+            or not isinstance(nonce, str)
+            or re.fullmatch(r"[0-9a-f]{32}", nonce) is None):
+        raise ValueError("ordinary_chat_history_execution_claim_invalid")
+    semantic = {"schema_version": EXECUTION_SCHEMA,
+        "protocol_id": protocol["protocol_id"],
+        "protocol_digest": protocol["protocol_digest"],
+        "claim_nonce": nonce, "authority": False,
+        "retry_posture": "one_shot_censored_on_interruption:v1"}
+    digest = digest_payload(semantic)
+    return {**semantic, "execution_claim_id": EXECUTION_ID_PREFIX + digest[:24],
+        "execution_claim_digest": digest}
+
+
+def _verify_execution_claim(claim: Mapping[str, Any], *,
+        protocol: Mapping[str, Any]) -> dict[str, Any]:
+    expected = {"schema_version", "protocol_id", "protocol_digest",
+        "claim_nonce", "authority", "retry_posture", "execution_claim_id",
+        "execution_claim_digest"}
+    if (not isinstance(claim, Mapping) or set(claim) != expected
+            or claim.get("schema_version") != EXECUTION_SCHEMA
+            or claim.get("protocol_id") != protocol.get("protocol_id")
+            or claim.get("protocol_digest") != protocol.get("protocol_digest")
+            or claim.get("authority") is not False
+            or claim.get("retry_posture") != "one_shot_censored_on_interruption:v1"
+            or not isinstance(claim.get("claim_nonce"), str)
+            or re.fullmatch(r"[0-9a-f]{32}", claim["claim_nonce"]) is None):
+        raise ValueError("ordinary_chat_history_execution_claim_invalid")
+    semantic = {key: value for key, value in claim.items()
+        if key not in {"execution_claim_id", "execution_claim_digest"}}
+    digest = digest_payload(semantic)
+    if (claim.get("execution_claim_digest") != digest
+            or claim.get("execution_claim_id") != EXECUTION_ID_PREFIX + digest[:24]):
+        raise ValueError("ordinary_chat_history_execution_claim_digest_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_execution_claim_verification:v1",
+        "execution_claim_id": claim["execution_claim_id"],
+        "execution_claim_digest": digest,
+        "protocol_id": protocol["protocol_id"], "authority": False}
 
 
 def _validate_json_bound(value: Any, *, maximum_bytes: int, error_code: str) -> None:
@@ -536,7 +580,8 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
             (invoke, verify_invocation_receipt, score_blinded))
             or not callable(getattr(store, "load_protocol", None))
             or not callable(getattr(store, "load_scoring_plan", None))
-            or not callable(getattr(store, "load_score_artifact", None))):
+            or not callable(getattr(store, "load_score_artifact", None))
+            or not callable(getattr(store, "claim_execution", None))):
         raise ValueError("ordinary_chat_history_runner_owner_required")
     protocol_check = verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
@@ -550,6 +595,7 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
         prompt_bundle=prompt_bundle)
     verify_ordinary_chat_history_objective_scoring_plan(
         scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
+    store.claim_execution(protocol=protocol, prompt_bundle=prompt_bundle)
     prompts = prompt_bundle.get("prompts")
     outputs: dict[str, str] = {}
     condition_evidence: dict[str, dict[str, str]] = {}
@@ -1017,6 +1063,44 @@ class OrdinaryChatHistoryInterventionStore:
             task_commitment_digest) + f"-{trial_index:08d}")
         return self._store.protocols / f"{schedule_id}.json"
 
+    def _execution_path(self, protocol: Mapping[str, Any]) -> Path:
+        protocol_digest = protocol.get("protocol_digest")
+        if not isinstance(protocol_digest, str) or _HEX_DIGEST.fullmatch(
+                protocol_digest) is None:
+            raise ValueError("ordinary_chat_history_execution_protocol_invalid")
+        return self._store.protocols / (
+            f"{EXECUTION_ID_PREFIX}{protocol_digest[:24]}.json")
+
+    def claim_execution(self, *, protocol: Mapping[str, Any],
+            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+        """Atomically claim the protocol's sole execution attempt before inference."""
+        persisted = self.load_protocol(protocol.get("protocol_id"),
+            prompt_bundle=prompt_bundle, require_schedule=True)
+        if dict(persisted) != dict(protocol):
+            raise ValueError("ordinary_chat_history_execution_protocol_not_persisted")
+        claim = _build_execution_claim(protocol, nonce=secrets.token_hex(16))
+        path = self._execution_path(protocol)
+        try:
+            self._store._write_immutable(path, claim)
+        except ValueError as exc:
+            if str(exc) == "artifact_identity_collision":
+                raise ValueError(
+                    "ordinary_chat_history_execution_already_claimed") from exc
+            raise
+        reloaded = self._store._read_json(path)
+        checked = _verify_execution_claim(reloaded, protocol=protocol)
+        if reloaded != claim:
+            raise ValueError("ordinary_chat_history_execution_already_claimed")
+        return {**checked, "claimed": True, "authority": False}
+
+    def load_execution_claim(self, *, protocol: Mapping[str, Any]) -> dict[str, Any]:
+        try:
+            claim = self._store._read_json(self._execution_path(protocol))
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_execution_not_claimed") from exc
+        _verify_execution_claim(claim, protocol=protocol)
+        return claim
+
     def _next_trial_index(self, session_id: str, task_commitment_digest: str, *,
             retry_protocol_id: str | None = None) -> int:
         for trial_index in range(MAX_SCHEDULED_TRIALS):
@@ -1222,6 +1306,7 @@ class OrdinaryChatHistoryInterventionStore:
             invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
             ) -> str:
         """Immutably persist a result packet after rechecking its protocol links."""
+        self.load_execution_claim(protocol=protocol)
         verification = verify_ordinary_chat_history_intervention_result(
             result, protocol=protocol, prompt_bundle=prompt_bundle,
             invocation_receipt_verifier=invocation_receipt_verifier)

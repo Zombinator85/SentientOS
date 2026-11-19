@@ -898,6 +898,14 @@ provide owner-backed callbacks; a callback's presence alone is not proof, and
 the persisted result verifier continues to distinguish internal linkage from
 independent artifact verification.
 
+Before the first inference call, the runner publishes one immutable,
+nonce-bound execution claim for the protocol. A second execution attempt is
+rejected even if the first process stopped before producing a result. Such a
+trial is censored as interrupted; continuing requires a newly scheduled trial,
+so an operator cannot silently rerun the same preregistration and retain only
+the more favorable outputs. Result persistence also requires that execution
+claim. This is a one-shot custody boundary, not crash-resume support.
+
 Protocol v2 and result v2 bind a distinct scorer identity digest. The
 `build_ordinary_chat_history_objective_scoring_plan` helper freezes an existing
 deterministic affine prediction task and evaluator source identity. The scoring
