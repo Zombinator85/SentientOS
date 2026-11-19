@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,21 @@ from sentientos.epistemic_planning import (
     epistemic_review_reason_for_goal,
     review_required_applicability,
 )
+
+
+def test_resident_epistemic_evaluation_clock_requires_known_timezone() -> None:
+    from sentientos.resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner,
+    )
+
+    owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+    owner.clock = lambda: datetime(2026, 11, 18, 10, 0,
+        tzinfo=timezone(timedelta(hours=-5)))
+    assert owner._current_epistemic_evaluation_time() == (
+        "2026-11-18T15:00:00Z")
+
+    owner.clock = lambda: datetime(2026, 11, 18, 10, 0)
+    assert owner._current_epistemic_evaluation_time() is None
 
 
 def test_task_family_review_requires_exact_model_applicability() -> None:
