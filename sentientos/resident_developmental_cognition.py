@@ -5357,6 +5357,20 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     return selected_value, metadata, prompt
 
 
+def bind_epistemic_cognitive_context(*, context: Mapping[str, Any],
+        projection: EpistemicCognitiveProjection | None,
+        evaluation_time: str | None = None,
+        max_input_chars: int | None = None
+        ) -> tuple[dict[str, Any], dict[str, Any], str]:
+    """Bind an existing verified projection into a bounded cognitive context.
+
+    Ordinary chat uses this same selector as resident cognition so it cannot
+    invent a weaker packet or temporal-freshness interpretation.
+    """
+    return _bind_epistemic_context(context=context, projection=projection,
+        evaluation_time=evaluation_time, max_input_chars=max_input_chars)
+
+
 def _validate_epistemic_observation_binding(value: Mapping[str, Any]) -> None:
     ids = value.get("epistemic_consumed_packet_ids")
     digests = value.get("epistemic_consumed_packet_digests")

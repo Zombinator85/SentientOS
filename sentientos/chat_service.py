@@ -3970,6 +3970,8 @@ class PersistentConversationService:
                 should_route_to_cognition = can_handle() is True
             except Exception:
                 should_route_to_cognition = False
+        epistemic_fallback = (bridge is not None and not should_route_to_cognition
+            and not retain)
         history_budget = self.context_budget_chars
         gaming_development_turn = (
             isinstance(self._inference, DevelopmentLocalChatInference)
@@ -4073,7 +4075,7 @@ class PersistentConversationService:
             except (CognitionEvidenceUnavailable, CognitionWorkloadUnavailable):
                 # Keep ordinary chat available without current evidence, or if
                 # a game becomes active after the readiness check.
-                pass
+                epistemic_fallback = True
         # Exact recall, casual check-ins, and live runtime questions rely on the
         # relevant transcript or verified runtime facts. Lexical retrieval can
         # over-weight old prompts (for example, prior screen-visibility questions).
@@ -4254,9 +4256,25 @@ class PersistentConversationService:
                 response_text=response_text, correction=correction,
                 runtime_context=runtime_context, history=history, memory=memory,
                 on_content_chunk=on_content_chunk)
+        epistemic_context = None
+        if (epistemic_fallback and not recent_session_recall and not social_checkin
+                and not current_runtime_question and not self_contained_echo
+                and not gaming_development_turn):
+            provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
+            if callable(provider):
+                try:
+                    candidate_context = provider(question=message,
+                        max_input_chars=8000)
+                    if isinstance(candidate_context, Mapping):
+                        epistemic_context = candidate_context
+                except Exception:
+                    # Epistemic context is optional historical input. A failed
+                    # projection never blocks ordinary chat or becomes evidence.
+                    epistemic_context = None
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
+            epistemic_context=epistemic_context,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
             compact_history=gaming_development_turn,

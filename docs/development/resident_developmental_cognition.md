@@ -721,6 +721,22 @@ then ordinary chat selecting that source-linked exchange and changing a fake
 decision while preserving the same budget. This is controlled retrieval and
 application evidence; real-model interpretation remains unverified.
 
+When resident cognition cannot handle a turn, ordinary chat can now consume an
+already-enabled epistemic projection through the same complete-packet binder
+used by resident cognition. The bridge applies the question relevance bound,
+temporal freshness review, omission accounting, and source-bound packet format;
+ordinary chat omits this context when epistemic consumption is disabled, on
+narrow recall/check-in/runtime requests, or in the compact gaming prompt. The
+projection is historical, non-authoritative, read-only context and does not
+activate calibration review or revise epistemic state. The CPU counterfactual
+in `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_bounded_prior_epistemic_context`
+shows the supplied position changing a fake ordinary-chat decision.
+`::test_bridge_binds_only_verified_prior_epistemic_context` checks that the
+existing verified packet reaches this adapter and leaves admitted state
+unchanged; `::test_local_chat_prompt_rejects_epistemic_context_with_authority_flags`
+checks prompt assembly rejects self-authorizing flags. Real-model application
+and improved longitudinal outcomes remain unverified.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports

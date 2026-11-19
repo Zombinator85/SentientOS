@@ -479,6 +479,168 @@ def test_ordinary_chat_uses_relevant_older_exchange_before_recent_fill(
         for turn in selected.turns)
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
+        tmp_path: Path) -> None:
+    query = "Should the west sensor be treated as reliable?"
+    corrected_position = "west sensor position: contradicted after later evidence"
+    semantic_context = {
+        "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
+        "instruction": "Use the prior position only when relevant; it is historical and non-authoritative.",
+        "prior_epistemic_state": {
+            "semantic_status": "all_meanings_delivered",
+            "semantic_packets": [{"state": {"stance": "contradicted"},
+                "proposition": {"statement": corrected_position}}],
+            "current_truth": False, "authority": False},
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    selected_context = {**semantic_context,
+        "selection_digest": chat_service.digest_payload(semantic_context)}
+
+    class FallbackBridge:
+        def __init__(self, selected):
+            self.selected = selected
+            self.context_requests = []
+
+        def can_handle(self):
+            return False
+
+        def respond(self, **_kwargs):
+            raise AssertionError("unavailable cognition must use ordinary fallback")
+
+        def ordinary_chat_epistemic_context(self, *, question, max_input_chars):
+            self.context_requests.append((question, max_input_chars))
+            return self.selected
+
+    class ContextDecisionInvoker(FakeInvoker):
+        def invoke(self, request):
+            self.last_prompt = request.prompt
+            output = ("Use caution with the west sensor."
+                if corrected_position in request.prompt
+                else "I have no prior epistemic position on that sensor.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False, request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    without_bridge = FallbackBridge(None)
+    baseline_invoker = ContextDecisionInvoker()
+    baseline = service(tmp_path / "baseline", baseline_invoker,
+        cognition_bridge=without_bridge)
+    baseline_session = baseline.create_session()
+    baseline_response = baseline.chat(query, session_id=baseline_session,
+        request_id="epistemic-fallback-baseline")
+
+    bridge = FallbackBridge(selected_context)
+    invoker = ContextDecisionInvoker()
+    app = service(tmp_path / "selected", invoker, cognition_bridge=bridge)
+    session_id = app.create_session()
+    response = app.chat(query, session_id=session_id,
+        request_id="epistemic-fallback-selected")
+
+    assert baseline_response.response == (
+        "I have no prior epistemic position on that sensor.")
+    assert response.response == "Use caution with the west sensor."
+    assert bridge.context_requests == [(query, 8000)]
+    assert "[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]" in invoker.last_prompt
+    assert corrected_position in invoker.last_prompt
+    assert "\"historical_only\":true" in invoker.last_prompt
+    assert "\"mutation_performed\":false" in invoker.last_prompt
+
+
+def test_local_chat_prompt_rejects_epistemic_context_with_authority_flags() -> None:
+    semantic_context = {
+        "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
+        "instruction": "This is historical context only.",
+        "prior_epistemic_state": {"semantic_packets": []},
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    context = {**semantic_context,
+        "selection_digest": chat_service.digest_payload(semantic_context)}
+    history = ContextSnapshot("session-epistemic-context", (), 4000, False,
+        "a" * 64)
+    memory = {"memories": [], "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "omitted_memory_count": 0}
+
+    prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
+        current_message="What should I consider?", epistemic_context=context)
+    assert "[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]" in prompt
+    assert '"authority":false' in prompt
+    assert '"current_truth":false' in prompt
+    assert "This is historical context only." in prompt
+
+    invalid_semantic = {**semantic_context, "authority": True}
+    invalid_context = {**invalid_semantic,
+        "selection_digest": chat_service.digest_payload(invalid_semantic)}
+    with pytest.raises(ValueError, match="ordinary_chat_epistemic_context_invalid"):
+        assemble_local_chat_context(history=history, memory_snapshot=memory,
+            current_message="What should I consider?",
+            epistemic_context=invalid_context)
+    with pytest.raises(ValueError, match="ordinary_chat_epistemic_context_invalid"):
+        assemble_local_chat_context(history=history, memory_snapshot=memory,
+            current_message="What should I consider?",
+            epistemic_context=context, compact_history=True)
+
+
+def test_bridge_binds_only_verified_prior_epistemic_context(tmp_path: Path) -> None:
+    from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner, make_evidence_binding, make_proposition,
+    )
+
+    epistemics = PersistentEpistemicStateOwner(
+        tmp_path / "epistemics", allowed_namespaces=("embodiment",))
+    proposition = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_measurement",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The west sensor reports a stable reading.")
+    epistemics.register_proposition(proposition)
+    evidence = make_evidence_binding(proposition_id=proposition.proposition_id,
+        source_artifact_id="fixture:west-sensor-reading",
+        source_digest="sha256:" + "1" * 64,
+        source_schema="sentientos.test_observation:v1",
+        source_class="independent_fixture",
+        observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="west-sensor-fixture", upstream_binding_ids=(),
+        freshness="current", reliability_posture="supports")
+    epistemics.bind_evidence(evidence)
+    state, _event = epistemics.commit_update(
+        proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=None, stance="provisionally_supported",
+        reason="new_evidence", active_binding_ids=(evidence.binding_id,),
+        added_binding_ids=(evidence.binding_id,),
+        correlation_id="ordinary-fallback-prior-state", tick=1,
+        recorded_at="2026-01-01T00:00:00Z")
+    before = epistemics.current_state(proposition.proposition_id)
+    bridge = object.__new__(ResidentDevelopmentalCompanionBridge)
+    bridge._epistemic_state_owner = epistemics
+    bridge._epistemic_state_config = {"cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 4}
+    bridge._clock = lambda: datetime(2026, 11, 19, tzinfo=timezone.utc)
+
+    context = bridge.ordinary_chat_epistemic_context(
+        question="What does the west sensor report?")
+
+    assert context is not None
+    assert context["historical_only"] is True
+    assert context["current_truth"] is False
+    assert context["authority"] is False
+    assert context["mutation_performed"] is False
+    packets = context["prior_epistemic_state"]["semantic_packets"]
+    assert len(packets) == 1
+    assert packets[0]["proposition"]["statement"] == proposition.statement
+    assert packets[0]["state"]["state_id"] == state.state_id
+    assert epistemics.current_state(proposition.proposition_id) == before
+
+
 def test_historical_citation_context_resolves_only_digest_bound_source_turn(
         tmp_path: Path) -> None:
     app = service(tmp_path)
