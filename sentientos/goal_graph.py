@@ -63,10 +63,12 @@ class GoalStateRecord:
     last_evidence_paths: tuple[str, ...]
     blocked_reason: str | None
     failure_count: int
+    last_work_run_id: str | None = None
+    last_work_run_digest: str | None = None
 
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        payload: dict[str, object] = {
             "schema_version": self.schema_version,
             "progress": self.progress,
             "status": self.status,
@@ -76,6 +78,10 @@ class GoalStateRecord:
             "blocked_reason": self.blocked_reason,
             "failure_count": self.failure_count,
         }
+        if self.schema_version >= 2:
+            payload["last_work_run_id"] = self.last_work_run_id
+            payload["last_work_run_digest"] = self.last_work_run_digest
+        return payload
 
 
 def default_goal_state_record() -> GoalStateRecord:
@@ -158,7 +164,9 @@ def load_goal_state(repo_root: Path) -> dict[str, GoalStateRecord]:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
-    if not isinstance(payload, dict):
+    if (not isinstance(payload, dict)
+            or type(payload.get("schema_version", 1)) is not int
+            or payload.get("schema_version", 1) not in {1, 2}):
         return {}
     rows = payload.get("goals")
     if not isinstance(rows, dict):
@@ -167,8 +175,21 @@ def load_goal_state(repo_root: Path) -> dict[str, GoalStateRecord]:
     for goal_id, raw in rows.items():
         if not isinstance(goal_id, str) or not isinstance(raw, dict):
             continue
+        row_version = raw.get("schema_version", 1)
+        if type(row_version) is not int or row_version not in {1, 2}:
+            continue
+        run_id = raw.get("last_work_run_id")
+        run_digest = raw.get("last_work_run_digest")
+        if row_version == 2 and (not isinstance(run_id, str) or not run_id
+                or len(run_id) > 128 or not isinstance(run_digest, str)
+                or len(run_digest) != 71 or not run_digest.startswith("sha256:")
+                or any(character not in "0123456789abcdef"
+                    for character in run_digest[7:])):
+            # A v2 failure streak without its immutable source identity cannot
+            # be safely continued after restart.
+            continue
         result[goal_id] = GoalStateRecord(
-            schema_version=1,
+            schema_version=row_version,
             progress=max(0.0, min(1.0, float(raw.get("progress", 0.0)))),
             status=str(raw.get("status", "active")),
             last_attempt_at=raw.get("last_attempt_at") if isinstance(raw.get("last_attempt_at"), str) else None,
@@ -176,6 +197,8 @@ def load_goal_state(repo_root: Path) -> dict[str, GoalStateRecord]:
             last_evidence_paths=tuple(str(item) for item in raw.get("last_evidence_paths", []) if isinstance(item, str)),
             blocked_reason=raw.get("blocked_reason") if isinstance(raw.get("blocked_reason"), str) else None,
             failure_count=max(0, int(raw.get("failure_count", 0))),
+            last_work_run_id=run_id if isinstance(run_id, str) else None,
+            last_work_run_digest=run_digest if isinstance(run_digest, str) else None,
         )
     return result
 
@@ -184,7 +207,7 @@ def persist_goal_state(repo_root: Path, state: dict[str, GoalStateRecord]) -> No
     path = repo_root.resolve() / GOAL_STATE_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "goals": {goal_id: record.to_dict() for goal_id, record in sorted(state.items(), key=lambda item: item[0])},
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
