@@ -1630,4 +1630,5 @@ def test_self_check_retries_required_ffmpeg_install_after_mirror_timeout() -> No
         "grep -REqs 'azure.archive.ubuntu.com|[[:alnum:]-]+\\.ec2\\.archive\\.ubuntu\\.com'"
         in step
     )
+    assert step.rindex(rewrite) < step.index("grep -REqs")
     assert "No public Ubuntu archive source was configured by fallback." in step
