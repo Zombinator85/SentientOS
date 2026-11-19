@@ -860,6 +860,15 @@ rejected. This proves the software path and its controlled decision effect;
 real-model use, beneficial transfer, and long-term outcome improvement remain
 unverified.
 
+`build_ordinary_chat_history_intervention_protocol` now creates a digest-bound
+pre-registration object from that bundle. It binds the source session and turns,
+prior response digest, serving-model identity, generation-configuration digest,
+task commitment, independent scoring-plan digest, and counterbalanced trial
+index. Its verifier rechecks the prompt bundle and keeps authority, effect, and
+learning claims false. This object is not yet durably stored or connected to
+model invocations; a future runner must persist it before the first condition
+and independently verify each receipt and score.
+
 Ordinary fallback turn lineage also records a bounded retrieval posture:
 `selected`, `provider_returned_no_context`, `provider_unavailable`,
 `provider_failed`, `context_validation_failed`, `prompt_budget_unavailable`,
