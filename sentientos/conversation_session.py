@@ -1149,12 +1149,14 @@ def build_ordinary_chat_history_intervention_prompts(*,
         context_arguments: Mapping[str, Any],
         history_present: Mapping[str, Any] | None,
         history_withheld: Mapping[str, Any] | None,
-        history_restored: Mapping[str, Any] | None) -> dict[str, Any]:
+        history_restored: Mapping[str, Any] | None,
+        trial_index: int = 0) -> dict[str, Any]:
     """Build matched prompts and prove history is their only changed block."""
     verification = verify_ordinary_chat_history_projection_triplet(
         history_present=history_present, history_withheld=history_withheld,
         history_restored=history_restored)
-    if (not isinstance(context_arguments, Mapping)
+    if (type(trial_index) is not int or not 0 <= trial_index <= 2**31 - 1
+            or not isinstance(context_arguments, Mapping)
             or "developmental_history_context" in context_arguments
             or context_arguments.get("compact_history", False) is True
             or context_arguments.get("compact_screen_context", False) is True):
@@ -1193,9 +1195,14 @@ def build_ordinary_chat_history_intervention_prompts(*,
     withheld_projection = present_prompt[:start] + present_prompt[end + 1:]
     if withheld_projection != prompts["history_withheld"]:
         raise ValueError("ordinary_chat_history_intervention_prompt_mismatch")
+    condition_order = (["history_present", "history_withheld", "history_restored"]
+        if trial_index % 2 == 0 else
+        ["history_withheld", "history_present", "history_restored"])
     verification.update({
         "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v1",
-        "condition_order": ["history_present", "history_withheld", "history_restored"],
+        "condition_order": condition_order,
+        "condition_order_policy": "alternating_present_withheld_first:v1",
+        "trial_index": trial_index,
         "condition_prompt_digests": {condition: digest_payload({"prompt": prompt})
             for condition, prompt in prompts.items()},
         "matched_non_history_prompt_digest": digest_payload({

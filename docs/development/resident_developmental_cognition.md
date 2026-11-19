@@ -843,9 +843,12 @@ from one fixed context argument set, verifies present and restored prompts are
 identical, and checks that removing only the developmental-history block from
 the present prompt yields the withheld prompt. It binds digests for each full
 prompt, the shared non-history prompt, and the exact inserted history block,
-along with the intended condition order. It returns prompt digests, not model
-outputs. This is prompt-control preparation, not yet an inference runner or
-scored result. The deterministic
+along with the intended condition order. An explicit trial index alternates
+whether history-present or history-withheld comes first; restoration remains
+third. This deterministic schedule is counterbalancing, not randomization, and
+the future runner must persist and assign trial indices across trials. It
+returns prompt digests, not model outputs. This is prompt-control preparation,
+not yet an inference runner or scored result. The deterministic
 `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
 counterfactual demonstrates a changed fake fallback answer when the relevant
 verified history is present, and the paired prompt test checks tampering is
