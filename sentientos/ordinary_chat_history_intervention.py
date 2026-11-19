@@ -8,6 +8,7 @@ artifact reload checks internal bindings.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import secrets
 from pathlib import Path
@@ -29,6 +30,8 @@ RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
+SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
+SCORE_PLAN_ID_PREFIX = "ordinary-history-score-plan-"
 INTERVENTION_LINKAGE_KEY = "ordinary_chat_history_intervention"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
 PLANNED_COMPARISONS = (
@@ -71,10 +74,14 @@ def _validate_blind_score_payload(payload: Any, *, depth: int = 0) -> None:
         if isinstance(value, Mapping):
             _validate_blind_score_payload(value, depth=depth + 1)
         elif isinstance(value, list):
-            if len(value) > 64 or any(isinstance(item, (Mapping, list))
-                    or not isinstance(item, (str, int, float, bool, type(None)))
+            if len(value) > 64 or any(isinstance(item, list)
+                    or (not isinstance(item, Mapping)
+                        and not isinstance(item, (str, int, float, bool, type(None))))
                     for item in value):
                 raise ValueError("ordinary_chat_history_score_payload_invalid")
+            for item in value:
+                if isinstance(item, Mapping):
+                    _validate_blind_score_payload(item, depth=depth + 1)
             if any(isinstance(item, str) and item.casefold() in forbidden_keys
                     for item in value):
                 raise ValueError("ordinary_chat_history_score_payload_not_blind")
@@ -121,7 +128,9 @@ def build_ordinary_chat_history_score_artifact(*, protocol: Mapping[str, Any],
 
 
 def verify_ordinary_chat_history_score_artifact(artifact: Mapping[str, Any], *,
-        protocol: Mapping[str, Any]) -> dict[str, Any]:
+        protocol: Mapping[str, Any],
+        scoring_plan: Mapping[str, Any] | None = None,
+        prompt_bundle: Mapping[str, Any] | None = None) -> dict[str, Any]:
     if not isinstance(artifact, Mapping) or set(artifact) != {
             "schema_version", "protocol_id", "protocol_digest", "scoring_plan_digest",
             "sample_id", "output_digest", "scorer_identity_digest", "blinding_posture",
@@ -133,6 +142,17 @@ def verify_ordinary_chat_history_score_artifact(artifact: Mapping[str, Any], *,
         score_payload=artifact.get("score_payload"))
     if dict(artifact) != rebuilt:
         raise ValueError("ordinary_chat_history_score_artifact_digest_mismatch")
+    score_semantics_verified = False
+    if scoring_plan is not None:
+        verify_ordinary_chat_history_objective_scoring_plan(
+            scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
+        from .developmental_model_replacement_experiment import _verify_objective_score
+        try:
+            _verify_objective_score(scoring_plan, artifact["score_payload"],
+                artifact["output_digest"], output_truncated=False)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("ordinary_chat_history_objective_score_invalid") from exc
+        score_semantics_verified = True
     return {"schema_version": "sentientos.ordinary_chat_history_score_verification:v1",
         "score_artifact_id": artifact["score_artifact_id"],
         "score_artifact_digest": artifact["score_artifact_digest"],
@@ -140,8 +160,137 @@ def verify_ordinary_chat_history_score_artifact(artifact: Mapping[str, Any], *,
         "output_digest": artifact["output_digest"],
         "scoring_plan_digest": artifact["scoring_plan_digest"],
         "blinding_posture": artifact["blinding_posture"],
-        "scores_interpreted": False, "effect_established": False,
+        "score_semantics_verified": score_semantics_verified,
+        "effect_established": False,
         "learning_established": False}
+
+
+def _verify_invocation_summary(receipt: Mapping[str, Any], *,
+        receipt_id: str, receipt_digest: str,
+        protocol: Mapping[str, Any], prompt_digest: str,
+        output_digest: str) -> None:
+    if (not isinstance(receipt, Mapping)
+            or receipt.get("receipt_identity_verified") is not True
+            or receipt.get("receipt_id") != receipt_id
+            or receipt.get("receipt_digest") != receipt_digest
+            or receipt.get("prompt_digest") != prompt_digest
+            or receipt.get("output_digest") != output_digest
+            or receipt.get("serving_model_identity_digest")
+                != protocol["serving_model_identity_digest"]
+            or receipt.get("generation_config_digest")
+                != protocol["generation_config_digest"]
+            or receipt.get("status") != "admitted_completed"
+            or receipt.get("output_truncated") is not False
+            or receipt.get("fallback_occurred") is not False):
+        raise ValueError("ordinary_chat_history_invocation_receipt_binding_invalid")
+
+
+def _objective_scorer_identity_digest() -> str:
+    from . import developmental_model_replacement_experiment as evaluator
+    source_path = Path(str(evaluator.__file__))
+    try:
+        source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise ValueError("ordinary_chat_history_scorer_source_unavailable") from exc
+    return digest_payload({"module": evaluator.__name__,
+        "source_sha256": source_digest,
+        "entrypoint": "_objective_score+_verify_objective_score"})
+
+
+def build_ordinary_chat_history_objective_scoring_plan(task: Any) -> dict[str, Any]:
+    """Commit a private deterministic affine-task oracle before inference."""
+    from .developmental_model_replacement_experiment import (
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, ObjectivePredictionTask,
+    )
+    if not isinstance(task, ObjectivePredictionTask):
+        raise ValueError("ordinary_chat_history_objective_task_invalid")
+    try:
+        specification = task.specification()
+        descriptor = task.public_descriptor()
+    except (TypeError, ValueError) as exc:
+        raise ValueError("ordinary_chat_history_objective_task_invalid") from exc
+    suite = specification.get("schema_version") in {
+        "sentientos.affine_prediction_task_suite:v2",
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family = specification.get("schema_version") == FAMILY_TASK_SCHEMA_V4
+    public_semantic = {"schema_version": SCORE_PLAN_SCHEMA,
+        "task_descriptor": descriptor,
+        "condition_order": list(CONDITIONS),
+        "rubric": ("selective_integer_answer_suite_v1" if selective_family else
+            "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
+        "authority": False}
+    plan_digest = digest_payload(public_semantic)
+    task_commitment_digest = digest_payload({"task_commitment": descriptor})
+    scorer_identity_digest = _objective_scorer_identity_digest()
+    return {**public_semantic, "task": specification,
+        "task_commitment_nonce": task.commitment_nonce,
+        "task_commitment_digest": task_commitment_digest,
+        "scoring_plan_digest": plan_digest,
+        "scorer_identity_digest": scorer_identity_digest}
+
+
+def verify_ordinary_chat_history_objective_scoring_plan(
+        plan: Mapping[str, Any], *,
+        protocol: Mapping[str, Any] | None = None,
+        prompt_bundle: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    from .developmental_model_replacement_experiment import (
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, ObjectivePredictionTask,
+    )
+    expected_fields = {"schema_version", "task_descriptor", "condition_order",
+        "rubric", "authority", "task", "task_commitment_nonce",
+        "task_commitment_digest", "scoring_plan_digest", "scorer_identity_digest"}
+    if (not isinstance(plan, Mapping) or set(plan) != expected_fields
+            or plan.get("schema_version") != SCORE_PLAN_SCHEMA
+            or plan.get("condition_order") != list(CONDITIONS)
+            or plan.get("authority") is not False
+            or not isinstance(plan.get("task"), Mapping)
+            or not isinstance(plan.get("task_descriptor"), Mapping)):
+        raise ValueError("ordinary_chat_history_objective_scoring_plan_invalid")
+    task_raw = dict(plan["task"])
+    schema = task_raw.get("schema_version")
+    try:
+        if schema in {"sentientos.affine_prediction_task_suite:v2",
+                FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+            probes = task_raw["probe_inputs"]
+            family = schema in {FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+            task = ObjectivePredictionTask(task_raw["multiplier"], task_raw["offset"],
+                probes[0], tuple(probes[1:]),
+                task_raw.get("task_family_id") if family else None,
+                task_raw.get("requires_task_family_history", False) if family else False,
+                commitment_nonce=plan["task_commitment_nonce"],
+                family_contract_version=3 if schema == FAMILY_TASK_SCHEMA_V3 else 4)
+        elif schema == "sentientos.affine_prediction_task:v1":
+            task = ObjectivePredictionTask(task_raw["multiplier"], task_raw["offset"],
+                task_raw["probe_input"],
+                commitment_nonce=plan["task_commitment_nonce"])
+        else:
+            raise ValueError("ordinary_chat_history_objective_task_schema_invalid")
+        if (task.specification() != task_raw
+                or task.public_descriptor() != dict(plan["task_descriptor"])):
+            raise ValueError("ordinary_chat_history_objective_task_binding_invalid")
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("ordinary_chat_history_objective_task_binding_invalid") from exc
+    rebuilt = build_ordinary_chat_history_objective_scoring_plan(task)
+    if dict(plan) != rebuilt:
+        raise ValueError("ordinary_chat_history_objective_scoring_plan_digest_mismatch")
+    if prompt_bundle is not None:
+        prompts = prompt_bundle.get("prompts") if isinstance(prompt_bundle, Mapping) else None
+        question = plan["task_descriptor"].get("question")
+        if (not isinstance(prompts, Mapping) or set(prompts) != set(CONDITIONS)
+                or not isinstance(question, str) or not question
+                or any(not isinstance(prompts.get(condition), str)
+                    or question not in prompts[condition] for condition in CONDITIONS)):
+            raise ValueError("ordinary_chat_history_objective_prompt_task_binding_invalid")
+    if protocol is not None and (
+            protocol.get("task_commitment_digest") != plan["task_commitment_digest"]
+            or protocol.get("scoring_plan_digest") != plan["scoring_plan_digest"]
+            or protocol.get("scorer_identity_digest") != plan["scorer_identity_digest"]):
+        raise ValueError("ordinary_chat_history_objective_plan_protocol_binding_invalid")
+    return {"schema_version": "sentientos.ordinary_chat_history_objective_scoring_plan_verification:v1",
+        "scoring_plan_digest": plan["scoring_plan_digest"],
+        "task_commitment_digest": plan["task_commitment_digest"],
+        "scorer_identity_digest": plan["scorer_identity_digest"],
+        "authority": False}
 
 
 def build_ordinary_chat_history_intervention_result(*,
@@ -206,7 +355,10 @@ def build_ordinary_chat_history_intervention_result(*,
 
 def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], *,
         protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
-        score_artifacts: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+        score_artifacts: Mapping[str, Mapping[str, Any]] | None = None,
+        scoring_plan: Mapping[str, Any] | None = None,
+        invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+        ) -> dict[str, Any]:
     """Check result links and, when supplied, bound durable score artifacts."""
     rebuilt = build_ordinary_chat_history_intervention_result(
         protocol=protocol, prompt_bundle=prompt_bundle,
@@ -217,9 +369,29 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
             or result.get("protocol_digest") != protocol.get("protocol_digest")):
         raise ValueError("ordinary_chat_history_result_digest_mismatch")
     scores_verified = False
+    receipts_verified = False
+    if invocation_receipt_verifier is not None:
+        if not callable(invocation_receipt_verifier):
+            raise ValueError("ordinary_chat_history_invocation_verifier_invalid")
+        for condition in CONDITIONS:
+            item = result["conditions"][condition]
+            receipt = invocation_receipt_verifier(condition=condition,
+                receipt_id=item["invocation_receipt_id"],
+                receipt_digest=item["invocation_receipt_digest"],
+                protocol=dict(protocol),
+                expected_prompt_digest=item["prompt_digest"],
+                expected_output_digest=item["output_digest"])
+            _verify_invocation_summary(receipt,
+                receipt_id=item["invocation_receipt_id"],
+                receipt_digest=item["invocation_receipt_digest"],
+                protocol=protocol, prompt_digest=item["prompt_digest"],
+                output_digest=item["output_digest"])
+        receipts_verified = True
     if score_artifacts is not None:
         if not isinstance(score_artifacts, Mapping):
             raise ValueError("ordinary_chat_history_result_score_artifacts_invalid")
+        if scoring_plan is None:
+            raise ValueError("ordinary_chat_history_result_scoring_plan_required")
         conditions = result["conditions"]
         expected_ids = {conditions[condition]["score_artifact_id"]
             for condition in CONDITIONS}
@@ -228,7 +400,8 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
         for score_id in expected_ids:
             artifact = score_artifacts[score_id]
             checked = verify_ordinary_chat_history_score_artifact(artifact,
-                protocol=protocol)
+                protocol=protocol, scoring_plan=scoring_plan,
+                prompt_bundle=prompt_bundle)
             matches = [condition for condition in CONDITIONS
                 if conditions[condition]["score_artifact_id"] == score_id]
             if (len(matches) != 1
@@ -241,9 +414,9 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
     return {"schema_version": "sentientos.ordinary_chat_history_intervention_result_verification:v1",
         "result_id": result["result_id"], "result_digest": result["result_digest"],
         "protocol_id": result["protocol_id"], "references_bound": True,
-        "referenced_receipts_verified": False,
+        "referenced_receipts_verified": receipts_verified,
         "score_artifact_bindings_verified": scores_verified,
-        "score_semantics_verified": False,
+        "score_semantics_verified": scores_verified,
         "effect_established": False, "learning_established": False,
         "authority": False}
 
@@ -252,7 +425,8 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
         prompt_bundle: Mapping[str, Any],
         invoke: Callable[..., Mapping[str, Any]],
         verify_invocation_receipt: Callable[..., Mapping[str, Any]],
-        score_blinded: Callable[..., Mapping[str, Any]]) -> dict[str, Any]:
+        score_blinded: Callable[..., Mapping[str, Any]],
+        store: Any) -> dict[str, Any]:
     """Run three matched conditions through explicit serving and scoring owners.
 
     This function has no model access of its own. ``invoke`` and receipt
@@ -260,13 +434,24 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
     only long enough to be scored; the returned artifact contains digests and
     externally persisted evidence references, not output text or scores.
     """
-    if not all(callable(value) for value in
-            (invoke, verify_invocation_receipt, score_blinded)):
+    if (not all(callable(value) for value in
+            (invoke, verify_invocation_receipt, score_blinded))
+            or not callable(getattr(store, "load_protocol", None))
+            or not callable(getattr(store, "load_scoring_plan", None))
+            or not callable(getattr(store, "load_score_artifact", None))):
         raise ValueError("ordinary_chat_history_runner_owner_required")
     protocol_check = verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
     if protocol.get("schema_version") != PROTOCOL_SCHEMA:
         raise ValueError("ordinary_chat_history_runner_requires_current_protocol")
+    persisted_protocol = store.load_protocol(protocol["protocol_id"],
+        prompt_bundle=prompt_bundle)
+    if dict(persisted_protocol) != dict(protocol):
+        raise ValueError("ordinary_chat_history_runner_protocol_not_persisted")
+    scoring_plan = store.load_scoring_plan(protocol=protocol,
+        prompt_bundle=prompt_bundle)
+    verify_ordinary_chat_history_objective_scoring_plan(
+        scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
     prompts = prompt_bundle.get("prompts")
     outputs: dict[str, str] = {}
     condition_evidence: dict[str, dict[str, str]] = {}
@@ -293,20 +478,9 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
             receipt_id=receipt_id, receipt_digest=receipt_digest,
             protocol=dict(protocol), expected_prompt_digest=prompt_digest,
             expected_output_digest=output_digest)
-        if (not isinstance(receipt, Mapping)
-                or receipt.get("receipt_identity_verified") is not True
-                or receipt.get("receipt_id") != receipt_id
-                or receipt.get("receipt_digest") != receipt_digest
-                or receipt.get("prompt_digest") != prompt_digest
-                or receipt.get("output_digest") != output_digest
-                or receipt.get("serving_model_identity_digest")
-                    != protocol["serving_model_identity_digest"]
-                or receipt.get("generation_config_digest")
-                    != protocol["generation_config_digest"]
-                or receipt.get("status") != "admitted_completed"
-                or receipt.get("output_truncated") is not False
-                or receipt.get("fallback_occurred") is not False):
-            raise ValueError("ordinary_chat_history_runner_receipt_verification_failed")
+        _verify_invocation_summary(receipt, receipt_id=receipt_id,
+            receipt_digest=receipt_digest, protocol=protocol,
+            prompt_digest=prompt_digest, output_digest=output_digest)
         outputs[condition] = output_text
         condition_evidence[condition] = {
             "prompt_digest": prompt_digest,
@@ -344,11 +518,30 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
                 or _HEX_DIGEST.fullmatch(score_map[sample_id]["score_artifact_digest"]) is None
                 for sample_id in sample_ids.values())):
         raise ValueError("ordinary_chat_history_runner_scoring_verification_failed")
+    score_artifacts: dict[str, Mapping[str, Any]] = {}
     for condition in CONDITIONS:
-        condition_evidence[condition].update(score_map[sample_ids[condition]])
-    return build_ordinary_chat_history_intervention_result(
+        references = score_map[sample_ids[condition]]
+        artifact = store.load_score_artifact(references["score_artifact_id"],
+            protocol=protocol, prompt_bundle=prompt_bundle)
+        checked = verify_ordinary_chat_history_score_artifact(artifact,
+            protocol=protocol, scoring_plan=scoring_plan,
+            prompt_bundle=prompt_bundle)
+        if (artifact.get("sample_id") != sample_ids[condition]
+                or checked["score_artifact_digest"]
+                    != references["score_artifact_digest"]
+                or checked["output_digest"]
+                    != condition_evidence[condition]["output_digest"]):
+            raise ValueError("ordinary_chat_history_runner_score_artifact_mismatch")
+        condition_evidence[condition].update(references)
+        score_artifacts[references["score_artifact_id"]] = artifact
+    result = build_ordinary_chat_history_intervention_result(
         protocol=protocol, prompt_bundle=prompt_bundle,
         conditions=condition_evidence)
+    verify_ordinary_chat_history_intervention_result(result,
+        protocol=protocol, prompt_bundle=prompt_bundle,
+        score_artifacts=score_artifacts, scoring_plan=scoring_plan,
+        invocation_receipt_verifier=verify_invocation_receipt)
+    return result
 
 
 class OrdinaryChatHistoryChatInferenceAdapter:
@@ -443,6 +636,68 @@ class OrdinaryChatHistoryChatInferenceAdapter:
             "status": verified.get("status"),
             "output_truncated": verified.get("output_truncated"),
             "fallback_occurred": verified.get("fallback_occurred")}
+
+
+class OrdinaryChatHistoryAffineObjectiveScorer:
+    """Score blind outputs with SentientOS's deterministic affine-task oracle."""
+
+    def __init__(self, *, protocol: Mapping[str, Any],
+            prompt_bundle: Mapping[str, Any], scoring_plan: Mapping[str, Any],
+            store: Any) -> None:
+        if not callable(getattr(store, "persist_score_artifact", None)):
+            raise ValueError("ordinary_chat_history_score_store_required")
+        verify_ordinary_chat_history_intervention_protocol(
+            protocol, prompt_bundle=prompt_bundle)
+        verify_ordinary_chat_history_objective_scoring_plan(
+            scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
+        self._protocol = dict(protocol)
+        self._prompt_bundle = prompt_bundle
+        self._plan = dict(scoring_plan)
+        self._store = store
+
+    def score_blinded(self, *, scoring_plan_digest: str,
+            samples: list[Mapping[str, Any]]) -> Mapping[str, Any]:
+        if (scoring_plan_digest != self._plan["scoring_plan_digest"]
+                or not isinstance(samples, list) or len(samples) != len(CONDITIONS)):
+            raise ValueError("ordinary_chat_history_blind_score_input_invalid")
+        from .developmental_model_replacement_experiment import (
+            _objective_score, _verify_objective_score,
+        )
+        artifacts: dict[str, dict[str, str]] = {}
+        seen_sample_ids: set[str] = set()
+        for sample in samples:
+            if (not isinstance(sample, Mapping)
+                    or set(sample) != {"sample_id", "output_digest", "output_text"}
+                    or not isinstance(sample.get("sample_id"), str)
+                    or _BLIND_SAMPLE_ID.fullmatch(sample["sample_id"]) is None
+                    or sample["sample_id"] in seen_sample_ids
+                    or not isinstance(sample.get("output_text"), str)
+                    or not isinstance(sample.get("output_digest"), str)
+                    or _HEX_DIGEST.fullmatch(sample["output_digest"]) is None
+                    or sample["output_digest"] != digest_payload({
+                        "output": sample["output_text"]})):
+                raise ValueError("ordinary_chat_history_blind_score_sample_invalid")
+            seen_sample_ids.add(sample["sample_id"])
+            score = _objective_score(self._plan, sample["output_text"],
+                sample["output_digest"], output_truncated=False)
+            _verify_objective_score(self._plan, score, sample["output_digest"],
+                output_truncated=False)
+            artifact = build_ordinary_chat_history_score_artifact(
+                protocol=self._protocol, sample_id=sample["sample_id"],
+                output_digest=sample["output_digest"],
+                scorer_identity_digest=self._plan["scorer_identity_digest"],
+                score_payload=score)
+            artifact_id = self._store.persist_score_artifact(artifact,
+                protocol=self._protocol, prompt_bundle=self._prompt_bundle)
+            artifacts[sample["sample_id"]] = {
+                "score_artifact_id": artifact_id,
+                "score_artifact_digest": artifact["score_artifact_digest"]}
+        if len(artifacts) != len(CONDITIONS):
+            raise ValueError("ordinary_chat_history_blind_score_incomplete")
+        return {"scoring_plan_digest": self._plan["scoring_plan_digest"],
+            "scorer_identity_digest": self._plan["scorer_identity_digest"],
+            "blinding_posture": "condition_blinded_independent_score:v1",
+            "score_artifacts": artifacts}
 
 
 def verify_ordinary_chat_history_intervention_protocol(
@@ -599,10 +854,50 @@ class OrdinaryChatHistoryInterventionStore:
     def __init__(self, state_root: Path) -> None:
         self._store = DevelopmentalExperimentStore(Path(state_root))
 
+    def persist_scoring_plan(self, scoring_plan: Mapping[str, Any], *,
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
+        verify_ordinary_chat_history_intervention_protocol(
+            protocol, prompt_bundle=prompt_bundle)
+        verified = verify_ordinary_chat_history_objective_scoring_plan(
+            scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
+        plan_id = SCORE_PLAN_ID_PREFIX + verified["scoring_plan_digest"][:24]
+        path = self._store.protocols / f"{plan_id}.json"
+        normalized = json.loads(json.dumps(dict(scoring_plan), sort_keys=True))
+        self._store._write_immutable(path, scoring_plan)
+        reloaded = self._store._read_json(path)
+        verify_ordinary_chat_history_objective_scoring_plan(
+            reloaded, protocol=protocol, prompt_bundle=prompt_bundle)
+        if reloaded != normalized:
+            raise ValueError("ordinary_chat_history_scoring_plan_persistence_mismatch")
+        return plan_id
+
+    def load_scoring_plan(self, *, protocol: Mapping[str, Any],
+            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+        verify_ordinary_chat_history_intervention_protocol(
+            protocol, prompt_bundle=prompt_bundle)
+        plan_id = SCORE_PLAN_ID_PREFIX + str(protocol["scoring_plan_digest"])[:24]
+        try:
+            plan = self._store._read_json(self._store.protocols / f"{plan_id}.json")
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_scoring_plan_missing") from exc
+        verified = verify_ordinary_chat_history_objective_scoring_plan(
+            plan, protocol=protocol, prompt_bundle=prompt_bundle)
+        if (verified["scoring_plan_digest"] != protocol["scoring_plan_digest"]
+                or plan_id != SCORE_PLAN_ID_PREFIX
+                    + verified["scoring_plan_digest"][:24]):
+            raise ValueError("ordinary_chat_history_scoring_plan_identity_mismatch")
+        return plan
+
     def persist_protocol(self, protocol: Mapping[str, Any], *,
-            prompt_bundle: Mapping[str, Any]) -> str:
+            prompt_bundle: Mapping[str, Any],
+            scoring_plan: Mapping[str, Any] | None = None) -> str:
         verified = verify_ordinary_chat_history_intervention_protocol(
             protocol, prompt_bundle=prompt_bundle)
+        if protocol.get("schema_version") == PROTOCOL_SCHEMA:
+            if scoring_plan is None:
+                raise ValueError("ordinary_chat_history_preregistered_scoring_plan_required")
+            self.persist_scoring_plan(scoring_plan, protocol=protocol,
+                prompt_bundle=prompt_bundle)
         protocol_id = verified["protocol_id"]
         normalized = json.loads(json.dumps(dict(protocol), sort_keys=True))
         path = self._store.protocols / f"{protocol_id}.json"
@@ -635,16 +930,18 @@ class OrdinaryChatHistoryInterventionStore:
 
     def persist_score_artifact(self, artifact: Mapping[str, Any], *,
             protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
-        verify_ordinary_chat_history_intervention_protocol(
-            protocol, prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
+            prompt_bundle=prompt_bundle)
         verified = verify_ordinary_chat_history_score_artifact(
-            artifact, protocol=protocol)
+            artifact, protocol=protocol, scoring_plan=scoring_plan,
+            prompt_bundle=prompt_bundle)
         score_id = verified["score_artifact_id"]
         path = self._store.runs / f"{score_id}.json"
         normalized = json.loads(json.dumps(dict(artifact), sort_keys=True))
         self._store._write_immutable(path, artifact)
         reloaded = self._store._read_json(path)
-        verify_ordinary_chat_history_score_artifact(reloaded, protocol=protocol)
+        verify_ordinary_chat_history_score_artifact(reloaded, protocol=protocol,
+            scoring_plan=scoring_plan, prompt_bundle=prompt_bundle)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_score_persistence_mismatch")
         return score_id
@@ -656,14 +953,15 @@ class OrdinaryChatHistoryInterventionStore:
                 or not score_id.startswith(SCORE_ID_PREFIX)
                 or re.fullmatch(r"[0-9a-f]{24}", score_id[len(SCORE_ID_PREFIX):]) is None):
             raise ValueError("ordinary_chat_history_score_identity_invalid")
-        verify_ordinary_chat_history_intervention_protocol(
-            protocol, prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
+            prompt_bundle=prompt_bundle)
         try:
             artifact = self._store._read_json(self._store.runs / f"{score_id}.json")
         except FileNotFoundError as exc:
             raise ValueError("ordinary_chat_history_score_artifact_missing") from exc
         verified = verify_ordinary_chat_history_score_artifact(
-            artifact, protocol=protocol)
+            artifact, protocol=protocol, scoring_plan=scoring_plan,
+            prompt_bundle=prompt_bundle)
         if verified["score_artifact_id"] != score_id:
             raise ValueError("ordinary_chat_history_score_identity_mismatch")
         return artifact
@@ -677,15 +975,21 @@ class OrdinaryChatHistoryInterventionStore:
             prompt_bundle=prompt_bundle) for score_id in score_ids}
 
     def persist_result(self, result: Mapping[str, Any], *,
-            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> str:
         """Immutably persist a result packet after rechecking its protocol links."""
         verification = verify_ordinary_chat_history_intervention_result(
-            result, protocol=protocol, prompt_bundle=prompt_bundle)
+            result, protocol=protocol, prompt_bundle=prompt_bundle,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         scores = self._score_artifacts_for_result(result, protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
             prompt_bundle=prompt_bundle)
         verify_ordinary_chat_history_intervention_result(result,
             protocol=protocol, prompt_bundle=prompt_bundle,
-            score_artifacts=scores)
+            score_artifacts=scores, scoring_plan=scoring_plan,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         result_id = verification["result_id"]
         normalized = json.loads(json.dumps(dict(result), sort_keys=True))
         path = self._store.runs / f"{result_id}.json"
@@ -695,13 +999,16 @@ class OrdinaryChatHistoryInterventionStore:
             protocol=protocol, prompt_bundle=prompt_bundle)
         verify_ordinary_chat_history_intervention_result(reloaded,
             protocol=protocol, prompt_bundle=prompt_bundle,
-            score_artifacts=reloaded_scores)
+            score_artifacts=reloaded_scores, scoring_plan=scoring_plan,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_result_persistence_mismatch")
         return result_id
 
     def load_result(self, result_id: str, *, protocol: Mapping[str, Any],
-            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+            prompt_bundle: Mapping[str, Any],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> dict[str, Any]:
         prefix = RESULT_ID_PREFIX
         if (not isinstance(result_id, str) or len(result_id) != len(prefix) + 24
                 or not result_id.startswith(prefix)
@@ -712,12 +1019,16 @@ class OrdinaryChatHistoryInterventionStore:
         except FileNotFoundError as exc:
             raise ValueError("ordinary_chat_history_result_missing") from exc
         verification = verify_ordinary_chat_history_intervention_result(
-            result, protocol=protocol, prompt_bundle=prompt_bundle)
+            result, protocol=protocol, prompt_bundle=prompt_bundle,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         scores = self._score_artifacts_for_result(result, protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
             prompt_bundle=prompt_bundle)
         verify_ordinary_chat_history_intervention_result(result,
             protocol=protocol, prompt_bundle=prompt_bundle,
-            score_artifacts=scores)
+            score_artifacts=scores, scoring_plan=scoring_plan,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         if verification["result_id"] != result_id:
             raise ValueError("ordinary_chat_history_result_identity_mismatch")
         return result

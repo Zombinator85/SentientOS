@@ -896,15 +896,21 @@ provide owner-backed callbacks; a callback's presence alone is not proof, and
 the persisted result verifier continues to distinguish internal linkage from
 independent artifact verification.
 
-Protocol v2 and result v2 bind a distinct scorer identity digest. Score owners can
-publish immutable `ordinary-history-score-*` artifacts containing the protocol
-and scoring-plan digests, output digest, opaque sample ID, bounded structured
-score payload, and scorer identity digest. Result persistence reloads and
-checks every referenced score artifact against its condition's output digest.
-This verifies artifact custody and linkage; the scorer identity digest is not
-an authenticated identity, and score semantics are not yet verified by an
-independent scoring owner. The artifact format requires the current protocol
-schema, while legacy protocol v1 artifacts remain readable for audit.
+Protocol v2 and result v2 bind a distinct scorer identity digest. The
+`build_ordinary_chat_history_objective_scoring_plan` helper freezes an existing
+deterministic affine prediction task and evaluator source identity. The scoring
+plan's question must occur in all three matched prompts, and
+`persist_protocol(..., scoring_plan=...)` stores the private oracle plan before
+the intervention runner can start. `OrdinaryChatHistoryAffineObjectiveScorer`
+receives the shuffled, opaque samples and reuses SentientOS's deterministic
+integer oracle. It publishes immutable `ordinary-history-score-*` artifacts
+with the protocol and plan digests, output digest, opaque sample ID, bounded
+score payload, and scorer identity digest. Result persistence and reload
+recompute each score against the stored task plan. This verifies score
+semantics under the bound local evaluator source; the source digest is not a
+cryptographically authenticated scorer identity. The artifact format requires
+the current protocol schema, while legacy protocol v1 artifacts remain
+readable for audit.
 
 `OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
 and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
