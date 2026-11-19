@@ -871,6 +871,19 @@ protocol store. It is not yet connected to model invocations; a future runner
 must load the persisted protocol before the first condition and independently
 verify each receipt and score.
 
+The result-side contract is now available through
+`build_ordinary_chat_history_intervention_result` and
+`OrdinaryChatHistoryInterventionStore.persist_result/load_result`. A result
+packet binds all three condition prompt digests to output digests, invocation
+receipt references, and blinded score artifact digests, and binds the packet
+back to the exact protocol and prompt bundle. The packet is immutable in the
+experiment run collection. Its verifier checks internal digest and linkage
+consistency only: it explicitly reports that referenced invocation receipts
+and score artifacts remain unverified, and makes no effect, improvement, or
+learning claim. A runner still needs owner-backed receipt verification and an
+independent scoring implementation before these references can become
+verified experimental outcomes.
+
 Ordinary fallback turn lineage also records a bounded retrieval posture:
 `selected`, `provider_returned_no_context`, `provider_unavailable`,
 `provider_failed`, `context_validation_failed`, `prompt_budget_unavailable`,

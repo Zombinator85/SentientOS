@@ -20,6 +20,8 @@ from .developmental_history_intervention_experiment import (
 
 PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v1"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
+RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v1"
+RESULT_ID_PREFIX = "ordinary-history-result-"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
 PLANNED_COMPARISONS = (
     "history_present_vs_history_withheld",
@@ -45,6 +47,81 @@ def _validate_json_bound(value: Any, *, maximum_bytes: int, error_code: str) -> 
 def _semantic(protocol: Mapping[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in protocol.items()
         if key not in {"protocol_id", "protocol_digest"}}
+
+
+def _result_semantic(result: Mapping[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in result.items()
+        if key not in {"result_id", "result_digest"}}
+
+
+def build_ordinary_chat_history_intervention_result(*,
+        protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
+        conditions: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Bind condition outputs and blinded score artifacts to a preregistration.
+
+    Receipt and score digests are provenance references. This packet does not
+    authenticate those external artifacts or interpret their contents.
+    """
+    verified = verify_ordinary_chat_history_intervention_protocol(
+        protocol, prompt_bundle=prompt_bundle)
+    if not isinstance(conditions, Mapping) or set(conditions) != set(CONDITIONS):
+        raise ValueError("ordinary_chat_history_result_conditions_invalid")
+    normalized: dict[str, dict[str, str]] = {}
+    for condition in CONDITIONS:
+        item = conditions[condition]
+        if not isinstance(item, Mapping) or set(item) != {
+                "prompt_digest", "output_digest", "invocation_receipt_id",
+                "invocation_receipt_digest", "score_artifact_digest"}:
+            raise ValueError("ordinary_chat_history_result_condition_invalid")
+        if item.get("prompt_digest") != protocol["condition_prompt_digests"][condition]:
+            raise ValueError("ordinary_chat_history_result_prompt_binding_invalid")
+        for field in ("prompt_digest", "output_digest", "invocation_receipt_digest",
+                "score_artifact_digest"):
+            if not isinstance(item.get(field), str) or _HEX_DIGEST.fullmatch(item[field]) is None:
+                raise ValueError("ordinary_chat_history_result_digest_invalid")
+        receipt_id = item.get("invocation_receipt_id")
+        if not isinstance(receipt_id, str) or _RUN_ID.fullmatch(receipt_id) is None:
+            raise ValueError("ordinary_chat_history_result_receipt_id_invalid")
+        normalized[condition] = {field: item[field] for field in (
+            "prompt_digest", "output_digest", "invocation_receipt_id",
+            "invocation_receipt_digest", "score_artifact_digest")}
+    semantic = {
+        "schema_version": RESULT_SCHEMA,
+        "protocol_id": verified["protocol_id"],
+        "protocol_digest": verified["protocol_digest"],
+        "prompt_bundle_digest": verified["prompt_bundle_digest"],
+        "condition_order": list(verified["condition_order"]),
+        "conditions": normalized,
+        "score_interpretation": "not_verified_or_interpreted:v1",
+        "effect_established": False,
+        "improvement_established": False,
+        "learning_established": False,
+        "authority": False,
+    }
+    _validate_json_bound(semantic, maximum_bytes=32_768,
+        error_code="ordinary_chat_history_result_over_bound")
+    digest = digest_payload(semantic)
+    return {**semantic, "result_id": RESULT_ID_PREFIX + digest[:24],
+        "result_digest": digest}
+
+
+def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], *,
+        protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+    """Check internal bindings only; referenced receipts and scores need owners."""
+    rebuilt = build_ordinary_chat_history_intervention_result(
+        protocol=protocol, prompt_bundle=prompt_bundle,
+        conditions=result.get("conditions") if isinstance(result, Mapping) else None)
+    if (dict(result) != rebuilt
+            or result.get("schema_version") != RESULT_SCHEMA
+            or result.get("protocol_id") != protocol.get("protocol_id")
+            or result.get("protocol_digest") != protocol.get("protocol_digest")):
+        raise ValueError("ordinary_chat_history_result_digest_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_intervention_result_verification:v1",
+        "result_id": result["result_id"], "result_digest": result["result_digest"],
+        "protocol_id": result["protocol_id"], "references_bound": True,
+        "referenced_receipts_verified": False, "scores_verified": False,
+        "effect_established": False, "learning_established": False,
+        "authority": False}
 
 
 def verify_ordinary_chat_history_intervention_protocol(
@@ -223,3 +300,36 @@ class OrdinaryChatHistoryInterventionStore:
         if result["protocol_id"] != protocol_id:
             raise ValueError("ordinary_chat_history_protocol_identity_mismatch")
         return protocol
+
+    def persist_result(self, result: Mapping[str, Any], *,
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
+        """Immutably persist a result packet after rechecking its protocol links."""
+        verification = verify_ordinary_chat_history_intervention_result(
+            result, protocol=protocol, prompt_bundle=prompt_bundle)
+        result_id = verification["result_id"]
+        normalized = json.loads(json.dumps(dict(result), sort_keys=True))
+        path = self._store.runs / f"{result_id}.json"
+        self._store._write_immutable(path, result)
+        reloaded = self._store._read_json(path)
+        verify_ordinary_chat_history_intervention_result(
+            reloaded, protocol=protocol, prompt_bundle=prompt_bundle)
+        if reloaded != normalized:
+            raise ValueError("ordinary_chat_history_result_persistence_mismatch")
+        return result_id
+
+    def load_result(self, result_id: str, *, protocol: Mapping[str, Any],
+            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+        prefix = RESULT_ID_PREFIX
+        if (not isinstance(result_id, str) or len(result_id) != len(prefix) + 24
+                or not result_id.startswith(prefix)
+                or re.fullmatch(r"[0-9a-f]{24}", result_id[len(prefix):]) is None):
+            raise ValueError("ordinary_chat_history_result_identity_invalid")
+        try:
+            result = self._store._read_json(self._store.runs / f"{result_id}.json")
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_result_missing") from exc
+        verification = verify_ordinary_chat_history_intervention_result(
+            result, protocol=protocol, prompt_bundle=prompt_bundle)
+        if verification["result_id"] != result_id:
+            raise ValueError("ordinary_chat_history_result_identity_mismatch")
+        return result
