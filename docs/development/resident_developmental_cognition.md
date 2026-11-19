@@ -508,6 +508,10 @@ keeps a non-reproduced condition difference from becoming a directional belief
 update while preserving the measured result for later review. A malformed
 answer has no probe-level signature, so it also remains contextual rather than
 supporting or contradicting the proposition.
+Family-suite v4 selective results remain eligible for that probe-level
+comparison when all three arms have complete, coherent correctness, answered,
+and abstained counts; an undefined aggregate binary-correctness value alone
+does not discard verified per-probe evidence.
 The repository does not expose a generic command that can manufacture such an
 event; use its real source owner. If no suitable source fact is present or its
 kind is not configured, no initial record is produced. Do not stage the

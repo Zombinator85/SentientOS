@@ -850,6 +850,53 @@ class DevelopmentalExperimentStore:
         scores = run.get("objective_scores")
         conditions = run.get("conditions")
         probe_inputs = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
+        def selectively_scoreable() -> bool:
+            if (not isinstance(evaluation, Mapping)
+                    or evaluation.get("assessment") != "unscoreable_missing_output"
+                    or evaluation.get("selective_metrics_posture")
+                        != "per_probe_abstention_scored_separately_from_correctness"
+                    or not isinstance(probe_inputs, list) or not probe_inputs
+                    or not isinstance(scores, list)
+                    or len(scores) != len(CONDITION_ORDER)):
+                return False
+            correct_counts, answered_counts, abstained_counts = [], [], []
+            for score_row in scores:
+                payload = score_row.get("score") if isinstance(score_row, Mapping) else None
+                if (not isinstance(payload, Mapping)
+                        or payload.get("schema_version")
+                            != "sentientos.objective_task_score:v5"
+                        or payload.get("status") not in {"correct", "incorrect", "selective"}
+                        or type(payload.get("correct_count")) is not int
+                        or type(payload.get("answered_count")) is not int
+                        or type(payload.get("abstained_count")) is not int
+                        or payload["answered_count"] + payload["abstained_count"]
+                            != len(probe_inputs)
+                        or not 0 <= payload["correct_count"]
+                            <= payload["answered_count"] <= len(probe_inputs)
+                        or (payload.get("status") == "selective")
+                            != (payload["abstained_count"] > 0)):
+                    return False
+                results = payload.get("probe_results")
+                if not isinstance(results, list) or len(results) != len(probe_inputs):
+                    return False
+                for probe, result in zip(probe_inputs, results):
+                    if (not isinstance(result, Mapping)
+                            or result.get("probe_input") != probe
+                            or type(result.get("correct")) not in {bool, type(None)}
+                            or type(result.get("abstained")) is not bool
+                            or result["abstained"] != (result.get("correct") is None)):
+                        return False
+                correct_counts.append(payload["correct_count"])
+                answered_counts.append(payload["answered_count"])
+                abstained_counts.append(payload["abstained_count"])
+            return (
+                evaluation.get("condition_correct_counts") == correct_counts
+                and evaluation.get("condition_answered_counts") == answered_counts
+                and evaluation.get("condition_abstained_counts") == abstained_counts
+                and evaluation.get("probe_count") == len(probe_inputs)
+                and evaluation.get("history_correct_probe_delta")
+                    == correct_counts[0] - correct_counts[1])
+        selectively_scored = selectively_scoreable()
         if (not isinstance(descriptor, Mapping)
                 or descriptor.get("family_posture") != "operator_declared_protocol_bound"
                 or not isinstance(probe_inputs, list) or not probe_inputs
@@ -857,7 +904,8 @@ class DevelopmentalExperimentStore:
                 or not isinstance(descriptor.get("task_family_id"), str)
                 or not descriptor.get("task_family_id")
                 or not isinstance(evaluation, Mapping)
-                or evaluation.get("assessment") != "preregistered_probe_suite_scored"
+                or (evaluation.get("assessment") != "preregistered_probe_suite_scored"
+                    and not selectively_scored)
                 or evaluation.get("probe_count") != len(probe_inputs)
                 or not isinstance(scores, list) or len(scores) != len(CONDITION_ORDER)
                 or not isinstance(conditions, list) or len(conditions) != len(CONDITION_ORDER)):
