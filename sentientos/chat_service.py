@@ -4380,6 +4380,13 @@ class PersistentConversationService:
                    "recent_session_recall": recent_session_recall,
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
+        epistemic_context_lineage: dict[str, str] = {}
+        if isinstance(epistemic_context, Mapping):
+            selection_digest = epistemic_context.get("selection_digest")
+            if isinstance(selection_digest, str):
+                epistemic_context_lineage[
+                    "ordinary_epistemic_context_selection_digest"] = selection_digest
+                linkage.update(epistemic_context_lineage)
         if predecessor_runtime_lineage is not None:
             linkage["verified_predecessor_runtime_handoff_digest"] = str(
                 predecessor_runtime_lineage.get("handoff_digest", ""))
@@ -4802,6 +4809,7 @@ class PersistentConversationService:
                      "model_identity_continuity_posture": continuity_posture,
                      "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"],
+                     **epistemic_context_lineage,
                      "screen_observation_provenance": (
                          dict(linkage["screen_observation_provenance"])
                          if isinstance(linkage.get("screen_observation_provenance"), Mapping)

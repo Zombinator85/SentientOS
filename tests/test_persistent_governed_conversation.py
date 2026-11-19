@@ -518,6 +518,7 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
     class ContextDecisionInvoker(FakeInvoker):
         def invoke(self, request):
             self.last_prompt = request.prompt
+            self.last_linkage = dict(request.linkage)
             output = ("Use caution with the west sensor."
                 if corrected_position in request.prompt
                 else "I have no prior epistemic position on that sensor.")
@@ -561,6 +562,16 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
     assert corrected_position in invoker.last_prompt
     assert "\"historical_only\":true" in invoker.last_prompt
     assert "\"mutation_performed\":false" in invoker.last_prompt
+    selected_assistant = app.sessions.load(session_id)["turns"][-1]
+    assert invoker.last_linkage[
+        "ordinary_epistemic_context_selection_digest"] == selected_context[
+            "selection_digest"]
+    assert selected_assistant["linkage"][
+        "ordinary_epistemic_context_selection_digest"] == selected_context[
+            "selection_digest"]
+    baseline_assistant = baseline.sessions.load(baseline_session)["turns"][-1]
+    assert "ordinary_epistemic_context_selection_digest" not in (
+        baseline_assistant["linkage"])
 
 
 @pytest.mark.skipif(os.name == "nt",
