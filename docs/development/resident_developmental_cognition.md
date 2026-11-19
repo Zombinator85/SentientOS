@@ -921,6 +921,14 @@ rejects skipped indices and a different protocol reusing a slot. The runner
 requires the matching sequential schedule claim before executing. Earlier v2 protocols without a schedule remain
 readable for audit but cannot enter the scheduled runner.
 
+`OrdinaryChatHistoryInterventionStore.prepare_intervention` now joins the
+preparation path: it builds the deterministic affine task and private scorer
+plan, requires that task's question to be the exact current message, reads the
+next scheduled index, creates the verified history-present/withheld/restored
+prompt bundle, and persists the scorer plan, protocol, and schedule claim. It
+returns the frozen artifacts with `inference_started=false`; calling it does
+not invoke a model.
+
 `OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
 and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
 source session and user turn, adds protocol and condition lineage to each call,

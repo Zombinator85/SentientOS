@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from .conversation_session import (
+    build_ordinary_chat_history_intervention_prompts,
     verify_ordinary_chat_history_intervention_prompt_bundle,
 )
 from .local_model_authority import digest_payload
@@ -948,6 +949,53 @@ class OrdinaryChatHistoryInterventionStore:
     def __init__(self, state_root: Path) -> None:
         self._store = DevelopmentalExperimentStore(Path(state_root))
 
+    def prepare_intervention(self, *, context_arguments: Mapping[str, Any],
+            history_present: Mapping[str, Any] | None,
+            history_withheld: Mapping[str, Any] | None,
+            history_restored: Mapping[str, Any] | None,
+            task: Any, run_id: str, session_id: str,
+            source_user_turn_id: str, source_assistant_turn_id: str,
+            source_assistant_response_digest: str,
+            serving_model_identity: Mapping[str, Any],
+            generation_config_digest: str) -> dict[str, Any]:
+        """Build and persist one complete preregistration without inference."""
+        if not isinstance(context_arguments, Mapping):
+            raise ValueError("ordinary_chat_history_preparation_context_invalid")
+        scoring_plan = build_ordinary_chat_history_objective_scoring_plan(task)
+        question = scoring_plan["task_descriptor"].get("question")
+        if context_arguments.get("current_message") != question:
+            raise ValueError("ordinary_chat_history_preparation_task_prompt_mismatch")
+        trial_index = self.next_trial_index(session_id=session_id,
+            task_commitment_digest=scoring_plan["task_commitment_digest"])
+        prompt_bundle = build_ordinary_chat_history_intervention_prompts(
+            context_arguments=context_arguments,
+            history_present=history_present,
+            history_withheld=history_withheld,
+            history_restored=history_restored,
+            trial_index=trial_index)
+        verify_ordinary_chat_history_objective_scoring_plan(
+            scoring_plan, prompt_bundle=prompt_bundle)
+        protocol = build_ordinary_chat_history_intervention_protocol(
+            prompt_bundle=prompt_bundle, run_id=run_id, session_id=session_id,
+            source_user_turn_id=source_user_turn_id,
+            source_assistant_turn_id=source_assistant_turn_id,
+            source_assistant_response_digest=source_assistant_response_digest,
+            serving_model_identity=serving_model_identity,
+            generation_config_digest=generation_config_digest,
+            task_commitment_digest=scoring_plan["task_commitment_digest"],
+            scoring_plan_digest=scoring_plan["scoring_plan_digest"],
+            scorer_identity_digest=scoring_plan["scorer_identity_digest"])
+        protocol_id = self.persist_protocol(protocol,
+            prompt_bundle=prompt_bundle, scoring_plan=scoring_plan)
+        reloaded = self.load_protocol(protocol_id, prompt_bundle=prompt_bundle,
+            require_schedule=True)
+        persisted_plan = self.load_scoring_plan(protocol=reloaded,
+            prompt_bundle=prompt_bundle)
+        return {"protocol": reloaded, "prompt_bundle": prompt_bundle,
+            "scoring_plan": persisted_plan,
+            "schedule_claim": self.load_schedule_claim(protocol=reloaded),
+            "inference_started": False, "authority": False}
+
     def _schedule_path(self, session_id: str, task_commitment_digest: str,
             trial_index: int) -> Path:
         schedule_id = (SCHEDULE_ID_PREFIX + _schedule_key(session_id,
@@ -1069,7 +1117,6 @@ class OrdinaryChatHistoryInterventionStore:
         if protocol.get("schema_version") == PROTOCOL_SCHEMA:
             if scoring_plan is None:
                 raise ValueError("ordinary_chat_history_preregistered_scoring_plan_required")
-            self._persist_schedule_claim(protocol)
             self.persist_scoring_plan(scoring_plan, protocol=protocol,
                 prompt_bundle=prompt_bundle)
         protocol_id = verified["protocol_id"]
@@ -1081,6 +1128,8 @@ class OrdinaryChatHistoryInterventionStore:
             reloaded, prompt_bundle=prompt_bundle)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_protocol_persistence_mismatch")
+        if protocol.get("schema_version") == PROTOCOL_SCHEMA:
+            self._persist_schedule_claim(protocol)
         return protocol_id
 
     def load_protocol(self, protocol_id: str, *,
