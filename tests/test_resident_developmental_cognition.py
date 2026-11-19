@@ -9675,6 +9675,36 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
         "relevance_query": question}
 
 
+def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:
+    from types import SimpleNamespace
+
+    calls = []
+
+    class ProjectionOwner:
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return "bounded-prior-projection"
+
+    bridge = object.__new__(ResidentDevelopmentalCompanionBridge)
+    bridge._owner = SimpleNamespace(config=SimpleNamespace(
+        semantic_history_model_id="local/model",
+        semantic_history_model_revision="a" * 40))
+    bridge._self_model_config = None
+    bridge._epistemic_state_owner = ProjectionOwner()
+    bridge._epistemic_state_config = {
+        "cognitive_consumption_enabled": True,
+        "max_cognitive_projection_count": 8,
+    }
+
+    _, epistemic = bridge._prior_cognitive_context(
+        tick_id="2026-11-15T00:00:00+00:00", projection_tick=100,
+        relevance_query="How did the west sensor measurement change?")
+
+    assert epistemic == "bounded-prior-projection"
+    assert calls[0]["semantic_model_id"] == "local/model"
+    assert calls[0]["semantic_model_revision"] == "a" * 40
+
+
 def test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval(
         tmp_path: Path) -> None:
     now = datetime(2026, 11, 18, 12, 0, tzinfo=timezone.utc)
