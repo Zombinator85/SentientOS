@@ -35,6 +35,14 @@ After restart, `load_report(report_id, expected_report_digest=...)` first checks
 the stored report digest and campaign identity, then rebuilds the report from
 the campaign state and every verified trial artifact. A report is returned only
 when the stored content exactly matches that reconstruction.
+When the original experiment object or its model endpoints are unavailable,
+`verify_report_from_artifacts(artifact_root=..., experiment_state_root=...,
+campaign_id=..., report_id=..., expected_report_digest=...)` performs the same
+reconstruction from the persisted campaign protocol/state and experiment
+protocol/context/objective-plan/run artifacts. It does not load, invoke, or require
+either cognitive endpoint; endpoint independence here is a property of evidence
+recovery, not evidence that cognition or developmental continuity survived model
+replacement.
 The loader also reconstructs historical v1 aggregate-only and v2 per-probe
 reports using their original invalid-answer coverage semantics; new summaries
 are written only as v3.
