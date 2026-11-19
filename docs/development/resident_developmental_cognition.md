@@ -500,6 +500,12 @@ also carries its verified score schema, evaluator identifier, plan/task digests,
 and invocation output digest; each example references that score digest. This
 identifies the deterministic benchmark measurement, not an external event, and
 does not publish the private answer oracle.
+When a task-family run is translated into evidence for epistemic-state
+revision, the present and restored arms must match on each probe's correctness
+and abstention outcome before a score delta can support or contradict the
+proposition. A restoration mismatch is retained as contextual evidence. This
+keeps a non-reproduced condition difference from becoming a directional belief
+update while preserving the measured result for later review.
 The repository does not expose a generic command that can manufacture such an
 event; use its real source owner. If no suitable source fact is present or its
 kind is not configured, no initial record is produced. Do not stage the

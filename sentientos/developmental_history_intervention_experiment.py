@@ -877,6 +877,31 @@ class DevelopmentalExperimentStore:
                     or not isinstance(score["score"].get("score_digest"), str)
                     or not isinstance(observed, Mapping) or observed.get("condition_id") != condition_id):
                 raise DevelopmentalHistoryInterventionError("epistemic_task_family_score_binding_invalid")
+        def probe_outcome_signature(score_row: Mapping[str, Any]) -> tuple[tuple[Any, ...], ...]:
+            score_payload = score_row.get("score")
+            outcomes = score_payload.get("probe_results") if isinstance(
+                score_payload, Mapping) else None
+            if not isinstance(outcomes, list) or len(outcomes) != len(probe_inputs):
+                raise DevelopmentalHistoryInterventionError(
+                    "epistemic_task_family_probe_outcomes_missing")
+            signature = []
+            for expected_probe, outcome in zip(probe_inputs, outcomes):
+                if (not isinstance(outcome, Mapping)
+                        or outcome.get("probe_input") != expected_probe
+                        or type(outcome.get("correct")) not in {bool, type(None)}
+                        or ("abstained" in outcome
+                            and type(outcome["abstained"]) is not bool)):
+                    raise DevelopmentalHistoryInterventionError(
+                        "epistemic_task_family_probe_outcomes_invalid")
+                abstained = outcome.get("abstained") is True
+                if abstained != (outcome.get("correct") is None):
+                    raise DevelopmentalHistoryInterventionError(
+                        "epistemic_task_family_probe_outcomes_invalid")
+                signature.append((expected_probe, outcome["correct"], abstained))
+            return tuple(signature)
+        present_signature = probe_outcome_signature(scores[0])
+        restored_signature = probe_outcome_signature(scores[2])
+        restoration_probe_outcomes_stable = present_signature == restored_signature
         observed_times = [row.get("observed_at") for row in conditions]
         if any(not isinstance(value, str) or not value for value in observed_times):
             raise DevelopmentalHistoryInterventionError("epistemic_task_family_event_time_missing")
@@ -896,7 +921,11 @@ class DevelopmentalExperimentStore:
             raise DevelopmentalHistoryInterventionError(
                 "epistemic_task_family_event_time_invalid")
         delta = counts[0] - counts[1]
-        relation = "supports" if delta > 0 else "contradicts" if delta < 0 else "contextualizes"
+        # A score delta can be directionally informative only when replaying
+        # the same history reproduces the per-probe outcome pattern. Otherwise
+        # the result remains useful as context, not as support or contradiction.
+        relation = ("supports" if delta > 0 else "contradicts" if delta < 0
+            else "contextualizes") if restoration_probe_outcomes_stable else "contextualizes"
         from .persistent_epistemic_state import make_evidence_binding
         return make_evidence_binding(
             proposition_id=proposition_id,
