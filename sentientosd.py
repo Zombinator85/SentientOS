@@ -3495,6 +3495,14 @@ class RuntimeMaintenanceSurfaces:
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
                         current_tick=epistemic_projection_tick,
+                        semantic_model_id=getattr(getattr(
+                            getattr(self._resident_developmental_owner, "_owner",
+                                self._resident_developmental_owner), "config", None),
+                            "semantic_history_model_id", None),
+                        semantic_model_revision=getattr(getattr(
+                            getattr(self._resident_developmental_owner, "_owner",
+                                self._resident_developmental_owner), "config", None),
+                            "semantic_history_model_revision", None),
                         **({"relevance_query": relevance_query}
                             if relevance_query is not None else {}))
                 objective_request_status = None

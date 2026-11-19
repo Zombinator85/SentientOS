@@ -667,7 +667,11 @@ class ResidentDevelopmentalCompanionBridge:
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                 max_states=maximum, current_tick=projection_tick,
                 prioritized_state_ids=prioritized_epistemic_state_ids,
-                relevance_query=relevance_query)
+                relevance_query=relevance_query,
+                semantic_model_id=getattr(self._owner.config,
+                    "semantic_history_model_id", None),
+                semantic_model_revision=getattr(self._owner.config,
+                    "semantic_history_model_revision", None))
         return prior_self_model, prior_epistemic_state
 
     def can_handle(self) -> bool:

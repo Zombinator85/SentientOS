@@ -1070,19 +1070,42 @@ def validate_cognitive_projection(projection: EpistemicCognitiveProjection | Map
             if selection_provenance is not None:
                 selected_binding_ids = (selection_provenance.get("selected_binding_ids")
                     if isinstance(selection_provenance, Mapping) else None)
+                provenance_schema = (selection_provenance.get("schema_version")
+                    if isinstance(selection_provenance, Mapping) else None)
+                semantic_provenance = provenance_schema == (
+                    "sentientos.epistemic_context_selection_provenance:v2")
+                expected_provenance_keys = ({"schema_version", "selection_policy",
+                    "query_digest", "selected_binding_ids", "embedder_identity_digest",
+                    "candidate_count", "candidate_identity_digest"}
+                    if semantic_provenance else {"schema_version", "selection_policy",
+                        "query_digest", "selected_binding_ids"})
                 if (not isinstance(selection_provenance, Mapping)
-                        or set(selection_provenance) != {"schema_version",
-                            "selection_policy", "query_digest", "selected_binding_ids"}
-                        or selection_provenance.get("schema_version") !=
-                            "sentientos.epistemic_context_selection_provenance:v1"
+                        or set(selection_provenance) != expected_provenance_keys
+                        or provenance_schema not in {
+                            "sentientos.epistemic_context_selection_provenance:v1",
+                            "sentientos.epistemic_context_selection_provenance:v2"}
                         or selection_provenance.get("selection_policy") not in {
                             "query_token_overlap_then_recency_then_binding_id",
-                            "recency_then_binding_id"}
+                            "recency_then_binding_id",
+                            "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"}
                         or (selection_provenance.get("query_digest") is not None
                             and (not isinstance(selection_provenance.get("query_digest"), str)
                                 or not re.fullmatch(r"sha256:[0-9a-f]{64}",
                                     selection_provenance["query_digest"])))
                         or not isinstance(selected_binding_ids, (list, tuple))
+                        or (semantic_provenance and (
+                            selection_provenance.get("selection_policy") !=
+                                "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"
+                            or selection_provenance.get("query_digest") is None
+                            or type(selection_provenance.get("candidate_count")) is not int
+                            or not 1 <= selection_provenance["candidate_count"] <= 256
+                            or any(not isinstance(selection_provenance.get(key), str)
+                                or not re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                    selection_provenance[key]) for key in (
+                                        "embedder_identity_digest", "candidate_identity_digest"))))
+                        or (not semantic_provenance and selection_provenance.get(
+                            "selection_policy") ==
+                                "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id")
                         or tuple(selected_binding_ids) != tuple(
                             item.get("binding_id") for item in context_binding_rows)
                         or (selection_provenance.get("selection_policy") ==
@@ -2058,7 +2081,9 @@ class PersistentEpistemicStateOwner:
                              current_tick: int | None = None,
                              prioritized_proposition_ids: Sequence[str] = (),
                              prioritized_state_ids: Sequence[str] = (),
-                             relevance_query: str | None = None
+                             relevance_query: str | None = None,
+                             semantic_model_id: str | None = None,
+                             semantic_model_revision: str | None = None
                              ) -> EpistemicCognitiveProjection | None:
         """Capture a verified, bounded prior projection without changing custody.
 
@@ -2499,6 +2524,54 @@ class PersistentEpistemicStateOwner:
             ranked_context.sort(key=lambda item: len(context_query_terms
                 & _epistemic_query_terms(item.unverified_context_text or "")),
                 reverse=True)
+            semantic_identity_digest = None
+            semantic_candidate_count = 0
+            semantic_candidate_digest = None
+            semantic_scored = False
+            if (context_query_terms and isinstance(relevance_query, str)
+                    and semantic_model_id is not None
+                    and semantic_model_revision is not None and pending_context):
+                # Bound embedding work to a deterministic recent/lexical sample.
+                recent = list(reversed(pending_context[-192:]))
+                older = list(reversed(pending_context[:-192]))
+                lexical_older = [item for item in older if context_query_terms
+                    & _epistemic_query_terms(item.unverified_context_text or "")][:32]
+                lexical_ids = {item.binding_id for item in lexical_older}
+                sample_pool = [item for item in older if item.binding_id not in lexical_ids]
+                sample_count = min(32, len(sample_pool))
+                phase = (int.from_bytes(hashlib.sha256(relevance_query.encode(
+                    "utf-8")).digest()[:8], "big") % len(sample_pool)
+                    if sample_pool else 0)
+                sampled = ([sample_pool[(phase + ((2 * index + 1)
+                    * len(sample_pool)) // (2 * sample_count)) % len(sample_pool)]
+                    for index in range(sample_count)] if sample_count else [])
+                candidates = list(dict.fromkeys(item.binding_id for item in
+                    recent + lexical_older + sampled))
+                candidate_by_id = {item.binding_id: item for item in pending_context}
+                candidate_rows = [candidate_by_id[item] for item in candidates]
+                semantic_candidate_count = len(candidate_rows)
+                semantic_candidate_digest = digest([{"binding_id": item.binding_id,
+                    "binding_digest": item.binding_digest} for item in candidate_rows])
+                try:
+                    from semantic_embeddings import encode_semantic
+                    embedded = encode_semantic([relevance_query[:4000]] + [
+                        (item.unverified_context_text or "")[:4000]
+                        for item in candidate_rows], model_id=semantic_model_id,
+                        revision=semantic_model_revision)
+                    if embedded is not None and len(embedded.vectors) == len(candidate_rows) + 1:
+                        query_vector = embedded.vectors[0]
+                        scores = {item.binding_id: sum(a * b for a, b in zip(
+                            query_vector, vector)) for item, vector in zip(
+                                candidate_rows, embedded.vectors[1:])}
+                        ranked_context.sort(key=lambda item: scores.get(
+                            item.binding_id, -2.0), reverse=True)
+                        semantic_identity_digest = (embedded.identity_digest
+                            if embedded.identity_digest.startswith("sha256:") else
+                            "sha256:" + embedded.identity_digest)
+                        semantic_scored = True
+                except Exception:
+                    # The pinned encoder is optional. Failure preserves lexical ranking.
+                    pass
             retained_context_ids = {item.binding_id for item in ranked_context[
                 :MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE]}
             retained_context = [item for item in pending_context
@@ -2512,12 +2585,18 @@ class PersistentEpistemicStateOwner:
                 "omitted_count": len(omitted_context),
                 "omitted_identity_digest": digest(omitted_context_identities),
                 "selection_provenance": {
-                "schema_version": "sentientos.epistemic_context_selection_provenance:v1",
+                "schema_version": ("sentientos.epistemic_context_selection_provenance:v2"
+                    if semantic_scored else "sentientos.epistemic_context_selection_provenance:v1"),
                 "selection_policy": (
-                    "query_token_overlap_then_recency_then_binding_id"
-                    if context_query_terms else "recency_then_binding_id"),
+                    "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id"
+                    if semantic_scored else ("query_token_overlap_then_recency_then_binding_id"
+                        if context_query_terms else "recency_then_binding_id")),
                 "query_digest": (digest(relevance_query)
                     if isinstance(relevance_query, str) else None),
+                **({"embedder_identity_digest": semantic_identity_digest,
+                    "candidate_count": semantic_candidate_count,
+                    "candidate_identity_digest": semantic_candidate_digest}
+                    if semantic_scored else {}),
                 "selected_binding_ids": tuple(item.binding_id
                     for item in retained_context),
                 },
