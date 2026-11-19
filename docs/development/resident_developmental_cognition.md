@@ -848,9 +848,10 @@ along with the intended condition order in
 index alternates whether history-present or history-withheld comes first;
 restoration remains third. This deterministic schedule is counterbalancing,
 not randomization, and the future runner must persist and assign trial indices
-across trials. It
-returns prompt digests, not model outputs. This is prompt-control preparation,
-not yet an inference runner or scored result. The deterministic
+across trials. `verify_ordinary_chat_history_intervention_prompt_bundle`
+revalidates the prompt and schedule bindings after handoff. The bundle returns
+prompt digests, not model outputs. This is prompt-control preparation, not yet
+an inference runner or scored result. The deterministic
 `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
 counterfactual demonstrates a changed fake fallback answer when the relevant
 verified history is present, and the paired prompt test checks tampering is

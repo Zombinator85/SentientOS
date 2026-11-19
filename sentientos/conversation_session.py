@@ -1145,6 +1145,128 @@ def verify_ordinary_chat_history_projection_triplet(*,
     }
 
 
+def verify_ordinary_chat_history_intervention_prompt_bundle(*,
+        prompts: Mapping[str, Any], verification: Mapping[str, Any]) -> dict[str, Any]:
+    """Recheck a transported, matched ordinary-history prompt bundle."""
+    expected_conditions = {"history_present", "history_withheld", "history_restored"}
+    expected_verification_fields = {
+        "schema_version", "condition_order", "condition_order_policy", "trial_index",
+        "condition_prompt_digests", "matched_non_history_prompt_digest",
+        "developmental_history_prompt_block_digest", "withheld_diff_posture",
+        "prompt_effect_established", "history_present_selection_digest",
+        "history_withheld_context_absent", "history_restored_selection_digest",
+        "restoration_exact", "record_ids", "record_digests", "effect_established",
+        "learning_established", "authority",
+    }
+    if (not isinstance(prompts, Mapping) or set(prompts) != expected_conditions
+            or not isinstance(verification, Mapping)
+            or set(verification) != expected_verification_fields
+            or verification.get("schema_version")
+                != "sentientos.ordinary_chat_history_intervention_prompts:v2"):
+        raise ValueError("ordinary_chat_history_prompt_bundle_invalid")
+    if any(not isinstance(prompt, str) or len(prompt) > 8000
+            for prompt in prompts.values()):
+        raise ValueError("ordinary_chat_history_prompt_bundle_invalid")
+    trial_index = verification.get("trial_index")
+    if type(trial_index) is not int or not 0 <= trial_index <= 2**31 - 1:
+        raise ValueError("ordinary_chat_history_prompt_bundle_schedule_invalid")
+    expected_order = (["history_present", "history_withheld", "history_restored"]
+        if trial_index % 2 == 0 else
+        ["history_withheld", "history_present", "history_restored"])
+    digest_map = verification.get("condition_prompt_digests")
+    if (verification.get("condition_order_policy")
+                != "alternating_present_withheld_first:v1"
+            or verification.get("condition_order") != expected_order
+            or not isinstance(digest_map, Mapping)
+            or set(digest_map) != expected_conditions
+            or any(digest_map.get(condition) != digest_payload({
+                "prompt": prompts[condition]}) for condition in expected_conditions)
+            or prompts["history_present"] != prompts["history_restored"]
+            or verification.get("matched_non_history_prompt_digest")
+                != digest_payload({"prompt": prompts["history_withheld"]})
+            or verification.get("withheld_diff_posture")
+                != "developmental_history_block_only"
+            or verification.get("prompt_effect_established") is not False
+            or verification.get("history_withheld_context_absent") is not True
+            or verification.get("restoration_exact") is not True
+            or verification.get("history_present_selection_digest")
+                != verification.get("history_restored_selection_digest")
+            or not isinstance(verification.get("history_present_selection_digest"), str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                verification["history_present_selection_digest"]) is None
+            or verification.get("effect_established") is not False
+            or verification.get("learning_established") is not False
+            or verification.get("authority") is not False):
+        raise ValueError("ordinary_chat_history_prompt_bundle_verification_failed")
+    record_ids, record_digests = (verification.get("record_ids"),
+        verification.get("record_digests"))
+    if (not isinstance(record_ids, list) or not 1 <= len(record_ids) <= 16
+            or any(not isinstance(record_id, str) or not 1 <= len(record_id) <= 256
+                for record_id in record_ids)
+            or len(set(record_ids)) != len(record_ids)
+            or not isinstance(record_digests, list)
+            or len(record_digests) != len(record_ids)
+            or any(not isinstance(digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None
+                for digest in record_digests)):
+        raise ValueError("ordinary_chat_history_prompt_bundle_lineage_invalid")
+
+    present_prompt, withheld_prompt = (prompts["history_present"],
+        prompts["history_withheld"])
+    guidance_marker, data_marker = ("[DEVELOPMENTAL_HISTORY_GUIDANCE]",
+        "[DEVELOPMENTAL_HISTORY_DATA]")
+    if (present_prompt.count(guidance_marker) != 1
+            or present_prompt.count(data_marker) != 1
+            or guidance_marker in withheld_prompt or data_marker in withheld_prompt):
+        raise ValueError("ordinary_chat_history_prompt_bundle_markers_invalid")
+    start = present_prompt.index(guidance_marker)
+    boundaries = [position for position in (
+        present_prompt.find("\n[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]", start),
+        present_prompt.find("\n[SESSION_HISTORY_DATA]", start)) if position >= 0]
+    if not boundaries:
+        raise ValueError("ordinary_chat_history_prompt_bundle_boundary_missing")
+    end = min(boundaries)
+    projected_withheld = present_prompt[:start] + present_prompt[end + 1:]
+    data_start = present_prompt.index(data_marker, start) + len(data_marker)
+    if data_start >= len(present_prompt) or present_prompt[data_start] != "\n":
+        raise ValueError("ordinary_chat_history_prompt_bundle_data_invalid")
+    data_end = present_prompt.find("\n[SESSION_HISTORY_DATA]", data_start)
+    if data_end < 0:
+        raise ValueError("ordinary_chat_history_prompt_bundle_data_invalid")
+    try:
+        projected_context = json.loads(present_prompt[data_start + 1:data_end])
+    except (TypeError, ValueError) as exc:
+        raise ValueError("ordinary_chat_history_prompt_bundle_data_invalid") from exc
+    if not isinstance(projected_context, Mapping):
+        raise ValueError("ordinary_chat_history_prompt_bundle_data_invalid")
+    projected_history = verify_ordinary_chat_history_projection_triplet(
+        history_present=projected_context, history_withheld=None,
+        history_restored=projected_context)
+    if (projected_withheld != withheld_prompt
+            or verification.get("developmental_history_prompt_block_digest")
+                != digest_payload({"prompt_block": present_prompt[start:end]})
+            or verification.get("history_present_selection_digest")
+                != projected_history["history_present_selection_digest"]
+            or verification.get("record_ids") != projected_history["record_ids"]
+            or verification.get("record_digests") != projected_history["record_digests"]):
+        raise ValueError("ordinary_chat_history_prompt_bundle_diff_invalid")
+    return {
+        "schema_version": "sentientos.ordinary_chat_history_prompt_bundle_verification:v1",
+        "condition_order": list(expected_order),
+        "trial_index": trial_index,
+        "condition_prompt_digests": dict(digest_map),
+        "matched_non_history_prompt_digest": verification[
+            "matched_non_history_prompt_digest"],
+        "developmental_history_prompt_block_digest": verification[
+            "developmental_history_prompt_block_digest"],
+        "history_only_prompt_difference_verified": True,
+        "restoration_exact": True,
+        "effect_established": False,
+        "learning_established": False,
+        "authority": False,
+    }
+
+
 def build_ordinary_chat_history_intervention_prompts(*,
         context_arguments: Mapping[str, Any],
         history_present: Mapping[str, Any] | None,
@@ -1212,6 +1334,8 @@ def build_ordinary_chat_history_intervention_prompts(*,
         "withheld_diff_posture": "developmental_history_block_only",
         "prompt_effect_established": False,
     })
+    verify_ordinary_chat_history_intervention_prompt_bundle(
+        prompts=prompts, verification=verification)
     return {"verification": verification, "prompts": prompts}
 
 
