@@ -671,3 +671,13 @@ the original 1,024-record bound, and directories exceeding the scan or byte
 limits still fail closed. A CPU fixture with 1,024 invalid decoys and one
 verified target demonstrates this bounded behavior; it does not establish
 real-model use or decision improvement.
+
+Source-session receipt verification is also bounded per retrieval: at most four
+distinct source sessions are loaded, each through the existing 8 MiB session-file
+limit, for a maximum reserved read budget of 32 MiB and no more than four cached
+session payloads. Repeated records from a cached source session do not spend another
+reservation. Candidates beyond that bound are recorded as deferred and omitted as
+unverified; they are not labeled invalid or allowed to affect selection. A CPU-only
+counterfactual checks this distinction. The bound is a conservative reservation
+based on each file's maximum size, not a measure of actual bytes read. Real-model
+application remains untested.
