@@ -16,6 +16,7 @@ from typing import Any, Callable, Mapping
 
 from .conversation_session import (
     build_ordinary_chat_history_intervention_prompts,
+    ordinary_chat_history_condition_order,
     verify_ordinary_chat_history_intervention_prompt_bundle,
 )
 from .local_model_authority import digest_payload
@@ -94,8 +95,12 @@ def _verify_schedule_claim(claim: Mapping[str, Any], *,
             or not isinstance(claim.get("task_commitment_digest"), str)
             or not isinstance(claim.get("protocol_id"), str)
             or not isinstance(claim.get("protocol_digest"), str)
-            or claim.get("condition_order") != (list(CONDITIONS) if trial_index % 2 == 0
-                else ["history_withheld", "history_present", "history_restored"])
+            or not isinstance(claim.get("condition_order"), list)
+            or tuple(claim["condition_order"]) not in {
+                tuple(ordinary_chat_history_condition_order(trial_index,
+                    policy="alternating_present_withheld_first:v1")),
+                tuple(ordinary_chat_history_condition_order(trial_index,
+                    policy="balanced_six_permutations:v1"))}
             or claim.get("schedule_id") != (SCHEDULE_ID_PREFIX
                 + _schedule_key(claim["session_id"], claim["task_commitment_digest"])
                 + f"-{trial_index:08d}")
@@ -854,9 +859,11 @@ def verify_ordinary_chat_history_intervention_protocol(
                 != digest_payload(dict(identity))):
         raise ValueError("ordinary_chat_history_protocol_model_identity_invalid")
     trial_index = protocol.get("trial_index")
-    order = (list(CONDITIONS) if type(trial_index) is int and trial_index % 2 == 0
-        else ["history_withheld", "history_present", "history_restored"]
-        if type(trial_index) is int and trial_index % 2 == 1 else None)
+    try:
+        order = ordinary_chat_history_condition_order(trial_index,
+            policy=bundle_verification.get("condition_order_policy"))
+    except ValueError:
+        order = None
     prompt_digests = protocol.get("condition_prompt_digests")
     if (type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
             or protocol.get("condition_order") != order

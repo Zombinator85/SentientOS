@@ -31,6 +31,27 @@ MAX_SESSION_BYTES = 8 * 1024 * 1024
 MAX_SESSION_LIST_ENTRIES = 4096
 MAX_SESSION_LIST_TOTAL_BYTES = 32 * 1024 * 1024
 MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS = 65_536
+ORDINARY_HISTORY_CONDITION_PERMUTATIONS = (
+    ("history_present", "history_withheld", "history_restored"),
+    ("history_withheld", "history_present", "history_restored"),
+    ("history_present", "history_restored", "history_withheld"),
+    ("history_withheld", "history_restored", "history_present"),
+    ("history_restored", "history_present", "history_withheld"),
+    ("history_restored", "history_withheld", "history_present"),
+)
+
+
+def ordinary_chat_history_condition_order(trial_index: int, *,
+        policy: str = "balanced_six_permutations:v1") -> list[str]:
+    """Return the preregistered position schedule for an intervention trial."""
+    if (type(trial_index) is not int
+            or not 0 <= trial_index < MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS):
+        raise ValueError("ordinary_chat_history_intervention_schedule_invalid")
+    if policy == "alternating_present_withheld_first:v1":
+        return list(ORDINARY_HISTORY_CONDITION_PERMUTATIONS[trial_index % 2])
+    if policy == "balanced_six_permutations:v1":
+        return list(ORDINARY_HISTORY_CONDITION_PERMUTATIONS[trial_index % 6])
+    raise ValueError("ordinary_chat_history_intervention_schedule_policy_invalid")
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
 _TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -1202,13 +1223,14 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
     if (type(trial_index) is not int
             or not 0 <= trial_index < MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS):
         raise ValueError("ordinary_chat_history_prompt_bundle_schedule_invalid")
-    expected_order = (["history_present", "history_withheld", "history_restored"]
-        if trial_index % 2 == 0 else
-        ["history_withheld", "history_present", "history_restored"])
+    policy = verification.get("condition_order_policy")
+    try:
+        expected_order = ordinary_chat_history_condition_order(
+            trial_index, policy=policy)
+    except ValueError as exc:
+        raise ValueError("ordinary_chat_history_prompt_bundle_schedule_invalid") from exc
     digest_map = verification.get("condition_prompt_digests")
-    if (verification.get("condition_order_policy")
-                != "alternating_present_withheld_first:v1"
-            or verification.get("condition_order") != expected_order
+    if (verification.get("condition_order") != expected_order
             or not isinstance(digest_map, Mapping)
             or set(digest_map) != expected_conditions
             or any(digest_map.get(condition) != digest_payload({
@@ -1355,13 +1377,13 @@ def build_ordinary_chat_history_intervention_prompts(*,
     withheld_projection = present_prompt[:start] + present_prompt[end + 1:]
     if withheld_projection != prompts["history_withheld"]:
         raise ValueError("ordinary_chat_history_intervention_prompt_mismatch")
-    condition_order = (["history_present", "history_withheld", "history_restored"]
-        if trial_index % 2 == 0 else
-        ["history_withheld", "history_present", "history_restored"])
+    order_policy = "balanced_six_permutations:v1"
+    condition_order = ordinary_chat_history_condition_order(
+        trial_index, policy=order_policy)
     verification.update({
         "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v3",
         "condition_order": condition_order,
-        "condition_order_policy": "alternating_present_withheld_first:v1",
+        "condition_order_policy": order_policy,
         "trial_index": trial_index,
         "condition_prompt_digests": {condition: digest_payload({"prompt": prompt})
             for condition, prompt in prompts.items()},

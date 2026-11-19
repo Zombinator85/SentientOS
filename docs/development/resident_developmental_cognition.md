@@ -846,10 +846,12 @@ prompt, the shared non-history prompt, and the exact inserted history block,
 along with the intended condition order in
 `sentientos.ordinary_chat_history_intervention_prompts:v3`, including one
 digest that binds the prompt digests and verification metadata. An explicit trial
-index alternates whether history-present or history-withheld comes first;
-restoration remains third. This deterministic schedule is counterbalancing,
-not randomization, and the future runner must persist and assign trial indices
-across trials. `verify_ordinary_chat_history_intervention_prompt_bundle`
+index cycles through all six condition permutations, placing each condition in
+each position twice per six-trial block. This deterministic schedule is
+counterbalancing, not randomization. Previously prepared bundles retain their
+original alternating-first, restoration-third schedule and remain auditable.
+The durable runner persists and assigns trial indices across trials.
+`verify_ordinary_chat_history_intervention_prompt_bundle`
 revalidates the prompt and schedule bindings after handoff. The bundle returns
 prompt digests, not model outputs. This is prompt-control preparation, not yet
 an inference runner or scored result. The deterministic
