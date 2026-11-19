@@ -483,7 +483,8 @@ def test_ordinary_chat_uses_relevant_older_exchange_before_recent_fill(
     reason="conversation persistence is unavailable on Windows")
 def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
         tmp_path: Path) -> None:
-    query = "Should the west sensor be treated as reliable?"
+    query = "What should I do now?"
+    antecedent = "The west sensor reading changed after the calibration run."
     corrected_position = "west sensor position: contradicted after later evidence"
     semantic_context = {
         "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
@@ -512,7 +513,7 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
 
         def ordinary_chat_epistemic_context(self, *, question, max_input_chars):
             self.context_requests.append((question, max_input_chars))
-            return self.selected
+            return self.selected if "west sensor" in question else None
 
     class ContextDecisionInvoker(FakeInvoker):
         def invoke(self, request):
@@ -527,7 +528,7 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
                 receipt_id="fixture-receipt-" + request.request_id,
                 receipt_digest="fixture-digest-" + request.request_id)
 
-    without_bridge = FallbackBridge(None)
+    without_bridge = FallbackBridge(selected_context)
     baseline_invoker = ContextDecisionInvoker()
     baseline = service(tmp_path / "baseline", baseline_invoker,
         cognition_bridge=without_bridge)
@@ -539,17 +540,43 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
     invoker = ContextDecisionInvoker()
     app = service(tmp_path / "selected", invoker, cognition_bridge=bridge)
     session_id = app.create_session()
+    topic = app.sessions.append_turn(session_id, role="user", text=antecedent)
+    app.sessions.append_turn(session_id, role="assistant",
+        text="I will keep the west sensor issue in context.",
+        linkage={"source_user_turn_id": topic["turn_id"]})
+    app.sessions.append_turn(session_id, role="user", text="Thanks!")
     response = app.chat(query, session_id=session_id,
         request_id="epistemic-fallback-selected")
 
     assert baseline_response.response == (
         "I have no prior epistemic position on that sensor.")
     assert response.response == "Use caution with the west sensor."
-    assert bridge.context_requests == [(query, 8000)]
+    assert without_bridge.context_requests == [(query, 8000)]
+    assert bridge.context_requests == [(f"{query} {antecedent}", 8000)]
     assert "[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]" in invoker.last_prompt
     assert corrected_position in invoker.last_prompt
     assert "\"historical_only\":true" in invoker.last_prompt
     assert "\"mutation_performed\":false" in invoker.last_prompt
+
+
+def test_sparse_ordinary_epistemic_query_uses_only_latest_verified_topic() -> None:
+    question = "What should I do now?"
+    topic = "The west sensor reading changed after the calibration run."
+
+    def turn(role: str, text: str, *, valid_digest: bool = True):
+        return {"role": role, "text": text,
+            "text_digest": (chat_service.digest_payload({"text": text})
+                if valid_digest else "0" * 64)}
+
+    history = ContextSnapshot("session-sparse-epistemic", (
+        turn("user", topic),
+        turn("user", "Thanks!"),
+        turn("user", "The east battery needs replacement.", valid_digest=False),
+    ), 4000, False, "a" * 64)
+    assert chat_service._ordinary_epistemic_relevance_query(
+        question, history) == f"{question} {topic}"
+    assert chat_service._ordinary_epistemic_relevance_query(
+        "What does the moon phase mean?", history) == "What does the moon phase mean?"
 
 
 def test_local_chat_prompt_rejects_epistemic_context_with_authority_flags() -> None:

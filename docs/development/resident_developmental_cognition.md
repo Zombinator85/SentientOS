@@ -737,6 +737,18 @@ unchanged; `::test_local_chat_prompt_rejects_epistemic_context_with_authority_fl
 checks prompt assembly rejects self-authorizing flags. Real-model application
 and improved longitudinal outcomes remain unverified.
 
+For sparse ordinary fallback questions, epistemic packet ranking also receives
+the latest digest-verified prior user topic from the already selected session
+history. Short acknowledgments and turns with invalid text digests do not
+replace that cue; specific questions remain unchanged. The deterministic
+`tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_bounded_prior_epistemic_context`
+counterfactual shows the same sparse follow-up receiving the west-sensor prior
+only when that topic exists in history. The portable
+`::test_sparse_ordinary_epistemic_query_uses_only_latest_verified_topic` checks
+the digest and acknowledgment filters. This demonstrates query construction
+and prompt application with controlled substitutes; it does not establish
+real-model interpretation or improved outcomes.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports
