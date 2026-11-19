@@ -1762,6 +1762,77 @@ def test_resident_memory_source_session_budget_defers_without_rejecting(
     assert context["retrieval_posture"] == "partial_source_verification_budget"
 
 
+@pytest.mark.parametrize(("excluded_outcome", "expected_posture"), [
+    (None, "complete"),
+    ("rejected", "partial_source_verification"),
+    ("deferred", "partial_source_verification_budget"),
+])
+def test_resident_memory_context_cap_preserves_verification_posture(
+        monkeypatch: pytest.MonkeyPatch, excluded_outcome: str | None,
+        expected_posture: str) -> None:
+    records = [{"id": f"memory-{index:024x}",
+        "text": f"The cedar shelf option {index} was recorded in the workshop.",
+        "timestamp": f"2026-01-0{index + 1}T00:00:00+00:00"}
+        for index in range(5)]
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: (records, "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    app = object.__new__(PersistentConversationService)
+    app.memory_budget_chars = 4000
+    app.memories = store
+    app._resident_cognition_bridge = None
+
+    def verify_record(record, **_kwargs):
+        if record["id"] == records[0]["id"]:
+            if excluded_outcome == "rejected":
+                return None
+            if excluded_outcome == "deferred":
+                raise MemorySourceVerificationDeferred
+        return {"memory_id": record["id"], "text": record["text"]}
+
+    app._verify_resident_canonical_memory_record = verify_record
+    context = app._resident_canonical_memory_context("cedar shelf")
+
+    assert context is not None
+    assert len(context["records"]) == 4
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert context["retrieval_posture"] == expected_posture
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_resident_memory_context_cap_does_not_claim_partial_source_verification(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    app = service(tmp_path)
+    session_id = app.create_session()
+    for index in range(5):
+        result = app.chat(
+            f"The cedar shelf adjustment {index} was recorded in the workshop.",
+            session_id=session_id, request_id=f"context-cap-{index}", retain=True)
+        assert result.retention["status"] == "memory_retention_committed"
+
+    captured_retrievals = []
+    retrieve = app.memories.retrieve
+
+    def capture_retrieval(query, **kwargs):
+        result = retrieve(query, **kwargs)
+        captured_retrievals.append(result)
+        return result
+
+    monkeypatch.setattr(app.memories, "retrieve", capture_retrieval)
+    context = app._resident_canonical_memory_context("cedar shelf")
+
+    assert context is not None
+    assert len(captured_retrievals) == 1
+    assert len(captured_retrievals[0]["memories"]) == 5
+    assert captured_retrievals[0]["record_validation_posture"] == (
+        "inspected_candidates_passed")
+    assert len(context["records"]) == 4
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert context["retrieval_posture"] == "complete"
+
+
 def test_failed_memory_source_verification_forces_resident_clarification(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (

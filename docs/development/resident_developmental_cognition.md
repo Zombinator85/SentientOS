@@ -681,3 +681,12 @@ unverified; they are not labeled invalid or allowed to affect selection. A CPU-o
 counterfactual checks this distinction. The bound is a conservative reservation
 based on each file's maximum size, not a measure of actual bytes read. Real-model
 application remains untested.
+
+Resident prompt assembly selects at most four verified memory records. Omitting
+additional records because of that context cap or the character budget is a
+selection limitation, not incomplete source verification: the context reports
+`matching_records_omitted` while retaining the underlying retrieval posture when
+every inspected source passed. Actual rejected or budget-deferred sources still
+produce a partial-verification retrieval posture. A receipt-backed CPU fixture
+checks five verified records from one source session against the four-record
+prompt cap.

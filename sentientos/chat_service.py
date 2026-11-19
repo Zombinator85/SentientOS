@@ -2655,16 +2655,19 @@ class PersistentConversationService:
                             != "explicit_user_correction_unverified"):
                     continue
                 correction_relations.append(dict(relation))
-        source_binding_omitted = (len(selected) < len(retrieved["memories"])
-            or retrieved.get("record_validation_posture")
-                in {"inspected_candidates_rejected",
-                    "inspected_candidates_deferred"})
-        selection_posture = ("matching_records_omitted" if source_binding_omitted
+        record_validation_posture = retrieved.get("record_validation_posture")
+        source_verification_incomplete = record_validation_posture in {
+            "inspected_candidates_rejected", "inspected_candidates_deferred"}
+        selection_omitted = (len(selected) < len(retrieved["memories"])
+            or retrieved.get("selection_posture") == "matching_records_omitted"
+            or source_verification_incomplete)
+        selection_posture = ("matching_records_omitted" if selection_omitted
             else str(retrieved.get("selection_posture", "unknown")))
         retrieval_posture = (
-            "partial_source_verification_budget" if retrieved.get(
-                "record_validation_posture") == "inspected_candidates_deferred" else
-            "partial_source_verification" if source_binding_omitted
+            "partial_source_verification_budget" if record_validation_posture
+                == "inspected_candidates_deferred" else
+            "partial_source_verification" if record_validation_posture
+                == "inspected_candidates_rejected"
             else str(retrieved.get("retrieval_posture", "unknown")))
         semantic = {
             "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
