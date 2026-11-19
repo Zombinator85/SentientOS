@@ -499,7 +499,8 @@ def _ordinary_epistemic_relevance_query(question: str,
     """Resolve sparse epistemic lookups from the latest verified prior user topic."""
     if not is_sparse_or_elliptical_cognition_query(question):
         return question
-    for turn in reversed(history.turns):
+    for index in range(len(history.turns) - 1, -1, -1):
+        turn = history.turns[index]
         if not isinstance(turn, Mapping) or turn.get("role") != "user":
             continue
         text = turn.get("text")
@@ -510,7 +511,27 @@ def _ordinary_epistemic_relevance_query(question: str,
         cue_budget = min(1000, 1200 - len(question) - 1)
         if cue_budget < 64:
             return question
-        return f"{question} {text[:cue_budget]}"
+        cue = text[:cue_budget]
+        if index > 0:
+            antecedent = history.turns[index - 1]
+            antecedent_text = (antecedent.get("text")
+                if isinstance(antecedent, Mapping) else None)
+            if (is_sparse_or_elliptical_cognition_query(text)
+                    and isinstance(antecedent, Mapping)
+                    and antecedent.get("role") == "assistant"
+                    and isinstance(antecedent_text, str)
+                    and antecedent_text.strip()
+                    and len(antecedent_text) <= 1200
+                    and antecedent.get("text_digest") == digest_payload(
+                        {"text": antecedent_text})
+                    and any(mark in antecedent_text for mark in ("?", "？"))):
+                # Preserve the user's short answer while adding its verified
+                # assistant-question antecedent as a retrieval cue only.
+                user_budget = min(len(text), max(64, cue_budget // 3))
+                antecedent_budget = max(0, cue_budget - user_budget - 1)
+                cue = (f"{antecedent_text[:antecedent_budget]} "
+                    f"{text[:user_budget]}").strip()
+        return f"{question} {cue}"
     return question
 
 

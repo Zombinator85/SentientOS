@@ -757,6 +757,19 @@ the digest and acknowledgment filters. This demonstrates query construction
 and prompt application with controlled substitutes; it does not establish
 real-model interpretation or improved outcomes.
 
+When the latest prior user turn is itself sparse or elliptical, ordinary
+epistemic ranking also includes its immediately preceding assistant question
+when that turn's text digest verifies and it contains a question mark. The
+assistant text is only a topic cue;
+it is not treated as evidence or authority, and invalid assistant digests are
+ignored. `tests/test_persistent_governed_conversation.py::test_sparse_ordinary_epistemic_query_resolves_elliptical_answer_antecedent`
+shows a verified question plus "That one" selecting the west-sensor prior while
+the answer alone does not, and confirms a tampered antecedent is excluded. The
+real-owner counterfactual in
+`tests/test_resident_developmental_cognition.py::test_sparse_session_topic_changes_real_prior_epistemic_projection_selection`
+also confirms the resolved query changes selection among persisted epistemic
+propositions.
+
 The ordinary fallback budgets this optional epistemic projection against the
 complete chat prompt. It reserves framing space when asking the shared packet
 binder to select prior state, then checks the serialized prompt against the
