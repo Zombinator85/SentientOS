@@ -939,6 +939,7 @@ def test_resident_cognition_bridge_delivers_receipt_linked_answer_and_recovers(
 
 def test_cognition_followup_uses_bounded_session_transcript() -> None:
     seen_contexts = []
+    seen_questions = []
 
     class CognitionBridge:
         def verify_committed_response(self, *, linkage, response_text, request_id):
@@ -949,6 +950,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         def respond(self, *, request_id, question, screen_observation=None,
                 conversation_context=None):
             seen_contexts.append(conversation_context)
+            seen_questions.append(question)
             prior_text = " ".join(row["text"] for row in
                 conversation_context["turns"]) if conversation_context else ""
             response = ("The earlier report said three degrees after warmup."
@@ -988,7 +990,13 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     app = object.__new__(PersistentConversationService)
     app._resident_cognition_bridge = CognitionBridge()
     app.sessions = SessionSink()
-    app._resident_canonical_memory_context = lambda _question: None
+    memory_queries = []
+
+    def capture_memory_query(question, *, relevance_query=None):
+        memory_queries.append((question, relevance_query))
+        return None
+
+    app._resident_canonical_memory_context = capture_memory_query
     app._avatar_output = None
     app._speech_output = None
     history = ContextSnapshot("session-followup", (*unrelated_turns,
@@ -1016,9 +1024,25 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
         user_turn={"turn_id": "turn-" + "4" * 24},
         question="How much did the west sensor drift?", history=control_history,
         screen_observation=None, on_content_chunk=None)
+    sparse_followup = app._complete_resident_cognition_response(
+        session_id="session-followup",
+        user_turn={"turn_id": "turn-" + "5" * 24},
+        question="What happens next?", history=history,
+        screen_observation=None, on_content_chunk=None)
+    sparse_control = app._complete_resident_cognition_response(
+        session_id="session-control",
+        user_turn={"turn_id": "turn-" + "6" * 24},
+        question="What happens next?", history=control_history,
+        screen_observation=None, on_content_chunk=None)
 
     assert "three degrees" in followup.response
     assert "do not have" in control.response
+    assert "three degrees" in sparse_followup.response
+    assert "do not have" in sparse_control.response
+    assert memory_queries[2] == ("What happens next?",
+        "What happens next? The west sensor drifted by three degrees after warmup.")
+    assert memory_queries[3] == ("What happens next?", None)
+    assert seen_questions[2] == "What happens next?"
     assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
         "turn-unrelated-18", "turn-unrelated-19",
         "turn-" + "1" * 24, "turn-" + "2" * 24]
@@ -1045,6 +1069,44 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert followup.context["cognition_conversation_turn_citation_digests"] == [
         supplied["turns"][2]["text_digest"]]
     assert seen_contexts[1] is None
+    assert seen_contexts[2]["turns"] == supplied["turns"]
+    assert seen_contexts[3] is None
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="canonical retained-memory publication requires POSIX descriptor custody")
+def test_sparse_topic_ranks_only_source_verified_retained_canonical_memories(
+        tmp_path: Path) -> None:
+    app = service(tmp_path)
+    battery_session = app.create_session()
+    battery_text = "The battery calibration archive is stored in drawer amber."
+    app.chat(battery_text, session_id=battery_session.session_id,
+        request_id="retain-battery-calibration-archive", retain=True)
+    moon_session = app.create_session()
+    moon_text = "The moon observation archive is stored in cabinet blue."
+    app.chat(moon_text, session_id=moon_session.session_id,
+        request_id="retain-moon-observation-archive", retain=True)
+    battery_turn = next(turn for turn in app.sessions.load(
+        battery_session.session_id)["turns"] if turn.get("retention_state") == "retained")
+    moon_turn = next(turn for turn in app.sessions.load(
+        moon_session.session_id)["turns"] if turn.get("retention_state") == "retained")
+    battery_memory_id = battery_turn["retention_receipt"]["memory_id"]
+    moon_memory_id = moon_turn["retention_receipt"]["memory_id"]
+
+    baseline = app._resident_canonical_memory_context("What happens next?")
+    contextual = app._resident_canonical_memory_context("What happens next?",
+        relevance_query=("What happens next? Where is the battery calibration archive?"))
+    specific = app._resident_canonical_memory_context("Where is the moon archive?")
+
+    assert baseline is None
+    assert contextual is not None
+    assert [row["memory_id"] for row in contextual["records"]] == [battery_memory_id]
+    assert contextual["records"][0]["text"] == battery_text
+    assert contextual["records"][0]["authority"] is False
+    assert contextual["records"][0]["current_truth"] is False
+    assert specific is not None
+    assert [row["memory_id"] for row in specific["records"]] == [moon_memory_id]
+    assert specific["records"][0]["text"] == moon_text
 
 
 @pytest.mark.skipif(os.name == "nt",

@@ -63,6 +63,7 @@ from .conversation_session import (
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
     ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
+from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
     CURRENT_GAME_STATUS_POLICY_ID, SCREEN_CAPABILITY_POLICY_ID, corrected_gaming_output,
@@ -2459,9 +2460,13 @@ class PersistentConversationService:
                 "memory_record_digest": digest_payload(dict(record))})
         return targets
 
-    def _resident_canonical_memory_context(self, question: str) -> dict[str, Any] | None:
+    def _resident_canonical_memory_context(self, question: str, *,
+            relevance_query: str | None = None) -> dict[str, Any] | None:
         """Bind only explicitly retained, source-turn-verified memories for cognition."""
-        retrieved = self.memories.retrieve(question,
+        query = question if relevance_query is None else relevance_query
+        if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
+            raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
+        retrieved = self.memories.retrieve(query,
             limit=MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
             budget_chars=self.memory_budget_chars)
         if (not isinstance(retrieved, Mapping)
@@ -2725,7 +2730,6 @@ class PersistentConversationService:
         if bridge is None:
             raise RuntimeError("resident_cognition_bridge_unavailable")
         request_id = f"{session_id}:{user_turn['turn_id']}"
-        canonical_memory_context = self._resident_canonical_memory_context(question)
         conversation_context = None
         selected_turns = _select_resident_conversation_context_turns(
             history.turns, question=question)
@@ -2746,6 +2750,18 @@ class PersistentConversationService:
                     "text": text, "text_digest": turn["text_digest"],
                     "linkage_digest": digest_payload(dict(linkage)),
                 })
+            memory_query = question
+            if is_sparse_or_elliptical_cognition_query(question):
+                prior_user_text = next((row["text"] for row in reversed(context_turns)
+                    if row["role"] == "user"
+                    and row["turn_id"] != user_turn.get("turn_id")), None)
+                if isinstance(prior_user_text, str):
+                    memory_query = f"{question} {prior_user_text[:1000]}"[:4000]
+            if memory_query == question:
+                canonical_memory_context = self._resident_canonical_memory_context(question)
+            else:
+                canonical_memory_context = self._resident_canonical_memory_context(
+                    question, relevance_query=memory_query)
             # Carry forward only citations from assistant outputs whose durable
             # cognition observation, inference receipt, and transcript linkage
             # still verify. They are retrieval hints, never truth or authority.
@@ -2798,6 +2814,8 @@ class PersistentConversationService:
             }
             conversation_context = {**semantic_context,
                 "selection_digest": digest_payload(semantic_context)}
+        else:
+            canonical_memory_context = self._resident_canonical_memory_context(question)
         historical_citation_context = self._resident_historical_citation_context(
             bridge=bridge, request_id=request_id, question=question,
             conversation_context=conversation_context)
