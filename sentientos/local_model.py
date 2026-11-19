@@ -255,8 +255,8 @@ class _OllamaBackend(_ModelBackend):
                  max_context_tokens: int) -> None:
         super().__init__(candidate, metadata)
         options = dict(candidate.options)
-        allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "keep_alive",
-                   "think", "timeout_seconds", "chat_history_format", "seed"}
+        allowed = {"api_base", "model", "manifest_sha256", "num_gpu", "num_thread",
+                   "keep_alive", "think", "timeout_seconds", "chat_history_format", "seed"}
         if set(options) - allowed:
             raise ModelLoadError("ollama_option_not_allowed")
         seed = options.get("seed")
@@ -299,6 +299,11 @@ class _OllamaBackend(_ModelBackend):
         self._num_gpu = options.get("num_gpu", 99)
         if type(self._num_gpu) is not int or not 0 <= self._num_gpu <= 128:
             raise ModelLoadError("ollama_gpu_layer_limit_invalid")
+        self._num_thread = options.get("num_thread")
+        if (self._num_thread is not None
+                and (type(self._num_thread) is not int
+                    or not 1 <= self._num_thread <= 16)):
+            raise ModelLoadError("ollama_cpu_thread_limit_invalid")
         self._keep_alive = options.get("keep_alive", "15m")
         if self._keep_alive not in {"0", "5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_keep_alive_invalid")
@@ -313,6 +318,8 @@ class _OllamaBackend(_ModelBackend):
                                "manifest_sha256": manifest_digest,
                                "backend_posture": "local_loopback_development",
                                "chat_history_format": self._chat_history_format})
+        if self._num_thread is not None:
+            self._metadata["num_thread"] = self._num_thread
 
         request = urllib.request.Request(self._base + "/api/tags", method="GET")
         try:
@@ -351,6 +358,8 @@ class _OllamaBackend(_ModelBackend):
             "top_p": max(0.1, min(float(generation.get("top_p", 0.9)), 1.0)),
             "repeat_penalty": max(0.8, min(float(generation.get("repetition_penalty") or 1.1), 1.5)),
         }
+        if self._num_thread is not None:
+            options["num_thread"] = self._num_thread
         if self._seed is not None:
             options["seed"] = self._seed
         messages = _ollama_chat_messages(
@@ -498,11 +507,14 @@ class _OllamaBackend(_ModelBackend):
         """Load this pinned model without generating a token or accepting a prompt."""
         if keep_alive not in {"5s", "5m", "15m", "-1"}:
             raise ModelLoadError("ollama_preload_keep_alive_invalid")
+        preload_options = {"num_ctx": self._context, "num_gpu": self._num_gpu}
+        if self._num_thread is not None:
+            preload_options["num_thread"] = self._num_thread
         body = json.dumps({
             "model": self._model,
             "stream": False,
             "keep_alive": -1 if keep_alive == "-1" else keep_alive,
-            "options": {"num_ctx": self._context, "num_gpu": self._num_gpu},
+            "options": preload_options,
         }, separators=(",", ":")).encode("utf-8")
         parsed = urllib.parse.urlsplit(self._base)
         host = parsed.hostname

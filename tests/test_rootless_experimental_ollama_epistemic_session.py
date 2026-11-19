@@ -14,6 +14,8 @@ from sentientos.rootless_experimental_ollama_epistemic_session import (
     MAX_NEW_TOKENS, MAX_OUTPUT_CHARS, MAX_PROMPT_CHARS,
     ROOTLESS_DEVELOPMENTAL_MAX_CALLS,
     ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS,
+    ROOTLESS_OLLAMA_CPU_THREADS,
+    _rootless_ollama_model_options,
     RootlessExperimentalOllamaEpistemicSession,
 )
 
@@ -56,6 +58,28 @@ def _kwargs(purpose, correlation, *, input_chars=128, output_chars=256,
             timeout_seconds=timeout, max_calls_per_correlation=1),
         "linkage": {"source": "test"},
     }
+
+
+def test_rootless_ollama_backend_is_bounded_to_cpu():
+    options = _rootless_ollama_model_options(
+        model_name="hermes-fixture", manifest_digest="a" * 64)
+
+    assert options["num_gpu"] == 0
+    assert options["num_thread"] == ROOTLESS_OLLAMA_CPU_THREADS == 5
+    assert options["manifest_sha256"] == "a" * 64
+    assert options["model"] == "hermes-fixture"
+
+
+def test_rootless_ollama_gpu_placement_requires_bounded_explicit_selection():
+    from sentientos.rootless_experimental_local_model import RootlessExperimentalError
+
+    options = _rootless_ollama_model_options(model_name="hermes-fixture",
+        manifest_digest="a" * 64, gpu_layers=99)
+    assert options["num_gpu"] == 99
+    with pytest.raises(RootlessExperimentalError,
+            match="ollama_gpu_layer_limit_invalid"):
+        _rootless_ollama_model_options(model_name="hermes-fixture",
+            manifest_digest="a" * 64, gpu_layers=129)
 
 
 
