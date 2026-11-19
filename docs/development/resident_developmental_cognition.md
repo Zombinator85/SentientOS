@@ -891,6 +891,16 @@ recomputes the digest and score semantics from the stored plan and score
 artifacts. These are descriptive outcomes for one preregistered task, not
 evidence of effect, improvement, or learning.
 
+`build_ordinary_chat_history_intervention_cohort_summary` combines verified
+evaluation artifacts from one session, task, scorer, serving-model identity,
+and generation configuration. It requires a complete trial sequence from
+index zero in full six-trial counterbalance blocks, so an interrupted or
+omitted trial prevents a seemingly complete cohort summary. It reports paired
+correct-count deltas for every trial, aggregate counts, and restoration-score
+stability while retaining unscoreable outcomes in the trial count. This is a
+descriptive within-task summary; it does not establish transfer,
+generalization, improvement, or learning.
+
 `execute_ordinary_chat_history_intervention` now supplies the dormant
 three-condition orchestration boundary. It follows the frozen counterbalanced
 order, requires a separate receipt-verification owner to bind every receipt to

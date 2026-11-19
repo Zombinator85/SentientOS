@@ -12,7 +12,7 @@ import hashlib
 import re
 import secrets
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from .conversation_session import (
     build_ordinary_chat_history_intervention_prompts,
@@ -30,7 +30,7 @@ PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v2"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
-EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v1"
+EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v2"
 EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
@@ -692,9 +692,16 @@ def build_ordinary_chat_history_intervention_evaluation(*,
         "protocol_id": protocol["protocol_id"],
         "protocol_digest": protocol["protocol_digest"],
         "result_id": result["result_id"], "result_digest": result["result_digest"],
+        "session_id": protocol["session_id"],
+        "task_commitment_digest": protocol["task_commitment_digest"],
         "scoring_plan_digest": protocol["scoring_plan_digest"],
         "scorer_identity_digest": protocol["scorer_identity_digest"],
+        "serving_model_identity_digest": protocol["serving_model_identity_digest"],
+        "generation_config_digest": protocol["generation_config_digest"],
         "trial_index": protocol["trial_index"],
+        "condition_order": list(protocol["condition_order"]),
+        "condition_order_policy": prompt_bundle["verification"][
+            "condition_order_policy"],
         "condition_metrics": condition_metrics, "planned_comparisons": comparisons,
         "restoration_score_stable": (present["correct_count"] == restored["correct_count"]
             and present["probe_count"] == restored["probe_count"]
@@ -726,6 +733,153 @@ def verify_ordinary_chat_history_intervention_evaluation(
         "evaluation_id": evaluation["evaluation_id"],
         "evaluation_digest": evaluation["evaluation_digest"],
         "result_id": result["result_id"], "score_semantics_verified": True,
+        "effect_established": False, "improvement_established": False,
+        "learning_established": False, "authority": False}
+
+
+def build_ordinary_chat_history_intervention_cohort_summary(
+        evaluations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Aggregate a complete, same-model sequence of counterbalanced trials.
+
+    Inputs must be evaluation artifacts returned by the store's verified
+    ``load_evaluation`` path. The summary validates their content digests and
+    exact six-trial schedule, while retaining every trial-level missing score.
+    """
+    if (not isinstance(evaluations, (list, tuple)) or len(evaluations) < 6
+            or len(evaluations) > 4096 or len(evaluations) % 6 != 0):
+        raise ValueError("ordinary_chat_history_cohort_incomplete_blocks")
+    identity_fields = ("session_id", "task_commitment_digest",
+        "scoring_plan_digest", "scorer_identity_digest",
+        "serving_model_identity_digest", "generation_config_digest")
+    expected_fields = {"schema_version", "protocol_id", "protocol_digest",
+        "result_id", "result_digest", "session_id", "task_commitment_digest",
+        "scoring_plan_digest", "scorer_identity_digest",
+        "serving_model_identity_digest", "generation_config_digest", "trial_index",
+        "condition_order", "condition_order_policy", "condition_metrics",
+        "planned_comparisons", "restoration_score_stable",
+        "restoration_output_digest_stable", "interpretation_posture",
+        "effect_established", "improvement_established", "learning_established",
+        "authority", "evaluation_id", "evaluation_digest"}
+    normalized: list[Mapping[str, Any]] = []
+    seen_indices: set[int] = set()
+    cohort_identity: tuple[str, ...] | None = None
+    for evaluation in evaluations:
+        if (not isinstance(evaluation, Mapping)
+                or set(evaluation) != expected_fields
+                or evaluation.get("schema_version") != EVALUATION_SCHEMA
+                or evaluation.get("interpretation_posture")
+                    != "descriptive_preregistered_task_score:v1"
+                or any(evaluation.get(key) is not False for key in
+                    ("effect_established", "improvement_established",
+                     "learning_established", "authority"))):
+            raise ValueError("ordinary_chat_history_cohort_evaluation_invalid")
+        semantic = {key: value for key, value in evaluation.items()
+            if key not in {"evaluation_id", "evaluation_digest"}}
+        digest = digest_payload(semantic)
+        if (evaluation.get("evaluation_digest") != digest
+                or evaluation.get("evaluation_id")
+                    != EVALUATION_ID_PREFIX + digest[:24]):
+            raise ValueError("ordinary_chat_history_cohort_evaluation_digest_invalid")
+        trial_index = evaluation.get("trial_index")
+        if (type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
+                or trial_index in seen_indices
+                or evaluation.get("condition_order_policy")
+                    != "balanced_six_permutations:v1"
+                or evaluation.get("condition_order")
+                    != ordinary_chat_history_condition_order(trial_index)
+                or not isinstance(evaluation.get("condition_metrics"), Mapping)
+                or set(evaluation["condition_metrics"]) != set(CONDITIONS)
+                or not isinstance(evaluation.get("planned_comparisons"), Mapping)
+                or set(evaluation["planned_comparisons"])
+                    != set(PLANNED_COMPARISONS)):
+            raise ValueError("ordinary_chat_history_cohort_schedule_invalid")
+        seen_indices.add(trial_index)
+        identity = tuple(evaluation.get(key) for key in identity_fields)
+        if (any(not isinstance(value, str) or _HEX_DIGEST.fullmatch(value) is None
+                    for value in identity[1:])
+                or not isinstance(identity[0], str)
+                or _SESSION_ID.fullmatch(identity[0]) is None):
+            raise ValueError("ordinary_chat_history_cohort_identity_invalid")
+        if cohort_identity is None:
+            cohort_identity = identity
+        elif identity != cohort_identity:
+            raise ValueError("ordinary_chat_history_cohort_identity_mismatch")
+        normalized.append(evaluation)
+    ordered = sorted(normalized, key=lambda item: item["trial_index"])
+    indices = [item["trial_index"] for item in ordered]
+    if indices != list(range(len(indices))):
+        raise ValueError("ordinary_chat_history_cohort_trial_sequence_incomplete")
+    trial_deltas: dict[str, list[dict[str, Any]]] = {
+        comparison: [] for comparison in PLANNED_COMPARISONS}
+    restoration_stable: list[bool] = []
+    for evaluation in ordered:
+        for comparison in PLANNED_COMPARISONS:
+            item = evaluation["planned_comparisons"][comparison]
+            if (not isinstance(item, Mapping)
+                    or item.get("scoreable") not in {True, False}
+                    or (item.get("scoreable") is True
+                        and (type(item.get("correct_count_delta")) is not int
+                            or type(item.get("probe_count")) is not int
+                            or item["probe_count"] < 1))
+                    or (item.get("scoreable") is False
+                        and (item.get("correct_count_delta") is not None
+                            or item.get("probe_count") is not None))):
+                raise ValueError("ordinary_chat_history_cohort_comparison_invalid")
+            trial_deltas[comparison].append({
+                "trial_index": evaluation["trial_index"],
+                "scoreable": item["scoreable"],
+                "correct_count_delta": item["correct_count_delta"],
+                "probe_count": item["probe_count"],
+            })
+        stable = evaluation.get("restoration_score_stable")
+        if stable is not None:
+            if type(stable) is not bool:
+                raise ValueError("ordinary_chat_history_cohort_restoration_invalid")
+            restoration_stable.append(stable)
+    aggregate: dict[str, dict[str, Any]] = {}
+    for comparison, rows in trial_deltas.items():
+        scoreable_rows = [row for row in rows if row["scoreable"]]
+        aggregate[comparison] = {
+            "trial_count": len(rows), "scoreable_trial_count": len(scoreable_rows),
+            "correct_count_delta_sum": sum(row["correct_count_delta"]
+                for row in scoreable_rows),
+            "probe_count_sum": sum(row["probe_count"] for row in scoreable_rows),
+            "per_trial": rows,
+        }
+    semantic = {"schema_version": "sentientos.ordinary_chat_history_cohort_summary:v1",
+        "session_id": cohort_identity[0],
+        "task_commitment_digest": cohort_identity[1],
+        "scoring_plan_digest": cohort_identity[2],
+        "scorer_identity_digest": cohort_identity[3],
+        "serving_model_identity_digest": cohort_identity[4],
+        "generation_config_digest": cohort_identity[5],
+        "trial_count": len(ordered), "counterbalance_block_count": len(ordered) // 6,
+        "trial_indices": indices, "trial_evaluation_digests": [
+            item["evaluation_digest"] for item in ordered],
+        "planned_comparisons": aggregate,
+        "restoration_score_stability_count": sum(restoration_stable),
+        "restoration_score_stability_denominator": len(restoration_stable),
+        "interpretation_posture": "descriptive_complete_counterbalanced_blocks:v1",
+        "effect_established": False, "improvement_established": False,
+        "learning_established": False, "authority": False}
+    _validate_json_bound(semantic, maximum_bytes=1_048_576,
+        error_code="ordinary_chat_history_cohort_summary_over_bound")
+    digest = digest_payload(semantic)
+    return {**semantic, "summary_id": "ordinary-history-cohort-" + digest[:24],
+        "summary_digest": digest}
+
+
+def verify_ordinary_chat_history_intervention_cohort_summary(
+        summary: Mapping[str, Any], *,
+        evaluations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    rebuilt = build_ordinary_chat_history_intervention_cohort_summary(evaluations)
+    if dict(summary) != rebuilt:
+        raise ValueError("ordinary_chat_history_cohort_summary_digest_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_cohort_summary_verification:v1",
+        "summary_id": summary["summary_id"],
+        "summary_digest": summary["summary_digest"],
+        "trial_count": summary["trial_count"],
+        "evaluation_digests_bound": True,
         "effect_established": False, "improvement_established": False,
         "learning_established": False, "authority": False}
 
