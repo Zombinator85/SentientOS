@@ -5864,6 +5864,26 @@ def _normalize_present_answer_for_source_freshness(
             or not _asks_about_present_condition(question)):
         return normalized
 
+    if current.withheld_conflict_reasons:
+        normalized.update({
+            "model_disposition": "answer",
+            "disposition": "ask",
+            "disposition_normalization": (
+                "present_conflict_context_withheld_by_selection"),
+            "response": (
+                "I cannot assess this as uncontested because relevant current conflict "
+                "context was omitted from the selected evidence. Could you provide a "
+                "fresh observation from an eligible source?"),
+            "evidence_ids": [],
+            "history_record_ids": [],
+            "memory_record_ids": [],
+            "self_model_claim_ids": [],
+            "conversation_turn_ids": [],
+            "historical_conversation_citations": [],
+            "epistemic_state_ids": [],
+        })
+        return normalized
+
     facts_by_id = {str(fact.get("fact_id")): fact for fact in current.facts
         if isinstance(fact, Mapping) and isinstance(fact.get("fact_id"), str)}
     cited_fact_ids = set(normalized.get("evidence_ids", ()))
@@ -9480,6 +9500,12 @@ class ResidentDevelopmentalCognitionOwner:
 
         unavailable_conflict_members: set[str] = set()
         withheld_conflict_reasons: set[str] = set()
+
+        def conflict_is_relevant(member_ids: set[str]) -> bool:
+            return (not query_terms or any(
+                query_terms & fact_terms.get(fact_id, set())
+                for fact_id in member_ids & candidate_ids))
+
         for conflict in snapshot.conflicts:
             members = set(conflict.fact_ids)
             eligible_members = members & candidate_ids
@@ -9490,7 +9516,8 @@ class ResidentDevelopmentalCognitionOwner:
                 # reconstructed from the selected evidence. Withhold the
                 # eligible side rather than presenting it as uncontested.
                 unavailable_conflict_members.update(eligible_members)
-                withheld_conflict_reasons.add("source_policy_member_unavailable")
+                if conflict_is_relevant(eligible_members):
+                    withheld_conflict_reasons.add("source_policy_member_unavailable")
                 continue
             first = min(eligible_members)
             for member in eligible_members - {first}:
@@ -9511,7 +9538,7 @@ class ResidentDevelopmentalCognitionOwner:
         for members in units:
             if len(selected_ids) + len(members) <= self.config.max_selected_facts:
                 selected_ids.update(members)
-            elif len(members) > 1:
+            elif len(members) > 1 and conflict_is_relevant(members):
                 withheld_conflict_reasons.add("fact_budget_group_exceeded")
         facts = sorted((fact for fact in candidates if fact.fact_id in selected_ids),
             key=selection_key)

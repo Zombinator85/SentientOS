@@ -6213,7 +6213,12 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
                 text = json.dumps(facts, sort_keys=True).casefold()
                 has_safe = "safe for entry" in text
                 has_unsafe = "unsafe for entry" in text
-                if has_safe and not has_unsafe:
+                if current.get("withheld_conflict_reasons"):
+                    decision = {"disposition": "answer",
+                        "response": "The entry is safe.",
+                        "evidence_ids": ([facts[0].get("fact_id")] if facts else []),
+                        "history_record_ids": []}
+                elif has_safe and not has_unsafe:
                     decision = {"disposition": "answer",
                         "response": "The selected observation says entry is safe.",
                         "evidence_ids": ["__CURRENT_FACT__"],
@@ -6222,6 +6227,7 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
                     decision = {"disposition": "ask",
                         "response": "The available current evidence is insufficient.",
                         "evidence_ids": [], "history_record_ids": []}
+                self.last_model_decision = decision
                 self.companion_output_override = decision
             return super().invoke(request, persist=persist,
                 include_output_in_receipt=include_output_in_receipt,
@@ -6236,6 +6242,10 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             "subject_id": "east-entry", "stage": "observation",
             "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
             "payload": {"description": "The east entry is unsafe for entry."}},
+        {"source_id": "entry-lighting", "source_kind": "capability_registry",
+            "subject_id": "east-entry-lighting", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The east entry has bright lights."}},
     ])
     assert len(current.conflicts) == 1
     conflict_fact_ids = set(current.conflicts[0].fact_ids)
@@ -6245,13 +6255,17 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
     (tmp_path / "bounded" / "state").mkdir(parents=True)
     bounded_projection = bounded._current_projection(current,
         question="Is the east entry safe for entry?")
-    assert bounded_projection.fact_ids == ()
+    assert len(bounded_projection.fact_ids) == 1
+    assert set(bounded_projection.fact_ids).isdisjoint(conflict_fact_ids)
     assert bounded_projection.withheld_conflict_reasons == ("fact_budget_group_exceeded",)
     bounded_result = bounded.run_companion_interaction(snapshot=current,
         request_id="conflicting-entry-bounded", question="Is the east entry safe for entry?")
     assert bounded_result.disposition == "ask"
+    assert bounded_invoker.last_model_decision["disposition"] == "answer"
+    assert "cannot assess this as uncontested" in bounded_result.response
     assert bounded_result.evidence_ids == ()
-    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == []
+    assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == [
+        bounded_projection.fact_ids[0]]
     bounded_prompt = bounded_invoker.last_prompt
     bounded_prompt_text = json.dumps(bounded_prompt, sort_keys=True)
     assert bounded_prompt["current_evidence"]["withheld_conflict_reasons"] == [
@@ -6274,6 +6288,27 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
     assert (set(complete_invoker.requests[-1].upstream_evidence["current_fact_ids"])
         == conflict_fact_ids)
 
+    unrelated_question_snapshot = WorldStateBoardBuilder().build([
+        {"source_id": "entry-permit-unrelated", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "allow", "observed_at": "2026-01-01T00:00:00+00:00",
+            "payload": {"description": "The east entry is safe for entry."}},
+        {"source_id": "entry-denial-unrelated", "source_kind": "capability_registry",
+            "subject_id": "east-entry", "stage": "observation",
+            "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
+            "payload": {"description": "The east entry is unsafe for entry."}},
+        {"source_id": "temperature-unrelated", "source_kind": "capability_registry",
+            "subject_id": "room-temperature", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The room temperature is 18 C."}},
+    ])
+    unrelated_projection = complete._current_projection(unrelated_question_snapshot,
+        question="What is the room temperature now?")
+    temperature_fact_ids = {fact.fact_id for fact in unrelated_question_snapshot.facts
+        if fact.source.source_id == "temperature-unrelated"}
+    assert set(unrelated_projection.fact_ids) == temperature_fact_ids
+    assert unrelated_projection.withheld_conflict_reasons == ()
+
     partially_eligible = WorldStateBoardBuilder().build([
         {"source_id": "eligible-entry-permit", "source_kind": "capability_registry",
             "subject_id": "west-entry", "stage": "observation",
@@ -6283,6 +6318,10 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             "subject_id": "west-entry", "stage": "observation",
             "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
             "payload": {"description": "The west entry is unsafe for entry."}},
+        {"source_id": "west-entry-lighting", "source_kind": "capability_registry",
+            "subject_id": "west-entry-lighting", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:02:00+00:00",
+            "payload": {"description": "The west entry has bright lights."}},
     ])
     policy_bounded, policy_invoker = owner(tmp_path / "policy-bounded",
         invoker=FactOnlyInvoker(), allowed_source_kinds=("capability_registry",),
@@ -6290,13 +6329,15 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
     (tmp_path / "policy-bounded" / "state").mkdir(parents=True)
     policy_projection = policy_bounded._current_projection(partially_eligible,
         question="Is the west entry safe for entry?")
-    assert policy_projection.fact_ids == ()
+    assert len(policy_projection.fact_ids) == 1
     assert policy_projection.withheld_conflict_reasons == (
         "source_policy_member_unavailable",)
     policy_result = policy_bounded.run_companion_interaction(snapshot=partially_eligible,
         request_id="conflicting-west-policy-bounded",
         question="Is the west entry safe for entry?")
     assert policy_result.disposition == "ask"
+    assert policy_invoker.last_model_decision["disposition"] == "answer"
+    assert "cannot assess this as uncontested" in policy_result.response
     policy_prompt = policy_invoker.last_prompt
     assert policy_prompt["current_evidence"]["withheld_conflict_reasons"] == [
         "source_policy_member_unavailable"]
