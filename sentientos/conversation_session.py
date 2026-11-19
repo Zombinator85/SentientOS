@@ -1037,6 +1037,84 @@ def _runtime_generation_evidence(value: Mapping[str, Any], *, depth: int = 0) ->
     return result
 
 
+def verify_ordinary_chat_history_projection_triplet(*,
+        history_present: Mapping[str, Any] | None,
+        history_withheld: Mapping[str, Any] | None,
+        history_restored: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Verify exact history projection replay, without evaluating any response."""
+    def validate_context(value: Mapping[str, Any] | None
+            ) -> tuple[str, list[dict[str, str]]]:
+        expected_fields = {"schema_version", "instruction", "developmental_history",
+            "selection", "historical_only", "current_truth", "authority",
+            "mutation_performed", "selection_digest"}
+        if (not isinstance(value, Mapping) or set(value) != expected_fields
+                or value.get("schema_version")
+                    != "sentientos.ordinary_chat_developmental_history_context:v1"
+                or value.get("historical_only") is not True
+                or value.get("current_truth") is not False
+                or value.get("authority") is not False
+                or value.get("mutation_performed") is not False
+                or not isinstance(value.get("instruction"), str)
+                or len(value["instruction"]) > 2000):
+            raise ValueError("ordinary_chat_history_projection_invalid")
+        packets, selection = value.get("developmental_history"), value.get("selection")
+        if (not isinstance(packets, (list, tuple)) or not packets or len(packets) > 64
+                or not isinstance(selection, Mapping)
+                or selection.get("schema_version")
+                    != "sentientos.ordinary_chat_developmental_history_selection:v1"):
+            raise ValueError("ordinary_chat_history_projection_invalid")
+        refs = selection.get("selected_records")
+        packet_refs: list[dict[str, str]] = []
+        for packet in packets:
+            if (not isinstance(packet, Mapping)
+                    or not isinstance(packet.get("record_id"), str)
+                    or not isinstance(packet.get("record_digest"), str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        packet["record_digest"]) is None
+                    or packet.get("current_truth") is not False
+                    or packet.get("authority") is not False):
+                raise ValueError("ordinary_chat_history_packet_invalid")
+            packet_refs.append({"record_id": packet["record_id"],
+                "record_digest": packet["record_digest"]})
+        if (not isinstance(refs, list) or refs != packet_refs
+                or any(not isinstance(row, Mapping)
+                    or set(row) != {"record_id", "record_digest"}
+                    or not isinstance(row.get("record_id"), str)
+                    or not isinstance(row.get("record_digest"), str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        row["record_digest"]) is None for row in refs)
+                or len({row["record_id"] for row in refs}) != len(refs)):
+            raise ValueError("ordinary_chat_history_selection_invalid")
+        selection_semantic = {key: item for key, item in selection.items()
+            if key != "selection_digest"}
+        if (selection.get("selection_digest") != digest_payload(selection_semantic)
+                or value.get("selection_digest") != digest_payload({
+                    key: item for key, item in value.items()
+                    if key != "selection_digest"})):
+            raise ValueError("ordinary_chat_history_projection_digest_mismatch")
+        return str(value["selection_digest"]), packet_refs
+
+    if history_withheld is not None:
+        raise ValueError("ordinary_chat_history_withheld_context_present")
+    present_digest, present_refs = validate_context(history_present)
+    restored_digest, restored_refs = validate_context(history_restored)
+    if (present_digest != restored_digest or present_refs != restored_refs
+            or dict(history_present or {}) != dict(history_restored or {})):
+        raise ValueError("ordinary_chat_history_restoration_mismatch")
+    return {
+        "schema_version": "sentientos.ordinary_chat_history_projection_triplet:v1",
+        "condition_order": ["history_present", "history_withheld", "history_restored"],
+        "history_present_selection_digest": present_digest,
+        "history_withheld_context_absent": True,
+        "history_restored_selection_digest": restored_digest,
+        "restoration_exact": True,
+        "record_ids": [row["record_id"] for row in present_refs],
+        "record_digests": [row["record_digest"] for row in present_refs],
+        "effect_established": False, "learning_established": False,
+        "authority": False,
+    }
+
+
 def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Mapping[str, Any],
                                 current_message: str,
                                 runtime_context: Mapping[str, Any] | None = None,
