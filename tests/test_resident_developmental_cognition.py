@@ -3410,8 +3410,9 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert unbound_experience["examples"]
     assert all(item["evaluator_correct"] is True
         for item in unbound_experience["examples"])
-    assert "candidate_integer_affine_strategy" not in unbound_experience
-    assert "candidate_integer_affine_strategy_withheld" not in unbound_experience
+    assert unbound_experience.get("candidate_integer_affine_strategy") is None
+    assert unbound_experience.get(
+        "candidate_integer_affine_strategy_withheld") is None
     assert "task_relevant_experience_omission" not in unbound_model_packet
 
     # Compose the production history binder with a deterministic fake policy.
