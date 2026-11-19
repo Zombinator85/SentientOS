@@ -2548,21 +2548,21 @@ class PersistentEpistemicStateOwner:
                 candidates = list(dict.fromkeys(item.binding_id for item in
                     recent + lexical_older + sampled))
                 candidate_by_id = {item.binding_id: item for item in pending_context}
-                candidate_rows = [candidate_by_id[item] for item in candidates]
-                semantic_candidate_count = len(candidate_rows)
+                semantic_candidates = [candidate_by_id[item] for item in candidates]
+                semantic_candidate_count = len(semantic_candidates)
                 semantic_candidate_digest = digest([{"binding_id": item.binding_id,
-                    "binding_digest": item.binding_digest} for item in candidate_rows])
+                    "binding_digest": item.binding_digest} for item in semantic_candidates])
                 try:
                     from semantic_embeddings import encode_semantic
                     embedded = encode_semantic([relevance_query[:4000]] + [
                         (item.unverified_context_text or "")[:4000]
-                        for item in candidate_rows], model_id=semantic_model_id,
+                        for item in semantic_candidates], model_id=semantic_model_id,
                         revision=semantic_model_revision)
-                    if embedded is not None and len(embedded.vectors) == len(candidate_rows) + 1:
+                    if embedded is not None and len(embedded.vectors) == len(semantic_candidates) + 1:
                         query_vector = embedded.vectors[0]
                         scores = {item.binding_id: sum(a * b for a, b in zip(
                             query_vector, vector)) for item, vector in zip(
-                                candidate_rows, embedded.vectors[1:])}
+                                semantic_candidates, embedded.vectors[1:])}
                         ranked_context.sort(key=lambda item: scores.get(
                             item.binding_id, -2.0), reverse=True)
                         semantic_identity_digest = (embedded.identity_digest
