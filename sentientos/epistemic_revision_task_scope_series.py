@@ -183,10 +183,21 @@ def _scope_observation(*, reader: ObservationReader, observation_id: str,
 
 
 def _out_of_scope_active_sources(projection: EpistemicCognitiveProjection,
-        scope: EpistemicTaskScope) -> list[str]:
+        scope: EpistemicTaskScope,
+        proposition_id: str | None = None) -> list[str]:
     allowed = set(scope.in_scope_source_artifact_ids)
     start, end = _timestamp(scope.window_start_utc), _timestamp(scope.window_end_utc)
-    [packet] = semantic_packets_for_projection(projection)
+    packets = semantic_packets_for_projection(projection)
+    if proposition_id is None:
+        if len(packets) != 1:
+            raise ValueError("epistemic_task_scope_target_proposition_required")
+        packet = packets[0]
+    else:
+        matches = [packet for packet in packets
+            if packet.get("proposition", {}).get("proposition_id") == proposition_id]
+        if len(matches) != 1:
+            raise ValueError("epistemic_task_scope_projection_scope_mismatch")
+        packet = matches[0]
     violations: list[str] = []
     for binding in packet["active_evidence_bindings"]:
         source_id = binding.get("source_artifact_id")
@@ -206,11 +217,13 @@ def _out_of_scope_active_sources(projection: EpistemicCognitiveProjection,
 
 def evaluate_task_scope_phase_observation(*, reader: ObservationReader,
         observation_id: str, prompt: str, projection: EpistemicCognitiveProjection,
-        scope: EpistemicTaskScope) -> dict[str, Any]:
+        scope: EpistemicTaskScope,
+        proposition_id: str | None = None) -> dict[str, Any]:
     """Report scope-fact delivery and active-source scope for one cognition phase."""
     delivery_status, delivery_violations = _scope_observation(
         reader=reader, observation_id=observation_id, prompt=prompt, scope=scope)
-    source_violations = _out_of_scope_active_sources(projection, scope)
+    source_violations = _out_of_scope_active_sources(
+        projection, scope, proposition_id=proposition_id)
     return {"scope_delivery_status": delivery_status,
         "scope_fact_delivered": delivery_status != "missing",
         "active_evidence_scope_violations": source_violations,
@@ -237,6 +250,7 @@ def evaluate_task_scoped_interruption_series(*,
     """Score correction and session resumption with one unchanged task scope."""
     commitment = series.commitment()
     scope = series.task_scope
+    proposition_id = series.series.correction_case.proposition_id
     phases = (
         ("before", correction_before_reader, correction_before_observation_id,
             correction_before_prompt, original_projection),
@@ -250,7 +264,8 @@ def evaluate_task_scoped_interruption_series(*,
     missing_scope = False
     for name, reader, observation_id, prompt, projection in phases:
         phase = evaluate_task_scope_phase_observation(reader=reader,
-            observation_id=observation_id, prompt=prompt, projection=projection, scope=scope)
+            observation_id=observation_id, prompt=prompt, projection=projection,
+            scope=scope, proposition_id=proposition_id)
         if phase["scope_delivery_status"] == "missing":
             missing_scope = True
         scope_violations.extend(f"{name}:{code}" for code in phase["violation_codes"])

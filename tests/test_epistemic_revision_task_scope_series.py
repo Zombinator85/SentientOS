@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,9 +14,15 @@ from sentientos.epistemic_revision_stability_series import (
 from sentientos.epistemic_revision_task_scope_series import (
     EpistemicTaskScope,
     EpistemicTaskScopeInterruptionSeries,
+    evaluate_task_scope_phase_observation,
     evaluate_task_scoped_interruption_series,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.persistent_epistemic_state import (
+    PersistentEpistemicStateOwner,
+    make_evidence_binding,
+    make_proposition,
+)
 from sentientos.world_state_board import WorldStateBoardBuilder
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -183,3 +190,76 @@ def test_invalid_or_empty_task_scope_is_rejected() -> None:
         window_end_utc="2025-12-31T00:00:00Z")
     with pytest.raises(ValueError, match="epistemic_task_scope_window_invalid"):
         invalid_window.commitment()
+
+
+def test_task_scope_checks_target_packet_when_peer_packet_is_first(
+        tmp_path: Path) -> None:
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "multi-epistemic",
+        allowed_namespaces=("experiment",))
+    target = make_proposition(namespace="experiment", subject="sensor:target",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    peer = make_proposition(namespace="experiment", subject="sensor:peer",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    target_binding = make_evidence_binding(proposition_id=target.proposition_id,
+        source_artifact_id="observation:target", source_digest="sha256:" + "1" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:01:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="target-source", upstream_binding_ids=(), freshness="current",
+        reliability_posture="verified")
+    peer_binding = make_evidence_binding(proposition_id=peer.proposition_id,
+        source_artifact_id="observation:peer", source_digest="sha256:" + "2" * 64,
+        source_schema="fixture_observation:v1", source_class="independent_observation",
+        observation_time="2026-01-01T00:01:00Z", evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="peer-source", upstream_binding_ids=(), freshness="current",
+        reliability_posture="verified")
+    for proposition, binding in ((target, target_binding), (peer, peer_binding)):
+        epistemic.register_proposition(proposition)
+        epistemic.bind_evidence(binding)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=(binding.binding_id,), added_binding_ids=(binding.binding_id,),
+            correlation_id=f"initialize:{proposition.proposition_id}", tick=1,
+            recorded_at="2026-01-01T00:02:00Z")
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=2,
+        prioritized_proposition_ids=(peer.proposition_id, target.proposition_id))
+    assert projection is not None
+    assert projection.proposition_ids[0] == peer.proposition_id
+
+    scope = _scope(allowed=("observation:target",))
+    fact_id = "task-scope-fact"
+    scope_source_id = "task-scope:" + scope.scope_id
+    scope_fact = {"fact_id": fact_id,
+        "payload": {"epistemic_task_scope": scope.fact_payload()},
+        "stage": "observation", "disposition": "recorded",
+        "effect_claimed": False, "effect_proven": False,
+        "source": {"source_id": scope_source_id, "kind": "owner_introspection"}}
+    prompt = json.dumps({"current_evidence": {
+        "facts": [scope_fact], "sources": [{"source_id": scope_source_id,
+            "kind": "owner_introspection"}], "fact_ids": [fact_id]}},
+        sort_keys=True)
+
+    class Reader:
+        def verified_cognition_observation(self, observation_id: str,
+                observation_digest: str | None = None):
+            assert observation_id == "scope-observation"
+            return {"current_fact_ids": [fact_id]}
+
+    result = evaluate_task_scope_phase_observation(reader=Reader(),
+        observation_id="scope-observation", prompt=prompt, projection=projection,
+        scope=scope, proposition_id=target.proposition_id)
+    assert result["scope_delivery_status"] == "verified"
+    assert result["active_evidence_scope_violations"] == []
+
+    wrong_scope = replace(scope,
+        in_scope_source_artifact_ids=("observation:peer",))
+    out_of_scope = evaluate_task_scope_phase_observation(reader=Reader(),
+        observation_id="scope-observation", prompt=prompt, projection=projection,
+        scope=wrong_scope, proposition_id=target.proposition_id)
+    assert out_of_scope["active_evidence_scope_violations"] == [
+        "active_evidence_source_outside_scope"]

@@ -73,6 +73,7 @@ def evaluate_task_scoped_pressure_after_interruption(*,
     if pressure_after_observation_id == interruption_observation_id:
         raise ValueError("task_scoped_pressure_requires_distinct_observation")
     scope = series.interruption_series.task_scope
+    proposition_id = series.interruption_series.series.correction_case.proposition_id
     corrected_digest = corrected_projection.projection_digest
     if any(projection.projection_digest != corrected_digest for projection in (
             interruption_projection, pressure_after_projection)):
@@ -99,10 +100,12 @@ def evaluate_task_scoped_pressure_after_interruption(*,
     pressure_phases = {
         "resumed_baseline": evaluate_task_scope_phase_observation(
             reader=interruption_after_reader, observation_id=interruption_observation_id,
-            prompt=interruption_prompt, projection=interruption_projection, scope=scope),
+            prompt=interruption_prompt, projection=interruption_projection, scope=scope,
+            proposition_id=proposition_id),
         "pressured_after_interruption": evaluate_task_scope_phase_observation(
             reader=pressure_after_reader, observation_id=pressure_after_observation_id,
-            prompt=pressure_after_prompt, projection=pressure_after_projection, scope=scope),
+            prompt=pressure_after_prompt, projection=pressure_after_projection, scope=scope,
+            proposition_id=proposition_id),
     }
     pressure = evaluate_unsupported_pressure_pair(pair=series.pressure_pair,
         before_reader=interruption_after_reader, after_reader=pressure_after_reader,

@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from test_resident_developmental_cognition import (  # noqa: E402
     SessionBoundFakeInvoker, owner, snapshot,
 )
+from test_epistemic_revision_qualification import _cognition_root  # noqa: E402
 from test_epistemic_revision_pressure_control import _pressure_snapshot  # noqa: E402
 from sentientos.epistemic_revision_stability_series import (  # noqa: E402
     EpistemicCorrectionInterruptionSeries, EpistemicCorrectionModelReplacementSeries,
@@ -173,7 +174,7 @@ def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False,
     invoker.capitulate_to_pressure = capitulate
     invoker.revert_corrected_position = revert_corrected_position
     invoker.active_model_identity = dict(seed_model_identity or model_identity or {})
-    cognition, _ = owner(root, invoker=invoker,
+    cognition, _ = owner(_cognition_root(root.parent, root.name), invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
     # Observation ids are content-derived from the tick identity; give each
