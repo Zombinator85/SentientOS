@@ -10126,6 +10126,53 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
     assert projection_calls[3][0]["relevance_query"] == "What is the moon phase?"
 
 
+def test_ordinary_developmental_history_projection_is_read_only_and_lexical(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+    fake = FakeInvoker()
+    fake.history_interpretation = (
+        "A west sensor calibration drift was corrected by repeating its check.")
+    cognition, _ = owner(tmp_path / "cognition", invoker=fake,
+        allowed_source_kinds=("capability_registry",),
+        semantic_history_model_id="configured-but-not-invoked",
+        semantic_history_model_revision="a" * 40)
+    acquired = cognition.run_tick(snapshot=snapshot(),
+        tick_id="ordinary-history-context-seed")
+    assert acquired.written_record_id
+    state_before = cognition.state_path.read_bytes()
+    request_count = len(fake.requests)
+    semantic_calls = []
+    monkeypatch.setitem(sys.modules, "semantic_embeddings", SimpleNamespace(
+        encode_semantic=lambda *_args, **_kwargs: semantic_calls.append(True)))
+
+    bridge = ResidentDevelopmentalCompanionBridge(cognition)
+    context = bridge.ordinary_chat_developmental_history_context(
+        question="What should I do about the west sensor calibration?",
+        max_input_chars=4000)
+
+    assert context is not None
+    assert context["historical_only"] is True
+    assert context["current_truth"] is False and context["authority"] is False
+    packet = context["developmental_history"][0]
+    assert packet["record_id"] == acquired.written_record_id
+    assert "west sensor calibration drift" in packet["interpretation"]
+    assert context["selection"]["selected_records"] == [{
+        "record_id": acquired.written_record_id,
+        "record_digest": packet["record_digest"]}]
+    assert context["selection_digest"] == digest_payload({key: value
+        for key, value in context.items() if key != "selection_digest"})
+    assert semantic_calls == []
+    assert len(fake.requests) == request_count
+    assert cognition.state_path.read_bytes() == state_before
+    assert bridge.ordinary_chat_developmental_history_context(
+        question="What should I do about the west sensor calibration?",
+        max_input_chars=128) is None
+
+
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:
     from types import SimpleNamespace
 

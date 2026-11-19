@@ -792,6 +792,24 @@ checks the no-headroom boundary. This establishes prompt-budget compatibility
 with a controlled bridge; real-model interpretation and improved outcomes
 remain unverified.
 
+Ordinary fallback can also receive bounded developmental history through the
+existing resident owner. The owner performs the existing durable-record
+verification and question-relevance ranking, then emits compact packets bound
+to exact record and digest identities. This ordinary-chat path deliberately
+uses lexical retrieval only, so it does not invoke a configured semantic
+embedding model; insufficient prompt headroom, disabled ownership, or an empty
+verified projection leaves the prompt unchanged. Context assembly checks the
+selection and packet identities and rejects authority flags or tampering. The
+packet is historical experience, not current evidence, policy, an instruction,
+or permission to update any state. Selected identities and the selection digest
+are saved on the invocation and assistant turn. The deterministic
+`tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
+counterfactual demonstrates a changed fake fallback answer when the relevant
+verified history is present, and the paired prompt test checks tampering is
+rejected. This proves the software path and its controlled decision effect;
+real-model use, beneficial transfer, and long-term outcome improvement remain
+unverified.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports

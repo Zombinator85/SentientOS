@@ -4390,6 +4390,7 @@ class PersistentConversationService:
                 runtime_context=runtime_context, history=history, memory=memory,
                 on_content_chunk=on_content_chunk)
         epistemic_context = None
+        developmental_history_context = None
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
@@ -4402,6 +4403,33 @@ class PersistentConversationService:
         if (epistemic_fallback and not recent_session_recall and not social_checkin
                 and not current_runtime_question and not self_contained_echo
                 and not gaming_development_turn):
+            history_provider = getattr(bridge,
+                "ordinary_chat_developmental_history_context", None)
+            max_history_chars = _ordinary_epistemic_context_budget(prompt)
+            if callable(history_provider) and max_history_chars is not None:
+                try:
+                    history_query = _ordinary_epistemic_relevance_query(
+                        message, history)
+                    candidate_history = history_provider(question=history_query,
+                        max_input_chars=max_history_chars)
+                    if isinstance(candidate_history, Mapping):
+                        candidate_prompt = assemble_local_chat_context(
+                            history=history, memory_snapshot=memory,
+                            current_message=message, runtime_context=runtime_context,
+                            developmental_history_context=candidate_history,
+                            verified_prior_runtime_lineage=predecessor_runtime_lineage,
+                            screen_observation=screen_observation,
+                            compact_history=gaming_development_turn,
+                            compact_screen_context=(gaming_development_turn
+                                and screen_observation is not None),
+                            recent_session_recall=recent_session_recall,
+                            earliest_session_recall=earliest_session_recall)
+                        if len(candidate_prompt) <= 8000:
+                            developmental_history_context = candidate_history
+                            prompt = candidate_prompt
+                except Exception:
+                    # Retained experience is optional input, never a chat blocker.
+                    developmental_history_context = None
             provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
             max_epistemic_chars = _ordinary_epistemic_context_budget(prompt)
             if callable(provider) and max_epistemic_chars is not None:
@@ -4414,6 +4442,8 @@ class PersistentConversationService:
                         candidate_prompt = assemble_local_chat_context(
                             history=history, memory_snapshot=memory,
                             current_message=message, runtime_context=runtime_context,
+                            developmental_history_context=(
+                                developmental_history_context),
                             epistemic_context=candidate_context,
                             verified_prior_runtime_lineage=predecessor_runtime_lineage,
                             screen_observation=screen_observation,
@@ -4492,6 +4522,21 @@ class PersistentConversationService:
                 epistemic_context_lineage[
                     "ordinary_epistemic_context_selection_digest"] = selection_digest
                 linkage.update(epistemic_context_lineage)
+        if isinstance(developmental_history_context, Mapping):
+            selection_digest = developmental_history_context.get("selection_digest")
+            selection = developmental_history_context.get("selection")
+            selected_records = (selection.get("selected_records")
+                if isinstance(selection, Mapping) else None)
+            if isinstance(selection_digest, str):
+                linkage["ordinary_developmental_history_selection_digest"] = (
+                    selection_digest)
+            if isinstance(selected_records, list):
+                linkage["ordinary_developmental_history_record_ids"] = [
+                    row["record_id"] for row in selected_records
+                    if isinstance(row, Mapping) and isinstance(row.get("record_id"), str)]
+                linkage["ordinary_developmental_history_record_digests"] = [
+                    row["record_digest"] for row in selected_records
+                    if isinstance(row, Mapping) and isinstance(row.get("record_digest"), str)]
         if predecessor_runtime_lineage is not None:
             linkage["verified_predecessor_runtime_handoff_digest"] = str(
                 predecessor_runtime_lineage.get("handoff_digest", ""))
