@@ -687,6 +687,17 @@ class ResidentDevelopmentalCompanionBridge:
         except Exception:
             return False
 
+    def semantic_memory_retrieval_config(self) -> tuple[str, str] | None:
+        """Expose the already pinned local semantic encoder to memory retrieval."""
+        config = getattr(getattr(self, "_owner", None), "config", None)
+        model_id = getattr(config, "semantic_history_model_id", None)
+        revision = getattr(config, "semantic_history_model_revision", None)
+        if (not isinstance(model_id, str) or not model_id
+                or not isinstance(revision, str)
+                or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
+            return None
+        return model_id, revision
+
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
         owner = self._history_intervention_owner

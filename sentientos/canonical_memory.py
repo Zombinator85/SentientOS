@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 from .cognition_retrieval import cognition_tokens
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
@@ -16,6 +16,8 @@ MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_MEMORY_CORRECTION_TARGETS = 8
+MAX_SEMANTIC_MEMORY_CANDIDATES = 256
+SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY = 0.25
 _MEMORY_ID_PATTERN = re.compile(r"^memory-[0-9a-f]{24}$")
 _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "a", "about", "after", "again", "all", "am", "an", "and", "any", "are",
@@ -165,6 +167,91 @@ def _memory_retrieval_terms(text: str) -> set[str]:
             continue
         terms.add(token)
     return terms
+
+
+def _normalized_semantic_vector(value: object) -> tuple[float, ...] | None:
+    if (not isinstance(value, (list, tuple)) or not value
+            or len(value) > 1024
+            or any(isinstance(item, bool) or not isinstance(item, (int, float))
+                or not math.isfinite(float(item)) for item in value)):
+        return None
+    vector = tuple(float(item) for item in value)
+    norm = math.sqrt(sum(item * item for item in vector))
+    return vector if 0.95 <= norm <= 1.05 else None
+
+
+def _semantic_memory_scores(query: str, records: Sequence[Mapping[str, Any]], *,
+        model_id: str, revision: str
+        ) -> tuple[dict[str, float], str | None, str | None, str]:
+    """Score a bounded recent memory slice with an optional pinned CPU embedder."""
+    if (not isinstance(model_id, str) or not model_id or len(model_id) > 256
+            or not isinstance(revision, str)
+            or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
+        return {}, None, None, "unavailable"
+    candidates: list[tuple[Mapping[str, Any], str]] = []
+    for record in records:
+        memory_id, text = record.get("id"), record.get("text")
+        if isinstance(memory_id, str) and isinstance(text, str) and text:
+            candidates.append((record, text[:4000]))
+    candidates.sort(key=lambda pair: (
+        _memory_record_timestamp(pair[0]), str(pair[0].get("id", ""))),
+        reverse=True)
+    candidates = candidates[:MAX_SEMANTIC_MEMORY_CANDIDATES]
+    if not candidates:
+        return {}, None, None, "no_candidates"
+    try:
+        from semantic_embeddings import encode_semantic
+        encoded = encode_semantic([query[:4000], *(text for _, text in candidates)],
+            model_id=model_id, revision=revision)
+        identity_digest = getattr(encoded, "identity_digest", None)
+        vectors_value = getattr(encoded, "vectors", None)
+        if (not isinstance(identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", identity_digest) is None
+                or not isinstance(vectors_value, (list, tuple))
+                or len(vectors_value) != len(candidates) + 1):
+            return {}, None, None, "unavailable"
+        vectors = [_normalized_semantic_vector(vector) for vector in vectors_value]
+        if any(vector is None for vector in vectors):
+            return {}, None, None, "unavailable"
+        query_vector = vectors[0]
+        assert query_vector is not None
+        candidate_vectors = [vector for vector in vectors[1:] if vector is not None]
+        dimensions = len(query_vector)
+        if any(len(vector) != dimensions for vector in candidate_vectors):
+            return {}, None, None, "unavailable"
+        candidate_bindings = [{
+            "memory_id": str(record["id"]),
+            "record_digest": digest(dict(record)),
+            "text_digest": digest({"text": text}),
+            "vector_digest": digest(list(vector)),
+        } for (record, text), vector in zip(candidates, candidate_vectors)]
+        selection_digest = digest({
+            "schema_version": "sentientos.canonical_memory_semantic_selection:v1",
+            "embedder_identity_digest": identity_digest,
+            "query_digest": digest({"query": query}),
+            "query_vector_digest": digest(list(query_vector)),
+            "candidates": candidate_bindings,
+        })
+    except Exception:
+        return {}, None, None, "unavailable"
+    scores = {str(record["id"]): sum(left * right for left, right in
+        zip(query_vector, vector)) for (record, _), vector in
+        zip(candidates, candidate_vectors)}
+    selected = {memory_id: score for memory_id, score in scores.items()
+        if math.isfinite(score) and score >= SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY}
+    return selected, identity_digest, selection_digest, (
+        "matched" if selected else "no_match")
+
+
+def _memory_record_timestamp(record: Mapping[str, Any]) -> float:
+    try:
+        timestamp = datetime.fromisoformat(
+            str(record.get("timestamp", "")).replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return timestamp.timestamp()
+    except (OverflowError, OSError, TypeError, ValueError):
+        return float("-inf")
 
 
 def _is_explicit_response_style_preference(text: str) -> bool:
@@ -384,7 +471,9 @@ class CanonicalMemoryStore:
             posture = "partial_duplicate_records"
         return unique, posture
 
-    def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000)->dict[str,Any]:
+    def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000,
+            semantic_model_id: str | None = None,
+            semantic_model_revision: str | None = None)->dict[str,Any]:
         records, retrieval_posture = self._records()
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
@@ -520,6 +609,21 @@ class CanonicalMemoryStore:
                     # Bad or absent time never outranks a valid retained record.
                     recency = float("-inf")
                 ranked.append((score, recency, str(record.get("id", "")), record))
+        semantic_identity_digest = None
+        semantic_selection_digest = None
+        semantic_retrieval_posture = "disabled"
+        if ranked:
+            semantic_retrieval_posture = "lexical_match_preferred"
+        elif semantic_model_id is not None or semantic_model_revision is not None:
+            semantic_scores, semantic_identity_digest, semantic_selection_digest, \
+                semantic_retrieval_posture = _semantic_memory_scores(query, eligible,
+                    model_id=semantic_model_id, revision=semantic_model_revision)
+            for record in eligible:
+                record_id = str(record.get("id", ""))
+                score = semantic_scores.get(record_id)
+                if score is not None:
+                    ranked.append((score, _memory_record_timestamp(record),
+                        record_id, record))
         selected: list[dict[str, Any]]=[]; used=0
         omitted: list[tuple[tuple[Any, str], str]] = []
         # Relevance remains primary. Recency only orders equally relevant
@@ -576,12 +680,19 @@ class CanonicalMemoryStore:
                 "correction_relations":correction_relations,
                 "retrieval_posture":retrieval_posture,
                 "selection_posture":selection_posture,
+                "retrieval_policy_id": "lexical_then_pinned_semantic_fallback:v1",
+                "semantic_retrieval_posture": semantic_retrieval_posture,
+                "semantic_embedder_identity_digest": semantic_identity_digest,
                 "omitted_memory_count":len(omitted),
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "omitted":omitted,"selection_posture":selection_posture,
                     "correction_relations":correction_relations,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
-                    "legacy_sidecar_posture":legacy_sidecar_posture})}
+                    "legacy_sidecar_posture":legacy_sidecar_posture,
+                    "retrieval_policy_id": "lexical_then_pinned_semantic_fallback:v1",
+                    "semantic_retrieval_posture": semantic_retrieval_posture,
+                    "semantic_embedder_identity_digest": semantic_identity_digest,
+                    "semantic_selection_digest": semantic_selection_digest})}
     def open_memory_root(self, *, prepare_for_write: bool = False) -> int:
         """Open and verify the shared user-memory root without following links."""
         if os.name != "posix":

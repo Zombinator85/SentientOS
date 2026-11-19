@@ -2479,9 +2479,22 @@ class PersistentConversationService:
         query = question if relevance_query is None else relevance_query
         if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
             raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
-        retrieved = self.memories.retrieve(query,
-            limit=MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
-            budget_chars=self.memory_budget_chars)
+        retrieve_kwargs: dict[str, Any] = {
+            "limit": MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
+            "budget_chars": self.memory_budget_chars,
+        }
+        bridge = self._resident_cognition_bridge
+        semantic_config = getattr(bridge, "semantic_memory_retrieval_config", None)
+        if callable(semantic_config):
+            try:
+                configured = semantic_config()
+            except Exception:
+                configured = None
+            if (isinstance(configured, tuple) and len(configured) == 2
+                    and all(isinstance(value, str) and value for value in configured)):
+                retrieve_kwargs.update(semantic_model_id=configured[0],
+                    semantic_model_revision=configured[1])
+        retrieved = self.memories.retrieve(query, **retrieve_kwargs)
         if (not isinstance(retrieved, Mapping)
                 or retrieved.get("read_only") is not True
                 or not isinstance(retrieved.get("snapshot_digest"), str)
@@ -2588,6 +2601,10 @@ class PersistentConversationService:
             "source_snapshot_digest": retrieved["snapshot_digest"],
             "retrieval_posture": retrieval_posture,
             "selection_posture": selection_posture,
+            "retrieval_policy_id": retrieved.get("retrieval_policy_id",
+                "lexical_only:v1"),
+            "semantic_retrieval_posture": retrieved.get(
+                "semantic_retrieval_posture", "disabled"),
             "records": selected, "correction_relations": correction_relations,
             "read_only": True,
             "historical_only": True, "current_truth": False,

@@ -1777,7 +1777,9 @@ def test_failed_memory_source_verification_forces_resident_clarification(
 @pytest.mark.skipif(os.name == "nt",
     reason="conversation persistence is unavailable on Windows")
 def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
-        tmp_path: Path) -> None:
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    import semantic_embeddings
     from tests.test_resident_developmental_cognition import (
         FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
     )
@@ -1792,7 +1794,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
                 memory = prompt.get("canonical_user_memory_context", {})
                 records = memory.get("records", [])
                 question = prompt.get("companion_question", "").casefold()
-                applies = (question in {"could it overheat?", "what happens next?"}
+                applies = (question in {"could it overheat?", "what happens next?",
+                    "did the thermal assembly get too warm?"}
                     and any("overheating" in str(row.get("text", "")).casefold()
                         for row in records if isinstance(row, dict)))
                 cited_ids = ([row["memory_id"] for row in records
@@ -1837,6 +1840,9 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     assert baseline.response == "I have no retained overheating note."
     baseline_sparse = baseline_app.chat("What happens next?", observe_screen=True)
     assert baseline_sparse.response == baseline.response
+    baseline_paraphrase = baseline_app.chat(
+        "Did the thermal assembly get too warm?", observe_screen=True)
+    assert baseline_paraphrase.response == baseline.response
 
     app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
@@ -1848,7 +1854,18 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     # durable roots before applying the retained statement to a later question.
     restarted_invoker = MemoryApplyingInvoker()
     restarted_cognition, _ = cognition_owner(tmp_path / "cognition",
-        invoker=restarted_invoker)
+        invoker=restarted_invoker, semantic_history_model_id="test/local-embedder",
+        semantic_history_model_revision="a" * 40)
+
+    def encode_memory(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "cooling unit" in text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode_memory)
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(restarted_cognition,
             clock=lambda: now))
@@ -1873,6 +1890,13 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
     assert observation["companion_memory_citation_ids"] == [memory_id]
     assert observation["canonical_user_memory_record_ids"] == [memory_id]
+
+    paraphrased = restarted_app.chat(
+        "Did the thermal assembly get too warm?", session_id=query_session_id,
+        request_id="cited-resident-memory-paraphrase", observe_screen=True)
+    assert paraphrased.response == "The retained note described overheating."
+    paraphrase_turn = restarted_app.sessions.load(query_session_id)["turns"][-1]
+    assert paraphrase_turn["linkage"]["cognition_memory_citation_ids"] == [memory_id]
 
     # A bounded prior topic in this new session resolves a sparse follow-up to
     # the retained memory. The same sparse question without that topic had no
@@ -3329,6 +3353,64 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
     assert result["retrieval_posture"] == "complete"
     assert unrelated_query["memories"] == []
+
+
+def test_canonical_memory_semantic_fallback_recovers_paraphrase_without_overriding_lexical(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+    import semantic_embeddings
+
+    retained = {"id": "memory-overheat",
+        "text": "The cooling unit showed overheating during the test.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unrelated = {"id": "memory-astronomy",
+        "text": "The astronomy group reviewed a star chart.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained, unrelated], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "cooling" in text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    query = "Did the thermal assembly get too warm?"
+    lexical_only = store.retrieve(query, limit=1)
+    semantic = store.retrieve(query, limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+    lexical_match = store.retrieve("overheating", limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+
+    assert lexical_only["memories"] == []
+    assert [row["id"] for row in semantic["memories"]] == ["memory-overheat"]
+    assert semantic["semantic_retrieval_posture"] == "matched"
+    assert semantic["snapshot_digest"]
+    assert lexical_match["selected_memory_ids"] == ["memory-overheat"]
+    assert lexical_match["semantic_retrieval_posture"] == "lexical_match_preferred"
+
+
+def test_canonical_memory_semantic_fallback_degrades_to_lexical_when_encoder_unavailable(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    retained = {"id": "memory-overheat",
+        "text": "The cooling unit showed overheating during the test.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([retained], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
+
+    result = store.retrieve("Did the thermal assembly get too warm?", limit=1,
+        semantic_model_id="test/local-embedder", semantic_model_revision="a" * 40)
+
+    assert result["memories"] == []
+    assert result["semantic_retrieval_posture"] == "unavailable"
 
 
 def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
