@@ -2587,6 +2587,22 @@ class PersistentConversationService:
 
         return validate_record, verified_records
 
+    def _semantic_memory_retrieval_kwargs(self) -> dict[str, str]:
+        """Reuse the resident bridge's pinned semantic-memory configuration."""
+        bridge = self._resident_cognition_bridge
+        semantic_config = getattr(bridge, "semantic_memory_retrieval_config", None)
+        if not callable(semantic_config):
+            return {}
+        try:
+            configured = semantic_config()
+        except Exception:
+            return {}
+        if (not isinstance(configured, tuple) or len(configured) != 2
+                or not all(isinstance(value, str) and value for value in configured)):
+            return {}
+        return {"semantic_model_id": configured[0],
+            "semantic_model_revision": configured[1]}
+
     def _verified_chat_memory_snapshot(self, query: str, *,
             budget_chars: int) -> dict[str, Any]:
         """Filter ordinary chat memory through exact retention source custody."""
@@ -2604,8 +2620,10 @@ class PersistentConversationService:
                 raise ChatRequestStateError("canonical_memory_snapshot_invalid")
             return dict(empty)
         validate_record, verified_records = self._canonical_memory_source_verifier()
-        retrieved = self.memories.retrieve(query, limit=4,
-            budget_chars=budget_chars, record_validator=validate_record)
+        retrieve_kwargs: dict[str, Any] = {"limit": 4,
+            "budget_chars": budget_chars, "record_validator": validate_record}
+        retrieve_kwargs.update(self._semantic_memory_retrieval_kwargs())
+        retrieved = self.memories.retrieve(query, **retrieve_kwargs)
         if (not isinstance(retrieved, Mapping)
                 or retrieved.get("read_only") is not True
                 or not isinstance(retrieved.get("snapshot_digest"), str)
@@ -2672,17 +2690,7 @@ class PersistentConversationService:
             "budget_chars": self.memory_budget_chars,
             "record_validator": validate_record,
         }
-        bridge = self._resident_cognition_bridge
-        semantic_config = getattr(bridge, "semantic_memory_retrieval_config", None)
-        if callable(semantic_config):
-            try:
-                configured = semantic_config()
-            except Exception:
-                configured = None
-            if (isinstance(configured, tuple) and len(configured) == 2
-                    and all(isinstance(value, str) and value for value in configured)):
-                retrieve_kwargs.update(semantic_model_id=configured[0],
-                    semantic_model_revision=configured[1])
+        retrieve_kwargs.update(self._semantic_memory_retrieval_kwargs())
         retrieved = self.memories.retrieve(query, **retrieve_kwargs)
         if (not isinstance(retrieved, Mapping)
                 or retrieved.get("read_only") is not True
