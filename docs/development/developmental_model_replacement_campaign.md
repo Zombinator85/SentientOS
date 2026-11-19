@@ -22,7 +22,7 @@ in-progress trial without completion is invalidated as
 model, provenance, or trial-artifact tampering fails closed.
 
 A complete campaign rereads and digest-verifies every ordinary trial artifact before
-writing one immutable `sentientos.developmental_model_replacement_campaign_report:v2`.
+writing one immutable `sentientos.developmental_model_replacement_campaign_report:v3`.
 The report contains exact classification and comparison counts, per-condition ordered
 output digests and diversity, restoration stability, and bounded all-trial booleans.
 For scored probe suites it also records each probe's condition-outcome counts and
@@ -35,6 +35,9 @@ After restart, `load_report(report_id, expected_report_digest=...)` first checks
 the stored report digest and campaign identity, then rebuilds the report from
 the campaign state and every verified trial artifact. A report is returned only
 when the stored content exactly matches that reconstruction.
+The loader also reconstructs historical v1 aggregate-only and v2 per-probe
+reports using their original invalid-answer coverage semantics; new summaries
+are written only as v3.
 `world_state_records(report_refs=...)` projects only explicitly selected,
 reverified campaign reports as digest-bound historical observations. It carries
 their trial/run references, model/context identities, and bounded objective

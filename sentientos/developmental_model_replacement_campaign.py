@@ -28,7 +28,9 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_regular_file
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
 SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v2"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
-REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
+LEGACY_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
+PREVIOUS_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
+REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
 MIN_TRIALS = 2
 MAX_TRIALS = 32
 CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
@@ -830,6 +832,56 @@ class DevelopmentalModelReplacementCampaign:
         self.store.immutable(self.store.reports / f"{report['report_id']}.json", report)
         return report
 
+    def _report_for_schema(self, report: Mapping[str, Any],
+            schema_version: str) -> dict[str, Any]:
+        if schema_version not in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
+                REPORT_SCHEMA}:
+            raise DevelopmentalModelReplacementError(
+                "campaign_report_schema_unsupported")
+        semantic = json.loads(json.dumps({key: value for key, value in report.items()
+            if key not in {"report_id", "report_digest"}}, sort_keys=True))
+        objective = semantic.get("objective_evaluation")
+        if schema_version in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA}:
+            if isinstance(objective, Mapping):
+                objective = dict(objective)
+                if schema_version == LEGACY_REPORT_SCHEMA:
+                    objective.pop("per_probe_replication", None)
+                answered = objective.get("condition_answered_probe_count")
+                scored = objective.get("condition_scored_probe_count")
+                status_counts = objective.get("condition_status_counts")
+                plan = self.experiment.objective_plan
+                task_descriptor = (plan.get("task_descriptor")
+                    if isinstance(plan, Mapping) else None)
+                probe_count = (task_descriptor.get("probe_count")
+                    if isinstance(task_descriptor, Mapping) else None)
+                if isinstance(answered, Mapping) or isinstance(scored, Mapping):
+                    if (not isinstance(answered, Mapping)
+                            or not isinstance(scored, Mapping)
+                            or not isinstance(status_counts, Mapping)
+                            or type(probe_count) is not int or probe_count < 1):
+                        raise DevelopmentalModelReplacementError(
+                            "campaign_report_legacy_score_summary_invalid")
+                    for condition in CONDITION_ORDER:
+                        condition_statuses = status_counts.get(condition)
+                        if (not isinstance(condition_statuses, Mapping)
+                                or type(answered.get(condition)) is not int
+                                or type(scored.get(condition)) is not int
+                                or type(condition_statuses.get("invalid_answer")) is not int):
+                            raise DevelopmentalModelReplacementError(
+                                "campaign_report_legacy_score_summary_invalid")
+                        legacy_answered = answered[condition] + (
+                            condition_statuses["invalid_answer"] * probe_count)
+                        answered[condition] = legacy_answered
+                        scored[condition] = legacy_answered
+                    objective["condition_answered_probe_count"] = dict(answered)
+                    objective["condition_scored_probe_count"] = dict(scored)
+                semantic["objective_evaluation"] = objective
+        semantic["schema_version"] = schema_version
+        digest = _digest(semantic)
+        return {**semantic,
+            "report_id": "model-replacement-campaign-report-" + digest[7:31],
+            "report_digest": digest}
+
     def load_report(self, report_id: str, *, expected_report_digest: str
             ) -> dict[str, Any]:
         """Reload a report only after rebuilding it from verified trial artifacts."""
@@ -857,7 +909,9 @@ class DevelopmentalModelReplacementCampaign:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_identity_mismatch")
         rebuilt = self._build_report()
-        if stored != rebuilt:
+        expected = self._report_for_schema(rebuilt,
+            str(stored.get("schema_version") or ""))
+        if stored != expected:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_trial_binding_mismatch")
         return stored
