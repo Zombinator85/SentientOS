@@ -106,7 +106,7 @@ def test_resident_context_selects_older_relevant_exchange_when_recent_fits() -> 
     # Keep both the cited exchange and recent turns inside the bounded window;
     # the neutral follow-up then tests state-citation priority rather than query
     # keyword matching.
-    for index in range(6):
+    for index in range(10):
         turns.extend((
             turn(f"recent-user-{index}", "user",
                 f"We reviewed agenda item {index} today."),
@@ -404,6 +404,79 @@ def service(root: Path, invoker: FakeInvoker | None = None, screen_observer=None
         memory_store=CanonicalMemoryStore(root / "memory"), context_budget_chars=400,
         screen_observer=screen_observer,
         resident_cognition_bridge=cognition_bridge)
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_ordinary_chat_uses_relevant_older_exchange_before_recent_fill(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    query = "What did we decide about the amber relay warning?"
+    prior_decision = "We decided to stop the launch and schedule an optical inspection."
+
+    class DecisionInvoker(FakeInvoker):
+        def invoke(self, request):
+            self.last_prompt = request.prompt
+            output = (prior_decision if prior_decision in request.prompt
+                else "I do not have that earlier decision in my context.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False, request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    baseline_invoker = DecisionInvoker()
+    baseline_app = service(tmp_path / "baseline", baseline_invoker)
+    baseline_session = baseline_app.create_session()
+    baseline = baseline_app.chat(query, session_id=baseline_session,
+        request_id="without-prior-decision")
+    assert baseline.response == "I do not have that earlier decision in my context."
+
+    invoker = DecisionInvoker()
+    app = service(tmp_path / "with-history", invoker)
+    session_id = app.create_session()
+
+    def append_exchange(user_text: str, assistant_text: str) -> None:
+        user_turn = app.sessions.append_turn(session_id, role="user", text=user_text)
+        app.sessions.append_turn(session_id, role="assistant", text=assistant_text,
+            linkage={"source_user_turn_id": user_turn["turn_id"]})
+
+    append_exchange(
+        "The amber relay warning returned during startup. Should we stop?",
+        prior_decision)
+    for index in range(12):
+        append_exchange(
+            f"The inventory team reviewed warehouse bin {index} and counted spare cable length.",
+            f"The warehouse recorded stock report {index} as complete before lunch.")
+
+    recent_only = app.sessions.reconstruct(session_id, budget_chars=app.context_budget_chars)
+    assert prior_decision not in "\n".join(
+        str(turn["text"]) for turn in recent_only.turns)
+
+    reconstruct = app.sessions.reconstruct
+    selected_snapshots = []
+
+    def capture_reconstruction(*args, **kwargs):
+        snapshot = reconstruct(*args, **kwargs)
+        if kwargs.get("relevance_exchange_groups") is True:
+            selected_snapshots.append(snapshot)
+        return snapshot
+
+    monkeypatch.setattr(app.sessions, "reconstruct", capture_reconstruction)
+    response = app.chat(query, session_id=session_id,
+        request_id="apply-relevant-prior-decision")
+
+    assert response.response == prior_decision
+    assert response.response != baseline.response
+    assert prior_decision in invoker.last_prompt
+    assert len(selected_snapshots) == 1
+    selected = selected_snapshots[0]
+    assert len(selected.turns) <= chat_service.MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
+    assert sum(len(str(turn["text"])) + len(str(turn["role"])) + 2
+        for turn in selected.turns) <= selected.budget_chars
+    assert selected.budget_chars == app.context_budget_chars
+    assert any(turn["text"].startswith("The inventory team reviewed warehouse bin 11")
+        for turn in selected.turns)
 
 
 def test_historical_citation_context_resolves_only_digest_bound_source_turn(
