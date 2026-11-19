@@ -476,6 +476,19 @@ def _is_social_checkin_request(message: str) -> bool:
             or companion_day_checkin is not None)
 
 
+_NON_TOPIC_ACKNOWLEDGMENTS = frozenset({
+    "thanks", "thank you", "thanks a lot", "thank you very much",
+    "got it", "okay", "ok", "understood", "sounds good", "great",
+    "sure", "yes", "yep", "i see", "cool", "all right", "alright",
+})
+
+
+def _is_non_topic_acknowledgment(text: str) -> bool:
+    """Identify short acknowledgments that should not replace a dialogue topic cue."""
+    normalized = " ".join(re.findall(r"[^\W_]+", text.casefold()))
+    return normalized in _NON_TOPIC_ACKNOWLEDGMENTS
+
+
 def _is_social_checkin_continuation(message: str) -> bool:
     """Recognize a check-in that explicitly refers to the immediately prior exchange."""
     normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -2754,7 +2767,8 @@ class PersistentConversationService:
             if is_sparse_or_elliptical_cognition_query(question):
                 prior_user_text = next((row["text"] for row in reversed(context_turns)
                     if row["role"] == "user"
-                    and row["turn_id"] != user_turn.get("turn_id")), None)
+                    and row["turn_id"] != user_turn.get("turn_id")
+                    and not _is_non_topic_acknowledgment(row["text"])), None)
                 if isinstance(prior_user_text, str):
                     memory_query = f"{question} {prior_user_text[:1000]}"[:4000]
             if memory_query == question:

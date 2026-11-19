@@ -1012,6 +1012,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
             "linkage": {"source_user_turn_id": "turn-" + "1" * 24,
                 "cognition_epistemic_state_citation_ids": [
                     "epistemic-state:" + "a" * 24]}},
+        {"turn_id": "turn-" + "7" * 24, "role": "user",
+            "text": "Thanks!", "text_digest": chat_service.digest_payload({
+                "text": "Thanks!"}), "linkage": {}},
     ), 4000, False, "a" * 64)
     followup = app._complete_resident_cognition_response(
         session_id="session-followup",
@@ -1045,7 +1048,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert seen_questions[2] == "What happens next?"
     assert [turn["turn_id"] for turn in seen_contexts[0]["turns"]] == [
         "turn-unrelated-18", "turn-unrelated-19",
-        "turn-" + "1" * 24, "turn-" + "2" * 24]
+        "turn-" + "1" * 24, "turn-" + "2" * 24, "turn-" + "7" * 24]
     assert seen_contexts[0]["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
     supplied = seen_contexts[0]
@@ -1053,7 +1056,7 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert supplied["prior_epistemic_state_ids"] == [
         "epistemic-state:" + "a" * 24]
     assert [row["role"] for row in supplied["turns"]] == [
-        "user", "assistant", "user", "assistant"]
+        "user", "assistant", "user", "assistant", "user"]
     assert supplied["turns"][2]["text"] == (
         "The west sensor drifted by three degrees after warmup.")
     assert supplied["historical_only"] is True
@@ -1071,6 +1074,8 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert seen_contexts[1] is None
     assert any(row["role"] == "user" and row["text"] == (
         "The west sensor drifted by three degrees after warmup.")
+        for row in seen_contexts[2]["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
         for row in seen_contexts[2]["turns"])
     assert seen_contexts[3] is None
 
@@ -1876,6 +1881,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     topic_session_id = restarted_app.create_session()
     restarted_app.chat("The cooling unit showed overheating during testing.",
         session_id=topic_session_id, request_id="sparse-memory-topic")
+    restarted_app.chat("Thanks!", session_id=topic_session_id,
+        request_id="sparse-memory-acknowledgment")
     sparse_response = restarted_app.chat("What happens next?",
         session_id=topic_session_id, request_id="sparse-memory-followup",
         observe_screen=True)
@@ -1887,6 +1894,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
     sparse_context = sparse_prompt["session_conversation_context"]
     assert any(row["role"] == "user"
         and row["text"] == "The cooling unit showed overheating during testing."
+        for row in sparse_context["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
         for row in sparse_context["turns"])
     sparse_linkage = restarted_app.sessions.load(topic_session_id)["turns"][-1]["linkage"]
     assert sparse_linkage["cognition_memory_citation_ids"] == [memory_id]
@@ -2133,6 +2142,8 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         assert query_session_id != source_session_id
         restarted_app.chat("We were discussing detailed answer style.",
             session_id=query_session_id, request_id="resident-preference-topic")
+        restarted_app.chat("Thanks!", session_id=query_session_id,
+            request_id="resident-preference-acknowledgment")
         response = restarted_app.chat("What happens next?",
             session_id=query_session_id, request_id="resident-preference-followup",
             observe_screen=True)
@@ -2193,6 +2204,8 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
     assert corrected_prompt["companion_question"] == "What happens next?"
     assert any(row["role"] == "user" and row["text"] ==
         "We were discussing detailed answer style."
+        for row in corrected_prompt["session_conversation_context"]["turns"])
+    assert any(row["role"] == "user" and row["text"] == "Thanks!"
         for row in corrected_prompt["session_conversation_context"]["turns"])
     assert no_topic_prompt["canonical_user_memory_context"]["records"] == []
     assert control_context["correction_relations"] == []
