@@ -878,7 +878,9 @@ lineage. New chat responses expose this as
 the v1 shape. The exposure reports `influence_posture` as `not_measured`, so
 the digest establishes what was presented, not whether the model used it. When
 operator feedback cites a v2 exposure, its v7 feedback record preserves the
-same prompt-block digest with the existing unverified-report posture.
+same prompt-block digest with the existing unverified-report posture. The digest
+is an opaque content identity: consumers cannot reconstruct prompt text from it,
+and it does not show attention or influence.
 
 Ordinary-chat prompt guidance now distinguishes digest-verified record
 integrity from the truth of claims inside a record. When a selected packet
