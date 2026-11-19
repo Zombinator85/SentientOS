@@ -9929,6 +9929,68 @@ def test_companion_bridge_passes_question_to_epistemic_projection() -> None:
         "relevance_query": question}
 
 
+def test_companion_bridge_uses_session_topic_only_for_sparse_prior_projection_queries(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    cognition, _fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",))
+    calls = []
+
+    class SelfModelOwner:
+        def cognitive_projection(self, **kwargs):
+            calls.append(kwargs)
+            return None
+
+        def reconcile(self, *_args, **_kwargs):
+            return None
+
+    monkeypatch.setattr(cognition, "selected_current_relevance_context",
+        lambda _snapshot, **_kwargs: "")
+    interaction_calls = []
+
+    def capture_interaction(**kwargs):
+        interaction_calls.append(kwargs)
+        return SimpleNamespace(status="admitted_completed")
+
+    monkeypatch.setattr(cognition, "run_companion_interaction", capture_interaction)
+    config = SimpleNamespace(enabled=True, cognitive_consumption_enabled=True,
+        max_projection_claims=4, allowed_predicates=("battery_health",))
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        self_model_owner=SelfModelOwner(), self_model_config=config,
+        clock=lambda: now)
+
+    prior_text = "What is the battery voltage?"
+    prior_turn = {"turn_id": "turn-" + "5" * 24, "role": "user",
+        "text": prior_text, "text_digest": digest_payload({"text": prior_text}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-projection-query",
+        "source_snapshot_digest": "d" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+    screen = {"modality": "screen", "text": "A fresh local observation.",
+        "capture_digest": "e" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+
+    bridge.respond(request_id="sparse-projection-query", question="What now?",
+        screen_observation=screen, conversation_context=conversation_context)
+    bridge.respond(request_id="specific-projection-query",
+        question="What is the moon phase?", screen_observation=screen,
+        conversation_context=conversation_context)
+
+    assert "What is the battery voltage?" in calls[0]["relevance_query"]
+    assert calls[1]["relevance_query"] == "What is the moon phase?"
+    assert interaction_calls[0]["question"] == "What now?"
+    assert interaction_calls[0]["conversation_context"] == conversation_context
+
+
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:
     from types import SimpleNamespace
 

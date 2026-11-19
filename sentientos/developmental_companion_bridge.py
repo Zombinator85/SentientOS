@@ -1003,14 +1003,25 @@ class ResidentDevelopmentalCompanionBridge:
         if (isinstance(question, str) and question.strip()
                 and len(question) <= 1200
                 and len(cognition_query_terms(question)) < 2):
+            relevance_parts = [question]
+            turns = (conversation_context.get("turns", ())
+                if isinstance(conversation_context, Mapping) else ())
+            prior_user_text = (next((row.get("text") for row in reversed(turns)
+                if isinstance(row, Mapping) and row.get("role") == "user"
+                and isinstance(row.get("text"), str) and row.get("text").strip()), None)
+                if isinstance(turns, (list, tuple)) else None)
+            if isinstance(prior_user_text, str):
+                relevance_parts.append(prior_user_text[:1000])
             current_context = self._owner.selected_current_relevance_context(
                 snapshot, question=question, maximum_chars=2800)
             if current_context:
-                # Sparse questions may use selected current observations to find
-                # a relevant prior position. Specific questions retain their
-                # question-only ranking, and the original question is unchanged
-                # in the interaction request and current-evidence channel.
-                relevance_query = (question + " " + current_context)[:4000]
+                relevance_parts.append(current_context)
+            if len(relevance_parts) > 1:
+                # Sparse follow-ups may use validated prior user language and
+                # selected current observations to rank prior cognitive state.
+                # Specific questions retain question-only ranking; neither cue
+                # is relabeled as current evidence or authority.
+                relevance_query = " ".join(relevance_parts)[:4000]
         prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
             tick_id=tick_id, projection_tick=projection_tick,
             relevance_query=relevance_query,
