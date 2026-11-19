@@ -105,6 +105,11 @@ explicit scope. Deterministic coverage is in
 `sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
 real-model application remains unverified.
 
+One resident cognition tick captures a single evaluation instant and reuses it
+across history-present, history-withheld, and history-restored conditions, so a
+clock boundary cannot become an unintended difference between controlled
+prompts.
+
 For bounded epistemic-revision probes, the same review also constrains the
 evidence-ID allowlist: only supporting bindings individually within the age
 limit can be cited as current evidence. Expired or unresolved support remains
