@@ -30,6 +30,16 @@ The instrument compares A+H/A-H, B+H/B-H, A+H/B+H, A-H/B-H, and baseline A+H/res
 
 Classifications are limited to no observable history effect, A-only, B-only, both-model history association, restoration instability, or contamination. Digest equality/inequality is not semantic scoring. Even a stable both-model association does not prove learning, model-independent identity, persistent individuality, selfhood, sentience, consciousness, or causal closure.
 
+For new objective probe-suite evaluations, the score summary also retains
+digest-keyed per-probe correctness or abstention outcomes across all five
+conditions. It reports per-probe history transitions for A and B, outcome
+agreement between models with and without history, and whether A's restored
+arm reproduces its original per-probe pattern. This makes equal aggregate
+counts distinguishable from agreement on the same probes. The probe input and
+answer values remain out of this summary; the score artifact digest binds the
+oracle-backed result. Older stored evaluations remain verifiable in their
+original aggregate-only shape.
+
 The resident developmental capability remains **partial** with `bounded_state_transition` authority. Real resident A→B→A activation, serving handoff, default-cadence continuation, long-duration repeated trials, statistics, semantic scoring, training, autonomous model choice/acquisition, and identity claims remain deferred.
 
 ## Repeated trial identity

@@ -1359,7 +1359,9 @@ class ModelReplacementArtifactStore:
                 score = observation.get("objective_task_score")
                 _verify_objective_score(plan, score, observation.get("output_digest"),
                     output_truncated=observation.get("output_truncated", False))
-            if evaluation != _objective_evaluation(plan, value["observations"]):
+            if (evaluation != _objective_evaluation(plan, value["observations"])
+                    and evaluation != _objective_evaluation_legacy(
+                        plan, value["observations"])):
                 raise DevelopmentalModelReplacementError("objective_evaluation_binding_invalid")
         return value
 
@@ -2091,7 +2093,8 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
     return value
 
 
-def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def _objective_evaluation_legacy(plan: Mapping[str, Any],
+        observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     scores = [item["objective_task_score"] for item in observations]
     correctness = [score.get("correct") for score in scores]
     complete = len(scores) == 5 and all(type(value) is bool for value in correctness)
@@ -2158,6 +2161,97 @@ def _objective_evaluation(plan: Mapping[str, Any], observations: Sequence[Mappin
             "selective_metrics_posture": (
                 "per_probe_abstention_scored_separately_from_correctness"),
         })
+    return evaluation
+
+
+def _objective_evaluation(plan: Mapping[str, Any],
+        observations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Add probe-resolved model and restoration comparisons to the score summary."""
+    evaluation = _objective_evaluation_legacy(plan, observations)
+    task = plan.get("task")
+    if (not isinstance(task, Mapping) or task.get("schema_version") not in {
+            "sentientos.affine_prediction_task_suite:v2",
+            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}):
+        return evaluation
+    probes = task.get("probe_inputs")
+    if (not isinstance(probes, list) or not probes
+            or any(type(probe) is not int for probe in probes)):
+        return evaluation
+    scores = [item.get("objective_task_score")
+        if isinstance(item, Mapping) else None for item in observations]
+    if len(scores) != len(CONDITION_ORDER):
+        return evaluation
+    multiplier, offset = task.get("multiplier"), task.get("offset")
+    if type(multiplier) is not int or type(offset) is not int:
+        return evaluation
+    conditions = list(CONDITION_ORDER)
+    per_probe: list[dict[str, Any]] = []
+    comparison_names = {
+        "model_a_history": ("model_a_history_present", "model_a_history_withheld"),
+        "model_b_history": ("model_b_history_present", "model_b_history_withheld"),
+        "model_difference_with_history": (
+            "model_a_history_present", "model_b_history_present"),
+        "model_difference_without_history": (
+            "model_a_history_withheld", "model_b_history_withheld"),
+        "model_a_restoration": (
+            "model_a_history_present", "model_a_history_restored"),
+    }
+    transitions: dict[str, dict[str, int]] = {
+        name: {} for name in comparison_names}
+    matching: dict[str, int] = {name: 0 for name in comparison_names}
+    comparable: dict[str, int] = {name: 0 for name in comparison_names}
+    for index, probe in enumerate(probes):
+        outcomes: dict[str, str | None] = {}
+        for condition, score in zip(conditions, scores):
+            if not isinstance(score, Mapping):
+                outcomes[condition] = None
+                continue
+            status = score.get("status")
+            if status == "invalid_answer":
+                outcomes[condition] = "invalid_answer"
+                continue
+            if status in {"output_unavailable", "output_truncated"}:
+                outcomes[condition] = None
+                continue
+            answer = score.get("answer")
+            if isinstance(answer, list) and len(answer) == len(probes):
+                actual = answer[index]
+            elif len(probes) == 1 and type(answer) is int:
+                actual = answer
+            else:
+                outcomes[condition] = None
+                continue
+            if actual is None and task.get("schema_version") == FAMILY_TASK_SCHEMA_V4:
+                outcomes[condition] = "abstained"
+            elif type(actual) is int:
+                outcomes[condition] = ("correct" if actual == multiplier * probe + offset
+                    else "incorrect")
+            else:
+                outcomes[condition] = None
+        probe_comparisons: dict[str, str] = {}
+        for name, (left_name, right_name) in comparison_names.items():
+            left, right = outcomes[left_name], outcomes[right_name]
+            if left is None or right is None:
+                transition = "unscoreable"
+            else:
+                transition = left + "_vs_" + right
+                comparable[name] += 1
+                matching[name] += int(left == right)
+                transitions[name][transition] = transitions[name].get(transition, 0) + 1
+            probe_comparisons[name] = transition
+        per_probe.append({"probe_id": _digest({"probe_input": probe}),
+            "condition_outcomes": outcomes,
+            "comparisons": probe_comparisons})
+    evaluation["per_probe_outcomes"] = per_probe
+    evaluation["per_probe_comparisons"] = {
+        name: {"probe_count": len(probes),
+            "comparable_probe_count": comparable[name],
+            "matching_outcome_count": matching[name],
+            "outcome_transition_counts": transitions[name]}
+        for name in comparison_names}
+    evaluation["restoration_probe_outcomes_stable"] = (
+        matching["model_a_restoration"] == len(probes)
+        if comparable["model_a_restoration"] == len(probes) else None)
     return evaluation
 
 
