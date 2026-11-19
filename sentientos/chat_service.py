@@ -4049,6 +4049,14 @@ class PersistentConversationService:
             history_turn_limit = MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
             history_relevance_query = message
             history_relevance_exchange_groups = True
+        elif history_turn_limit is None and history_roles is None:
+            # Ordinary chat gets the same bounded relevant-exchange retrieval
+            # before recent dialogue fills the remaining prompt budget. Explicit
+            # recalls, check-ins, and self-contained requests keep their
+            # narrower history policies above.
+            history_turn_limit = MAX_RESIDENT_CONVERSATION_CANDIDATE_TURNS
+            history_relevance_query = message
+            history_relevance_exchange_groups = True
         history = self.sessions.reconstruct(session["session_id"], budget_chars=history_budget,
             exclude_turn_id=user_turn["turn_id"], include_roles=history_roles,
             max_turns=history_turn_limit, oldest_first=earliest_session_recall,

@@ -710,6 +710,17 @@ fallback, and rejects a tampered source record. This demonstrates the software
 path with controlled substitutes; it does not measure real embedding quality,
 real-model interpretation, or improved outcomes.
 
+Ordinary chat now uses the existing bounded exchange-aware selector for
+same-session dialogue when no narrower recall, check-in, self-contained, or
+runtime-context policy applies. Relevant complete exchanges are considered
+before recent dialogue fills the configured character budget, with at most 64
+candidate turns. The deterministic
+`tests/test_persistent_governed_conversation.py::test_ordinary_chat_uses_relevant_older_exchange_before_recent_fill`
+counterfactual shows recent-only reconstruction omitting an earlier decision,
+then ordinary chat selecting that source-linked exchange and changing a fake
+decision while preserving the same budget. This is controlled retrieval and
+application evidence; real-model interpretation remains unverified.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports
