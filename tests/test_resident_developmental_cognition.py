@@ -2874,6 +2874,10 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         target_model_identity=None) == unsettled
     assert _task_family_corroborated_favorable_runs(mixed_outcomes,
         target_model_identity=None) == set()
+    unbound_source_outcomes = {"unbound-source": [{**run_a,
+        "source_active_model_identity": None}]}
+    assert _task_family_unsettled_outcome_groups(unbound_source_outcomes,
+        target_model_identity=None) == set()
     # A stable favorable episode loses favorable ranking when comparable
     # evidence for the same exact task and source model disagrees.
     assert _task_family_history_retrieval_utility([run_a],

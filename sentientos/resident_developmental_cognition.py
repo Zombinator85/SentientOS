@@ -2151,9 +2151,19 @@ def _task_family_outcome_evidence_by_group(experiences_by_record: Mapping[str, o
             model_relation = _task_family_model_applicability(experience,
                 target_model_identity=target_model_identity)[
                     "model_identity_relation"]
-            if model_relation not in {
-                    "same_active_model_identity", "different_active_model_identity",
-                    *({"model_identity_unbound"} if include_unbound_target else set())}:
+            include_for_unsettled_target = False
+            if (include_unbound_target and not target_model_identity
+                    and model_relation == "model_identity_unbound"):
+                source_identity = experience.get("source_active_model_identity")
+                source_identity_digest = experience.get(
+                    "source_active_model_identity_digest")
+                include_for_unsettled_target = (
+                    isinstance(source_identity, Mapping) and bool(source_identity)
+                    and isinstance(source_identity_digest, str)
+                    and source_identity_digest == _digest(dict(source_identity)))
+            if (model_relation not in {
+                    "same_active_model_identity", "different_active_model_identity"}
+                    and not include_for_unsettled_target):
                 continue
             task_digest = experience.get("source_task_digest")
             model_digest = experience.get("source_active_model_identity_digest")
