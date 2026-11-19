@@ -9225,7 +9225,8 @@ class ResidentDevelopmentalCognitionOwner:
     def ordinary_chat_developmental_history_context_for_model(self, *, question: str,
             target_model_identity: Mapping[str, Any] | None = None,
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
-            record_allowlist: tuple[str, ...] | None = None
+            record_allowlist: tuple[str, ...] | None = None,
+            record_digest_allowlist: Mapping[str, str] | None = None
             ) -> dict[str, Any] | None:
         """Project ordinary-chat history with exact source-to-serving model relations."""
         if (target_model_identity is not None
@@ -9236,12 +9237,14 @@ class ResidentDevelopmentalCognitionOwner:
             question=question, max_input_chars=max_input_chars,
             target_model_identity=(target_model_identity
                 if target_model_identity else None),
-            record_allowlist=record_allowlist)
+            record_allowlist=record_allowlist,
+            record_digest_allowlist=record_digest_allowlist)
 
     def ordinary_chat_developmental_history_context(self, *, question: str,
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
             target_model_identity: Mapping[str, Any] | None = None,
-            record_allowlist: tuple[str, ...] | None = None
+            record_allowlist: tuple[str, ...] | None = None,
+            record_digest_allowlist: Mapping[str, str] | None = None
             ) -> dict[str, Any] | None:
         """Project bounded, verified developmental history for ordinary chat."""
         if (not isinstance(question, str) or not question.strip()
@@ -9256,7 +9259,14 @@ class ResidentDevelopmentalCognitionOwner:
                         or len(record_allowlist) > self.config.max_retrieved_records
                         or any(not isinstance(record_id, str) or not record_id
                             for record_id in record_allowlist)
-                        or len(set(record_allowlist)) != len(record_allowlist)))):
+                        or len(set(record_allowlist)) != len(record_allowlist)))
+                or (record_digest_allowlist is not None
+                    and (not isinstance(record_digest_allowlist, Mapping)
+                        or record_allowlist is None
+                        or set(record_digest_allowlist) != set(record_allowlist)
+                        or any(not isinstance(record_digest, str)
+                            or re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest) is None
+                            for record_digest in record_digest_allowlist.values())))):
             raise ResidentDevelopmentalCognitionError(
                 "ordinary_chat_developmental_history_request_invalid")
         tick_id = "ordinary-chat-" + hashlib.sha256(
@@ -9266,6 +9276,13 @@ class ResidentDevelopmentalCognitionOwner:
                 relevance_query=question, use_semantic_retrieval=False,
                 target_model_identity=target_model_identity,
                 record_allowlist=record_allowlist)
+        if record_digest_allowlist is not None:
+            projected_digests = {str(record.get("record_id")): str(
+                record.get("record_digest")) for record in projection.records}
+            if any(projected_digests.get(record_id) != expected_digest
+                    for record_id, expected_digest in record_digest_allowlist.items()):
+                raise ResidentDevelopmentalCognitionError(
+                    "ordinary_chat_history_record_digest_mismatch")
         if not projection.records:
             return None
         instruction = (
