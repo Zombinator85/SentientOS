@@ -877,8 +877,15 @@ class DevelopmentalExperimentStore:
                     or not isinstance(score["score"].get("score_digest"), str)
                     or not isinstance(observed, Mapping) or observed.get("condition_id") != condition_id):
                 raise DevelopmentalHistoryInterventionError("epistemic_task_family_score_binding_invalid")
-        def probe_outcome_signature(score_row: Mapping[str, Any]) -> tuple[tuple[Any, ...], ...]:
+        def probe_outcome_signature(score_row: Mapping[str, Any]
+                ) -> tuple[tuple[Any, ...], ...] | None:
             score_payload = score_row.get("score")
+            if (isinstance(score_payload, Mapping)
+                    and score_payload.get("status") == "invalid_answer"):
+                # The scorer deliberately retains no probe values for a
+                # malformed answer. Preserve the run as contextual evidence,
+                # but do not infer a reproducible probe-level pattern.
+                return None
             outcomes = score_payload.get("probe_results") if isinstance(
                 score_payload, Mapping) else None
             if not isinstance(outcomes, list) or len(outcomes) != len(probe_inputs):
@@ -901,7 +908,9 @@ class DevelopmentalExperimentStore:
             return tuple(signature)
         present_signature = probe_outcome_signature(scores[0])
         restored_signature = probe_outcome_signature(scores[2])
-        restoration_probe_outcomes_stable = present_signature == restored_signature
+        restoration_probe_outcomes_stable = (
+            present_signature is not None and restored_signature is not None
+            and present_signature == restored_signature)
         observed_times = [row.get("observed_at") for row in conditions]
         if any(not isinstance(value, str) or not value for value in observed_times):
             raise DevelopmentalHistoryInterventionError("epistemic_task_family_event_time_missing")
