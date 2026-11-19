@@ -271,11 +271,30 @@ store or admission authority. The result distinguishes a retained record and
 receipt from a completed tick with no eligible lesson. For a receipt-verified
 ordinary reply, any operator report remains a separate
 `operator_assertion_unverified` World-State report bound to the assistant
-response digest and both screen-capture digests. It has no conversation
-correction target and cannot claim epistemic-state authority. The owner must
+response digest and both screen-capture digests. For an ordinary
+`model_generated` reply, the report also carries the assistant turn's validated
+developmental-history exposure: selection posture, selection digest, and the
+bounded record IDs and digests presented with that reply, or the recorded
+reason no history was selected. This binds later feedback to the context that
+was available at the time; it does not establish that the model relied on that
+context, that the report is accurate, or that development occurred. It has no
+conversation correction target and cannot claim epistemic-state authority.
+The report also cites the exact source user turn and assistant reply by turn ID
+and text digest, so later cognition can recover the exchange being discussed.
+These report-context citations do not imply that the earlier answer cited or
+relied on those turns, and they do not validate the report. The owner must
 already allow `operator_input`; otherwise feedback remains unavailable. The
 immediate interpretation treats a report as an assertion rather than direct
 observation and preserves conflict with scoped sensor or owner evidence.
+
+On a later resident-cognition turn, history selection can retrieve those exact
+dialogue citations from the feedback-linked session. The bridge rechecks each
+turn's text digest and binds the excerpt to the feedback record, its digest, and
+the session snapshot before adding it as historical cited dialogue. The prompt
+labels the excerpt as dialogue rather than current evidence, and separate
+reports citing the same turn are not counted as corroboration. This lets later
+cognition compare the report with the actual exchange while retaining
+uncertainty about the report's truth and the earlier model's reliance.
 
 When a verified resident-cognition reply has capture lineage, the operator may
 also enter a bounded correction when `operator_input` is explicitly included
@@ -809,6 +828,33 @@ verified history is present, and the paired prompt test checks tampering is
 rejected. This proves the software path and its controlled decision effect;
 real-model use, beneficial transfer, and long-term outcome improvement remain
 unverified.
+
+Ordinary fallback turn lineage also records a bounded retrieval posture:
+`selected`, `provider_returned_no_context`, `provider_unavailable`,
+`provider_failed`, `context_validation_failed`, `prompt_budget_unavailable`,
+`prompt_budget_rejected`, or `not_considered`. This distinguishes a verified
+history exposure from common absence and omission paths during later audit. It
+does not claim that the model used the selected context. The selected IDs,
+digests, and posture are copied to the assistant turn and compared with the
+receipt's caller lineage during idempotent recovery; legacy turns without this
+lineage remain recoverable under their earlier contract. Provider failures
+remain non-blocking for ordinary chat, and no raw prompt or exception text is
+retained. The chat response's bounded, versioned
+`context.developmental_history_exposure` (`sentientos.ordinary_developmental_history_exposure:v1`)
+also returns this validated selection lineage, with `influence_posture` set to
+`not_measured`. This gives API consumers an audit handle without presenting
+availability as evidence that the model used history.
+
+Ordinary-chat prompt guidance now distinguishes digest-verified record
+integrity from the truth of claims inside a record. When a selected packet
+contains nested operator feedback, ordinary chat is instructed to retain its
+`operator_assertion_unverified` posture and describe it only as an operator
+report. It may use the linked history-exposure metadata to understand what was
+available to the earlier assistant turn, but that metadata is not evidence of
+model reliance, report accuracy, or learning. Conversation citations in that
+packet identify turns by digest; ordinary chat does not infer their text from
+those identities and compares a report with prior dialogue only when the exact
+cited text is present in its session history.
 
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a

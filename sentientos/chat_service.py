@@ -1305,6 +1305,84 @@ def _stored_output_lineage_matches(stored: Any, observed: Any) -> bool:
             and all(observed.get(key) == value for key, value in stored.items())))
 
 
+_ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS = (
+    "ordinary_developmental_history_context_posture",
+    "ordinary_developmental_history_selection_digest",
+    "ordinary_developmental_history_record_ids",
+    "ordinary_developmental_history_record_digests",
+)
+_ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES = frozenset({
+    "selected", "provider_returned_no_context", "provider_unavailable",
+    "provider_failed", "context_validation_failed", "prompt_budget_unavailable",
+    "prompt_budget_rejected", "not_considered",
+})
+
+
+def _ordinary_developmental_history_lineage_matches(
+        stored_linkage: Mapping[str, Any], caller_linkage: object) -> bool:
+    """Bind saved ordinary-history exposure to its verified invocation receipt."""
+    if not isinstance(caller_linkage, Mapping):
+        return not any(key in stored_linkage
+            for key in _ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS)
+    receipt_has_contract = (
+        "ordinary_developmental_history_context_posture" in caller_linkage)
+    persisted_keys = tuple(key for key in
+        _ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS if key in stored_linkage)
+    keys_to_compare = (_ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS
+        if receipt_has_contract else persisted_keys)
+    return (not receipt_has_contract and not persisted_keys) or all(
+        (key in stored_linkage) == (key in caller_linkage)
+        and stored_linkage.get(key) == caller_linkage.get(key)
+        for key in keys_to_compare)
+
+
+def _ordinary_developmental_history_exposure(
+        linkage: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Project bounded history-selection lineage for a later feedback record."""
+    if "ordinary_developmental_history_context_posture" not in linkage:
+        return None
+    posture = linkage.get("ordinary_developmental_history_context_posture")
+    selection_digest = linkage.get("ordinary_developmental_history_selection_digest")
+    record_ids = linkage.get("ordinary_developmental_history_record_ids", [])
+    record_digests = linkage.get(
+        "ordinary_developmental_history_record_digests", [])
+    if (not isinstance(posture, str)
+            or posture not in _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES
+            or not isinstance(record_ids, list) or not isinstance(record_digests, list)
+            or len(record_ids) != len(record_digests) or len(record_ids) > 16
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in record_ids)
+            or len(set(record_ids)) != len(record_ids)
+            or any(not isinstance(item, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
+                for item in record_digests)):
+        raise ChatRequestStateError(
+            "ordinary_developmental_history_exposure_invalid")
+    if posture == "selected":
+        if (not record_ids or not isinstance(selection_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", selection_digest) is None):
+            raise ChatRequestStateError(
+                "ordinary_developmental_history_exposure_invalid")
+    elif selection_digest is not None or record_ids or record_digests:
+        raise ChatRequestStateError(
+            "ordinary_developmental_history_exposure_invalid")
+    return {"context_posture": posture,
+        "selection_digest": selection_digest,
+        "record_ids": list(record_ids),
+        "record_digests": list(record_digests)}
+
+
+def _ordinary_developmental_history_response_context(
+        linkage: Mapping[str, Any]) -> dict[str, Any]:
+    """Expose validated input lineage without claiming that it affected output."""
+    exposure = _ordinary_developmental_history_exposure(linkage)
+    if exposure is None:
+        return {}
+    return {"developmental_history_exposure": {
+        "schema_version": "sentientos.ordinary_developmental_history_exposure:v1",
+        **exposure, "influence_posture": "not_measured"}}
+
+
 class ChatWorkloadModeRequest(BaseModel):
     mode: str
     game_process_names: tuple[str, ...] = ()
@@ -1550,7 +1628,9 @@ class PersistentConversationService:
         return (_stored_output_lineage_matches(
                 stored_output_lineage, observed_output_lineage)
             and isinstance(verified_screen, Mapping)
-            and verified_screen.get("capture_digest") == screen.get("capture_digest"))
+            and verified_screen.get("capture_digest") == screen.get("capture_digest")
+            and _ordinary_developmental_history_lineage_matches(
+                linkage, verified_caller_linkage))
 
     def developmental_cycle_reply_available(self, *, session_id: str,
             session_turns: Sequence[Mapping[str, Any]],
@@ -1619,6 +1699,7 @@ class PersistentConversationService:
                     "developmental_cycle_source_turn_unavailable")
             cognition_request_id = f"{session_id}:{source_turn_id}"
             response_origin = linkage.get("response_origin")
+            ordinary_history_exposure = None
             verifier = getattr(bridge, "verify_committed_response", None)
             if response_origin == "resident_developmental_cognition":
                 if (not callable(verifier) or verifier(linkage=linkage,
@@ -1635,6 +1716,8 @@ class PersistentConversationService:
                         assistant=assistant, linkage=linkage):
                     raise ChatRequestStateError(
                         "developmental_cycle_prior_response_unverified")
+                ordinary_history_exposure = (
+                    _ordinary_developmental_history_exposure(linkage))
             else:
                 raise ChatRequestStateError(
                     "developmental_cycle_requires_resident_cognition_reply")
@@ -1741,6 +1824,27 @@ class PersistentConversationService:
                     else {})
                 transcript_turns = {str(turn.get("turn_id")): turn
                     for turn in session["turns"] if isinstance(turn, Mapping)}
+                if linkage.get("response_origin") == "model_generated":
+                    # Bind the exact ordinary-chat exchange under discussion.
+                    # These are report context citations, not model-declared
+                    # evidence citations or a correction target.
+                    source_text = source_turn.get("text")
+                    assistant_text = assistant.get("text")
+                    source_text_digest = (digest_payload({"text": source_text})
+                        if isinstance(source_text, str) else None)
+                    assistant_text_digest = (digest_payload({"text": assistant_text})
+                        if isinstance(assistant_text, str) else None)
+                    if (source_turn.get("role") != "user"
+                            or assistant.get("role") != "assistant"
+                            or source_turn.get("text_digest") != source_text_digest
+                            or assistant.get("text_digest") != assistant_text_digest
+                            or assistant_text_digest != linkage.get("response_digest")):
+                        raise ChatRequestStateError(
+                            "developmental_cycle_feedback_exchange_lineage_invalid")
+                    citation_ids = [str(source_turn_id), assistant_turn_id]
+                    citation_digests = [source_text_digest, assistant_text_digest]
+                    selected_map[str(source_turn_id)] = source_text_digest
+                    selected_map[assistant_turn_id] = assistant_text_digest
                 citation_lineage_valid = (
                     isinstance(citation_ids, list)
                     and isinstance(citation_digests, list)
@@ -1807,7 +1911,8 @@ class PersistentConversationService:
                     conversation_session_id=session_id,
                     correction_target_turn_id=correction_target_turn_id,
                     correction_target_epistemic_state_ids=(
-                        correction_target_epistemic_state_ids))
+                        correction_target_epistemic_state_ids),
+                    developmental_history_exposure=ordinary_history_exposure)
             cycle_kwargs: dict[str, Any] = {
                 "tick_id": tick_id, "screen_observation": observation,
                 "operator_feedback": feedback_record,
@@ -3742,6 +3847,9 @@ class PersistentConversationService:
             observed_predecessor_reference = (
                 verified_caller_linkage.get("verified_predecessor_invocation")
                 if isinstance(verified_caller_linkage, Mapping) else None)
+            developmental_history_lineage_matches = (
+                _ordinary_developmental_history_lineage_matches(
+                    linkage, verified_caller_linkage))
             predecessor_reference_matches = (
                 "predecessor_invocation_reference" not in linkage
                 or linkage.get("predecessor_invocation_reference")
@@ -3757,6 +3865,7 @@ class PersistentConversationService:
             if (not isinstance(active_identity, Mapping) or not isinstance(loaded_identity, Mapping)
                     or dict(verified.get("serving_identity", {})) != dict(active_identity)
                     or dict(verified.get("loaded_model_identity", {})) != dict(loaded_identity)
+                    or not developmental_history_lineage_matches
                     or not predecessor_reference_matches
                     or not runtime_lineage_matches
                     or not _stored_output_lineage_matches(
@@ -3839,6 +3948,7 @@ class PersistentConversationService:
                 "loaded_model_identity_digest": linkage.get("loaded_model_identity_digest"),
                 "recovered_without_inference": True,
                 "response_origin": linkage.get("response_origin", "model_generated"),
+                **_ordinary_developmental_history_response_context(linkage),
             },
             retention=retention,
         )
@@ -4391,6 +4501,7 @@ class PersistentConversationService:
                 on_content_chunk=on_content_chunk)
         epistemic_context = None
         developmental_history_context = None
+        developmental_history_context_posture = "not_considered"
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
@@ -4406,30 +4517,51 @@ class PersistentConversationService:
             history_provider = getattr(bridge,
                 "ordinary_chat_developmental_history_context", None)
             max_history_chars = _ordinary_epistemic_context_budget(prompt)
-            if callable(history_provider) and max_history_chars is not None:
+            if not callable(history_provider):
+                developmental_history_context_posture = "provider_unavailable"
+            elif max_history_chars is None:
+                developmental_history_context_posture = "prompt_budget_unavailable"
+            else:
+                developmental_history_context_posture = "provider_requested"
                 try:
                     history_query = _ordinary_epistemic_relevance_query(
                         message, history)
                     candidate_history = history_provider(question=history_query,
                         max_input_chars=max_history_chars)
                     if isinstance(candidate_history, Mapping):
-                        candidate_prompt = assemble_local_chat_context(
-                            history=history, memory_snapshot=memory,
-                            current_message=message, runtime_context=runtime_context,
-                            developmental_history_context=candidate_history,
-                            verified_prior_runtime_lineage=predecessor_runtime_lineage,
-                            screen_observation=screen_observation,
-                            compact_history=gaming_development_turn,
-                            compact_screen_context=(gaming_development_turn
-                                and screen_observation is not None),
-                            recent_session_recall=recent_session_recall,
-                            earliest_session_recall=earliest_session_recall)
-                        if len(candidate_prompt) <= 8000:
-                            developmental_history_context = candidate_history
-                            prompt = candidate_prompt
+                        try:
+                            candidate_prompt = assemble_local_chat_context(
+                                history=history, memory_snapshot=memory,
+                                current_message=message, runtime_context=runtime_context,
+                                developmental_history_context=candidate_history,
+                                verified_prior_runtime_lineage=predecessor_runtime_lineage,
+                                screen_observation=screen_observation,
+                                compact_history=gaming_development_turn,
+                                compact_screen_context=(gaming_development_turn
+                                    and screen_observation is not None),
+                                recent_session_recall=recent_session_recall,
+                                earliest_session_recall=earliest_session_recall)
+                        except Exception:
+                            developmental_history_context_posture = (
+                                "context_validation_failed")
+                        else:
+                            if len(candidate_prompt) <= 8000:
+                                developmental_history_context = candidate_history
+                                developmental_history_context_posture = "selected"
+                                prompt = candidate_prompt
+                            else:
+                                developmental_history_context_posture = (
+                                    "prompt_budget_rejected")
+                    elif candidate_history is None:
+                        developmental_history_context_posture = (
+                            "provider_returned_no_context")
+                    else:
+                        developmental_history_context_posture = (
+                            "context_validation_failed")
                 except Exception:
                     # Retained experience is optional input, never a chat blocker.
                     developmental_history_context = None
+                    developmental_history_context_posture = "provider_failed"
             provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
             max_epistemic_chars = _ordinary_epistemic_context_budget(prompt)
             if callable(provider) and max_epistemic_chars is not None:
@@ -4515,6 +4647,9 @@ class PersistentConversationService:
                    "recent_session_recall": recent_session_recall,
                    "conversation_context_snapshot_digest": history.snapshot_digest,
                    "memory_retrieval_snapshot_digest": memory["snapshot_digest"]}
+        developmental_history_lineage: dict[str, Any] = {
+            "ordinary_developmental_history_context_posture": (
+                developmental_history_context_posture)}
         epistemic_context_lineage: dict[str, str] = {}
         if isinstance(epistemic_context, Mapping):
             selection_digest = epistemic_context.get("selection_digest")
@@ -4528,15 +4663,19 @@ class PersistentConversationService:
             selected_records = (selection.get("selected_records")
                 if isinstance(selection, Mapping) else None)
             if isinstance(selection_digest, str):
-                linkage["ordinary_developmental_history_selection_digest"] = (
+                developmental_history_lineage[
+                    "ordinary_developmental_history_selection_digest"] = (
                     selection_digest)
             if isinstance(selected_records, list):
-                linkage["ordinary_developmental_history_record_ids"] = [
+                developmental_history_lineage[
+                    "ordinary_developmental_history_record_ids"] = [
                     row["record_id"] for row in selected_records
                     if isinstance(row, Mapping) and isinstance(row.get("record_id"), str)]
-                linkage["ordinary_developmental_history_record_digests"] = [
+                developmental_history_lineage[
+                    "ordinary_developmental_history_record_digests"] = [
                     row["record_digest"] for row in selected_records
                     if isinstance(row, Mapping) and isinstance(row.get("record_digest"), str)]
+        linkage.update(developmental_history_lineage)
         if predecessor_runtime_lineage is not None:
             linkage["verified_predecessor_runtime_handoff_digest"] = str(
                 predecessor_runtime_lineage.get("handoff_digest", ""))
@@ -4960,6 +5099,7 @@ class PersistentConversationService:
                      "context_snapshot_digest": history.snapshot_digest,
                      "memory_snapshot_digest": memory["snapshot_digest"],
                      **epistemic_context_lineage,
+                     **developmental_history_lineage,
                      "screen_observation_provenance": (
                          dict(linkage["screen_observation_provenance"])
                          if isinstance(linkage.get("screen_observation_provenance"), Mapping)
@@ -5076,6 +5216,8 @@ class PersistentConversationService:
                                      },
                                      "inference_timing": _public_inference_timing(receipt),
                                      "response_origin": response_origin,
+                                     **_ordinary_developmental_history_response_context(
+                                         linkage),
                                      "screen_observation_provenance": (
                                          dict(linkage["screen_observation_provenance"])
                                          if isinstance(linkage.get("screen_observation_provenance"), Mapping)

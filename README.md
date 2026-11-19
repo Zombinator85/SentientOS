@@ -56,7 +56,31 @@ resource-governance frontier, see the [current system orientation](docs/architec
 It is a compact cold-start companion to this README; it identifies its source
 point and distinguishes fixture evidence from production or hardware outcomes.
 
-## Current cognition evidence (2026-11-11)
+## Current cognition evidence (2026-11-19)
+
+### Ordinary-chat developmental-history integration
+
+At merged source `06b93b61`, ordinary fallback chat can receive a bounded,
+question-ranked projection of verified developmental history from the existing
+resident owner. The prompt keeps history separate from current evidence and
+authority; exact selected record IDs, record digests, and the selection digest
+are bound to the saved assistant turn. Retrieval on this path is lexical and
+does not load a semantic embedding model. Ordinary chat still does not write
+developmental history automatically; writeback remains an explicit,
+operator-confirmed cycle.
+
+The deterministic fake-invoker counterfactual documented in
+`tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
+shows that the software path can change a fallback answer when relevant
+verified history is supplied, while the paired tampering regression rejects a
+modified history packet. This is mechanism evidence only. It does not establish
+real-model use, beneficial transfer, or improved decisions. Hermes was not run
+for this update; GPU testing remains paused while the operator is using it.
+
+The next cognition question is whether the ordinary pathway yields durable,
+scored improvement under matched history-present, history-withheld, and
+history-restored conditions. The scoring rule and task family need to be fixed
+before any model run; a changed answer alone is not a success criterion.
 
 ### Latest owner-composition checkpoint
 

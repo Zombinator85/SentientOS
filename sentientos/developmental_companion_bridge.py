@@ -221,9 +221,47 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         conversation_citation_digests: Sequence[str] = (),
         conversation_session_id: str | None = None,
         correction_target_turn_id: str | None = None,
-        correction_target_epistemic_state_ids: Sequence[str] = ()) -> dict[str, Any]:
+        correction_target_epistemic_state_ids: Sequence[str] = (),
+        developmental_history_exposure: Mapping[str, Any] | None = None,
+        ) -> dict[str, Any]:
     """Represent explicit local operator feedback as an unverified report."""
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
+    history_exposure: dict[str, Any] | None = None
+    if developmental_history_exposure is not None:
+        expected_exposure_fields = {"context_posture", "selection_digest",
+            "record_ids", "record_digests"}
+        exposure_postures = {
+            "selected", "provider_returned_no_context", "provider_unavailable",
+            "provider_failed", "context_validation_failed",
+            "prompt_budget_unavailable", "prompt_budget_rejected", "not_considered",
+        }
+        context_posture = developmental_history_exposure.get("context_posture")
+        selection_digest = developmental_history_exposure.get("selection_digest")
+        record_ids = developmental_history_exposure.get("record_ids")
+        record_digests = developmental_history_exposure.get("record_digests")
+        if (set(developmental_history_exposure) != expected_exposure_fields
+                or not isinstance(context_posture, str)
+                or context_posture not in exposure_postures
+                or not isinstance(record_ids, list)
+                or not isinstance(record_digests, list)
+                or len(record_ids) != len(record_digests) or len(record_ids) > 16
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in record_ids)
+                or len(set(record_ids)) != len(record_ids)
+                or any(not isinstance(item, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
+                    for item in record_digests)
+                or (context_posture == "selected"
+                    and (not record_ids or not isinstance(selection_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}", selection_digest) is None))
+                or (context_posture != "selected"
+                    and (selection_digest is not None or record_ids or record_digests))):
+            raise DevelopmentalCompanionBridgeError(
+                "operator_feedback_history_exposure_invalid")
+        history_exposure = {"context_posture": context_posture,
+            "selection_digest": selection_digest,
+            "record_ids": list(record_ids),
+            "record_digests": list(record_digests)}
     if (not isinstance(feedback, str) or not feedback.strip()
             or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
             or not isinstance(request_id, str) or not request_id
@@ -258,6 +296,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                 and (not isinstance(conversation_session_id, str)
                     or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}",
                         conversation_session_id) is None))
+            or (developmental_history_exposure is not None
+                and conversation_session_id is None)
             or (correction_target_turn_id is not None
                 and (not isinstance(correction_target_turn_id, str)
                     or citation_pattern.fullmatch(correction_target_turn_id) is None
@@ -266,7 +306,9 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v5"
+    schema_version = ("sentientos.local_operator_feedback:v6"
+        if history_exposure is not None else
+        "sentientos.local_operator_feedback:v5"
         if correction_target_turn_id is not None
             and correction_target_epistemic_state_ids else
         "sentientos.local_operator_feedback:v4"
@@ -302,6 +344,8 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         if correction_target_epistemic_state_ids:
             semantic["correction_target"]["epistemic_state_citation_ids"] = list(
                 correction_target_epistemic_state_ids)
+    if history_exposure is not None:
+        semantic["developmental_history_exposure"] = history_exposure
     identity = hashlib.sha256(json.dumps(semantic, sort_keys=True,
         separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest()
     return {
