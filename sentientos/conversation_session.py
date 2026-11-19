@@ -1058,7 +1058,7 @@ def verify_ordinary_chat_history_projection_triplet(*,
                 or len(value["instruction"]) > 2000):
             raise ValueError("ordinary_chat_history_projection_invalid")
         packets, selection = value.get("developmental_history"), value.get("selection")
-        if (not isinstance(packets, (list, tuple)) or not packets or len(packets) > 64
+        if (not isinstance(packets, (list, tuple)) or not packets or len(packets) > 16
                 or not isinstance(selection, Mapping)
                 or set(selection) != {"schema_version", "policy", "retrieval_policy_id",
                     "available_records", "selected_records", "omitted_records",
@@ -1075,7 +1075,8 @@ def verify_ordinary_chat_history_projection_triplet(*,
             return (isinstance(rows, list) and all(
                 isinstance(row, Mapping)
                 and set(row) == {"record_id", "record_digest"}
-                and isinstance(row.get("record_id"), str) and bool(row["record_id"])
+                and isinstance(row.get("record_id"), str)
+                and 1 <= len(row["record_id"]) <= 256
                 and isinstance(row.get("record_digest"), str)
                 and re.fullmatch(r"sha256:[0-9a-f]{64}", row["record_digest"]) is not None
                 for row in rows)
@@ -1085,7 +1086,7 @@ def verify_ordinary_chat_history_projection_triplet(*,
                 or policy not in {"resident_owner_exact_allowlist_ranked_prefix:v1",
                     "resident_owner_question_ranked_prefix:v1"}
                 or not isinstance(retrieval_policy_id, str) or not retrieval_policy_id
-                or len(available) > 4096
+                or len(available) > 16
                 or available != refs + omitted
                 or available[:len(refs)] != refs
                 or selection.get("omitted_records_digest") != _digest(omitted)
@@ -1096,6 +1097,7 @@ def verify_ordinary_chat_history_projection_triplet(*,
         for packet in packets:
             if (not isinstance(packet, Mapping)
                     or not isinstance(packet.get("record_id"), str)
+                    or not 1 <= len(packet["record_id"]) <= 256
                     or not isinstance(packet.get("record_digest"), str)
                     or re.fullmatch(r"sha256:[0-9a-f]{64}",
                         packet["record_digest"]) is None
