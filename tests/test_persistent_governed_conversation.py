@@ -674,6 +674,41 @@ def test_sparse_ordinary_epistemic_query_uses_only_latest_verified_topic() -> No
         "What does the moon phase mean?", history) == "What does the moon phase mean?"
 
 
+def test_sparse_ordinary_epistemic_query_resolves_elliptical_answer_antecedent() -> None:
+    question = "What should I do now?"
+    assistant_question = "The west sensor failed calibration; should we repeat the test?"
+    user_answer = "That one."
+    history = ContextSnapshot("session-elliptical-epistemic", (
+        {"role": "assistant", "text": assistant_question,
+            "text_digest": chat_service.digest_payload({"text": assistant_question})},
+        {"role": "user", "text": user_answer,
+            "text_digest": chat_service.digest_payload({"text": user_answer})},
+    ), 4000, False, "b" * 64)
+
+    baseline = chat_service._ordinary_epistemic_relevance_query(question,
+        ContextSnapshot("session-elliptical-baseline", (), 4000, False, "c" * 64))
+    selected = chat_service._ordinary_epistemic_relevance_query(question, history)
+
+    def fake_projection(query: str) -> str | None:
+        return "west-sensor-prior" if "west sensor" in query else None
+
+    assert selected == f"{question} {assistant_question} {user_answer}"
+    assert len(selected) <= 1200
+    assert fake_projection(baseline) is None
+    assert fake_projection(selected) == "west-sensor-prior"
+
+    tampered_history = ContextSnapshot("session-tampered-antecedent", (
+        {"role": "assistant", "text": assistant_question,
+            "text_digest": "0" * 64},
+        {"role": "user", "text": user_answer,
+            "text_digest": chat_service.digest_payload({"text": user_answer})},
+    ), 4000, False, "d" * 64)
+    tampered_query = chat_service._ordinary_epistemic_relevance_query(question,
+        tampered_history)
+    assert tampered_query == f"{question} {user_answer}"
+    assert fake_projection(tampered_query) is None
+
+
 def test_local_chat_prompt_rejects_epistemic_context_with_authority_flags() -> None:
     semantic_context = {
         "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",

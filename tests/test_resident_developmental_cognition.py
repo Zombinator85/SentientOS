@@ -10067,6 +10067,23 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
     target = moon if baseline.proposition_ids == (battery.proposition_id,) else battery
     target_question = ("What moon phase was reported?" if target is moon
         else "What battery voltage was reported?")
+    from sentientos.chat_service import _ordinary_epistemic_relevance_query
+    from sentientos.conversation_session import ContextSnapshot
+    assistant_question = target_question
+    elliptical_history = ContextSnapshot("session-elliptical-projection", (
+        {"role": "assistant", "text": assistant_question,
+            "text_digest": digest_payload({"text": assistant_question})},
+        {"role": "user", "text": "That one.",
+            "text_digest": digest_payload({"text": "That one."})},
+    ), 4000, False, "e" * 64)
+    resolved_query = _ordinary_epistemic_relevance_query(
+        "What happens next?", elliptical_history)
+    elliptical_projection = project(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query=resolved_query)
+    assert target_question in resolved_query
+    assert elliptical_projection is not None
+    assert elliptical_projection.proposition_ids == (target.proposition_id,)
+
     prior_turn = {"turn_id": "turn-" + "6" * 24, "role": "user",
         "text": target_question,
         "text_digest": digest_payload({"text": target_question}),
