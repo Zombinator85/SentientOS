@@ -219,12 +219,12 @@ def _semantic_memory_scores(query: str, records: Sequence[Mapping[str, Any]], *,
     sampled_older = ([sample_pool[(phase + ((2 * index + 1)
         * len(sample_pool)) // (2 * sample_count)) % len(sample_pool)]
         for index in range(sample_count)] if sample_count else [])
-    candidates = list(dict.fromkeys((str(record.get("id", "")), text)
+    candidate_id_text_pairs = list(dict.fromkeys((str(record.get("id", "")), text)
         for record, text in recent + lexical_older + sampled_older))
     record_by_id = {str(record.get("id", "")): record
         for record, _ in recent + lexical_older + sampled_older}
     candidates = [(record_by_id[memory_id], text)
-        for memory_id, text in candidates]
+        for memory_id, text in candidate_id_text_pairs]
     if not candidates:
         return {}, None, None, "no_candidates"
     try:
