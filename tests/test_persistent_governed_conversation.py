@@ -551,12 +551,96 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
     assert baseline_response.response == (
         "I have no prior epistemic position on that sensor.")
     assert response.response == "Use caution with the west sensor."
-    assert without_bridge.context_requests == [(query, 8000)]
-    assert bridge.context_requests == [(f"{query} {antecedent}", 8000)]
+    assert len(without_bridge.context_requests) == 1
+    assert without_bridge.context_requests[0][0] == query
+    assert 128 <= without_bridge.context_requests[0][1] < 8000
+    selected_query, selected_budget = bridge.context_requests[0]
+    assert selected_query == f"{query} {antecedent}"
+    assert 128 <= selected_budget < 8000
     assert "[PRIOR_EPISTEMIC_CONTEXT_GUIDANCE]" in invoker.last_prompt
     assert corrected_position in invoker.last_prompt
     assert "\"historical_only\":true" in invoker.last_prompt
     assert "\"mutation_performed\":false" in invoker.last_prompt
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_ordinary_epistemic_context_uses_only_remaining_prompt_budget(
+        tmp_path: Path) -> None:
+    class BudgetedBridge:
+        def __init__(self):
+            self.requested_budgets = []
+
+        def can_handle(self):
+            return False
+
+        def ordinary_chat_epistemic_context(self, *, question, max_input_chars):
+            self.requested_budgets.append(max_input_chars)
+            semantic = {
+                "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
+                "instruction": "Use this prior position only when relevant.",
+                "prior_epistemic_state": {"semantic_packets": [{
+                    "state": {"stance": "uncertain"},
+                    "proposition": {"statement": "retained-prior-" + "p" * max(
+                        0, max_input_chars - 1200)},
+                }]},
+                "historical_only": True, "current_truth": False,
+                "authority": False, "mutation_performed": False,
+            }
+            return {**semantic,
+                "selection_digest": chat_service.digest_payload(semantic)}
+
+    bridge = BudgetedBridge()
+    invoker = FakeInvoker()
+    app = service(tmp_path / "budgeted", invoker, cognition_bridge=bridge)
+    session_id = app.create_session()
+
+    response = app.chat("How should I think about this?", session_id=session_id,
+        request_id="epistemic-context-budget")
+
+    assert response.response == "local answer"
+    assert len(bridge.requested_budgets) == 1
+    assert 128 <= bridge.requested_budgets[0] < 8000
+    assert len(invoker.requests[0].prompt) <= 8000
+    assert "[PRIOR_EPISTEMIC_STATE_DATA]" in invoker.requests[0].prompt
+    assert "retained-prior-" in invoker.requests[0].prompt
+
+
+def test_ordinary_epistemic_context_is_skipped_without_prompt_headroom() -> None:
+    assert chat_service._ordinary_epistemic_context_budget("x" * 7361) is None
+    assert chat_service._ordinary_epistemic_context_budget("x" * 7200) == 288
+
+
+def test_bounded_epistemic_packet_fits_complete_ordinary_chat_prompt() -> None:
+    history = ContextSnapshot("session-budget", (), 0, False, "a" * 64)
+    memory = {"memories": [], "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "omitted_memory_count": 0}
+    base_prompt = assemble_local_chat_context(history=history,
+        memory_snapshot=memory, current_message="What should I do next?",
+        runtime_context={})
+    packet_budget = chat_service._ordinary_epistemic_context_budget(base_prompt)
+    assert packet_budget is not None
+
+    semantic = {
+        "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
+        "instruction": "Use this prior position only when relevant.",
+        "prior_epistemic_state": {"semantic_packets": [{
+            "state": {"stance": "uncertain"},
+            "proposition": {"statement": "prior-evidence-" + "p" * (
+                packet_budget - 1200)},
+        }]},
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    context = {**semantic,
+        "selection_digest": chat_service.digest_payload(semantic)}
+    complete_prompt = assemble_local_chat_context(history=history,
+        memory_snapshot=memory, current_message="What should I do next?",
+        runtime_context={}, epistemic_context=context)
+
+    assert len(complete_prompt) <= 8000
+    assert "prior-evidence-" in complete_prompt
 
 
 def test_sparse_ordinary_epistemic_query_uses_only_latest_verified_topic() -> None:

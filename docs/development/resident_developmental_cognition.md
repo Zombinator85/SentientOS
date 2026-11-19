@@ -749,6 +749,19 @@ the digest and acknowledgment filters. This demonstrates query construction
 and prompt application with controlled substitutes; it does not establish
 real-model interpretation or improved outcomes.
 
+The ordinary fallback budgets this optional epistemic projection against the
+complete chat prompt. It reserves framing space when asking the shared packet
+binder to select prior state, then checks the serialized prompt against the
+governed 8,000-character limit before keeping the projection. If there is not
+enough room, the projection is omitted so it cannot make an otherwise
+admissible ordinary prompt oversized. The CPU test
+`tests/test_persistent_governed_conversation.py::test_ordinary_epistemic_context_uses_only_remaining_prompt_budget`
+checks that a bounded prior packet remains available under the total prompt
+limit, while `::test_ordinary_epistemic_context_is_skipped_without_prompt_headroom`
+checks the no-headroom boundary. This establishes prompt-budget compatibility
+with a controlled bridge; real-model interpretation and improved outcomes
+remain unverified.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports
