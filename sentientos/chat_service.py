@@ -1310,6 +1310,7 @@ _ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS = (
     "ordinary_developmental_history_selection_digest",
     "ordinary_developmental_history_record_ids",
     "ordinary_developmental_history_record_digests",
+    "ordinary_developmental_history_prompt_block_digest",
 )
 _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES = frozenset({
     "selected", "provider_returned_no_context", "provider_unavailable",
