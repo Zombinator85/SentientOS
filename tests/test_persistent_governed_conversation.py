@@ -3419,6 +3419,60 @@ def test_canonical_memory_semantic_fallback_degrades_to_lexical_when_encoder_una
     assert result["semantic_retrieval_posture"] == "unavailable_lexical_fallback"
 
 
+def test_canonical_memory_semantic_candidates_cover_bounded_older_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    from datetime import timedelta
+    from types import SimpleNamespace
+    import hashlib
+    import semantic_embeddings
+
+    query = "Did the thermal assembly get too warm?"
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    sample_pool_size = 76
+    sample_count = 32
+    phase = (int.from_bytes(hashlib.sha256(query.encode("utf-8")).digest()[:8],
+        "big") % sample_pool_size)
+    target_sample_position = (phase + sample_pool_size // (2 * sample_count)) \
+        % sample_pool_size
+    target_index = 224 + target_sample_position
+    target_text = "The cooling unit showed overheating during the test."
+    records = []
+    for index in range(300):
+        if index == target_index:
+            text = target_text
+        elif 192 <= index < 224:
+            text = f"The thermal report {index} was recorded."
+        else:
+            text = f"A retained neutral note number {index} was recorded."
+        records.append({"id": f"memory-{index:024x}", "text": text,
+            "timestamp": (base - timedelta(minutes=index)).isoformat()})
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    encoded_candidate_counts = []
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        encoded_candidate_counts.append(len(texts) - 1)
+        assert target_text in texts
+        assert len(texts) <= 257
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if text == target_text else (0.0, 1.0)
+            for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    first = store.retrieve(query, limit=1, semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+    second = store.retrieve(query, limit=1, semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+
+    assert first["selected_memory_ids"] == [records[target_index]["id"]]
+    assert first["snapshot_digest"] == second["snapshot_digest"]
+    assert encoded_candidate_counts == [256, 256]
+
+
 def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
         monkeypatch: pytest.MonkeyPatch) -> None:
     original = {"id": "memory-" + "1" * 24,

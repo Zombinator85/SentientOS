@@ -16,7 +16,12 @@ MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_MEMORY_CORRECTION_TARGETS = 8
-MAX_SEMANTIC_MEMORY_CANDIDATES = 256
+MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES = 192
+MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES = 32
+MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES = 32
+MAX_SEMANTIC_MEMORY_CANDIDATES = (MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES
+    + MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES
+    + MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES)
 SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY = 0.25
 SEMANTIC_MEMORY_MIN_LEXICAL_COVERAGE = 0.5
 _MEMORY_ID_PATTERN = re.compile(r"^memory-[0-9a-f]{24}$")
@@ -197,7 +202,29 @@ def _semantic_memory_scores(query: str, records: Sequence[Mapping[str, Any]], *,
     candidates.sort(key=lambda pair: (
         _memory_record_timestamp(pair[0]), str(pair[0].get("id", ""))),
         reverse=True)
-    candidates = candidates[:MAX_SEMANTIC_MEMORY_CANDIDATES]
+    recent = candidates[:MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES]
+    older = candidates[MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES:]
+    query_terms = _memory_retrieval_terms(query)
+    lexical_older = [pair for pair in older
+        if query_terms & _memory_retrieval_terms(pair[1])][
+            :MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES]
+    lexical_older_ids = {str(record.get("id", ""))
+        for record, _ in lexical_older}
+    sample_pool = [pair for pair in older
+        if str(pair[0].get("id", "")) not in lexical_older_ids]
+    sample_count = min(MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES,
+        len(sample_pool))
+    phase = (int.from_bytes(hashlib.sha256(query.encode("utf-8")).digest()[:8],
+        "big") % len(sample_pool) if sample_pool else 0)
+    sampled_older = ([sample_pool[(phase + ((2 * index + 1)
+        * len(sample_pool)) // (2 * sample_count)) % len(sample_pool)]
+        for index in range(sample_count)] if sample_count else [])
+    candidates = list(dict.fromkeys((str(record.get("id", "")), text)
+        for record, text in recent + lexical_older + sampled_older))
+    record_by_id = {str(record.get("id", "")): record
+        for record, _ in recent + lexical_older + sampled_older}
+    candidates = [(record_by_id[memory_id], text)
+        for memory_id, text in candidates]
     if not candidates:
         return {}, None, None, "no_candidates"
     try:
