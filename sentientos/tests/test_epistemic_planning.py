@@ -205,7 +205,7 @@ def test_cited_unverified_correction_defers_goal_without_revising_state(
     from sentientos.persistent_epistemic_state import (
         MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE,
         PersistentEpistemicStateOwner, make_evidence_binding,
-        make_proposition,
+        make_proposition, semantic_packets_for_projection,
     )
     from sentientos.risk_budget import RiskBudget
     from sentientos.work_allocator import allocate_goals
@@ -246,7 +246,8 @@ def test_cited_unverified_correction_defers_goal_without_revising_state(
 
     def allocate():
         projection = owner.cognitive_projection(max_states=1, current_tick=2,
-            prioritized_proposition_ids=(proposition.proposition_id,))
+            prioritized_proposition_ids=(proposition.proposition_id,),
+            relevance_query="sensor condition correction review")
         assert projection is not None
         return projection, allocate_goals(graph=graph, budget=budget,
             operating_mode="normal", integrity_pressure_level=0,
@@ -281,6 +282,9 @@ def test_cited_unverified_correction_defers_goal_without_revising_state(
     assert position["posture"] == "review_required"
     assert position["unverified_correction_binding_ids"] == [
         correction.binding_id]
+    [packet] = semantic_packets_for_projection(corrected_projection)
+    assert position["unverified_context_selection_provenance"] == packet[
+        "unverified_context_selection_provenance"]
     assert original_state.state_digest == corrected_projection.states[0][
         "state_digest"]
     assert original_state.generation == corrected_projection.states[0][
@@ -313,6 +317,9 @@ def test_cited_unverified_correction_defers_goal_without_revising_state(
     assert bounded_position["omitted_unverified_correction_context"]["count"] == 1
     assert bounded_position["omitted_unverified_correction_context"][
         "identity_digest"].startswith("sha256:")
+    [bounded_packet] = semantic_packets_for_projection(bounded_projection)
+    assert bounded_position["unverified_context_selection_provenance"] == bounded_packet[
+        "unverified_context_selection_provenance"]
 
 
 def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(

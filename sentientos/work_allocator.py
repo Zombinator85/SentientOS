@@ -192,6 +192,11 @@ def _epistemic_positions_for_goal(
         if isinstance(omitted_correction_context, Mapping):
             position["omitted_unverified_correction_context"] = dict(
                 omitted_correction_context)
+        context_selection_provenance = scope.get(
+            "unverified_context_selection_provenance")
+        if isinstance(context_selection_provenance, Mapping):
+            position["unverified_context_selection_provenance"] = dict(
+                context_selection_provenance)
         temporal_freshness_review = scope.get("temporal_freshness_review")
         if isinstance(temporal_freshness_review, Mapping):
             position["temporal_freshness_review"] = dict(

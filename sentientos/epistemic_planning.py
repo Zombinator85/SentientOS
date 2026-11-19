@@ -64,6 +64,8 @@ def review_required_applicability(
             "omitted_unverified_context_evidence_count", 0)
         omitted_correction_digest = packet.get(
             "omitted_unverified_context_identity_digest")
+        context_selection_provenance = packet.get(
+            "unverified_context_selection_provenance")
         correction_review_pending = bool(
             correction_binding_ids or omitted_correction_count)
         positive_current = (
@@ -99,6 +101,9 @@ def review_required_applicability(
                 "count": omitted_correction_count,
                 "identity_digest": omitted_correction_digest,
             }
+        if isinstance(context_selection_provenance, Mapping):
+            scope["unverified_context_selection_provenance"] = dict(
+                context_selection_provenance)
         scope["position_identity"] = {
             "schema_version": "sentientos.epistemic_review_position_identity:v1",
             "state_id": state["state_id"],
