@@ -738,6 +738,14 @@ operational for planning while preserving the evidence boundary; it does not
 decide whether the correction is true or resolve the position without
 independent evidence.
 
+Within a selected proposition, bounded v5 correction context is ranked by
+lexical overlap between the current relevance query and the correction text;
+recency breaks ties. With no matching query terms, recency remains the
+fallback. Omitted binding identities remain represented by the bounded
+omission count and digest. This improves which unverified reports reach the
+model under context pressure; it does not interpret a report or increase its
+evidentiary weight.
+
 When the correction is compared with a cited prior epistemic state, the later
 response now names that state as an earlier evidence-bound position and cites
 its exact state ID alongside the feedback record and historical dialogue turn.

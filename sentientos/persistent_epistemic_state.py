@@ -2411,6 +2411,8 @@ class PersistentEpistemicStateOwner:
         event_histories: list[tuple[Mapping[str, Any], ...]] = []
         context_histories: list[Mapping[str, Any]] = []
         candidate_histories: list[Mapping[str, Any]] = []
+        context_query_terms = (_epistemic_query_terms(relevance_query)
+            if isinstance(relevance_query, str) else set())
         has_unverified_context = False
         has_update_candidate_history = False
         for state in selected:
@@ -2459,11 +2461,19 @@ class PersistentEpistemicStateOwner:
             pending_context.sort(key=lambda item: (
                 _aware_instant(item.observation_time).astimezone(timezone.utc),
                 item.binding_id))
-            omitted_context = pending_context[
-                :max(0, len(pending_context)
-                    - MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE)]
-            retained_context = pending_context[
-                -MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE:]
+            ranked_context = sorted(pending_context,
+                key=lambda item: item.binding_id)
+            ranked_context.sort(key=lambda item: _aware_instant(
+                item.observation_time).astimezone(timezone.utc), reverse=True)
+            ranked_context.sort(key=lambda item: len(context_query_terms
+                & _epistemic_query_terms(item.unverified_context_text or "")),
+                reverse=True)
+            retained_context_ids = {item.binding_id for item in ranked_context[
+                :MAX_COGNITIVE_PROJECTION_UNVERIFIED_CONTEXT_BINDINGS_PER_STATE]}
+            retained_context = [item for item in pending_context
+                if item.binding_id in retained_context_ids]
+            omitted_context = [item for item in pending_context
+                if item.binding_id not in retained_context_ids]
             omitted_context_identities = [{"binding_id": item.binding_id,
                 "binding_digest": item.binding_digest} for item in omitted_context]
             context_histories.append({

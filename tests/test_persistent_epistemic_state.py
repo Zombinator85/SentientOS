@@ -15,7 +15,7 @@ from sentientos.persistent_epistemic_state import (
     validate_cognitive_projection, _question_relevant_proposition_ids,
     _projection_priority_ids,
     _proposition_priorities_from_state_citations,
-    _calibration_evidence_consistency,
+    _calibration_evidence_consistency, digest,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -117,6 +117,98 @@ def test_inflected_query_selects_prior_epistemic_packet_with_provenance(tmp_path
     assert packet["active_evidence_bindings"][0]["binding_id"] == (
         packet["state"]["support_binding_ids"][0])
     assert packet["authority"] is False
+
+
+def test_query_relevance_keeps_older_matching_correction_in_bounded_context(
+        tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_temperature",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The west sensor reported a stable temperature.")
+    owner.register_proposition(target)
+    support = binding(target, "correction-context-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="correction-context-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+
+    reports = (
+        "The west temperature sensor is offline.",
+        "The east battery needs replacement.",
+        "Greenhouse humidity fell overnight.",
+        "A door latch needs lubrication.",
+        "The dashboard color changed to blue.",
+    )
+    corrections = []
+    for index, text in enumerate(reports, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:context-selection-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes",
+            dependency_kind="unknown_dependency", dependency_group=None,
+            upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    relevant = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?")
+    unrelated = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="Tell me about the lunar mission.")
+    no_query = owner.cognitive_projection(max_states=1, current_tick=2)
+    assert relevant is not None and unrelated is not None and no_query is not None
+
+    [relevant_packet] = semantic_packets_for_projection(relevant)
+    relevant_rows = relevant_packet["unverified_context_evidence_bindings"]
+    relevant_ids = {item["binding_id"] for item in relevant_rows}
+    assert corrections[0].binding_id in relevant_ids
+    assert len(relevant_rows) == 4
+    assert [item["binding_id"] for item in relevant_rows] == [
+        corrections[index].binding_id for index in (0, 2, 3, 4)]
+    assert relevant_packet["omitted_unverified_context_evidence_count"] == 1
+    assert relevant_packet["omitted_unverified_context_identity_digest"] == digest([
+        {"binding_id": corrections[1].binding_id,
+            "binding_digest": corrections[1].binding_digest}])
+    assert relevant_packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+    assert relevant_packet["authority"] is False
+    assert relevant_packet["active_evidence_bindings"] == [support.record()]
+
+    for fallback in (unrelated, no_query):
+        [fallback_packet] = semantic_packets_for_projection(fallback)
+        fallback_ids = {item["binding_id"] for item in
+            fallback_packet["unverified_context_evidence_bindings"]}
+        assert len(fallback_ids) == 4
+        assert corrections[0].binding_id not in fallback_ids
+        assert corrections[4].binding_id in fallback_ids
+        assert fallback_packet[
+            "omitted_unverified_context_evidence_count"] == 1
+        assert fallback_packet[
+            "omitted_unverified_context_identity_digest"] == digest([
+                {"binding_id": corrections[0].binding_id,
+                    "binding_digest": corrections[0].binding_digest}])
+
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    model_context, _, _ = _bind_epistemic_context(
+        context={"instruction": EXPERIMENT_CONTEXT_INSTRUCTION},
+        projection=relevant)
+    [bound_packet] = model_context["prior_epistemic_state"][
+        "semantic_packets"]
+    assert corrections[0].binding_id in {
+        item["binding_id"] for item in
+        bound_packet["unverified_context_evidence_bindings"]}
 
 
 def test_candidate_rationale_retrieves_its_generic_prior_proposition(tmp_path):
