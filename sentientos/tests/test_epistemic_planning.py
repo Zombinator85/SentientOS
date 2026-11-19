@@ -384,6 +384,33 @@ def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(
     [plan_position] = plan_review["epistemic_positions"]
     assert plan_position["temporal_freshness_review"] == review
 
+    from sentientos.resident_developmental_cognition import (
+        _bind_history_and_epistemic_context,
+    )
+    within_context, _, _, _, _ = _bind_history_and_epistemic_context(
+        context={"instruction": "Use prior epistemic context carefully."},
+        records=(), projection=projection, history_present=False,
+        evaluation_time="2026-11-18T10:04:59Z")
+    [within_context_review] = within_context["prior_epistemic_state"][
+        "temporal_freshness_reviews"]
+    assert within_context_review["review"]["status"] == "within_limit"
+    bound_context, context_metadata, prompt, _, _ = (
+        _bind_history_and_epistemic_context(
+        context={"instruction": "Use prior epistemic context carefully."},
+        records=(), projection=projection, history_present=False,
+        evaluation_time="2026-11-18T10:05:01Z"))
+    [context_review] = bound_context["prior_epistemic_state"][
+        "temporal_freshness_reviews"]
+    assert context_review["proposition_id"] == bounded.proposition_id
+    assert context_review["packet_digest"]
+    assert context_review["review"] == review
+    assert context_metadata["epistemic_temporal_freshness_reviews"] == [
+        context_review]
+    assert "historical context only" in prompt
+    assert unrelated.proposition_id not in {
+        item["proposition_id"] for item in
+        bound_context["prior_epistemic_state"]["temporal_freshness_reviews"]}
+
     fresh = make_evidence_binding(
         proposition_id=bounded.proposition_id,
         source_artifact_id="observation:freshness-refresh",
