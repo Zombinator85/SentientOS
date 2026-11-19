@@ -6275,7 +6275,16 @@ def test_elliptical_companion_uses_prior_user_context_to_select_current_evidence
     assert invoker.last_prompt["companion_question"] == "What is the moon phase?"
     assert invoker.last_prompt["session_conversation_context"]["historical_only"] is True
     assert invoker.last_prompt["current_evidence"]["selection_policy"] == (
-        "sparse_question_then_session_user_context_then_existing_priority_conflict_closed:v3")
+        "sparse_or_elliptical_session_context_then_existing_priority_conflict_closed:v4")
+
+    forward_no_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-forward-no-context", question="What happens next?")
+    forward_context = cognition.run_companion_interaction(snapshot=current,
+        request_id="elliptical-forward-with-context", question="What happens next?",
+        conversation_context=conversation_context)
+    assert forward_no_context.evidence_ids == (moon_fact_id,)
+    assert forward_context.evidence_ids == (battery_fact_id,)
+    assert forward_context.response == "The battery sensor reports 9 volts."
 
 
 def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
@@ -10052,7 +10061,7 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
         "capture_scope": "allowlisted_foreground_game_client_area",
         "captured_at": now.isoformat(), "raw_frame_retained": False}
     baseline = epistemic.cognitive_projection(max_states=1,
-        current_tick=int(now.timestamp()), relevance_query="What now?")
+        current_tick=int(now.timestamp()), relevance_query="What happens next?")
     assert baseline is not None
 
     target = moon if baseline.proposition_ids == (battery.proposition_id,) else battery
@@ -10072,10 +10081,11 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
     conversation_context = {**context_semantic,
         "selection_digest": digest_payload(context_semantic)}
 
-    bridge.respond(request_id="baseline-sparse-projection", question="What now?",
+    bridge.respond(request_id="baseline-sparse-projection",
+        question="What happens next?",
         screen_observation=screen)
     bridge.respond(request_id="topic-resolved-sparse-projection",
-        question="What now?", screen_observation=screen,
+        question="What happens next?", screen_observation=screen,
         conversation_context=conversation_context)
     bridge.respond(request_id="specific-projection-with-prior-topic",
         question="What is the moon phase?", screen_observation=screen,
@@ -10092,7 +10102,7 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
     assert topic_projection.projection_digest != baseline_projection.projection_digest
     assert all(projection.current_truth is False and projection.authority is False
         for projection in (baseline_projection, topic_projection, specific_projection))
-    assert interaction_calls[1]["question"] == "What now?"
+    assert interaction_calls[1]["question"] == "What happens next?"
     assert interaction_calls[1]["conversation_context"]["turns"] == (
         conversation_context["turns"])
     assert conversation_context["selection_digest"] == digest_payload(context_semantic)

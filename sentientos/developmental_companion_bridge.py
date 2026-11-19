@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
-from .cognition_retrieval import cognition_query_terms
+from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
@@ -1002,7 +1002,7 @@ class ResidentDevelopmentalCompanionBridge:
         relevance_query = question
         if (isinstance(question, str) and question.strip()
                 and len(question) <= 1200
-                and len(cognition_query_terms(question)) < 2):
+                and is_sparse_or_elliptical_cognition_query(question)):
             relevance_parts = [question]
             turns = (conversation_context.get("turns", ())
                 if isinstance(conversation_context, Mapping) else ())
