@@ -699,6 +699,14 @@ def build_ordinary_chat_history_intervention_evaluation(*,
         "scorer_identity_digest": protocol["scorer_identity_digest"],
         "serving_model_identity_digest": protocol["serving_model_identity_digest"],
         "generation_config_digest": protocol["generation_config_digest"],
+        "matched_non_history_prompt_digest": prompt_bundle["verification"][
+            "matched_non_history_prompt_digest"],
+        "developmental_history_prompt_block_digest": prompt_bundle["verification"][
+            "developmental_history_prompt_block_digest"],
+        "history_present_selection_digest": prompt_bundle["verification"][
+            "history_present_selection_digest"],
+        "history_restored_selection_digest": prompt_bundle["verification"][
+            "history_restored_selection_digest"],
         "trial_index": protocol["trial_index"],
         "condition_order": list(protocol["condition_order"]),
         "condition_order_policy": prompt_bundle["verification"][
@@ -751,11 +759,19 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         raise ValueError("ordinary_chat_history_cohort_incomplete_blocks")
     identity_fields = ("session_id", "task_commitment_digest",
         "scoring_plan_digest", "scorer_identity_digest",
-        "serving_model_identity_digest", "generation_config_digest")
+        "serving_model_identity_digest", "generation_config_digest",
+        "matched_non_history_prompt_digest",
+        "developmental_history_prompt_block_digest",
+        "history_present_selection_digest",
+        "history_restored_selection_digest")
     expected_fields = {"schema_version", "protocol_id", "protocol_digest",
         "result_id", "result_digest", "session_id", "task_commitment_digest",
         "scoring_plan_digest", "scorer_identity_digest",
-        "serving_model_identity_digest", "generation_config_digest", "trial_index",
+        "serving_model_identity_digest", "generation_config_digest",
+        "matched_non_history_prompt_digest",
+        "developmental_history_prompt_block_digest",
+        "history_present_selection_digest", "history_restored_selection_digest",
+        "trial_index",
         "condition_order", "condition_order_policy", "condition_metrics",
         "planned_comparisons", "restoration_score_stable",
         "restoration_output_digest_stable", "interpretation_posture",
@@ -854,6 +870,10 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         "scorer_identity_digest": cohort_identity[3],
         "serving_model_identity_digest": cohort_identity[4],
         "generation_config_digest": cohort_identity[5],
+        "matched_non_history_prompt_digest": cohort_identity[6],
+        "developmental_history_prompt_block_digest": cohort_identity[7],
+        "history_present_selection_digest": cohort_identity[8],
+        "history_restored_selection_digest": cohort_identity[9],
         "trial_count": len(ordered), "counterbalance_block_count": len(ordered) // 6,
         "trial_indices": indices, "trial_evaluation_digests": [
             item["evaluation_digest"] for item in ordered],

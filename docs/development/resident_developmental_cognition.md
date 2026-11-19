@@ -893,7 +893,8 @@ evidence of effect, improvement, or learning.
 
 `build_ordinary_chat_history_intervention_cohort_summary` combines verified
 evaluation artifacts from one session, task, scorer, serving-model identity,
-and generation configuration. It requires a complete trial sequence from
+generation configuration, shared non-history prompt, and exact selected-history
+projection. It requires a complete trial sequence from
 index zero in full six-trial counterbalance blocks, so an interrupted or
 omitted trial prevents a seemingly complete cohort summary. It reports paired
 correct-count deltas for every trial, aggregate counts, and restoration-score
