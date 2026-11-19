@@ -39,6 +39,21 @@ The first 2026-11-19 attempt for task family
 `rootless_integer_affine_transfer_low_range_v5` stopped before model inference
 after observing CPU-only placement. Its immutable failure record is retained in
 the external experiment custody. It does not demonstrate cognition behavior.
-After the source change and focused checks pass, any follow-up must use a new
-seed and protocol digest binding the configured GPU layer count. The prior
-protocol and failed run must not be reused or overwritten.
+
+A second one-shot attempt used source commit `2b05ac7003e029d1e7b802183a34a7ab2bcf795b`,
+seed `20261120`, protocol digest
+`742ccee197d4c4a2ec1550cb422dfc2f8fa92e804ebffdf222e119715d2e9ecf`, and a
+requested layer count of 99. The run again observed `size_vram_bytes: 0` and
+`cpu_only`, timed out without a model response, then recorded a successful
+governed unload. No cognitive behavior was measured. The Ollama server log
+identified its active inference backend as `library=cpu`; the model load record
+reported `layers.offload=0`. This supports an environment/runtime limitation,
+not a failure to forward the requested setting. The run's immutable failure
+artifact is `cycle-failure.json` in the private experimental custody.
+
+The requested placement setting and its software checks are established. Real
+Hermes cognition on GPU remains unverified until an Ollama runtime with a
+GPU-capable inference library is available. Do not retry against the same
+CPU-only runtime. Any later attempt must use a new seed and protocol digest
+binding its configured GPU layer count; prior protocols and failed runs must
+not be reused or overwritten.
