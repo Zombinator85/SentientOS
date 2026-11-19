@@ -394,12 +394,16 @@ class CanonicalMemoryStore:
             if descriptor is not None:
                 os.close(descriptor)
 
-    def _records(self) -> tuple[list[dict[str, Any]], str]:
+    def _records(self, *, max_records: int = MAX_MEMORY_RECORDS
+            ) -> tuple[list[dict[str, Any]], str]:
+        if (type(max_records) is not int
+                or not 1 <= max_records <= MAX_MEMORY_SCAN_ENTRIES):
+            raise ValueError("canonical_memory_record_scan_bound_invalid")
         if os.name == "nt":
             try:
                 from .windows_handle_custody import verify_explicit_directory
                 verify_explicit_directory(self.root, require_private_acl=True)
-                entries = read_regular_files(self.raw, max_entries=MAX_MEMORY_RECORDS,
+                entries = read_regular_files(self.raw, max_entries=max_records,
                     max_file_bytes=MAX_RETENTION_RECORD_BYTES,
                     max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json",
                     require_private_acl=True)
@@ -428,7 +432,7 @@ class CanonicalMemoryStore:
                             return [], "directory_entry_bound_exceeded"
                         if entry.name.endswith(".json"):
                             names.append(entry.name)
-                            if len(names) > MAX_MEMORY_RECORDS:
+                            if len(names) > max_records:
                                 return [], "memory_record_bound_exceeded"
                 raw_entries = []
                 total = 0
@@ -504,7 +508,9 @@ class CanonicalMemoryStore:
             semantic_model_revision: str | None = None,
             record_validator: Callable[[Mapping[str, Any]], bool] | None = None
             )->dict[str,Any]:
-        records, retrieval_posture = self._records()
+        records, retrieval_posture = (self._records(
+            max_records=MAX_MEMORY_SCAN_ENTRIES) if record_validator is not None
+            else self._records())
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         record_validation_decisions: list[dict[str, Any]] = []
@@ -542,6 +548,13 @@ class CanonicalMemoryStore:
             # Unverified records must not participate in correction graphs,
             # lexical corpus statistics, semantic candidate sampling, or
             # final bounded selection.
+            if len(verified_records) > MAX_MEMORY_RECORDS:
+                verified_records.sort(key=lambda record: (
+                    _memory_record_timestamp(record), str(record.get("id", ""))),
+                    reverse=True)
+                verified_records = verified_records[:MAX_MEMORY_RECORDS]
+                if retrieval_posture == "complete":
+                    retrieval_posture = "verified_record_limit_reached"
             records = verified_records
         terms = _memory_retrieval_terms(query)
         by_id = {record.get("id"): record for record in records

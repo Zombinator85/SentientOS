@@ -3401,7 +3401,7 @@ def test_canonical_memory_source_validation_precedes_bounded_selection(
         "text": "The cedar shelf was assembled in the workshop.",
         "timestamp": "2026-01-02T00:00:00+00:00"}
     store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
-    monkeypatch.setattr(store, "_records", lambda: ([verified, unverified], "complete"))
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: ([verified, unverified], "complete"))
     monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
 
     unfiltered = store.retrieve("cedar shelf", limit=1)
@@ -3429,7 +3429,7 @@ def test_canonical_memory_source_validation_precedes_semantic_candidate_sampling
     target = {"id": "memory-verified-target", "text": target_text,
         "timestamp": "2026-01-01T00:00:00+00:00"}
     store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
-    monkeypatch.setattr(store, "_records", lambda: ([*decoys, target], "complete"))
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: ([*decoys, target], "complete"))
     monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
     validated_ids: list[str] = []
 
@@ -3467,7 +3467,7 @@ def test_unverified_memory_correction_cannot_suppress_verified_history(
             "correction_targets": [{"memory_id": original["id"],
                 "memory_record_digest": digest(original)}]}}
     store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
-    monkeypatch.setattr(store, "_records", lambda: (
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: (
         [original, unverified_correction], "complete"))
     monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
 
@@ -3476,6 +3476,41 @@ def test_unverified_memory_correction_cannot_suppress_verified_history(
 
     assert result["selected_memory_ids"] == [original["id"]]
     assert result["record_validation_posture"] == "inspected_candidates_rejected"
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="canonical memory private-root custody is unavailable on Windows")
+def test_verified_memory_survives_invalid_records_beyond_default_record_cap(
+        tmp_path: Path) -> None:
+    store = CanonicalMemoryStore(tmp_path / "memory")
+    directory_fd = store.open_raw_directory(prepare_for_write=True)
+    os.close(directory_fd)
+    target_id = f"memory-{1024:024x}"
+    text = "The cedar shelf was assembled in the west workshop."
+    for index in range(1025):
+        memory_id = f"memory-{index:024x}"
+        record = {
+            "id": memory_id,
+            "text": text,
+            "text_digest": digest({"text": text}),
+            "timestamp": "2026-01-02T00:00:00+00:00" if index < 1024
+                else "2026-01-01T00:00:00+00:00",
+        }
+        path = store.raw / f"{memory_id}.json"
+        path.write_text(json.dumps(record, sort_keys=True) + "\n",
+            encoding="utf-8")
+        os.chmod(path, 0o600)
+
+    unverified = store.retrieve("cedar shelf")
+    verified = store.retrieve("cedar shelf", limit=1,
+        record_validator=lambda record: record["id"] == target_id)
+
+    assert unverified["memories"] == []
+    assert unverified["retrieval_posture"] == "memory_record_bound_exceeded"
+    assert [record["id"] for record in verified["memories"]] == [target_id]
+    assert verified["record_validation_posture"] == "inspected_candidates_rejected"
+    assert verified["omitted_memory_count"] == 1024
+    assert verified["selection_posture"] == "matching_records_omitted"
 
 
 def test_canonical_memory_semantic_refinement_displaces_weak_overlap_but_keeps_strong_lexical_priority(
