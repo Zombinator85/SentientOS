@@ -1769,6 +1769,8 @@ def test_failed_memory_source_verification_forces_resident_clarification(
     assert observation["companion_memory_citation_ids"] == []
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
 def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
@@ -1784,7 +1786,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
                 prompt = json.loads(request.prompt)
                 memory = prompt.get("canonical_user_memory_context", {})
                 records = memory.get("records", [])
-                applies = ("overheat" in prompt.get("companion_question", "").casefold()
+                question = prompt.get("companion_question", "").casefold()
+                applies = (question in {"could it overheat?", "what happens next?"}
                     and any("overheating" in str(row.get("text", "")).casefold()
                         for row in records if isinstance(row, dict)))
                 cited_ids = ([row["memory_id"] for row in records
@@ -1827,6 +1830,8 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
             clock=lambda: now))
     baseline = baseline_app.chat("Could it overheat?", observe_screen=True)
     assert baseline.response == "I have no retained overheating note."
+    baseline_sparse = baseline_app.chat("What happens next?", observe_screen=True)
+    assert baseline_sparse.response == baseline.response
 
     app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,
         cognition_bridge=ResidentDevelopmentalCompanionBridge(cognition,
@@ -1863,6 +1868,34 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         linkage["cognition_observation_id"], linkage["cognition_observation_digest"])
     assert observation["companion_memory_citation_ids"] == [memory_id]
     assert observation["canonical_user_memory_record_ids"] == [memory_id]
+
+    # A bounded prior topic in this new session resolves a sparse follow-up to
+    # the retained memory. The same sparse question without that topic had no
+    # retrieval match, so this checks application of the retrieval result end
+    # to end rather than retrieval alone.
+    topic_session_id = restarted_app.create_session()
+    restarted_app.chat("The cooling unit showed overheating during testing.",
+        session_id=topic_session_id, request_id="sparse-memory-topic")
+    sparse_response = restarted_app.chat("What happens next?",
+        session_id=topic_session_id, request_id="sparse-memory-followup",
+        observe_screen=True)
+    assert sparse_response.response == "The retained note described overheating."
+    assert sparse_response.response != baseline_sparse.response
+    sparse_prompt = json.loads(restarted_invoker.requests[-1].prompt)
+    sparse_memory = sparse_prompt["canonical_user_memory_context"]
+    assert [row["memory_id"] for row in sparse_memory["records"]] == [memory_id]
+    sparse_context = sparse_prompt["session_conversation_context"]
+    assert any(row["role"] == "user"
+        and row["text"] == "The cooling unit showed overheating during testing."
+        for row in sparse_context["turns"])
+    sparse_linkage = restarted_app.sessions.load(topic_session_id)["turns"][-1]["linkage"]
+    assert sparse_linkage["cognition_memory_citation_ids"] == [memory_id]
+    sparse_observation = restarted_cognition.verified_cognition_observation(
+        sparse_linkage["cognition_observation_id"],
+        sparse_linkage["cognition_observation_digest"])
+    assert sparse_observation["companion_memory_citation_ids"] == [memory_id]
+    assert sparse_observation["authority"] is False
+    assert sparse_observation["current_truth"] is False
 
     unrelated = restarted_app.chat("What about asteroids?",
         session_id=query_session_id, request_id="unrelated-memory-query",
