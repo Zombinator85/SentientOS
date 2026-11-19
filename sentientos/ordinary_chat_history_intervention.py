@@ -995,11 +995,45 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     aggregate: dict[str, dict[str, Any]] = {}
     for comparison, rows in trial_deltas.items():
         scoreable_rows = [row for row in rows if row["scoreable"]]
+        probe_accumulators: dict[str, dict[str, Any]] = {}
+        expected_probe_ids: tuple[str, ...] | None = None
+        for row in scoreable_rows:
+            current_probe_ids = tuple(probe["probe_id"]
+                for probe in row["per_probe_outcomes"])
+            if (len(set(current_probe_ids)) != len(current_probe_ids)
+                    or len(current_probe_ids) != row["probe_count"]
+                    or (expected_probe_ids is not None
+                        and current_probe_ids != expected_probe_ids)):
+                raise ValueError("ordinary_chat_history_cohort_probe_alignment_invalid")
+            expected_probe_ids = current_probe_ids
+            for probe in row["per_probe_outcomes"]:
+                probe_id = probe["probe_id"]
+                accumulator = probe_accumulators.setdefault(probe_id, {
+                    "probe_id": probe_id, "paired_trial_count": 0,
+                    "favored_correct_count": 0, "reference_correct_count": 0,
+                    "correctness_delta_sum": 0, "outcome_pair_counts": {},
+                })
+                accumulator["paired_trial_count"] += 1
+                accumulator["favored_correct_count"] += int(
+                    probe["favored_outcome"] == "correct")
+                accumulator["reference_correct_count"] += int(
+                    probe["reference_outcome"] == "correct")
+                accumulator["correctness_delta_sum"] += probe["correctness_delta"]
+                pair = probe["favored_outcome"] + "_vs_" + probe["reference_outcome"]
+                accumulator["outcome_pair_counts"][pair] = (
+                    accumulator["outcome_pair_counts"].get(pair, 0) + 1)
+        if scoreable_rows and sum(item["correctness_delta_sum"]
+                for item in probe_accumulators.values()) != sum(
+                    row["correct_count_delta"] for row in scoreable_rows):
+            raise ValueError("ordinary_chat_history_cohort_probe_delta_mismatch")
+        probe_summaries = sorted(probe_accumulators.values(),
+            key=lambda item: item["probe_id"])
         aggregate[comparison] = {
             "trial_count": len(rows), "scoreable_trial_count": len(scoreable_rows),
             "correct_count_delta_sum": sum(row["correct_count_delta"]
                 for row in scoreable_rows),
             "probe_count_sum": sum(row["probe_count"] for row in scoreable_rows),
+            "per_probe_summary": probe_summaries,
             "per_probe_outcomes": [row["per_probe_outcomes"]
                 for row in rows],
             "per_trial": rows,

@@ -899,9 +899,11 @@ generation configuration, shared non-history prompt, and exact selected-history
 projection. It requires a complete trial sequence from
 index zero in full six-trial counterbalance blocks, so an interrupted or
 omitted trial prevents a seemingly complete cohort summary. It reports paired
-correct-count deltas and paired per-probe outcomes for every trial, aggregate
-counts, and restoration-score stability while retaining unscoreable outcomes
-in the trial count. This is a
+correct-count deltas and paired per-probe outcomes for every trial, aggregates
+correctness and outcome transitions per probe across scoreable repetitions,
+and reports restoration-score stability while retaining unscoreable outcomes
+in the trial count. It verifies that the paired probe identities and probe
+level deltas agree across trials and with aggregate deltas. This is a
 descriptive within-task summary; it does not establish transfer,
 generalization, improvement, or learning.
 `OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each
