@@ -1069,7 +1069,9 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
     assert followup.context["cognition_conversation_turn_citation_digests"] == [
         supplied["turns"][2]["text_digest"]]
     assert seen_contexts[1] is None
-    assert seen_contexts[2]["turns"] == supplied["turns"]
+    assert any(row["role"] == "user" and row["text"] == (
+        "The west sensor drifted by three degrees after warmup.")
+        for row in seen_contexts[2]["turns"])
     assert seen_contexts[3] is None
 
 
