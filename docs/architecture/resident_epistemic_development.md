@@ -105,6 +105,13 @@ explicit scope. Deterministic coverage is in
 `sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
 real-model application remains unverified.
 
+For bounded epistemic-revision probes, the same review also constrains the
+evidence-ID allowlist: only supporting bindings individually within the age
+limit can be cited as current evidence. Expired or unresolved support remains
+visible in the historical packet and is excluded from the allowlist; an
+unscoped proposition retains the prior citation behavior. This prevents an
+expired binding from being reintroduced as current evidence by a later probe.
+
 Planning also treats a tagged prior position with an explicit projected
 `contradicts` relation as requiring review, even when that position's own
 evidence posture is positive and the connected proposition is not separately
