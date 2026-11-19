@@ -903,3 +903,18 @@ preregistration and failure records remain in the private local evidence
 workspace; neither run is production-serving evidence. Focused custody,
 prompt-bound, runner, and serialization tests pass. The remaining empirical
 blocker is a completed bounded local-model response.
+
+## Using oracle examples when model identity is unavailable
+
+Task-family history no longer discards evaluator-correct, score-bound examples
+solely because the current model identity cannot be observed. The production
+history binder includes those examples with an explicit
+`model_identity_unbound_oracle_examples_only_performance_unproven` posture and
+the prompt directs the model to check each example against the current task
+while retaining uncertainty. This path never derives a model-specific
+candidate strategy or favorable outcome corroboration from identity-unbound
+history; malformed and unscored examples remain excluded. A deterministic
+counterfactual through the production binder shows a controlled fake policy
+can replay an exact prior example with history and abstains when history is
+withheld. This demonstrates context availability and fixture-level application,
+not real-model performance, cross-model transfer, or learning.
