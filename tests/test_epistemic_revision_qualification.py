@@ -306,6 +306,149 @@ def test_multi_proposition_probe_keeps_target_and_scopes_citations(
         "allowed_evidence_binding_ids"] == [binding_ids[target.proposition_id]]
 
 
+def test_multi_proposition_qualification_scores_only_target_evidence(
+        tmp_path: Path) -> None:
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "qualification-epistemics",
+        allowed_namespaces=("embodiment",))
+    target = make_proposition(namespace="embodiment", subject="body:q1",
+        predicate="reports_status", object_value="healthy", polarity="positive",
+        qualifiers={}, temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    peer = make_proposition(namespace="embodiment", subject="battery:q1",
+        predicate="reports_status", object_value="healthy", polarity="positive",
+        qualifiers={}, temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    evidence: dict[str, list[str]] = {}
+    for index, proposition in enumerate((target, peer), start=1):
+        epistemic.register_proposition(proposition)
+        binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+            source_artifact_id=f"qualification-support-{index}",
+            source_digest="sha256:" + str(index) * 64,
+            source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group=f"qualification-support-{index}",
+            upstream_binding_ids=(), freshness="current",
+            reliability_posture="verified")
+        epistemic.bind_evidence(binding)
+        evidence[proposition.proposition_id] = [binding.binding_id]
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=[binding.binding_id], added_binding_ids=[binding.binding_id],
+            correlation_id=f"qualification-support:{index}", tick=index,
+            recorded_at="2026-01-01T00:00:00Z")
+    before_projection = epistemic.cognitive_projection(max_states=2, current_tick=3,
+        prioritized_proposition_ids=(peer.proposition_id, target.proposition_id))
+    contradiction = make_evidence_binding(proposition_id=target.proposition_id,
+        source_artifact_id="qualification-contradiction",
+        source_digest="sha256:" + "3" * 64,
+        source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+        observation_time="2026-01-02T00:00:00Z", evidence_relation="contradicts",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="qualification-contradiction", upstream_binding_ids=(),
+        freshness="current", reliability_posture="verified")
+    epistemic.bind_evidence(contradiction)
+    target_state = epistemic.current_state(target.proposition_id)
+    assert target_state is not None
+    epistemic.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=target_state.state_digest,
+        stance="contested", reason="contradiction_arrival",
+        active_binding_ids=[*evidence[target.proposition_id], contradiction.binding_id],
+        added_binding_ids=[contradiction.binding_id],
+        correlation_id="qualification-correction", tick=3,
+        recorded_at="2026-01-02T00:00:00Z")
+    after_projection = epistemic.cognitive_projection(max_states=2, current_tick=4,
+        prioritized_proposition_ids=(peer.proposition_id, target.proposition_id))
+    assert before_projection is not None and after_projection is not None
+    assert set(before_projection.proposition_ids) == set(after_projection.proposition_ids) == {
+        target.proposition_id, peer.proposition_id}
+    evidence[target.proposition_id].append(contradiction.binding_id)
+
+    class ScopedQualificationInvoker(SessionBoundFakeInvoker):
+        def __init__(self, *, cite_peer: bool):
+            super().__init__()
+            self.cite_peer = cite_peer
+            self.prompt_contexts = []
+
+        def invoke(self, request, **kwargs):
+            receipt = super().invoke(request, **kwargs)
+            context = json.loads(request.prompt)
+            probe = context["epistemic_revision_probe"]
+            packets = context["prior_epistemic_state"]["semantic_packets"]
+            target_packet = next(packet for packet in packets
+                if packet["proposition"]["proposition_id"]
+                    == probe["target_proposition_id"])
+            self.prompt_contexts.append(context)
+            evidence_ids = ([evidence[peer.proposition_id][0]] if self.cite_peer else
+                probe["allowed_evidence_binding_ids"])
+            output = json.dumps({"conclusion": target_packet["state"]["stance"],
+                "reason_code": "target_packet_reviewed",
+                "evidence_ids": evidence_ids}, separators=(",", ":"))
+            simulated = replace(receipt, status="admitted_simulation",
+                output_text=output, output_digest=digest_payload({"output": output}),
+                output_size_bytes=len(output.encode("utf-8")),
+                effects={**dict(receipt.effects), "local_model_inference": False})
+            self.receipts.pop(receipt.receipt_id, None)
+            self.receipts[simulated.receipt_id] = simulated
+            return simulated
+
+    before_key = IndependentAnswerKey("supported", "supported",
+        "target_support_retained", tuple(evidence[target.proposition_id][:1]))
+    after_key = IndependentAnswerKey("contested", "contested",
+        "target_conflict_preserved", tuple(evidence[target.proposition_id]))
+
+    def run_pair(*, label: str, cite_peer: bool):
+        invoker = ScopedQualificationInvoker(cite_peer=cite_peer)
+        cognition, _ = owner(_cognition_root(tmp_path, f"qualification-{label}"),
+            invoker=invoker)
+        tick_prefix = f"qualification-{label}"
+        before_preview = cognition.preview_epistemic_revision_probe_prompt(
+            snapshot=snapshot(), tick_id=f"{tick_prefix}:before",
+            prior_epistemic_state=before_projection,
+            proposition_id=target.proposition_id)
+        after_preview = cognition.preview_epistemic_revision_probe_prompt(
+            snapshot=snapshot(), tick_id=f"{tick_prefix}:after",
+            prior_epistemic_state=after_projection,
+            proposition_id=target.proposition_id)
+        case = RevisionCase(case_id=f"multi-proposition-{label}",
+            kind="contrary_evidence", proposition_id=target.proposition_id,
+            evaluator_version="target-scoped-v1",
+            before_prompt_digest=before_preview["prompt_digest"],
+            after_prompt_digest=after_preview["prompt_digest"],
+            before_key=before_key, after_key=after_key,
+            commitment_nonce=("a" if cite_peer else "b") * 64)
+        report = run_epistemic_revision_pair_once(cognition=cognition, case=case,
+            before_snapshot=snapshot(), after_snapshot=snapshot(),
+            before_projection=before_projection, after_projection=after_projection,
+            tick_prefix=tick_prefix)
+        assert len(invoker.prompt_contexts) == 2
+        for context in invoker.prompt_contexts:
+            probe = context["epistemic_revision_probe"]
+            target_packet = next(packet for packet in
+                context["prior_epistemic_state"]["semantic_packets"]
+                if packet["proposition"]["proposition_id"]
+                    == target.proposition_id)
+            assert probe["target_proposition_id"] == target.proposition_id
+            assert probe["allowed_evidence_binding_ids"] == sorted(
+                evidence[target.proposition_id][:1]
+                if target_packet["state"]["stance"] == "supported"
+                else evidence[target.proposition_id])
+            assert {packet["proposition"]["proposition_id"] for packet in
+                context["prior_epistemic_state"]["semantic_packets"]} == {
+                    target.proposition_id, peer.proposition_id}
+        return report
+
+    accepted = run_pair(label="target-citations", cite_peer=False)
+    assert accepted["status"] == "case_passed", accepted["control_mismatches"]
+    assert accepted["before"]["citations_correct"] is True
+    assert accepted["after"]["citations_correct"] is True
+
+    rejected = run_pair(label="peer-citation", cite_peer=True)
+    assert rejected["status"] == "case_failed", rejected["control_mismatches"]
+    assert rejected["before"]["citations_correct"] is False
+    assert rejected["after"]["citations_correct"] is False
+
+
 def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
     before = {"instruction": "same", "prior_epistemic_state": {"stance": "supported"},
         "current_evidence": {"fact": "old"}, "future_prompt_field": {"mode": "one"}}
@@ -520,6 +663,7 @@ class StructuredFixtureInvoker(SessionBoundFakeInvoker):
 
 
 def _run_condition(root: Path, projection):
+    root = _cognition_root(root.parent, root.name)
     invoker = StructuredFixtureInvoker()
     cognition, _ = owner(root, invoker=invoker)
     cognition.run_tick(snapshot=snapshot(), tick_id="history-seed")
@@ -603,9 +747,25 @@ def test_owner_epistemic_revision_probe_requests_scored_json_without_key(
             self.receipts[simulated.receipt_id] = simulated
             return simulated
 
-    projection, _proposition, _state = epistemic_projection(tmp_path / "epistemic")
+    projection, proposition, _state = epistemic_projection(
+        tmp_path / "epistemic", with_evidence=True)
+    [source_packet] = semantic_packets_for_projection(projection)
+    withdrawn_binding_id = source_packet["active_evidence_bindings"][0]["binding_id"]
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "epistemic",
+        allowed_namespaces=["embodiment"])
+    current_state = epistemic.current_state(proposition.proposition_id)
+    assert current_state is not None
+    epistemic.commit_update(proposition_id=proposition.proposition_id,
+        expected_predecessor_digest=current_state.state_digest, stance="unknown",
+        reason="evidence_withdrawal", active_binding_ids=(),
+        removed_binding_ids=(withdrawn_binding_id,),
+        correlation_id="probe-withdraw-support", tick=2,
+        recorded_at="2026-01-02T00:00:00Z")
+    projection = epistemic.cognitive_projection(max_states=1, current_tick=3,
+        prioritized_proposition_ids=(proposition.proposition_id,))
+    assert projection is not None
     invoker = ProbeFixtureInvoker()
-    cognition, _ = owner(tmp_path / "cognition", invoker=invoker)
+    cognition, _ = owner(_cognition_root(tmp_path, "cognition"), invoker=invoker)
     result = cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
         tick_id="epistemic-revision-probe", prior_epistemic_state=projection)
 

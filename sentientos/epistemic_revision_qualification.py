@@ -174,10 +174,14 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             key: IndependentAnswerKey, case_id: str, evaluator_version: str,
             condition: str) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
     observation = reader.verified_cognition_observation(observation_id)
-    if projection.proposition_ids != (proposition_id,):
+    if proposition_id not in projection.proposition_ids:
         raise ValueError("qualification_proposition_scope_mismatch")
     packets = semantic_packets_for_projection(projection)
-    [expected_packet] = packets
+    target_packets = [packet for packet in packets
+        if packet.get("proposition", {}).get("proposition_id") == proposition_id]
+    if len(target_packets) != 1:
+        raise ValueError("qualification_proposition_scope_mismatch")
+    expected_packet = target_packets[0]
     payload = receipt.to_dict(include_output=True)
     valid, reasons = validate_receipt(payload)
     if not valid:
