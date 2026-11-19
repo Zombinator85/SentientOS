@@ -9223,17 +9223,18 @@ class ResidentDevelopmentalCognitionOwner:
         return tuple((unique_turn_references + additional_report_references)[:16])
 
     def ordinary_chat_developmental_history_context_for_model(self, *, question: str,
-            target_model_identity: Mapping[str, Any],
+            target_model_identity: Mapping[str, Any] | None,
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS
             ) -> dict[str, Any] | None:
         """Project ordinary-chat history with exact source-to-serving model relations."""
-        if (not isinstance(target_model_identity, Mapping)
-                or not target_model_identity):
+        if (target_model_identity is not None
+                and not isinstance(target_model_identity, Mapping)):
             raise ResidentDevelopmentalCognitionError(
                 "ordinary_chat_target_model_identity_invalid")
         return self.ordinary_chat_developmental_history_context(
             question=question, max_input_chars=max_input_chars,
-            target_model_identity=target_model_identity)
+            target_model_identity=(target_model_identity
+                if target_model_identity else None))
 
     def ordinary_chat_developmental_history_context(self, *, question: str,
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
@@ -9245,8 +9246,7 @@ class ResidentDevelopmentalCognitionOwner:
                 or type(max_input_chars) is not int
                 or not 128 <= max_input_chars <= MAX_RESIDENT_COGNITION_INPUT_CHARS
                 or (target_model_identity is not None
-                    and (not isinstance(target_model_identity, Mapping)
-                        or not target_model_identity))):
+                    and not isinstance(target_model_identity, Mapping))):
             raise ResidentDevelopmentalCognitionError(
                 "ordinary_chat_developmental_history_request_invalid")
         tick_id = "ordinary-chat-" + hashlib.sha256(

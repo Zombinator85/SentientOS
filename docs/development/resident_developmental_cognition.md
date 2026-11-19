@@ -824,9 +824,10 @@ or permission to update any state. Selected identities and the selection digest
 are saved on the invocation and assistant turn. The model-aware owner entry
 point receives the active serving identity, allowing scored task-family
 examples to carry exact same-model, different-model, or unbound applicability
-posture. This describes provenance and does not imply successful transfer. The
-prompt treats these relations as applicability metadata, not performance
-evidence. The deterministic
+posture. Missing identity remains explicitly unbound and does not disable
+history retrieval. This describes provenance and does not imply successful
+transfer. The prompt treats these relations as applicability metadata, not
+performance evidence. The deterministic
 `tests/test_persistent_governed_conversation.py::test_ordinary_fallback_applies_verified_developmental_history`
 counterfactual demonstrates a changed fake fallback answer when the relevant
 verified history is present, and the paired prompt test checks tampering is
