@@ -6213,7 +6213,8 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
                 text = json.dumps(facts, sort_keys=True).casefold()
                 has_safe = "safe for entry" in text
                 has_unsafe = "unsafe for entry" in text
-                if current.get("withheld_conflict_reasons"):
+                if (current.get("withheld_conflict_reasons")
+                        or current.get("relevant_conflict_present")):
                     decision = {"disposition": "answer",
                         "response": "The entry is safe.",
                         "evidence_ids": ([facts[0].get("fact_id")] if facts else []),
@@ -6281,9 +6282,16 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
     complete_projection = complete._current_projection(current,
         question="Is the east entry safe for entry?")
     assert set(complete_projection.fact_ids) == conflict_fact_ids
+    assert complete_projection.relevant_conflict_present is True
     complete_result = complete.run_companion_interaction(snapshot=current,
         request_id="conflicting-entry-complete", question="Is the east entry safe for entry?")
     assert complete_result.disposition == "ask"
+    assert complete_invoker.last_model_decision["disposition"] == "answer"
+    assert "relevant current evidence is conflicting" in complete_result.response
+    complete_prompt = complete_invoker.last_prompt
+    assert complete_prompt["current_evidence"]["relevant_conflict_present"] is True
+    assert "Treat those observations as unresolved disagreement" in complete_prompt[
+        "instruction"]
     assert set(complete_result.evidence_ids).isdisjoint(conflict_fact_ids)
     assert (set(complete_invoker.requests[-1].upstream_evidence["current_fact_ids"])
         == conflict_fact_ids)
@@ -6308,6 +6316,7 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
         if fact.source.source_id == "temperature-unrelated"}
     assert set(unrelated_projection.fact_ids) == temperature_fact_ids
     assert unrelated_projection.withheld_conflict_reasons == ()
+    assert unrelated_projection.relevant_conflict_present is False
 
     partially_eligible = WorldStateBoardBuilder().build([
         {"source_id": "eligible-entry-permit", "source_kind": "capability_registry",

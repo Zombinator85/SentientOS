@@ -5784,6 +5784,7 @@ class CurrentWorldStateCognitiveProjection:
     projection_id: str = ""
     projection_digest: str = ""
     withheld_conflict_reasons: tuple[str, ...] = ()
+    relevant_conflict_present: bool = False
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self)
@@ -5791,6 +5792,8 @@ class CurrentWorldStateCognitiveProjection:
         value.pop("projection_digest")
         if not self.withheld_conflict_reasons:
             value.pop("withheld_conflict_reasons")
+        if not self.relevant_conflict_present:
+            value.pop("relevant_conflict_present")
         return value
 
 
@@ -5864,16 +5867,16 @@ def _normalize_present_answer_for_source_freshness(
             or not _asks_about_present_condition(question)):
         return normalized
 
-    if current.withheld_conflict_reasons:
+    if current.withheld_conflict_reasons or current.relevant_conflict_present:
         normalized.update({
             "model_disposition": "answer",
             "disposition": "ask",
             "disposition_normalization": (
-                "present_conflict_context_withheld_by_selection"),
+                "present_conflict_context_unresolved_or_withheld"),
             "response": (
-                "I cannot assess this as uncontested because relevant current conflict "
-                "context was omitted from the selected evidence. Could you provide a "
-                "fresh observation from an eligible source?"),
+                "I cannot assess this as uncontested because relevant current evidence "
+                "is conflicting or incomplete. Could you provide a fresh observation "
+                "from an eligible source?"),
             "evidence_ids": [],
             "history_record_ids": [],
             "memory_record_ids": [],
@@ -5969,6 +5972,8 @@ def _current_evidence_prompt_payload(
     conflicts = [dict(item) for item in raw_conflicts]
     prompt_payload: dict[str, Any] = {
         "schema_version": (
+            "sentientos.current_world_state_cognitive_projection_summary:v7"
+            if current.relevant_conflict_present else
             "sentientos.current_world_state_cognitive_projection_summary:v6"
             if current.withheld_conflict_reasons else
             "sentientos.current_world_state_cognitive_projection_summary:v5"
@@ -5999,6 +6004,8 @@ def _current_evidence_prompt_payload(
     if current.withheld_conflict_reasons:
         prompt_payload["withheld_conflict_reasons"] = list(
             current.withheld_conflict_reasons)
+    if current.relevant_conflict_present:
+        prompt_payload["relevant_conflict_present"] = True
     if conflicts:
         # Conflict membership is an atomic relation over the selected fact IDs.
         # Preserve the complete owner-issued rows while compacting only the
@@ -9540,6 +9547,10 @@ class ResidentDevelopmentalCognitionOwner:
                 selected_ids.update(members)
             elif len(members) > 1 and conflict_is_relevant(members):
                 withheld_conflict_reasons.add("fact_budget_group_exceeded")
+        relevant_conflict_present = any(
+            len(members) > 1 and members.issubset(selected_ids)
+            and conflict_is_relevant(members)
+            for members in units)
         facts = sorted((fact for fact in candidates if fact.fact_id in selected_ids),
             key=selection_key)
         selected = (self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
@@ -9549,7 +9560,9 @@ class ResidentDevelopmentalCognitionOwner:
                                                     selected.sources, selected.conflicts,
                                                     tuple(str(x["fact_id"]) for x in selected.facts),
                                                     withheld_conflict_reasons=tuple(
-                                                        sorted(withheld_conflict_reasons)))
+                                                        sorted(withheld_conflict_reasons)),
+                                                    relevant_conflict_present=(
+                                                        relevant_conflict_present))
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="current-world-state-" + digest[7:31], projection_digest=digest)
 
@@ -9871,6 +9884,13 @@ class ResidentDevelopmentalCognitionOwner:
                 "those conflicts and ask for eligible observations or clarification "
                 "before asserting a side as current. These reason codes are selection "
                 "metadata, not evidence or authority.")
+        if current.relevant_conflict_present:
+            context["instruction"] += (
+                " current_evidence contains a complete conflict group relevant to the "
+                "question. Treat those observations as unresolved disagreement: do not "
+                "select one side or present either as uncontested current condition. "
+                "Ask for a resolving observation or clarification. Conflict metadata "
+                "does not grant truth or authority.")
         if interaction_question is not None:
             context["instruction"] += COMPANION_HISTORY_INTERVENTION_INSTRUCTION
             selected_self_model = context.get("prior_self_model")
