@@ -403,16 +403,29 @@ def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(
     from sentientos.resident_developmental_cognition import (
         _bind_history_and_epistemic_context,
     )
+    probe_context = {
+        "instruction": "Use prior epistemic context carefully.",
+        "epistemic_revision_probe": {
+            "response_contract": "sentientos.epistemic_revision_answer:v2",
+            "question": "Which evidence remains current?",
+        },
+    }
     within_context, _, _, _, _ = _bind_history_and_epistemic_context(
-        context={"instruction": "Use prior epistemic context carefully."},
+        context=probe_context,
         records=(), projection=projection, history_present=False,
         evaluation_time="2026-11-18T10:04:59Z")
     [within_context_review] = within_context["prior_epistemic_state"][
         "temporal_freshness_reviews"]
     assert within_context_review["review"]["status"] == "within_limit"
+    within_allowlist = set(within_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"])
+    assert (evidence_by_proposition[bounded.proposition_id].binding_id
+        in within_allowlist)
+    assert evidence_by_proposition[unrelated.proposition_id].binding_id in (
+        within_allowlist)
     bound_context, context_metadata, prompt, _, _ = (
         _bind_history_and_epistemic_context(
-        context={"instruction": "Use prior epistemic context carefully."},
+        context=probe_context,
         records=(), projection=projection, history_present=False,
         evaluation_time="2026-11-18T10:05:01Z"))
     [context_review] = bound_context["prior_epistemic_state"][
@@ -420,12 +433,30 @@ def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(
     assert context_review["proposition_id"] == bounded.proposition_id
     assert context_review["packet_digest"]
     assert context_review["review"] == review
+    assert context_review["excluded_supporting_binding_ids"] == [
+        evidence_by_proposition[bounded.proposition_id].binding_id]
+    expired_allowlist = set(bound_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"])
+    assert evidence_by_proposition[bounded.proposition_id].binding_id not in (
+        expired_allowlist)
+    assert evidence_by_proposition[unrelated.proposition_id].binding_id in (
+        expired_allowlist)
     assert context_metadata["epistemic_temporal_freshness_reviews"] == [
         context_review]
     assert "historical context only" in prompt
     assert unrelated.proposition_id not in {
         item["proposition_id"] for item in
         bound_context["prior_epistemic_state"]["temporal_freshness_reviews"]}
+
+    unresolved_context, _, _, _, _ = _bind_history_and_epistemic_context(
+        context=probe_context, records=(), projection=projection,
+        history_present=False, evaluation_time=None)
+    unresolved_allowlist = set(unresolved_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"])
+    assert evidence_by_proposition[bounded.proposition_id].binding_id not in (
+        unresolved_allowlist)
+    assert evidence_by_proposition[unrelated.proposition_id].binding_id in (
+        unresolved_allowlist)
 
     fresh = make_evidence_binding(
         proposition_id=bounded.proposition_id,
@@ -454,6 +485,23 @@ def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(
         planning_time="2026-11-18T10:06:00Z")
     assert set(refreshed.selected) == {
         "use-bounded-position", "use-unrelated-position"}
+    refreshed_projection = owner.cognitive_projection(max_states=2,
+        current_tick=3, prioritized_proposition_ids=tuple(sorted((
+            bounded.proposition_id, unrelated.proposition_id))))
+    assert refreshed_projection is not None
+    refreshed_context, _, _, _, _ = _bind_history_and_epistemic_context(
+        context=probe_context, records=(), projection=refreshed_projection,
+        history_present=False, evaluation_time="2026-11-18T10:06:00Z")
+    [refreshed_review] = refreshed_context["prior_epistemic_state"][
+        "temporal_freshness_reviews"]
+    assert refreshed_review["review"]["status"] == "within_limit"
+    assert refreshed_review["excluded_supporting_binding_ids"] == [
+        evidence_by_proposition[bounded.proposition_id].binding_id]
+    refreshed_allowlist = set(refreshed_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"])
+    assert evidence_by_proposition[bounded.proposition_id].binding_id not in (
+        refreshed_allowlist)
+    assert fresh.binding_id in refreshed_allowlist
 
 
 def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence(

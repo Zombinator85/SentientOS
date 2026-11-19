@@ -5003,11 +5003,22 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             evaluation_time=evaluation_time)
         if freshness is None:
             continue
+        support_ids = packet.get("supporting_evidence", ())
+        eligible_support_ids = freshness.get(
+            "eligible_supporting_binding_ids", ())
+        support_ids = (set(item for item in support_ids
+            if isinstance(item, str)) if isinstance(support_ids, (list, tuple))
+            else set())
+        eligible_support_ids = (set(item for item in eligible_support_ids
+            if isinstance(item, str)) if isinstance(eligible_support_ids, (list, tuple))
+            else set())
         temporal_reviews_by_packet[str(packet["packet_id"])] = {
             "packet_id": packet["packet_id"],
             "packet_digest": packet["packet_digest"],
             "proposition_id": packet["proposition"]["proposition_id"],
             "review": freshness,
+            "excluded_supporting_binding_ids": sorted(
+                support_ids - eligible_support_ids),
         }
     # When the inference bound cannot carry every complete meaning packet,
     # question-matching propositions come first. Epistemic severity then
@@ -5119,6 +5130,9 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                 "within_limit means its explicitly scoped support was recent at that "
                 "time. expired, unresolved, or policy_invalid positions are historical "
                 "context only and must not be treated as currently applicable support. "
+                "excluded_supporting_binding_ids and any support ID absent from "
+                "eligible_supporting_binding_ids are historical references, not eligible "
+                "evidence citations for an epistemic revision. "
                 "Do not revise epistemic state or infer truth from this check; request "
                 "fresh evidence when the current task depends on an expired position.")
             instruction = candidate.get("instruction")
@@ -5132,6 +5146,11 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             for packet in consumed:
                 # Removed bindings remain visible in the packet's audit history,
                 # but they cannot be cited as evidence for the current stance.
+                temporal_review = temporal_reviews_by_packet.get(
+                    str(packet.get("packet_id", "")))
+                excluded_support_ids = (set(temporal_review.get(
+                    "excluded_supporting_binding_ids", ()))
+                    if isinstance(temporal_review, Mapping) else set())
                 collection = packet.get("active_evidence_bindings", ())
                 if not isinstance(collection, (list, tuple)):
                     raise ResidentDevelopmentalCognitionError(
@@ -5149,6 +5168,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                             and row.get("dependency_kind") == "unknown_dependency"
                             and row.get("reliability_posture") ==
                                 "operator_assertion_unverified_context_only"):
+                        continue
+                    if row["binding_id"] in excluded_support_ids:
                         continue
                     visible_binding_ids.add(str(row["binding_id"]))
             candidate["epistemic_revision_probe"] = {

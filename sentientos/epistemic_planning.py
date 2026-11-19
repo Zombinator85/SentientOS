@@ -195,20 +195,27 @@ def temporal_freshness_review(packet: Mapping[str, object], *,
         result.update({"status": "unresolved",
             "reason": "supporting_observation_time_invalid"})
         return result
-    observed_at, binding_id = latest
-    age = (evaluated_at - observed_at).total_seconds()
+    support_ages = [(observed_at, binding_id,
+        (evaluated_at - observed_at).total_seconds())
+        for observed_at, binding_id in parsed_support]
+    observed_at, binding_id, age = next(
+        row for row in support_ages if row[:2] == latest)
     if age < 0:
         result.update({"status": "unresolved",
             "reason": "supporting_observation_is_future",
             "latest_support_binding_id": binding_id,
-            "latest_support_observed_at": observed_at.isoformat()})
+            "latest_support_observed_at": observed_at.isoformat(),
+            "eligible_supporting_binding_ids": []})
         return result
+    eligible_binding_ids = sorted(binding_id for _, binding_id, support_age
+        in support_ages if 0 <= support_age <= max_age_seconds)
     result.update({
         "status": "within_limit" if age <= max_age_seconds else "expired",
         "latest_support_binding_id": binding_id,
         "latest_support_observed_at": observed_at.isoformat(),
         "evaluation_time": evaluated_at.isoformat(),
         "age_seconds": age,
+        "eligible_supporting_binding_ids": eligible_binding_ids,
     })
     if age > max_age_seconds:
         result["reason"] = "supporting_evidence_exceeded_maximum_age"
