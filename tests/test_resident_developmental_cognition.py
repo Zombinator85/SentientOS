@@ -5544,6 +5544,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert state is not None and state.stance == "contested"
     assert state.dependency_unresolved is True
     replay_tick = (batch_recorded_at + timedelta(seconds=2)).isoformat()
+    cognitive_tick = int(datetime.fromisoformat(replay_tick).timestamp())
     surfaces._world_state_snapshot_built_for_tick = replay_tick
     replay_feedback = surfaces.run_epistemic_development(tick_id=replay_tick)
     assert {row["status"] for row in replay_feedback[
@@ -5580,7 +5581,8 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
         admission_ledger=epistemic_ledger)
     trace = recovered_runtime.trace_proposition(
         proposition_id=proposition.proposition_id,
-        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=1, cognitive_tick=3)
+        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=1,
+        cognitive_tick=cognitive_tick)
     trace_evidence = {item["source_run_id"]: item for item in trace["evidence"]}
     assert trace_evidence[run_id]["source_digest"] == run_digest
     assert trace_evidence[run_id]["observation_time"] == outcome_binding.observation_time
@@ -5601,7 +5603,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     later, later_fake = owner(tmp_path / "later-cognition", invoker=FakeInvoker())
     later.run_tick(snapshot=snapshot(), tick_id="after-admitted-task-family-outcome",
         prior_epistemic_state=recovered_epistemics.cognitive_projection(
-            max_states=1, current_tick=3))
+            max_states=1, current_tick=cognitive_tick))
     later_request = next(item for item in later_fake.requests
         if item.purpose == "resident_developmental_retrieval_cognition")
     later_packets = json.loads(later_request.prompt)["prior_epistemic_state"]["semantic_packets"]
