@@ -9222,21 +9222,39 @@ class ResidentDevelopmentalCognitionOwner:
         # bounded context budget on extra reports about already selected turns.
         return tuple((unique_turn_references + additional_report_references)[:16])
 
-    def ordinary_chat_developmental_history_context(self, *, question: str,
+    def ordinary_chat_developmental_history_context_for_model(self, *, question: str,
+            target_model_identity: Mapping[str, Any],
             max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS
+            ) -> dict[str, Any] | None:
+        """Project ordinary-chat history with exact source-to-serving model relations."""
+        if (not isinstance(target_model_identity, Mapping)
+                or not target_model_identity):
+            raise ResidentDevelopmentalCognitionError(
+                "ordinary_chat_target_model_identity_invalid")
+        return self.ordinary_chat_developmental_history_context(
+            question=question, max_input_chars=max_input_chars,
+            target_model_identity=target_model_identity)
+
+    def ordinary_chat_developmental_history_context(self, *, question: str,
+            max_input_chars: int = MAX_RESIDENT_COGNITION_INPUT_CHARS,
+            target_model_identity: Mapping[str, Any] | None = None
             ) -> dict[str, Any] | None:
         """Project bounded, verified developmental history for ordinary chat."""
         if (not isinstance(question, str) or not question.strip()
                 or len(question) > 1200
                 or type(max_input_chars) is not int
-                or not 128 <= max_input_chars <= MAX_RESIDENT_COGNITION_INPUT_CHARS):
+                or not 128 <= max_input_chars <= MAX_RESIDENT_COGNITION_INPUT_CHARS
+                or (target_model_identity is not None
+                    and (not isinstance(target_model_identity, Mapping)
+                        or not target_model_identity))):
             raise ResidentDevelopmentalCognitionError(
                 "ordinary_chat_developmental_history_request_invalid")
         tick_id = "ordinary-chat-" + hashlib.sha256(
             question.encode("utf-8")).hexdigest()[:32]
         with self._composition_lock():
             projection = self._prior_projection(self._state(), tick_id,
-                relevance_query=question, use_semantic_retrieval=False)
+                relevance_query=question, use_semantic_retrieval=False,
+                target_model_identity=target_model_identity)
         if not projection.records:
             return None
         instruction = (
@@ -9255,7 +9273,8 @@ class ResidentDevelopmentalCognitionOwner:
             packets = [_history_context_packet(record,
                 include_source_evidence_context=False,
                 compact_for_input_budget=True,
-                omit_historical_embodiment_details=True)
+                omit_historical_embodiment_details=True,
+                target_model_identity=target_model_identity)
                 for record in projection.records[:count]]
             selection = {
                 "schema_version": "sentientos.ordinary_chat_developmental_history_selection:v1",

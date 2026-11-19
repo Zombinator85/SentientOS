@@ -4514,8 +4514,11 @@ class PersistentConversationService:
         if (epistemic_fallback and not recent_session_recall and not social_checkin
                 and not current_runtime_question and not self_contained_echo
                 and not gaming_development_turn):
-            history_provider = getattr(bridge,
-                "ordinary_chat_developmental_history_context", None)
+            model_aware_history_provider = getattr(bridge,
+                "ordinary_chat_developmental_history_context_for_model", None)
+            history_provider = (model_aware_history_provider
+                if callable(model_aware_history_provider) else getattr(bridge,
+                    "ordinary_chat_developmental_history_context", None))
             max_history_chars = _ordinary_epistemic_context_budget(prompt)
             if not callable(history_provider):
                 developmental_history_context_posture = "provider_unavailable"
@@ -4526,8 +4529,13 @@ class PersistentConversationService:
                 try:
                     history_query = _ordinary_epistemic_relevance_query(
                         message, history)
-                    candidate_history = history_provider(question=history_query,
-                        max_input_chars=max_history_chars)
+                    if callable(model_aware_history_provider):
+                        candidate_history = history_provider(question=history_query,
+                            max_input_chars=max_history_chars,
+                            target_model_identity=identity_payload)
+                    else:
+                        candidate_history = history_provider(question=history_query,
+                            max_input_chars=max_history_chars)
                     if isinstance(candidate_history, Mapping):
                         try:
                             candidate_prompt = assemble_local_chat_context(
