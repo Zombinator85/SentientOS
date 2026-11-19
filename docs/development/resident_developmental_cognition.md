@@ -885,8 +885,10 @@ verifier and publishes one immutable per-protocol finalization index bound to
 the execution claim and result digest; a competing result packet cannot replace
 the finalized result. Finalization also derives an immutable evaluation from
 the reverified scores. It reports per-condition correct counts and the two
-preregistered paired count deltas, keeps selective abstentions separate, and
-marks unavailable or truncated outputs unscoreable. Evaluation reload
+preregistered paired count deltas, retains digest-identified per-probe outcomes,
+keeps selective abstentions and invalid answers distinct, and marks unavailable
+or truncated outputs unscoreable. Per-probe correctness deltas expose whether
+aggregate changes came from broad shifts or a small subset of probes. Evaluation reload
 recomputes the digest and score semantics from the stored plan and score
 artifacts. These are descriptive outcomes for one preregistered task, not
 evidence of effect, improvement, or learning.
@@ -897,8 +899,9 @@ generation configuration, shared non-history prompt, and exact selected-history
 projection. It requires a complete trial sequence from
 index zero in full six-trial counterbalance blocks, so an interrupted or
 omitted trial prevents a seemingly complete cohort summary. It reports paired
-correct-count deltas for every trial, aggregate counts, and restoration-score
-stability while retaining unscoreable outcomes in the trial count. This is a
+correct-count deltas and paired per-probe outcomes for every trial, aggregate
+counts, and restoration-score stability while retaining unscoreable outcomes
+in the trial count. This is a
 descriptive within-task summary; it does not establish transfer,
 generalization, improvement, or learning.
 `OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each

@@ -31,9 +31,10 @@ PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v3"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
-EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v2"
+EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v3"
 EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
 COHORT_SUMMARY_ID_PREFIX = "ordinary-history-cohort-"
+COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v2"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -678,6 +679,15 @@ def build_ordinary_chat_history_intervention_evaluation(*,
             or checked["score_semantics_verified"] is not True):
         raise ValueError("ordinary_chat_history_evaluation_scores_unverified")
     condition_metrics: dict[str, dict[str, Any]] = {}
+    task = scoring_plan.get("task")
+    if not isinstance(task, Mapping):
+        raise ValueError("ordinary_chat_history_evaluation_task_invalid")
+    is_suite = isinstance(task.get("probe_inputs"), list)
+    probes = task.get("probe_inputs") if is_suite else [task.get("probe_input")]
+    if (not isinstance(probes, list) or not probes
+            or any(type(probe) is not int for probe in probes)):
+        raise ValueError("ordinary_chat_history_evaluation_task_invalid")
+    probe_ids = [digest_payload({"probe_input": probe}) for probe in probes]
     for condition in CONDITIONS:
         reference = result["conditions"][condition]
         artifact = score_artifacts[reference["score_artifact_id"]]
@@ -716,6 +726,32 @@ def build_ordinary_chat_history_intervention_evaluation(*,
             scoreable = False
         else:
             raise ValueError("ordinary_chat_history_evaluation_score_status_invalid")
+        probe_outcomes: list[str] | None
+        if not scoreable:
+            probe_outcomes = None
+        elif status == "invalid_answer":
+            probe_outcomes = ["invalid_answer"] * len(probes)
+        else:
+            answer = payload.get("answer")
+            if is_suite:
+                if not isinstance(answer, list) or len(answer) != len(probes):
+                    raise ValueError("ordinary_chat_history_evaluation_probe_answers_invalid")
+                actuals = answer
+            else:
+                actuals = [answer]
+            multiplier, offset = task.get("multiplier"), task.get("offset")
+            if type(multiplier) is not int or type(offset) is not int:
+                raise ValueError("ordinary_chat_history_evaluation_task_invalid")
+            probe_outcomes = []
+            for probe, actual in zip(probes, actuals):
+                if actual is None:
+                    outcome = "abstained"
+                elif type(actual) is int:
+                    outcome = ("correct" if actual == multiplier * probe + offset
+                        else "incorrect")
+                else:
+                    raise ValueError("ordinary_chat_history_evaluation_probe_answers_invalid")
+                probe_outcomes.append(outcome)
         condition_metrics[condition] = {
             "score_artifact_id": reference["score_artifact_id"],
             "score_artifact_digest": reference["score_artifact_digest"],
@@ -723,6 +759,9 @@ def build_ordinary_chat_history_intervention_evaluation(*,
             "scoreable": scoreable, "correct_count": correct_count,
             "probe_count": probe_count, "answered_count": answered_count,
             "abstained_count": abstained_count,
+            "probe_outcomes": ([{"probe_id": probe_id, "outcome": outcome}
+                for probe_id, outcome in zip(probe_ids, probe_outcomes)]
+                if probe_outcomes is not None else None),
         }
     comparisons: dict[str, dict[str, Any]] = {}
     for comparison, favored in (
@@ -730,7 +769,23 @@ def build_ordinary_chat_history_intervention_evaluation(*,
             ("history_restored_vs_history_withheld", "history_restored")):
         left, right = condition_metrics[favored], condition_metrics["history_withheld"]
         scoreable = (left["scoreable"] is True and right["scoreable"] is True
-            and left["probe_count"] == right["probe_count"])
+            and left["probe_count"] == right["probe_count"]
+            and left["probe_outcomes"] is not None
+            and right["probe_outcomes"] is not None)
+        paired_probe_outcomes = []
+        if scoreable:
+            for left_probe, right_probe in zip(left["probe_outcomes"],
+                    right["probe_outcomes"]):
+                if left_probe["probe_id"] != right_probe["probe_id"]:
+                    raise ValueError("ordinary_chat_history_evaluation_probe_binding_invalid")
+                paired_probe_outcomes.append({
+                    "probe_id": left_probe["probe_id"],
+                    "favored_outcome": left_probe["outcome"],
+                    "reference_outcome": right_probe["outcome"],
+                    "correctness_delta": (
+                        int(left_probe["outcome"] == "correct")
+                        - int(right_probe["outcome"] == "correct")),
+                })
         comparisons[comparison] = {
             "favored_condition": favored,
             "reference_condition": "history_withheld",
@@ -738,6 +793,7 @@ def build_ordinary_chat_history_intervention_evaluation(*,
             "correct_count_delta": (left["correct_count"] - right["correct_count"]
                 if scoreable else None),
             "probe_count": left["probe_count"] if scoreable else None,
+            "per_probe_outcomes": paired_probe_outcomes if scoreable else None,
         }
     present, restored = (condition_metrics["history_present"],
         condition_metrics["history_restored"])
@@ -892,7 +948,8 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             item = evaluation["planned_comparisons"][comparison]
             if (not isinstance(item, Mapping)
                     or set(item) != {"favored_condition", "reference_condition",
-                        "scoreable", "correct_count_delta", "probe_count"}
+                        "scoreable", "correct_count_delta", "probe_count",
+                        "per_probe_outcomes"}
                     or item.get("favored_condition") != favored
                     or item.get("reference_condition") != "history_withheld"
                     or type(item.get("scoreable")) is not bool
@@ -903,13 +960,32 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                             or abs(item["correct_count_delta"]) > item["probe_count"]))
                     or (item.get("scoreable") is False
                         and (item.get("correct_count_delta") is not None
-                            or item.get("probe_count") is not None))):
+                            or item.get("probe_count") is not None
+                            or item.get("per_probe_outcomes") is not None))
+                    or (item.get("scoreable") is True
+                        and (not isinstance(item.get("per_probe_outcomes"), list)
+                            or len(item["per_probe_outcomes"]) != item["probe_count"]
+                            or any(not isinstance(probe, Mapping)
+                                or set(probe) != {"probe_id", "favored_outcome",
+                                    "reference_outcome", "correctness_delta"}
+                                or not isinstance(probe.get("probe_id"), str)
+                                or _HEX_DIGEST.fullmatch(probe["probe_id"]) is None
+                                or probe.get("favored_outcome") not in {
+                                    "correct", "incorrect", "abstained", "invalid_answer"}
+                                or probe.get("reference_outcome") not in {
+                                    "correct", "incorrect", "abstained", "invalid_answer"}
+                                or type(probe.get("correctness_delta")) is not int
+                                or probe["correctness_delta"] != (
+                                    int(probe["favored_outcome"] == "correct")
+                                    - int(probe["reference_outcome"] == "correct"))
+                                for probe in item["per_probe_outcomes"])) )):
                 raise ValueError("ordinary_chat_history_cohort_comparison_invalid")
             trial_deltas[comparison].append({
                 "trial_index": evaluation["trial_index"],
                 "scoreable": item["scoreable"],
                 "correct_count_delta": item["correct_count_delta"],
                 "probe_count": item["probe_count"],
+                "per_probe_outcomes": item["per_probe_outcomes"],
             })
         stable = evaluation.get("restoration_score_stable")
         if stable is not None:
@@ -924,9 +1000,11 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             "correct_count_delta_sum": sum(row["correct_count_delta"]
                 for row in scoreable_rows),
             "probe_count_sum": sum(row["probe_count"] for row in scoreable_rows),
+            "per_probe_outcomes": [row["per_probe_outcomes"]
+                for row in rows],
             "per_trial": rows,
         }
-    semantic = {"schema_version": "sentientos.ordinary_chat_history_cohort_summary:v1",
+    semantic = {"schema_version": COHORT_SUMMARY_SCHEMA,
         "session_id": cohort_identity[0],
         "task_commitment_digest": cohort_identity[1],
         "scoring_plan_digest": cohort_identity[2],
