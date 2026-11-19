@@ -909,12 +909,15 @@ blocker is a completed bounded local-model response.
 Task-family history no longer discards evaluator-correct, score-bound examples
 solely because the current model identity cannot be observed. The production
 history binder includes those examples with an explicit
-`model_identity_unbound_oracle_examples_only_performance_unproven` posture and
-the prompt directs the model to check each example against the current task
-while retaining uncertainty. This path never derives a model-specific
-candidate strategy or favorable outcome corroboration from identity-unbound
-history; malformed and unscored examples remain excluded. A deterministic
-counterfactual through the production binder shows a controlled fake policy
-can replay an exact prior example with history and abstains when history is
-withheld. This demonstrates context availability and fixture-level application,
-not real-model performance, cross-model transfer, or learning.
+`model_identity_unbound_oracle_examples_only_performance_unproven` posture. If
+at least three distinct correct examples support one exact integer-affine
+relation, the binder can provide that provisional mathematical relation to an
+identity-unbound target. The prompt requires checking it against the examples
+and current task, while prohibiting model identity, performance, transfer, and
+learning claims. Source outcome corroboration remains unavailable to the
+identity-unbound target, and mixed or unstable score-bound outcomes suppress
+the candidate relation. Malformed and unscored examples do not support a
+relation. A deterministic held-out counterfactual through the production
+binder shows a controlled fake policy applies the relation when history is
+present and abstains when history is withheld. This demonstrates fixture-level
+application, not real-model performance, cross-model transfer, or learning.

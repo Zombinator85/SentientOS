@@ -494,10 +494,12 @@ COMPANION_V5_CORRECTION_STATE_INSTRUCTION = (
     "is supplied; never revise it from the operator report alone."
 )
 UNBOUND_TASK_FAMILY_HISTORY_INSTRUCTION = (
-    " For task-relevant experience marked model_identity_unbound, use only its "
-    "evaluator-correct examples as historical task evidence. Do not infer model "
-    "identity, model performance, transfer, or a candidate strategy from that "
-    "record. Check each example against the current task and retain uncertainty."
+    " For task-relevant experience marked model_identity_unbound, any presented "
+    "candidate relation is a provisional fit to at least three distinct, "
+    "evaluator-correct examples for this exact task family. Check it against "
+    "every example and the current task. Do "
+    "not infer model identity, model performance, transfer, or learning; target "
+    "model applicability remains unverified."
 )
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current World-State is a current snapshot, but "
@@ -2114,7 +2116,8 @@ def _task_family_unsettled_outcome_groups(experiences_by_record: Mapping[str, ob
     """Find exact-task/model groups with mixed or restoration-unstable outcomes."""
     unsettled: set[tuple[str, str]] = set()
     for group, run_outcomes in _task_family_outcome_evidence_by_group(
-            experiences_by_record, target_model_identity=target_model_identity).items():
+            experiences_by_record, target_model_identity=target_model_identity,
+            include_unbound_target=True).items():
         outcome_postures = {(classification, restoration_stable)
             for outcomes in run_outcomes.values()
             for classification, restoration_stable, _run_digest, _comparison_digest
@@ -2132,7 +2135,8 @@ def _task_family_unsettled_outcome_groups(experiences_by_record: Mapping[str, ob
 
 
 def _task_family_outcome_evidence_by_group(experiences_by_record: Mapping[str, object], *,
-        target_model_identity: Mapping[str, Any] | None
+        target_model_identity: Mapping[str, Any] | None,
+        include_unbound_target: bool = False
         ) -> dict[tuple[str, str], dict[str, set[tuple[str, bool, str, str]]]]:
     """Collect receipt-bound comparable outcomes by exact task and model identity."""
     outcomes_by_group: dict[
@@ -2142,11 +2146,14 @@ def _task_family_outcome_evidence_by_group(experiences_by_record: Mapping[str, o
         if not isinstance(experiences, (list, tuple)):
             continue
         for experience in experiences:
-            if (not isinstance(experience, Mapping)
-                    or _task_family_model_applicability(experience,
-                        target_model_identity=target_model_identity)[
-                            "model_identity_relation"] not in {
-                                "same_active_model_identity", "different_active_model_identity"}):
+            if not isinstance(experience, Mapping):
+                continue
+            model_relation = _task_family_model_applicability(experience,
+                target_model_identity=target_model_identity)[
+                    "model_identity_relation"]
+            if model_relation not in {
+                    "same_active_model_identity", "different_active_model_identity",
+                    *({"model_identity_unbound"} if include_unbound_target else set())}:
                 continue
             task_digest = experience.get("source_task_digest")
             model_digest = experience.get("source_active_model_identity_digest")
@@ -3943,15 +3950,15 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     guidance, prior_incorrect, prior_abstained, omission = _task_family_guidance_examples(examples,
                         effect=effect, source_fact_id=item.get("source_fact_id"))
                     projected["examples"] = guidance
-                    candidate_strategy = (None if item.get("model_identity_relation")
-                        == "model_identity_unbound" else
-                        _candidate_integer_affine_strategy(projected, guidance))
+                    candidate_strategy = _candidate_integer_affine_strategy(
+                        projected, guidance)
                     if candidate_strategy is not None:
                         outcome_group = (item.get("source_task_digest"),
                             item.get("source_active_model_identity_digest"))
                         if (outcome_group in unsettled_outcome_groups
-                                and item.get("model_identity_relation")
-                                    == "same_active_model_identity"):
+                                and item.get("model_identity_relation") in {
+                                    "same_active_model_identity",
+                                    "model_identity_unbound"}):
                             projected.pop("candidate_integer_affine_strategy", None)
                             withheld = {
                                 "posture": "withheld_unsettled_score_bound_outcomes",
@@ -4570,7 +4577,8 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 if (not isinstance(strategy_withheld, Mapping)
                         or rederived_withheld_strategy is None
                         or experience.get("model_identity_relation")
-                            != "same_active_model_identity"
+                            not in {"same_active_model_identity",
+                                "model_identity_unbound"}
                         or strategy_withheld.get("posture")
                             != "withheld_unsettled_score_bound_outcomes"
                         or strategy_withheld.get("source_fact_id")
@@ -4734,14 +4742,6 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
             for experience in experiences
             if isinstance((effect := experience.get("controlled_task_effect")), Mapping)]
         for experience in experiences:
-            if (experience.get("model_identity_relation")
-                    == "model_identity_unbound"
-                    and any(isinstance(experience.get(field), Mapping)
-                        for field in ("candidate_integer_affine_strategy",
-                            "candidate_integer_affine_strategy_withheld",
-                            "candidate_integer_affine_strategy_source_outcomes_unsettled"))):
-                raise ResidentDevelopmentalCognitionError(
-                    "task_family_prompt_projection_unbound_strategy_invalid")
             for omission_key, target in (
                     ("adverse_examples_omission", withheld_adverse_examples),
                     ("non_evaluator_correct_examples_omission",

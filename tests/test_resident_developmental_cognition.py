@@ -2403,7 +2403,7 @@ def test_candidate_integer_affine_strategy_requires_score_bound_consistent_examp
         "source_score_digest": "sha256:" + "3" * 64,
         "evaluator": "deterministic_exact_integer_suite_oracle_v2",
         "controlled_task_effect": {"effect_classification": "no_difference_observed"},
-        "model_identity_relation": "same_active_model_identity",
+        "model_identity_relation": "model_identity_unbound",
         "historical_only": True, "current_truth": False, "authority": False,
     }
     examples = [
@@ -2414,6 +2414,7 @@ def test_candidate_integer_affine_strategy_requires_score_bound_consistent_examp
     strategy = _candidate_integer_affine_strategy(experience, examples)
     assert strategy is not None
     assert strategy["relation"] == "output = 3 * input + 1"
+    assert strategy["model_identity_relation"] == "model_identity_unbound"
     assert strategy["supporting_example_count"] == 3
     assert strategy["scope"] == "exact_declared_integer_affine_task_family_only"
     assert strategy["performance_transfer_established"] is False
@@ -2553,9 +2554,62 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
         "cross_model_unsettled_candidate_integer_affine_strategies"]
     assert cross_model_ref["strategy_digest"] == cross_model_strategy["strategy_digest"]
 
-    # With no observable target identity, independently oracle-scored examples
-    # remain available as tentative task evidence, while outcome-derived
-    # strategy and model-performance claims stay withheld.
+    # With no observable target identity, an oracle-fit mathematical relation
+    # remains applicable to this exact task family, while model-performance
+    # claims stay withheld.
+    unbound_target_context, _, unbound_target_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": None},
+            records=(record,), projection=None))
+    [unbound_target_experience] = unbound_target_context[
+        "developmental_history"][0]["task_relevant_experience"]
+    assert unbound_target_experience["model_identity_relation"] == (
+        "model_identity_unbound")
+    unbound_target_strategy = unbound_target_experience[
+        "candidate_integer_affine_strategy"]
+    assert unbound_target_strategy["relation"] == "output = 3 * input + 1"
+    assert unbound_target_strategy["model_identity_relation"] == (
+        "model_identity_unbound")
+    assert unbound_target_strategy["performance_transfer_established"] is False
+    assert unbound_target_strategy["learning_established"] is False
+    assert "developmental_history_outcome_corroboration" not in (
+        unbound_target_context)
+    assert "target model applicability remains unverified" in (
+        unbound_target_prompt)
+    unbound_target_projection = cognition_module._task_family_history_prompt_projection(
+        unbound_target_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert unbound_target_projection[
+        "candidate_integer_affine_strategy_count"] == 1
+
+    unsettled_unbound_context, _, unsettled_unbound_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": None},
+            records=(record,), projection=None,
+            unsettled_task_family_outcome_groups={unsettled_group}))
+    [unsettled_unbound_experience] = unsettled_unbound_context[
+        "developmental_history"][0]["task_relevant_experience"]
+    assert "candidate_integer_affine_strategy" not in unsettled_unbound_experience
+    assert unsettled_unbound_experience[
+        "candidate_integer_affine_strategy_withheld"]["posture"] == (
+            "withheld_unsettled_score_bound_outcomes")
+    unsettled_unbound_projection = (
+        cognition_module._task_family_history_prompt_projection(
+            unsettled_unbound_context, condition_id="history_present",
+            task_family_id="integer_affine_prediction"))
+    assert unsettled_unbound_projection[
+        "candidate_integer_affine_strategy_count"] == 0
+    assert unsettled_unbound_projection[
+        "withheld_unsettled_candidate_integer_affine_strategy_count"] == 1
+    assert "Do not reconstruct or apply that candidate relation" in (
+        unsettled_unbound_prompt)
+
     unbound_identity_experience = {**experience,
         "source_active_model_identity": None,
         "source_active_model_identity_digest": None}
@@ -2574,27 +2628,41 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
     assert unbound_projected["applicability_posture"] == (
         "model_identity_unbound_oracle_examples_only_performance_unproven")
     assert unbound_projected["examples"] == experience["examples"]
-    assert "candidate_integer_affine_strategy" not in unbound_projected
-    assert "candidate_integer_affine_strategy_withheld" not in unbound_projected
+    assert unbound_projected["candidate_integer_affine_strategy"]["relation"] == (
+        "output = 3 * input + 1")
     unbound_prompt_projection = cognition_module._task_family_history_prompt_projection(
         unbound_context, condition_id="history_present",
         task_family_id="integer_affine_prediction")
     assert unbound_prompt_projection["task_relevant_example_count"] == 3
-    assert unbound_prompt_projection["candidate_integer_affine_strategy_count"] == 0
-    assert "model_identity_unbound_oracle_examples_only_performance_unproven" in (
-        unbound_prompt)
+    assert unbound_prompt_projection[
+        "candidate_integer_affine_strategy_count"] == 1
+    assert "model_identity_unbound_oracle_examples_only_performance_unproven" in unbound_prompt
 
-    def fake_replay(prompt: str, probe_input: int) -> int | None:
+    def fake_apply(prompt: str, probe_input: int) -> int | None:
         envelope = json.loads(prompt)
         for packet in envelope.get("developmental_history", ()):
             for item in packet.get("task_relevant_experience", ()):
-                for example in item.get("examples", ()):
-                    if (example.get("evaluator_correct") is True
-                            and example.get("probe_input") == probe_input):
-                        return example.get("observed_answer")
+                strategy = item.get("candidate_integer_affine_strategy")
+                if (isinstance(strategy, dict)
+                        and strategy.get("model_identity_relation")
+                            == "model_identity_unbound"
+                        and strategy.get("supporting_example_count", 0) >= 3
+                        and strategy.get("authority") is False
+                        and strategy.get("learning_established") is False):
+                    import re
+                    match = re.fullmatch(
+                        r"output = (-?\d+) \* input ([+-]) (\d+)",
+                        strategy.get("relation", ""))
+                    if match is not None:
+                        multiplier = int(match.group(1))
+                        offset = int(match.group(3)) * (
+                            1 if match.group(2) == "+" else -1)
+                        return multiplier * probe_input + offset
         return None
 
-    replay_example = experience["examples"][0]
+    heldout_probe = 11
+    assert heldout_probe not in {
+        item["probe_input"] for item in experience["examples"]}
     _, _, history_withheld_prompt, _, _ = (
         cognition_module._bind_history_and_epistemic_context(
             context={"instruction": base_instruction,
@@ -2602,9 +2670,8 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
                 "developmental_history_task_family_history_required": True,
                 "developmental_history_target_model_identity": None},
             records=(record,), projection=None, history_present=False))
-    assert fake_replay(unbound_prompt, replay_example["probe_input"]) == \
-        replay_example["observed_answer"]
-    assert fake_replay(history_withheld_prompt, replay_example["probe_input"]) is None
+    assert fake_apply(unbound_prompt, heldout_probe) == 34
+    assert fake_apply(history_withheld_prompt, heldout_probe) is None
 
 
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
@@ -2803,6 +2870,10 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
     unsettled = _task_family_unsettled_outcome_groups(mixed_outcomes,
         target_model_identity=identity)
     assert unsettled == {(task_digest, cognition_digest(identity))}
+    assert _task_family_unsettled_outcome_groups(mixed_outcomes,
+        target_model_identity=None) == unsettled
+    assert _task_family_corroborated_favorable_runs(mixed_outcomes,
+        target_model_identity=None) == set()
     # A stable favorable episode loses favorable ranking when comparable
     # evidence for the same exact task and source model disagrees.
     assert _task_family_history_retrieval_utility([run_a],
@@ -3410,15 +3481,20 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert unbound_experience["examples"]
     assert all(item["evaluator_correct"] is True
         for item in unbound_experience["examples"])
-    assert unbound_experience.get("candidate_integer_affine_strategy") is None
+    unbound_strategy = unbound_experience.get(
+        "candidate_integer_affine_strategy")
+    assert unbound_strategy is not None
+    assert unbound_strategy["relation"] == "output = 3 * input + 2"
+    assert unbound_strategy["model_identity_relation"] == "model_identity_unbound"
+    assert unbound_strategy["performance_transfer_established"] is False
+    assert unbound_strategy["learning_established"] is False
     assert unbound_experience.get(
         "candidate_integer_affine_strategy_withheld") is None
     assert "task_relevant_experience_omission" not in unbound_model_packet
 
     # Compose the production history binder with a deterministic fake policy.
-    # It can replay an exact, oracle-scored example only when history is present;
-    # this demonstrates example application without implying transfer or model
-    # performance evidence for the identity-unbound target.
+    # It applies the validated relation to a held-out probe only when history is
+    # present, without implying model performance evidence.
     unbound_record = {"record_id": admitted.record_id,
         "record_digest": admitted.record_digest, "candidate": bound_model_identity,
         "created_at": "fixture-time", "epistemic_posture": "historical_only"}
@@ -3435,24 +3511,33 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert present_context["developmental_history"][0][
         "task_relevant_experience"][0]["model_identity_relation"] == "model_identity_unbound"
 
-    def fake_replay(prompt: str, probe_input: int) -> int | None:
+    def fake_apply(prompt: str, probe_input: int) -> int | None:
         envelope = json.loads(prompt)
         for packet in envelope.get("developmental_history", ()):
             for experience in packet.get("task_relevant_experience", ()):
-                if experience.get("model_identity_relation") not in {
-                        "same_active_model_identity", "different_active_model_identity",
-                        "model_identity_unbound"}:
-                    continue
-                for example in experience.get("examples", ()):
-                    if (example.get("evaluator_correct") is True
-                            and example.get("probe_input") == probe_input):
-                        return example.get("observed_answer")
+                strategy = experience.get("candidate_integer_affine_strategy")
+                if (isinstance(strategy, Mapping)
+                        and strategy.get("model_identity_relation")
+                            == "model_identity_unbound"
+                        and strategy.get("supporting_example_count", 0) >= 3
+                        and strategy.get("authority") is False
+                        and strategy.get("learning_established") is False):
+                    import re
+                    match = re.fullmatch(
+                        r"output = (-?\d+) \* input ([+-]) (\d+)",
+                        strategy.get("relation", ""))
+                    if match is not None:
+                        multiplier = int(match.group(1))
+                        offset = int(match.group(3)) * (
+                            1 if match.group(2) == "+" else -1)
+                        return multiplier * probe_input + offset
         return None
 
-    replay_probe = unbound_experience["examples"][0]["probe_input"]
-    replay_expected = unbound_experience["examples"][0]["observed_answer"]
-    assert fake_replay(present_prompt, replay_probe) == replay_expected
-    assert fake_replay(withheld_prompt, replay_probe) is None
+    heldout_probe = 20
+    assert heldout_probe not in {
+        item["probe_input"] for item in unbound_experience["examples"]}
+    assert fake_apply(present_prompt, heldout_probe) == 62
+    assert fake_apply(withheld_prompt, heldout_probe) is None
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 
