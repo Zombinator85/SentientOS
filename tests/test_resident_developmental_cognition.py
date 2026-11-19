@@ -5479,27 +5479,9 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
             expected_run_digest="sha256:" + "0" * 64,
             rule_id=rule.rule_id, tick=1, recorded_at=evaluated_at.isoformat())
     assert epistemic_ledger.load()[0] == ()
-    feedback = runtime.process_verified_task_family_run(
-        experiment_store=restarted.experiments, run_id=run_id,
-        expected_run_digest=run_digest, rule_id=rule.rule_id, tick=1,
-        recorded_at=evaluated_at.isoformat())
-    assert feedback.status == "state_advanced"
-    assert len(feedback.evidence_receipt_ids) == 1
-    assert len(feedback.state_receipt_ids) == 1
-    assert len(epistemic_ledger.load()[0]) == 2
-    assert runtime.process_verified_task_family_run(
-        experiment_store=restarted.experiments, run_id=run_id,
-        expected_run_digest=run_digest, rule_id=rule.rule_id, tick=1,
-        recorded_at=evaluated_at.isoformat()).status == "already_applied"
-    state = epistemics.current_state(proposition.proposition_id)
-    assert state is not None
-    assert state.stance == "provisionally_supported"
-    assert state.dependency_unresolved is True
-
     # A second, independently scored episode in the same family contradicts
-    # the first. The governed runtime must retain both exact run identities,
-    # advance to a contested position, and preserve that conflict across owner
-    # reconstruction rather than letting the newest episode erase history.
+    # the first. The daemon must admit both exact run identities in one bounded
+    # batch and derive one contested position before later cognition can use it.
     fake.objective_mode = "degrade"
     adverse_cycle = restarted.run_tick(snapshot=snapshot(43),
         tick_id="final-score-recovery-adverse-trial")
@@ -5510,21 +5492,65 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert adverse_run["objective_evaluation"]["history_correct_probe_delta"] == -1
     assert adverse_run["protocol"]["objective_task_descriptor"]["task_family_id"] == (
         "integer_affine_prediction")
-    adverse_recorded_at = max(datetime.fromisoformat(row["observed_at"].replace("Z", "+00:00"))
-        for row in adverse_run["conditions"]) + timedelta(seconds=1)
-    adverse_feedback = runtime.process_verified_task_family_run(
-        experiment_store=restarted.experiments, run_id=adverse_run_id,
-        expected_run_digest=adverse_run["run_digest"], rule_id=rule.rule_id,
-        tick=2, recorded_at=adverse_recorded_at.isoformat())
-    assert adverse_feedback.status == "state_advanced"
-    assert len(adverse_feedback.evidence_receipt_ids) == 1
-    assert len(adverse_feedback.state_receipt_ids) == 1
+    batch_recorded_at = max(datetime.fromisoformat(
+        row["observed_at"].replace("Z", "+00:00"))
+        for run_value in (run, adverse_run)
+        for row in run_value["conditions"]) + timedelta(seconds=1)
     request_count_after_adverse_episode = len(fake.requests)
     refs = (*refs, (adverse_run_id, adverse_run["run_digest"]))
-    assert len(epistemic_ledger.load()[0]) == 4
+    from sentientosd import RuntimeMaintenanceSurfaces
+    outcome_records = restarted.experiments.world_state_records(run_refs=(
+        (run_id, run_digest), (adverse_run_id, adverse_run["run_digest"])))
+    surfaces = RuntimeMaintenanceSurfaces(tmp_path / "task-family-batch-daemon",
+        runtime_state_root=tmp_path / "task-family-batch-runtime",
+        resident_developmental_owner=restarted,
+        epistemic_state_owner=epistemics,
+        epistemic_state_config={"status": "configured",
+            "cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 4},
+        epistemic_development_runtime=runtime,
+        developmental_history_intervention_run_refs=(
+            (run_id, run_digest), (adverse_run_id, adverse_run["run_digest"])))
+    batch_tick = batch_recorded_at.isoformat()
+    surfaces._world_state_snapshot = WorldStateBoardBuilder().build(outcome_records)
+    surfaces._world_state_snapshot_built_for_tick = batch_tick
+    daemon_feedback = surfaces.run_epistemic_development(tick_id=batch_tick)
+    outcome_rows = daemon_feedback["verified_task_family_outcomes"]
+    assert len(outcome_rows) == 2
+    assert {row["status"] for row in outcome_rows} == {
+        "evidence_appended", "unresolved"}
+    [batch_state_update] = daemon_feedback["verified_task_family_state_updates"]
+    assert batch_state_update["status"] == "deferred_binding_limit"
+    assert epistemics.current_state(proposition.proposition_id) is None
+    assert len(epistemics.bindings(proposition.proposition_id)) == 1
+    assert len(epistemic_ledger.load()[0]) == 1
+
+    # Once the configured bound admits both exact outcomes, the same durable
+    # snapshot yields one balanced state generation rather than a directional
+    # intermediate position.
+    runtime.config = EpistemicDevelopmentConfig(True, 2, 1, (rule,), ("operator",))
+    batch_tick = (batch_recorded_at + timedelta(seconds=1)).isoformat()
+    surfaces._world_state_snapshot_built_for_tick = batch_tick
+    daemon_feedback = surfaces.run_epistemic_development(tick_id=batch_tick)
+    outcome_rows = daemon_feedback["verified_task_family_outcomes"]
+    assert {row["status"] for row in outcome_rows} == {
+        "already_applied", "state_advanced"}
+    [batch_state_update] = daemon_feedback["verified_task_family_state_updates"]
+    assert batch_state_update["status"] == "state_advanced"
+    assert batch_state_update["matched_fact_count"] == 2
+    assert len(batch_state_update["state_receipt_ids"]) == 1
+    assert len(epistemic_ledger.load()[0]) == 3
     state = epistemics.current_state(proposition.proposition_id)
     assert state is not None and state.stance == "contested"
     assert state.dependency_unresolved is True
+    replay_tick = (batch_recorded_at + timedelta(seconds=2)).isoformat()
+    cognitive_tick = int(datetime.fromisoformat(replay_tick).timestamp())
+    surfaces._world_state_snapshot_built_for_tick = replay_tick
+    replay_feedback = surfaces.run_epistemic_development(tick_id=replay_tick)
+    assert {row["status"] for row in replay_feedback[
+        "verified_task_family_outcomes"]} == {"already_applied"}
+    assert epistemic_ledger.current_sequence() == 3
+    assert epistemics.current_state(proposition.proposition_id) == state
     all_outcome_bindings = epistemics.bindings(proposition.proposition_id)
     assert len(all_outcome_bindings) == 2
     assert {binding.source_artifact_id for binding in all_outcome_bindings} == {
@@ -5548,14 +5574,15 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert {binding.binding_id for binding in recovered_bindings} == {
         binding.binding_id for binding in all_outcome_bindings}
     recovered_runtime = ResidentEpistemicDevelopmentRuntime(
-        config=EpistemicDevelopmentConfig(True, 1, 1, (rule,), ("operator",)),
+        config=EpistemicDevelopmentConfig(True, 2, 1, (rule,), ("operator",)),
         owner=recovered_epistemics, mutation_controller=recovered_controller,
         admission_authority=RuntimeAdmissionAuthority(
             definitions=epistemic_definitions, ledger=epistemic_ledger),
         admission_ledger=epistemic_ledger)
     trace = recovered_runtime.trace_proposition(
         proposition_id=proposition.proposition_id,
-        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=2, cognitive_tick=3)
+        reconstructed_at="2026-10-15T00:00:00+00:00", max_events=1,
+        cognitive_tick=cognitive_tick)
     trace_evidence = {item["source_run_id"]: item for item in trace["evidence"]}
     assert trace_evidence[run_id]["source_digest"] == run_digest
     assert trace_evidence[run_id]["observation_time"] == outcome_binding.observation_time
@@ -5563,12 +5590,11 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     assert {item["relation"] for item in trace["evidence"]} == {"supports", "contradicts"}
     assert {item["dependency_kind"] for item in trace["evidence"]} == {"unknown_dependency"}
     assert [(item["generation"], item["stance"]) for item in trace["states"]] == [
-        (0, "provisionally_supported"), (1, "contested")]
-    assert [item["generation"] for item in trace["events"]] == [0, 1]
+        (0, "contested")]
+    assert [item["generation"] for item in trace["events"]] == [0]
     assert trace["events"][0]["prior_state_digest"] is None
-    assert trace["events"][1]["prior_state_digest"] == trace["states"][0]["state_digest"]
-    assert trace["events"][1]["successor_state_digest"] == state.state_digest
-    assert len(trace["mutation_receipts"]) == 4
+    assert trace["events"][0]["successor_state_digest"] == state.state_digest
+    assert len(trace["mutation_receipts"]) == 3
     assert trace["resulting_prior_projection"]["state_digests"] == [state.state_digest]
     assert trace["truth"] is False and trace["authority"] is False
     with pytest.raises(EpistemicDevelopmentError, match="selection_invalid"):
@@ -5577,7 +5603,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     later, later_fake = owner(tmp_path / "later-cognition", invoker=FakeInvoker())
     later.run_tick(snapshot=snapshot(), tick_id="after-admitted-task-family-outcome",
         prior_epistemic_state=recovered_epistemics.cognitive_projection(
-            max_states=1, current_tick=3))
+            max_states=1, current_tick=cognitive_tick))
     later_request = next(item for item in later_fake.requests
         if item.purpose == "resident_developmental_retrieval_cognition")
     later_packets = json.loads(later_request.prompt)["prior_epistemic_state"]["semantic_packets"]
@@ -5602,7 +5628,7 @@ def test_final_score_checkpoints_recover_run_after_precommit_interruption(
     [epistemic_projection] = captured.projections
     observations = {item.observation_key: item.bounded_value
         for item in epistemic_projection.observations}
-    assert observations["state_count"] == 2
+    assert observations["state_count"] == 1
     assert observations["evidence_binding_count"] == 2
     assert observations["mutation_recovery_status"] == "verified"
     assert epistemic_projection.posture.current_truth is False
