@@ -865,9 +865,11 @@ pre-registration object from that bundle. It binds the source session and turns,
 prior response digest, serving-model identity, generation-configuration digest,
 task commitment, independent scoring-plan digest, and counterbalanced trial
 index. Its verifier rechecks the prompt bundle and keeps authority, effect, and
-learning claims false. This object is not yet durably stored or connected to
-model invocations; a future runner must persist it before the first condition
-and independently verify each receipt and score.
+learning claims false. `OrdinaryChatHistoryInterventionStore` publishes and
+reloads this object immutably under the existing custody-checked experiment
+protocol store. It is not yet connected to model invocations; a future runner
+must load the persisted protocol before the first condition and independently
+verify each receipt and score.
 
 Ordinary fallback turn lineage also records a bounded retrieval posture:
 `selected`, `provider_returned_no_context`, `provider_unavailable`,

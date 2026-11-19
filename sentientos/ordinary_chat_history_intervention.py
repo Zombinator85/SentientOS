@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Mapping
 
 from .conversation_session import (
     verify_ordinary_chat_history_intervention_prompt_bundle,
 )
 from .local_model_authority import digest_payload
+from .developmental_history_intervention_experiment import (
+    DevelopmentalExperimentStore,
+)
 
 PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v1"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
@@ -178,3 +182,44 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
     verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
     return protocol
+
+
+class OrdinaryChatHistoryInterventionStore:
+    """Persist immutable ordinary-chat protocols in the governed experiment store."""
+
+    def __init__(self, state_root: Path) -> None:
+        self._store = DevelopmentalExperimentStore(Path(state_root))
+
+    def persist_protocol(self, protocol: Mapping[str, Any], *,
+            prompt_bundle: Mapping[str, Any]) -> str:
+        verified = verify_ordinary_chat_history_intervention_protocol(
+            protocol, prompt_bundle=prompt_bundle)
+        protocol_id = verified["protocol_id"]
+        normalized = json.loads(json.dumps(dict(protocol), sort_keys=True))
+        path = self._store.protocols / f"{protocol_id}.json"
+        self._store._write_immutable(path, protocol)
+        reloaded = self._store._read_json(path)
+        verify_ordinary_chat_history_intervention_protocol(
+            reloaded, prompt_bundle=prompt_bundle)
+        if reloaded != normalized:
+            raise ValueError("ordinary_chat_history_protocol_persistence_mismatch")
+        return protocol_id
+
+    def load_protocol(self, protocol_id: str, *,
+            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+        prefix = PROTOCOL_ID_PREFIX
+        if (not isinstance(protocol_id, str)
+                or len(protocol_id) != len(prefix) + 24
+                or not protocol_id.startswith(prefix)
+                or re.fullmatch(r"[0-9a-f]{24}", protocol_id[len(prefix):]) is None):
+            raise ValueError("ordinary_chat_history_protocol_identity_invalid")
+        path = self._store.protocols / f"{protocol_id}.json"
+        try:
+            protocol = self._store._read_json(path)
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_protocol_missing") from exc
+        result = verify_ordinary_chat_history_intervention_protocol(
+            protocol, prompt_bundle=prompt_bundle)
+        if result["protocol_id"] != protocol_id:
+            raise ValueError("ordinary_chat_history_protocol_identity_mismatch")
+        return protocol

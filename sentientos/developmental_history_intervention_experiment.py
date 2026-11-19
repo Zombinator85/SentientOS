@@ -287,7 +287,10 @@ class DevelopmentalExperimentStore:
                 if (path.parent == self.protocols
                     and path.name.startswith("objective-score-")) else None)
             if policy is None:
-                policy = ("developmental_experiment_protocol"
+                policy = ("ordinary_chat_history_protocol"
+                    if (path.parent == self.protocols
+                        and path.name.startswith("ordinary-history-protocol-")) else
+                    "developmental_experiment_protocol"
                     if path.parent == self.protocols else
                     "developmental_experiment_run"
                     if path.parent == self.runs else None)
