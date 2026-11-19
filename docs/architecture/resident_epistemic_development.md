@@ -32,10 +32,15 @@ to task families named by an enabled epistemic rule and does not invoke a model;
 the run owner rechecks the complete scored protocol and derives the evidence
 relation from its frozen comparison. Generic World-State adaptation does not
 duplicate task-family evidence or assign a different family's run to a configured
-proposition. A proposition advances at most once per maintenance tick; additional
-verified runs for that proposition remain pending for a later tick. Repeated
-maintenance ticks reconcile the same run idempotently. Run events later than the
-daemon tick remain ineligible.
+proposition. The daemon admits a bounded set of exact run bindings before
+deriving one state update per proposition from the complete active evidence set.
+Same-tick support and contradiction therefore produce one contested
+next-tick position instead of a one-sided intermediate generation. Binding and
+proposition limits defer excess work to later ticks; when a binding limit leaves
+a same-proposition batch incomplete, its state update also waits so the partial
+batch cannot create a directional intermediate position. Repeated maintenance
+ticks reconcile the same run idempotently. Run events later than the daemon tick
+remain ineligible.
 The resulting owner state remains next-tick-only and is available to canonical
 plan-only allocation after reconstruction. Missing, mismatched, ambiguous, or
 future-dated run evidence remains explicitly unresolved and does not create an
@@ -89,6 +94,34 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Epistemic propositions may also set `temporal_scope.max_evidence_age_seconds`
+when a positive position is only useful while its observation is recent. The
+allocator and resident cognition prompt binder evaluate the newest active,
+current supporting observation against the plan time or the cognition owner's
+timezone-aware evaluation clock. Snapshot custody time remains outside the
+World-State content identity and is not used for this decision. An expired or
+unresolvable scoped position defers only goals tagged with that proposition and
+is marked historical-only in
+cognition context; both paths carry the evidence binding, observed time,
+evaluation time, and age. A later admitted observation can make the position
+applicable again. These are applicability rules: they do not revise epistemic
+state, establish truth, or impose a default expiry on propositions without the
+explicit scope. Deterministic coverage is in
+`sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
+real-model application remains unverified.
+
+One resident cognition tick captures a single evaluation instant and reuses it
+across history-present, history-withheld, and history-restored conditions, so a
+clock boundary cannot become an unintended difference between controlled
+prompts.
+
+For bounded epistemic-revision probes, the same review also constrains the
+evidence-ID allowlist: only supporting bindings individually within the age
+limit can be cited as current evidence. Expired or unresolved support remains
+visible in the historical packet and is excluded from the allowlist; an
+unscoped proposition retains the prior citation behavior. This prevents an
+expired binding from being reintroduced as current evidence by a later probe.
+
 Planning also treats a tagged prior position with an explicit projected
 `contradicts` relation as requiring review, even when that position's own
 evidence posture is positive and the connected proposition is not separately
@@ -135,6 +168,38 @@ session context contributes topic terms only when the current question has
 fewer than two distinctive terms, supporting elliptical follow-ups without
 letting stale topics dilute a specific question. Conversation terms affect
 ranking only and are not evidence or durable memory.
+For ordinary cognition ticks, the bounded selected current World-State fact
+projection also contributes ranking terms to history selection when no
+objective, family, intervention, or epistemic-revision protocol is active. For
+companion interactions, those terms join the previous user turn only for an
+elliptical question. Current facts remain in their separate evidence channel;
+they are not copied into history packets, and this retrieval context does not
+grant historical records authority or current-truth status. A deterministic
+counterfactual in `tests/test_resident_developmental_cognition.py` shows an
+older hot-battery lesson displacing a recent unrelated telescope record for an
+elliptical follow-up. This establishes retrieval and prompt delivery, not that a
+real model will apply the lesson correctly or improve outcomes.
+For elliptical companion requests, selected source-turn-verified canonical user
+memories also contribute bounded ranking terms to developmental-history
+selection. A memory correction suppresses the superseded memory's terms while
+both records and their correction lineage remain in the separately bound
+memory prompt. These terms affect history selection only: retained memories do
+not become current evidence, and selected history remains historical and
+non-authoritative. A deterministic counterfactual demonstrates an explicitly
+retained garden constraint selecting an older applicable experience over a
+recent unrelated telescope record; a specific telescope question remains
+question-driven. This shows retrieval integration, not real-model adherence or
+better deployed outcomes.
+The live companion bridge also uses its bounded selected current World-State
+facts to rank prior self-model and epistemic projections when a question has
+fewer than two distinctive terms. Specific questions keep question-only
+projection ranking. Current observations stay in the current-evidence channel;
+they are not promoted into prior positions or used to change their posture. The
+deterministic bridge counterfactual in
+`tests/test_resident_developmental_cognition.py::test_companion_bridge_uses_selected_current_facts_for_elliptical_epistemic_retrieval`
+shows a short follow-up selecting the matching older epistemic position while a
+specific query selects a different position. It demonstrates retrieval under
+a deterministic fixture, not real-model application or improved outcomes.
 Validated v4 operator-feedback reports that target the same exact conversation
 session, turn ID, and turn-text digest are selected as one bounded retrieval
 unit. A query that matches one report therefore retains the other reports about
@@ -306,9 +371,15 @@ places an older lesson whose scope matches battery calibration behind four
 newer astronomy lessons whose interpretations contain no query match. The
 scoped lesson survives the four-record retrieval bound, showing that context
 selection can use the learned applicability metadata when the interpretation
-wording differs. The remaining open work is to measure whether relevant
-experience changes resident responses appropriately across controlled tasks,
-and to evaluate semantic retrieval beyond lexical overlap.
+wording differs. Optional pinned CPU semantic retrieval now also selects
+lexically disjoint history through bounded embedding batches and a restart-safe
+vector index. Policy v18 rejects matches below a 0.25 cosine floor and ranks
+lexical relevance ahead of semantic similarity, while allowing above-floor
+lexically disjoint matches to outrank recency. Deterministic tests cover
+near-threshold lexical priority and strong lexically disjoint retrieval. The
+remaining open work is to calibrate the floor against real embedding behavior
+and measure whether relevant experience improves appropriate later responses;
+no real-model benefit is established.
 
 ## Experience application under controlled conditions
 
@@ -667,6 +738,35 @@ operational for planning while preserving the evidence boundary; it does not
 decide whether the correction is true or resolve the position without
 independent evidence.
 
+Within a selected proposition, bounded v5 correction context is ranked by
+lexical overlap between the current relevance query and the correction text;
+recency breaks ties. With no matching query terms, recency remains the
+fallback. Omitted binding identities remain represented by the bounded
+omission count and digest. This improves which unverified reports reach the
+model under context pressure; it does not interpret a report or increase its
+evidentiary weight.
+
+When an immutable-revision CPU embedder is explicitly configured, lexical
+overlap remains ahead of semantic-only matches. A semantic-only correction must
+score at least 0.25 cosine similarity to receive semantic priority; weaker
+matches fall back to recency and binding identity. The selection-policy value
+in projection provenance binds this order and floor, while the existing
+embedder and candidate digests bind the exact ranking inputs. The fixed floor
+is a retrieval default, not a cross-model similarity calibration or evidence
+that a selected operator report is true. If embedding is unavailable, the
+existing lexical/recency policy remains in force.
+
+Each such projection also carries a versioned selection record: the ranking
+policy, a digest of the query (never the query text), and the retained binding
+IDs in packet order. The record is part of the projection identity and is
+validated before packet assembly, so reviewers can distinguish query-ranked
+context from recency fallback and detect altered selection provenance. It
+does not make the query or the unverified reports evidence, truth, or authority.
+When a correction causes a goal to be deferred for review, the allocator now
+preserves that same selection record in the deferred position. The review can
+therefore retain the context-selection lineage all the way from projection to
+the planning decision, including when context pressure omits some reports.
+
 When the correction is compared with a cited prior epistemic state, the later
 response now names that state as an earlier evidence-bound position and cites
 its exact state ID alongside the feedback record and historical dialogue turn.
@@ -837,3 +937,21 @@ preregistration and failure records remain in the private local evidence
 workspace; neither run is production-serving evidence. Focused custody,
 prompt-bound, runner, and serialization tests pass. The remaining empirical
 blocker is a completed bounded local-model response.
+
+## Using oracle examples when model identity is unavailable
+
+Task-family history no longer discards evaluator-correct, score-bound examples
+solely because the current model identity cannot be observed. The production
+history binder includes those examples with an explicit
+`model_identity_unbound_oracle_examples_only_performance_unproven` posture. If
+at least three distinct correct examples support one exact integer-affine
+relation, the binder can provide that provisional mathematical relation to an
+identity-unbound target. The prompt requires checking it against the examples
+and current task, while prohibiting model identity, performance, transfer, and
+learning claims. Source outcome corroboration remains unavailable to the
+identity-unbound target, and mixed or unstable score-bound outcomes suppress
+the candidate relation. Malformed and unscored examples do not support a
+relation. A deterministic held-out counterfactual through the production
+binder shows a controlled fake policy applies the relation when history is
+present and abstains when history is withheld. This demonstrates fixture-level
+application, not real-model performance, cross-model transfer, or learning.

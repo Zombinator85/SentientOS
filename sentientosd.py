@@ -3059,6 +3059,10 @@ class RuntimeMaintenanceSurfaces:
                     owner = self._resident_developmental_owner
                     experiment_store = getattr(owner, "experiments", None)
                     outcome_rows: list[dict[str, Any]] = []
+                    task_family_state_updates: dict[tuple[str, str], list[int]] = {}
+                    task_family_binding_deferred_propositions: set[str] = set()
+                    task_family_new_bindings = int(getattr(
+                        result, "new_binding_count", 0))
                     if experiment_store is None:
                         feedback["verified_task_family_outcomes_status"] = (
                             "degraded_owner_unavailable")
@@ -3157,14 +3161,86 @@ class RuntimeMaintenanceSurfaces:
                                 experiment_store=experiment_store, run_id=run_id,
                                 expected_run_digest=run_digest,
                                 rule_id=matching_rule.rule_id, tick=tick,
-                                recorded_at=instant.isoformat())
-                            if outcome.updated_proposition_count:
-                                updated_propositions_this_tick.add(
+                                recorded_at=instant.isoformat(),
+                                advance_state=False,
+                                allow_new_binding=(task_family_new_bindings
+                                    < getattr(runtime_config,
+                                        "max_new_bindings_per_tick", 64)))
+                            if outcome.status == "binding_limit_reached":
+                                task_family_binding_deferred_propositions.add(
                                     matching_rule.proposition_id)
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest,
+                                    "status": "unresolved",
+                                    "reason": "task_family_binding_limit_reached",
+                                    "retry_posture": "next_maintenance_tick",
+                                    "authority": False, "current_truth": False})
+                                continue
+                            task_family_new_bindings += outcome.new_binding_count
                             outcome_rows.append({
                                 "run_id": run_id, "run_digest": run_digest,
                                 **asdict(outcome),
                             })
+                            task_family_state_updates.setdefault((
+                                matching_rule.proposition_id,
+                                matching_rule.rule_id), []).append(
+                                    len(outcome_rows) - 1)
+                    state_update_rows: list[dict[str, Any]] = []
+                    advance_task_family = getattr(
+                        runtime, "advance_task_family_proposition", None)
+                    for (proposition_id, rule_id), row_indexes in sorted(
+                            task_family_state_updates.items()):
+                        if (proposition_id in updated_propositions_this_tick
+                                or not callable(advance_task_family)):
+                            continue
+                        if proposition_id in task_family_binding_deferred_propositions:
+                            state_update_rows.append({
+                                "status": "deferred_binding_limit",
+                                "proposition_id": proposition_id,
+                                "retry_posture": "next_maintenance_tick",
+                                "authority": False, "current_truth": False})
+                            outcome_rows[row_indexes[-1]][
+                                "state_update_retry_posture"] = (
+                                    "next_maintenance_tick")
+                            continue
+                        max_updates = getattr(runtime_config,
+                            "max_updated_propositions_per_tick", 16)
+                        if len(updated_propositions_this_tick) >= max_updates:
+                            state_update_rows.append({
+                                "status": "deferred_update_limit",
+                                "proposition_id": proposition_id,
+                                "retry_posture": "next_maintenance_tick",
+                                "authority": False, "current_truth": False})
+                            outcome_rows[row_indexes[-1]][
+                                "state_update_retry_posture"] = (
+                                    "next_maintenance_tick")
+                            continue
+                        state_update = advance_task_family(
+                            proposition_id=proposition_id, rule_id=rule_id,
+                            tick=tick, recorded_at=instant.isoformat())
+                        state_update_rows.append(asdict(state_update))
+                        if state_update.status == "state_advanced":
+                            updated_propositions_this_tick.add(proposition_id)
+                            state_row_index = next((index for index in
+                                reversed(row_indexes)
+                                if outcome_rows[index].get(
+                                    "new_binding_count", 0) > 0),
+                                row_indexes[-1])
+                            outcome_rows[state_row_index].update({
+                                "status": "state_advanced",
+                                "state_receipt_ids": list(
+                                    state_update.state_receipt_ids),
+                                "updated_proposition_count": len(
+                                    state_update.state_receipt_ids),
+                                "successor_state_ids": list(
+                                    state_update.successor_state_ids),
+                                "generations": list(state_update.generations),
+                                "aggregated_evidence_binding_count":
+                                    state_update.matched_fact_count,
+                            })
+                    if state_update_rows:
+                        feedback["verified_task_family_state_updates"] = (
+                            state_update_rows)
                     feedback["verified_task_family_outcomes"] = outcome_rows
                     resolved_count = sum(row.get("status") != "unresolved"
                         for row in outcome_rows)
@@ -3365,6 +3441,22 @@ class RuntimeMaintenanceSurfaces:
                 prior_self_model = None
                 prior_epistemic_state = None
                 epistemic_projection_tick: int | None = None
+                developmental_owner = self._resident_developmental_owner
+                unwrapped_owner = (developmental_owner._owner
+                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
+                    else developmental_owner)
+                owner_config = getattr(unwrapped_owner, "config", None)
+                staged_request = (load_objective_request(owner_config.state_root)
+                    if owner_config is not None else None)
+                relevance_query = None
+                if (staged_request is None
+                        and getattr(owner_config, "comparison_enabled", False) is not True
+                        and getattr(unwrapped_owner, "objective_task", None) is None):
+                    relevance_builder = getattr(
+                        unwrapped_owner, "selected_current_relevance_context", None)
+                    if callable(relevance_builder):
+                        relevance_query = relevance_builder(
+                            self._world_state_snapshot, maximum_chars=2800) or None
                 config = self._longitudinal_self_model_config
                 if self._epistemic_state_configuration_error is not None:
                     raise ValueError(self._epistemic_state_configuration_error)
@@ -3394,23 +3486,33 @@ class RuntimeMaintenanceSurfaces:
                         and self._longitudinal_self_model_owner is not None):
                     prior_self_model = self._longitudinal_self_model_owner.cognitive_projection(
                         before_tick=tick_id, max_claims=config.max_projection_claims,
-                        allowed_predicates=config.allowed_predicates)
+                        allowed_predicates=config.allowed_predicates,
+                        **({"relevance_query": relevance_query}
+                            if relevance_query is not None else {}))
                 if (self._epistemic_state_owner is not None
                         and self._epistemic_state_config.get("cognitive_consumption_enabled") is True):
                     assert epistemic_projection_tick is not None
+                    developmental_config = getattr(getattr(getattr(
+                        self._resident_developmental_owner, "_owner",
+                        self._resident_developmental_owner), "config", None),
+                        "semantic_history_model_id", None)
+                    developmental_revision = getattr(getattr(getattr(
+                        self._resident_developmental_owner, "_owner",
+                        self._resident_developmental_owner), "config", None),
+                        "semantic_history_model_revision", None)
+                    semantic_config = ({"semantic_model_id": developmental_config,
+                        "semantic_model_revision": developmental_revision}
+                        if developmental_config is not None
+                            and developmental_revision is not None else {})
                     prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                         max_states=int(self._epistemic_state_config["max_cognitive_projection_count"]),
-                        current_tick=epistemic_projection_tick)
+                        current_tick=epistemic_projection_tick,
+                        **semantic_config,
+                        **({"relevance_query": relevance_query}
+                            if relevance_query is not None else {}))
                 objective_request_status = None
                 objective_measurement_summary = None
                 existing_objective_request = False
-                developmental_owner = self._resident_developmental_owner
-                unwrapped_owner = (developmental_owner._owner
-                    if isinstance(developmental_owner, QuiescedDevelopmentalCognitionOwner)
-                    else developmental_owner)
-                owner_config = getattr(unwrapped_owner, "config", None)
-                staged_request = (load_objective_request(owner_config.state_root)
-                    if owner_config is not None else None)
                 if staged_request is not None:
                     request_id = str(staged_request["request_id"])
                     request_digest = str(staged_request["request_digest"])

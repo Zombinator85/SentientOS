@@ -15,7 +15,7 @@ from sentientos.persistent_epistemic_state import (
     validate_cognitive_projection, _question_relevant_proposition_ids,
     _projection_priority_ids,
     _proposition_priorities_from_state_citations,
-    _calibration_evidence_consistency,
+    _calibration_evidence_consistency, digest,
 )
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -119,6 +119,341 @@ def test_inflected_query_selects_prior_epistemic_packet_with_provenance(tmp_path
     assert packet["authority"] is False
 
 
+def test_query_relevance_keeps_older_matching_correction_in_bounded_context(
+        tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment",
+        subject="sensor:west", predicate="reports_temperature",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={}, context_scope={}, proposition_class="descriptive",
+        statement="The west sensor reported a stable temperature.")
+    owner.register_proposition(target)
+    support = binding(target, "correction-context-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="correction-context-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+
+    reports = (
+        "The west temperature sensor is offline.",
+        "The east battery needs replacement.",
+        "Greenhouse humidity fell overnight.",
+        "A door latch needs lubrication.",
+        "The dashboard color changed to blue.",
+    )
+    corrections = []
+    for index, text in enumerate(reports, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:context-selection-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes",
+            dependency_kind="unknown_dependency", dependency_group=None,
+            upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    relevant = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?")
+    unrelated = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="Tell me about the lunar mission.")
+    no_query = owner.cognitive_projection(max_states=1, current_tick=2)
+    assert relevant is not None and unrelated is not None and no_query is not None
+    assert relevant.projection_digest != unrelated.projection_digest
+
+    [relevant_packet] = semantic_packets_for_projection(relevant)
+    selection = relevant_packet["unverified_context_selection_provenance"]
+    assert selection == {
+        "schema_version": "sentientos.epistemic_context_selection_provenance:v1",
+        "selection_policy": "query_token_overlap_then_recency_then_binding_id",
+        "query_digest": digest(
+            "What is the west temperature sensor condition?"),
+        "selected_binding_ids": [corrections[index].binding_id
+            for index in (0, 2, 3, 4)],
+    }
+    assert "west temperature sensor" not in str(selection)
+    tampered_context = dict(relevant.unverified_context_evidence[0])
+    tampered_selection = dict(tampered_context["selection_provenance"])
+    tampered_selection["query_digest"] = digest("different query")
+    tampered_context["selection_provenance"] = tampered_selection
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_projection_digest_mismatch"):
+        validate_cognitive_projection(replace(relevant,
+            unverified_context_evidence=(tampered_context,)), require_meaning=True)
+    relevant_rows = relevant_packet["unverified_context_evidence_bindings"]
+    relevant_ids = {item["binding_id"] for item in relevant_rows}
+    assert corrections[0].binding_id in relevant_ids
+    assert len(relevant_rows) == 4
+    assert [item["binding_id"] for item in relevant_rows] == [
+        corrections[index].binding_id for index in (0, 2, 3, 4)]
+    assert relevant_packet["omitted_unverified_context_evidence_count"] == 1
+    assert relevant_packet["omitted_unverified_context_identity_digest"] == digest([
+        {"binding_id": corrections[1].binding_id,
+            "binding_digest": corrections[1].binding_digest}])
+    assert relevant_packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+    assert relevant_packet["authority"] is False
+    assert relevant_packet["active_evidence_bindings"] == [support.record()]
+
+    for fallback in (unrelated, no_query):
+        [fallback_packet] = semantic_packets_for_projection(fallback)
+        fallback_selection = fallback_packet[
+            "unverified_context_selection_provenance"]
+        assert fallback_selection["selection_policy"] == (
+            "query_token_overlap_then_recency_then_binding_id"
+            if fallback is unrelated else "recency_then_binding_id")
+        assert fallback_selection["query_digest"] == (
+            digest("Tell me about the lunar mission.")
+            if fallback is unrelated else None)
+        fallback_ids = {item["binding_id"] for item in
+            fallback_packet["unverified_context_evidence_bindings"]}
+        assert len(fallback_ids) == 4
+        assert corrections[0].binding_id not in fallback_ids
+        assert corrections[4].binding_id in fallback_ids
+        assert fallback_packet[
+            "omitted_unverified_context_evidence_count"] == 1
+        assert fallback_packet[
+            "omitted_unverified_context_identity_digest"] == digest([
+                {"binding_id": corrections[0].binding_id,
+                    "binding_digest": corrections[0].binding_digest}])
+
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    model_context, _, _ = _bind_epistemic_context(
+        context={"instruction": EXPERIMENT_CONTEXT_INSTRUCTION},
+        projection=relevant)
+    [bound_packet] = model_context["prior_epistemic_state"][
+        "semantic_packets"]
+    assert corrections[0].binding_id in {
+        item["binding_id"] for item in
+        bound_packet["unverified_context_evidence_bindings"]}
+
+
+def test_pinned_semantic_context_ranking_applies_older_matching_correction(
+        tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_condition", object_value="unknown",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={}, proposition_class="descriptive",
+        statement="The west sensor condition is unknown.")
+    owner.register_proposition(target)
+    support = binding(target, "semantic-context-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="semantic-context-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+    texts = ["The western thermal probe stopped responding.",
+        "The east battery needs replacement.", "Greenhouse humidity fell overnight.",
+        "A door latch needs lubrication.", "The dashboard color changed to blue."]
+    corrections = []
+    for index, text in enumerate(texts, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:semantic-context-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+            dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    def fake_encode(values, *, model_id, revision):
+        assert model_id == "local/model" and revision == "a" * 40
+        vectors = [(1.0, 0.0)] + [((1.0, 0.0) if "thermal probe" in value
+            else (0.0, 1.0)) for value in values[1:]]
+        return SimpleNamespace(vectors=tuple(vectors), identity_digest="sha256:" + "b" * 64)
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    projection = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [packet] = semantic_packets_for_projection(projection)
+    selection = packet["unverified_context_selection_provenance"]
+    assert selection["schema_version"] == (
+        "sentientos.epistemic_context_selection_provenance:v2")
+    assert selection["selection_policy"] == (
+        "pinned_cpu_semantic_sample_lexical_overlap_then_cosine_desc_floor_0_25_"
+        "then_recency_then_binding_id")
+    assert corrections[0].binding_id in selection["selected_binding_ids"]
+    assert selection["candidate_count"] == len(corrections)
+    assert selection["embedder_identity_digest"] == "sha256:" + "b" * 64
+    assert packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+    assert packet["authority"] is False
+    from sentientos.resident_developmental_cognition import (
+        EXPERIMENT_CONTEXT_INSTRUCTION, _bind_epistemic_context)
+    model_context, _, prompt = _bind_epistemic_context(
+        context={"instruction": EXPERIMENT_CONTEXT_INSTRUCTION},
+        projection=projection)
+    [bound_packet] = model_context["prior_epistemic_state"]["semantic_packets"]
+    assert corrections[0].binding_id in {
+        item["binding_id"] for item in
+        bound_packet["unverified_context_evidence_bindings"]}
+    assert '"authority":false' in prompt
+    assert "operator_context_only_not_state_evidence_or_truth" in prompt
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", lambda *args, **kwargs: None)
+    fallback = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [fallback_packet] = semantic_packets_for_projection(fallback)
+    fallback_selection = fallback_packet["unverified_context_selection_provenance"]
+    assert fallback_selection["schema_version"] == (
+        "sentientos.epistemic_context_selection_provenance:v1")
+    assert fallback_selection["selection_policy"] == (
+        "query_token_overlap_then_recency_then_binding_id")
+
+
+def test_weak_semantic_corrections_do_not_displace_lexical_or_recent_context(
+        tmp_path, monkeypatch):
+    from math import sqrt
+    from types import SimpleNamespace
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_condition", object_value="unknown",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={}, proposition_class="descriptive",
+        statement="The west sensor condition is unknown.")
+    owner.register_proposition(target)
+    support = binding(target, "semantic-context-floor-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="semantic-context-floor-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+
+    texts = (
+        "Operator correction: the west temperature sensor is offline.",
+        "The device stopped reporting after its cable came loose.",
+        "The boiler fan was inspected last week.",
+        "The hallway light flickered during the night.",
+        "The remote battery was replaced yesterday.",
+    )
+    corrections = []
+    for index, text in enumerate(texts, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:semantic-floor-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+            dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    scores = {
+        texts[0]: 0.10,
+        texts[1]: 0.90,
+        texts[2]: 0.15,
+        texts[3]: 0.20,
+        texts[4]: 0.24,
+    }
+
+    def fake_encode(values, *, model_id, revision):
+        assert model_id == "local/model" and revision == "a" * 40
+        vectors = [(1.0, 0.0)] + [
+            (score, sqrt(1.0 - score * score)) for score in
+            (scores[value] for value in values[1:])]
+        return SimpleNamespace(vectors=tuple(vectors),
+            identity_digest="sha256:" + "c" * 64)
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    projection = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [packet] = semantic_packets_for_projection(projection)
+    selection = packet["unverified_context_selection_provenance"]
+    selected_ids = set(selection["selected_binding_ids"])
+
+    assert corrections[0].binding_id in selected_ids
+    assert corrections[1].binding_id in selected_ids
+    assert corrections[3].binding_id in selected_ids
+    assert corrections[4].binding_id in selected_ids
+    assert corrections[2].binding_id not in selected_ids
+    assert selection["selection_policy"] == (
+        "pinned_cpu_semantic_sample_lexical_overlap_then_cosine_desc_floor_0_25_"
+        "then_recency_then_binding_id")
+    assert selection["candidate_count"] == len(corrections)
+    assert packet["authority"] is False
+    assert packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
+
+
+def test_candidate_rationale_retrieves_its_generic_prior_proposition(tmp_path):
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    propositions = sorted((
+        make_proposition(namespace="embodiment", subject="record:alpha",
+            predicate="has_prior_position", object_value="calibration",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive",
+            statement="A prior device position was recorded."),
+        make_proposition(namespace="embodiment", subject="record:beta",
+            predicate="has_prior_position", object_value="calibration",
+            polarity="positive", qualifiers={}, temporal_scope={},
+            context_scope={}, proposition_class="descriptive",
+            statement="A prior device position was recorded.")),
+        key=lambda item: item.proposition_id)
+    relevant, irrelevant = propositions[1], propositions[0]
+    for index, item in enumerate(propositions, start=1):
+        owner.register_proposition(item)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=item.proposition_id,
+            predecessor_state_digest=None, proposed_stance="unknown",
+            evidence_binding_ids=(), reason="initialization",
+            rationale=("Rapid charging caused battery overheating in the supervised trial."
+                if item.proposition_id == relevant.proposition_id else
+                "The laboratory door remained closed during review."),
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule", proposer_id=f"rationale-fixture-{index}")
+        owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(), candidate=candidate,
+            correlation_id=f"rationale-priority-{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+
+    baseline = owner.cognitive_projection(max_states=1, current_tick=3)
+    query_selected = owner.cognitive_projection(max_states=1, current_tick=3,
+        relevance_query="What did we learn when the battery overheated during rapid charging?")
+
+    assert baseline is not None and query_selected is not None
+    assert baseline.proposition_ids == (irrelevant.proposition_id,)
+    assert query_selected.proposition_ids == (relevant.proposition_id,)
+    [packet] = semantic_packets_for_projection(query_selected)
+    assert packet["update_candidate_history"][0]["candidate"]["rationale"] == (
+        "Rapid charging caused battery overheating in the supervised trial.")
+    assert packet["authority"] is False
+
+
 def test_projection_question_priority_ignores_propositions_without_prior_state():
     never_updated = make_proposition(namespace="embodiment",
         subject="sensor:west", predicate="reports_measurement",
@@ -158,7 +493,10 @@ def test_question_relevance_prefers_structured_terms_over_incidental_statement_m
 
     assert _question_relevant_proposition_ids(propositions,
         query="temperature",
-        limit=1) == (structured_match.proposition_id,)
+        limit=1,
+        candidate_rationales_by_proposition={
+            wording_match.proposition_id: ("A prior rationale also mentioned temperature.",)
+        }) == (structured_match.proposition_id,)
 
 
 def test_question_relevance_counts_each_query_term_once_per_proposition():
@@ -669,6 +1007,61 @@ def test_stale_position_keeps_stale_freshness_in_prior_packet(tmp_path):
     assert packet["evidence_posture"]["posture"] == "all_evidence_stale"
 
 
+def test_update_candidate_histories_follow_canonical_projection_state_order(tmp_path):
+    owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
+    propositions = sorted((
+        proposition(statement="First distinct prior position", position="first"),
+        proposition(statement="Second distinct prior position", position="second")),
+        key=lambda item: item.proposition_id)
+    for index, item in enumerate(propositions, start=1):
+        owner.register_proposition(item)
+        candidate = make_epistemic_update_candidate(
+            proposition_id=item.proposition_id, predecessor_state_digest=None,
+            proposed_stance="unknown", evidence_binding_ids=(),
+            reason="initialization", rationale=f"Initialize position {index}.",
+            uncertainty="unknown", model_id=None,
+            proposer_kind="deterministic_rule", proposer_id=f"projection-fixture-{index}")
+        owner.commit_update(proposition_id=item.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(), candidate=candidate,
+            correlation_id=f"candidate-projection-{index}", tick=index,
+            recorded_at=f"2026-01-01T00:00:0{index}Z")
+
+    selected_order = tuple(item.proposition_id for item in reversed(propositions))
+    projection = owner.cognitive_projection(max_states=2, current_tick=3,
+        prioritized_proposition_ids=selected_order)
+
+    assert projection is not None
+    assert projection.proposition_ids == tuple(
+        item.proposition_id for item in propositions)
+    canonical_states = tuple(owner.current_state(item.proposition_id)
+        for item in propositions)
+    assert all(state is not None for state in canonical_states)
+    for proposition_id, candidate_history in zip(
+            projection.proposition_ids, projection.update_candidate_histories):
+        assert len(candidate_history["candidates"]) == 1
+        assert candidate_history["candidates"][0]["candidate"][
+            "proposition_id"] == proposition_id
+    for invalid_histories in (
+            projection.update_candidate_histories[:-1],
+            projection.update_candidate_histories
+                + (projection.update_candidate_histories[0],)):
+        with pytest.raises(EpistemicStateError,
+                match="epistemic_semantic_projection_pairing_invalid"):
+            make_cognitive_projection(canonical_states,
+                source_tick=projection.source_tick,
+                current_tick=projection.current_tick,
+                propositions=projection.propositions,
+                active_evidence_bindings=projection.active_evidence_bindings,
+                removed_evidence_bindings=projection.removed_evidence_bindings,
+                update_events=projection.update_events,
+                omission_manifest=projection.omission_manifest,
+                calibration_histories=projection.calibration_histories,
+                unverified_context_evidence=projection.unverified_context_evidence,
+                proposition_relations=projection.proposition_relations,
+                update_candidate_histories=invalid_histories)
+
+
 
 def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner(tmp_path):
     owner = PersistentEpistemicStateOwner(tmp_path, allowed_namespaces=["embodiment"])
@@ -683,7 +1076,8 @@ def test_incomplete_admission_bound_transaction_is_not_replayed_by_storage_owner
         proposition_id=p.proposition_id, expected_predecessor_digest=None,
         stance="unknown", reason="initialization", active_binding_ids=(),
         candidate=candidate, mutation_binding={
-            "candidate_id": candidate.candidate_id, "candidate_digest": "sha256:fixture",
+            "candidate_id": candidate.candidate_id,
+            "candidate_digest": candidate.candidate_digest,
             "admission_id": "admission:fixture", "admission_binding_digest": "sha256:admission",
             "operation_id": "operation:fixture", "correlation_id": "correlation:fixture"},
         correlation_id="correlation:fixture", tick=1, recorded_at="2026-01-01T00:00:00Z")

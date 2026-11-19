@@ -64,7 +64,7 @@ def allocate_goals(
     review_scopes: dict[str, dict[str, object]] = {}
     if prior_epistemic_projection is not None:
         projection_digest, review_scopes = review_required_applicability(
-            prior_epistemic_projection)
+            prior_epistemic_projection, evaluation_time=planning_time)
         # Older projections lack the omission manifest, so absence cannot prove zero.
         omission_manifest = getattr(prior_epistemic_projection,
             "omission_manifest", None)
@@ -192,6 +192,15 @@ def _epistemic_positions_for_goal(
         if isinstance(omitted_correction_context, Mapping):
             position["omitted_unverified_correction_context"] = dict(
                 omitted_correction_context)
+        context_selection_provenance = scope.get(
+            "unverified_context_selection_provenance")
+        if isinstance(context_selection_provenance, Mapping):
+            position["unverified_context_selection_provenance"] = dict(
+                context_selection_provenance)
+        temporal_freshness_review = scope.get("temporal_freshness_review")
+        if isinstance(temporal_freshness_review, Mapping):
+            position["temporal_freshness_review"] = dict(
+                temporal_freshness_review)
         positions.append(position)
     return tuple(positions)
 

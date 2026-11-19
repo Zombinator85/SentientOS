@@ -1654,14 +1654,14 @@ jobs:
             local mirror_list=/etc/apt/apt-mirrors.txt
             local switched=false
             if sudo test -f "$mirror_list"; then
-              sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' "$mirror_list"
+              sudo sed -i -E 's|azure.archive.ubuntu.com|archive.ubuntu.com|g; s|[[:alnum:]-]+\.ec2\.archive\.ubuntu\.com|archive.ubuntu.com|g' "$mirror_list"
               if sudo grep -qF 'archive.ubuntu.com' "$mirror_list"; then
                 switched=true
               fi
             fi
-            sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' {} +
-            if sudo grep -Rqs 'azure.archive.ubuntu.com' /etc/apt; then
-              echo "::error::Azure Ubuntu mirror remains configured after fallback rewrite."
+            sudo find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -exec sed -i -E 's|azure.archive.ubuntu.com|archive.ubuntu.com|g; s|[[:alnum:]-]+\.ec2\.archive\.ubuntu\.com|archive.ubuntu.com|g' {} +
+            if sudo grep -REqs 'azure.archive.ubuntu.com|[[:alnum:]-]+\.ec2\.archive\.ubuntu\.com' /etc/apt; then
+              echo "::error::A regional Azure or EC2 Ubuntu mirror remains configured after fallback rewrite."
               return 1
             fi
             if [[ "$switched" != true ]] && ! sudo grep -Rqs 'archive.ubuntu.com' /etc/apt; then

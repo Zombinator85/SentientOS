@@ -91,6 +91,17 @@ class DevelopmentalWritebackError(ValueError):
         self.diagnostic = dict(diagnostic) if diagnostic is not None else None
 
 
+class DevelopmentalInferenceDeferred(DevelopmentalWritebackError):
+    """A governed resource decision deferred background inference."""
+
+    def __init__(self, reason_code: str) -> None:
+        if reason_code != (
+                "runtime_governor:deferred_background_inference_under_host_pressure"):
+            raise ValueError("developmental_inference_deferral_reason_invalid")
+        super().__init__("developmental_inference_deferred")
+        self.reason_code = reason_code
+
+
 def _valid_optional_lower_sha256(value: Any) -> bool:
     return (value is None or (type(value) is str and len(value) == 64
         and all(character in "0123456789abcdef" for character in value)))
@@ -2968,6 +2979,11 @@ class ResidentDevelopmentalWritebackController:
 
     @staticmethod
     def candidate_from_receipt(selection: SelectedEvidence, receipt: LocalModelInvocationReceipt) -> DevelopmentalCandidate:
+        if (receipt.purpose == PURPOSE and receipt.status == "deferred"
+                and "runtime_governor:deferred_background_inference_under_host_pressure"
+                    in receipt.reason_codes):
+            raise DevelopmentalInferenceDeferred(
+                "runtime_governor:deferred_background_inference_under_host_pressure")
         if receipt.status not in {"admitted_completed", "admitted_simulation"} or receipt.purpose != PURPOSE or receipt.output_text is None or receipt.output_digest is None:
             raise DevelopmentalWritebackError("developmental_inference_not_completed")
         completion = receipt.backend_completion

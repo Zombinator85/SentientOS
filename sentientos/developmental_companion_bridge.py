@@ -15,6 +15,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping, Sequence
 
+from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .embodiment_self_observation import EmbodimentEvidenceOwner, EmbodimentObservation
 from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
@@ -663,10 +664,19 @@ class ResidentDevelopmentalCompanionBridge:
                     or not 1 <= maximum <= 128):
                 raise DevelopmentalCompanionBridgeError(
                     "epistemic_projection_bound_invalid")
+            developmental_config = getattr(getattr(getattr(self, "_owner", None),
+                "config", None), "semantic_history_model_id", None)
+            developmental_revision = getattr(getattr(getattr(self, "_owner", None),
+                "config", None), "semantic_history_model_revision", None)
+            semantic_config = ({"semantic_model_id": developmental_config,
+                "semantic_model_revision": developmental_revision}
+                if developmental_config is not None and developmental_revision is not None
+                else {})
             prior_epistemic_state = self._epistemic_state_owner.cognitive_projection(
                 max_states=maximum, current_tick=projection_tick,
                 prioritized_state_ids=prioritized_epistemic_state_ids,
-                relevance_query=relevance_query)
+                relevance_query=relevance_query,
+                **semantic_config)
         return prior_self_model, prior_epistemic_state
 
     def can_handle(self) -> bool:
@@ -676,6 +686,17 @@ class ResidentDevelopmentalCompanionBridge:
             return self._cognition_available() is True
         except Exception:
             return False
+
+    def semantic_memory_retrieval_config(self) -> tuple[str, str] | None:
+        """Expose the already pinned local semantic encoder to memory retrieval."""
+        config = getattr(getattr(self, "_owner", None), "config", None)
+        model_id = getattr(config, "semantic_history_model_id", None)
+        revision = getattr(config, "semantic_history_model_revision", None)
+        if (not isinstance(model_id, str) or not model_id
+                or not isinstance(revision, str)
+                or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
+            return None
+        return model_id, revision
 
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
@@ -816,8 +837,6 @@ class ResidentDevelopmentalCompanionBridge:
                         "developmental_cycle_capture_not_fresh")
                 capture_age_seconds = int(max(0.0, capture_age.total_seconds()))
         tick_time, projection_tick = self._projection_boundary()
-        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_time, projection_tick=projection_tick)
         consequence_records: Sequence[Mapping[str, Any]] = ()
         if self._consequence_records_provider is not None:
             try:
@@ -843,6 +862,11 @@ class ResidentDevelopmentalCompanionBridge:
                 and len(snapshot.facts) > self._owner.config.max_selected_facts):
             raise DevelopmentalCompanionBridgeError(
                 "developmental_cycle_fact_selection_capacity_insufficient")
+        current_context = self._owner.selected_current_relevance_context(
+            snapshot, maximum_chars=2800)
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_time, projection_tick=projection_tick,
+            relevance_query=current_context or None)
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
@@ -981,15 +1005,43 @@ class ResidentDevelopmentalCompanionBridge:
                     proposition_priorities)
                 conversation_context = {**semantic_context,
                     "selection_digest": digest_payload(semantic_context)}
-        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
-            tick_id=tick_id, projection_tick=projection_tick,
-            relevance_query=question,
-            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         snapshot = build_companion_snapshot(
             screen_observation=screen_observation,
             proprioception=proprioception, clock=self._clock)
         if not snapshot.facts:
             raise CognitionEvidenceUnavailable()
+        relevance_query = question
+        if (isinstance(question, str) and question.strip()
+                and len(question) <= 1200
+                and is_sparse_or_elliptical_cognition_query(question)):
+            relevance_parts = [question]
+            turns = (conversation_context.get("turns", ())
+                if isinstance(conversation_context, Mapping) else ())
+            prior_user_text = None
+            if isinstance(turns, (list, tuple)):
+                for row in reversed(turns):
+                    if not isinstance(row, Mapping) or row.get("role") != "user":
+                        continue
+                    candidate_text = row.get("text")
+                    if isinstance(candidate_text, str) and candidate_text.strip():
+                        prior_user_text = candidate_text
+                        break
+            if isinstance(prior_user_text, str):
+                relevance_parts.append(prior_user_text[:1000])
+            current_context = self._owner.selected_current_relevance_context(
+                snapshot, question=question, maximum_chars=2800)
+            if current_context:
+                relevance_parts.append(current_context)
+            if len(relevance_parts) > 1:
+                # Sparse follow-ups may use validated prior user language and
+                # selected current observations to rank prior cognitive state.
+                # Specific questions retain question-only ranking; neither cue
+                # is relabeled as current evidence or authority.
+                relevance_query = " ".join(relevance_parts)[:4000]
+        prior_self_model, prior_epistemic_state = self._prior_cognitive_context(
+            tick_id=tick_id, projection_tick=projection_tick,
+            relevance_query=relevance_query,
+            prioritized_epistemic_state_ids=prioritized_epistemic_state_ids)
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:

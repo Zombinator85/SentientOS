@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from .cognition_retrieval import cognition_tokens
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
@@ -16,6 +16,14 @@ MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_MEMORY_CORRECTION_TARGETS = 8
+MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES = 192
+MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES = 32
+MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES = 32
+MAX_SEMANTIC_MEMORY_CANDIDATES = (MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES
+    + MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES
+    + MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES)
+SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY = 0.25
+SEMANTIC_MEMORY_MIN_LEXICAL_COVERAGE = 0.5
 _MEMORY_ID_PATTERN = re.compile(r"^memory-[0-9a-f]{24}$")
 _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "a", "about", "after", "again", "all", "am", "an", "and", "any", "are",
@@ -43,6 +51,12 @@ _RESPONSE_STYLE_TERMS = frozenset((
 _PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
 _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
 _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
+
+
+class MemorySourceVerificationDeferred(Exception):
+    """The source could not be checked within the current retrieval budget."""
+
+
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
@@ -167,6 +181,113 @@ def _memory_retrieval_terms(text: str) -> set[str]:
     return terms
 
 
+def _normalized_semantic_vector(value: object) -> tuple[float, ...] | None:
+    if (not isinstance(value, (list, tuple)) or not value
+            or len(value) > 1024
+            or any(isinstance(item, bool) or not isinstance(item, (int, float))
+                or not math.isfinite(float(item)) for item in value)):
+        return None
+    vector = tuple(float(item) for item in value)
+    norm = math.sqrt(sum(item * item for item in vector))
+    return vector if 0.95 <= norm <= 1.05 else None
+
+
+def _semantic_memory_scores(query: str, records: Sequence[Mapping[str, Any]], *,
+        model_id: str, revision: str
+        ) -> tuple[dict[str, float], str | None, str | None, str]:
+    """Score a bounded recent memory slice with an optional pinned CPU embedder."""
+    if (not isinstance(model_id, str) or not model_id or len(model_id) > 256
+            or not isinstance(revision, str)
+            or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
+        return {}, None, None, "unavailable"
+    candidates: list[tuple[Mapping[str, Any], str]] = []
+    for record in records:
+        memory_id, text = record.get("id"), record.get("text")
+        if isinstance(memory_id, str) and isinstance(text, str) and text:
+            candidates.append((record, text[:4000]))
+    candidates.sort(key=lambda pair: (
+        _memory_record_timestamp(pair[0]), str(pair[0].get("id", ""))),
+        reverse=True)
+    recent = candidates[:MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES]
+    older = candidates[MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES:]
+    query_terms = _memory_retrieval_terms(query)
+    lexical_older = [pair for pair in older
+        if query_terms & _memory_retrieval_terms(pair[1])][
+            :MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES]
+    lexical_older_ids = {str(record.get("id", ""))
+        for record, _ in lexical_older}
+    sample_pool = [pair for pair in older
+        if str(pair[0].get("id", "")) not in lexical_older_ids]
+    sample_count = min(MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES,
+        len(sample_pool))
+    phase = (int.from_bytes(hashlib.sha256(query.encode("utf-8")).digest()[:8],
+        "big") % len(sample_pool) if sample_pool else 0)
+    sampled_older = ([sample_pool[(phase + ((2 * index + 1)
+        * len(sample_pool)) // (2 * sample_count)) % len(sample_pool)]
+        for index in range(sample_count)] if sample_count else [])
+    candidate_id_text_pairs = list(dict.fromkeys((str(record.get("id", "")), text)
+        for record, text in recent + lexical_older + sampled_older))
+    record_by_id = {str(record.get("id", "")): record
+        for record, _ in recent + lexical_older + sampled_older}
+    candidates = [(record_by_id[memory_id], text)
+        for memory_id, text in candidate_id_text_pairs]
+    if not candidates:
+        return {}, None, None, "no_candidates"
+    try:
+        from semantic_embeddings import encode_semantic
+        encoded = encode_semantic([query[:4000], *(text for _, text in candidates)],
+            model_id=model_id, revision=revision)
+        identity_digest = getattr(encoded, "identity_digest", None)
+        vectors_value = getattr(encoded, "vectors", None)
+        if (not isinstance(identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", identity_digest) is None
+                or not isinstance(vectors_value, (list, tuple))
+                or len(vectors_value) != len(candidates) + 1):
+            return {}, None, None, "unavailable"
+        vectors = [_normalized_semantic_vector(vector) for vector in vectors_value]
+        if any(vector is None for vector in vectors):
+            return {}, None, None, "unavailable"
+        query_vector = vectors[0]
+        assert query_vector is not None
+        candidate_vectors = [vector for vector in vectors[1:] if vector is not None]
+        dimensions = len(query_vector)
+        if any(len(vector) != dimensions for vector in candidate_vectors):
+            return {}, None, None, "unavailable"
+        candidate_bindings = [{
+            "memory_id": str(record["id"]),
+            "record_digest": digest(dict(record)),
+            "text_digest": digest({"text": text}),
+            "vector_digest": digest(list(vector)),
+        } for (record, text), vector in zip(candidates, candidate_vectors)]
+        selection_digest = digest({
+            "schema_version": "sentientos.canonical_memory_semantic_selection:v1",
+            "embedder_identity_digest": identity_digest,
+            "query_digest": digest({"query": query}),
+            "query_vector_digest": digest(list(query_vector)),
+            "candidates": candidate_bindings,
+        })
+    except Exception:
+        return {}, None, None, "unavailable"
+    scores = {str(record["id"]): sum(left * right for left, right in
+        zip(query_vector, vector)) for (record, _), vector in
+        zip(candidates, candidate_vectors)}
+    selected = {memory_id: score for memory_id, score in scores.items()
+        if math.isfinite(score) and score >= SEMANTIC_MEMORY_MIN_COSINE_SIMILARITY}
+    return selected, identity_digest, selection_digest, (
+        "matched" if selected else "no_match")
+
+
+def _memory_record_timestamp(record: Mapping[str, Any]) -> float:
+    try:
+        timestamp = datetime.fromisoformat(
+            str(record.get("timestamp", "")).replace("Z", "+00:00"))
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return timestamp.timestamp()
+    except (OverflowError, OSError, TypeError, ValueError):
+        return float("-inf")
+
+
 def _is_explicit_response_style_preference(text: str) -> bool:
     """Recognize only plainly stated first-person response-style preferences."""
     normalized = " ".join(re.findall(r"[a-z0-9]+", text.casefold()))
@@ -279,12 +400,16 @@ class CanonicalMemoryStore:
             if descriptor is not None:
                 os.close(descriptor)
 
-    def _records(self) -> tuple[list[dict[str, Any]], str]:
+    def _records(self, *, max_records: int = MAX_MEMORY_RECORDS
+            ) -> tuple[list[dict[str, Any]], str]:
+        if (type(max_records) is not int
+                or not 1 <= max_records <= MAX_MEMORY_SCAN_ENTRIES):
+            raise ValueError("canonical_memory_record_scan_bound_invalid")
         if os.name == "nt":
             try:
                 from .windows_handle_custody import verify_explicit_directory
                 verify_explicit_directory(self.root, require_private_acl=True)
-                entries = read_regular_files(self.raw, max_entries=MAX_MEMORY_RECORDS,
+                entries = read_regular_files(self.raw, max_entries=max_records,
                     max_file_bytes=MAX_RETENTION_RECORD_BYTES,
                     max_total_bytes=MAX_MEMORY_TOTAL_BYTES, suffix=".json",
                     require_private_acl=True)
@@ -313,7 +438,7 @@ class CanonicalMemoryStore:
                             return [], "directory_entry_bound_exceeded"
                         if entry.name.endswith(".json"):
                             names.append(entry.name)
-                            if len(names) > MAX_MEMORY_RECORDS:
+                            if len(names) > max_records:
                                 return [], "memory_record_bound_exceeded"
                 raw_entries = []
                 total = 0
@@ -384,10 +509,65 @@ class CanonicalMemoryStore:
             posture = "partial_duplicate_records"
         return unique, posture
 
-    def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000)->dict[str,Any]:
-        records, retrieval_posture = self._records()
+    def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000,
+            semantic_model_id: str | None = None,
+            semantic_model_revision: str | None = None,
+            record_validator: Callable[[Mapping[str, Any]], bool] | None = None
+            )->dict[str,Any]:
+        records, retrieval_posture = (self._records(
+            max_records=MAX_MEMORY_SCAN_ENTRIES) if record_validator is not None
+            else self._records())
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
+        record_validation_decisions: list[dict[str, Any]] = []
+        record_validation_cache: dict[tuple[str, str], str] = {}
+
+        def is_valid_record(record: Mapping[str, Any]) -> bool:
+            if record_validator is None:
+                return True
+            record_id = str(record.get("id", ""))
+            record_digest = digest(dict(record))
+            key = (record_id, record_digest)
+            if key not in record_validation_cache:
+                try:
+                    outcome = "verified" if record_validator(record) is True else "rejected"
+                except MemorySourceVerificationDeferred:
+                    outcome = "deferred"
+                except Exception:
+                    outcome = "rejected"
+                record_validation_cache[key] = outcome
+                record_validation_decisions.append({
+                    "memory_id": record_id,
+                    "record_digest": record_digest,
+                    "posture": outcome,
+                })
+            return record_validation_cache[key] == "verified"
+
+        source_omitted: list[tuple[tuple[Any, str], str]] = []
+        if record_validator is not None:
+            verified_records = []
+            for record in records:
+                if is_valid_record(record):
+                    verified_records.append(record)
+                else:
+                    identity = (record.get("id"), record.get("text_digest")
+                        or digest({"text": record["text"]}))
+                    outcome = record_validation_cache.get((str(record.get("id", "")),
+                        digest(dict(record))))
+                    source_omitted.append((identity,
+                        "source_verification_budget" if outcome == "deferred"
+                        else "source_verification"))
+            # Unverified records must not participate in correction graphs,
+            # lexical corpus statistics, semantic candidate sampling, or
+            # final bounded selection.
+            if len(verified_records) > MAX_MEMORY_RECORDS:
+                verified_records.sort(key=lambda record: (
+                    _memory_record_timestamp(record), str(record.get("id", ""))),
+                    reverse=True)
+                verified_records = verified_records[:MAX_MEMORY_RECORDS]
+                if retrieval_posture == "complete":
+                    retrieval_posture = "verified_record_limit_reached"
+            records = verified_records
         terms = _memory_retrieval_terms(query)
         by_id = {record.get("id"): record for record in records
             if isinstance(record.get("id"), str)}
@@ -496,12 +676,17 @@ class CanonicalMemoryStore:
             for candidate_terms in document_terms) for term in terms}
         term_weights = {term: math.log((len(eligible) + 1) /
             (frequency + 0.5)) + 1 for term, frequency in document_frequency.items()}
-        ranked = []
+        ranked: list[tuple[float, float, str, dict[str, Any]]] = []
+        total_query_weight = sum(term_weights.values())
+        best_lexical_coverage = 0.0
         composition_query = _is_response_composition_query(query)
         for record, candidate_terms in zip(eligible, document_terms):
             # Corpus rarity lets a distinctive anchor outweigh several common
             # words, while relevance remains lexical and does not imply truth.
-            score = sum(term_weights[term] for term in terms & candidate_terms)
+            overlap = terms & candidate_terms
+            score = sum(term_weights[term] for term in overlap)
+            coverage = (sum(term_weights[term] for term in overlap)
+                / total_query_weight if total_query_weight else 0.0)
             # A plainly stated response-style preference can affect new writing
             # even when the request uses different wording. Keep this bridge
             # narrow: it does not retrieve other preference kinds or answer
@@ -509,6 +694,8 @@ class CanonicalMemoryStore:
             if (score == 0 and composition_query
                     and _is_explicit_response_style_preference(record["text"])):
                 score = 1.0
+                coverage = 1.0
+            best_lexical_coverage = max(best_lexical_coverage, coverage)
             if score:
                 try:
                     timestamp = datetime.fromisoformat(
@@ -520,8 +707,42 @@ class CanonicalMemoryStore:
                     # Bad or absent time never outranks a valid retained record.
                     recency = float("-inf")
                 ranked.append((score, recency, str(record.get("id", "")), record))
+        semantic_identity_digest = None
+        semantic_selection_digest = None
+        semantic_retrieval_posture = "disabled"
+        semantic_requested = (semantic_model_id is not None
+            or semantic_model_revision is not None)
+        semantic_refinement_needed = (not ranked or best_lexical_coverage
+            < SEMANTIC_MEMORY_MIN_LEXICAL_COVERAGE)
+        if ranked and (not semantic_requested or not semantic_refinement_needed):
+            semantic_retrieval_posture = "lexical_match_preferred"
+        elif semantic_requested:
+            if semantic_model_id is None or semantic_model_revision is None:
+                semantic_retrieval_posture = "unavailable"
+                semantic_scores: dict[str, float] = {}
+            else:
+                semantic_scores, semantic_identity_digest, semantic_selection_digest, \
+                    semantic_retrieval_posture = _semantic_memory_scores(query, eligible,
+                        model_id=semantic_model_id, revision=semantic_model_revision)
+            semantic_ranked = []
+            for record in eligible:
+                record_id = str(record.get("id", ""))
+                semantic_score = semantic_scores.get(record_id)
+                if semantic_score is not None:
+                    semantic_ranked.append((semantic_score,
+                        _memory_record_timestamp(record), record_id, record))
+            if semantic_ranked:
+                # Low-coverage lexical hits are weak cues. A qualifying semantic
+                # match refines them; if semantic retrieval has no usable result,
+                # retain the deterministic lexical answer.
+                ranked = semantic_ranked
+            elif ranked:
+                semantic_retrieval_posture = (
+                    "unavailable_lexical_fallback"
+                    if semantic_retrieval_posture == "unavailable"
+                    else "no_match_lexical_fallback")
         selected: list[dict[str, Any]]=[]; used=0
-        omitted: list[tuple[tuple[Any, str], str]] = []
+        omitted: list[tuple[tuple[Any, str], str]] = list(source_omitted)
         # Relevance remains primary. Recency only orders equally relevant
         # retained reports; it is not evidence that a newer statement is true.
         ranked = sorted(ranked, key=lambda row: (-row[0], -row[1], row[2]))
@@ -546,9 +767,14 @@ class CanonicalMemoryStore:
                      ranked_by_id[str(item.get("id", ""))][2])
                     if str(item.get("id", "")) in ranked_by_id
                     else (0.0, 0.0, str(item.get("id", "")))))
-            group_char_count = sum(len(item["text"]) for item in group_records)
             group_identities = [(item.get("id"), item.get("text_digest")
                 or digest({"text": item["text"]})) for item in group_records]
+            group_validation = [is_valid_record(item) for item in group_records]
+            if not all(group_validation):
+                omitted.extend((identity, "source_verification")
+                    for identity in group_identities)
+                continue
+            group_char_count = sum(len(item["text"]) for item in group_records)
             if len(selected) + len(group_records) > max(0, limit):
                 omitted.extend((identity, "selection_limit")
                     for identity in group_identities)
@@ -576,12 +802,29 @@ class CanonicalMemoryStore:
                 "correction_relations":correction_relations,
                 "retrieval_posture":retrieval_posture,
                 "selection_posture":selection_posture,
+                "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
+                "semantic_retrieval_posture": semantic_retrieval_posture,
+                "semantic_embedder_identity_digest": semantic_identity_digest,
+                "record_validation_posture": (
+                    "not_requested" if record_validator is None else
+                    "inspected_candidates_deferred" if any(
+                        item["posture"] == "deferred"
+                        for item in record_validation_decisions) else
+                    "inspected_candidates_rejected" if any(
+                        item["posture"] == "rejected"
+                        for item in record_validation_decisions) else
+                    "inspected_candidates_passed"),
                 "omitted_memory_count":len(omitted),
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "omitted":omitted,"selection_posture":selection_posture,
                     "correction_relations":correction_relations,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
-                    "legacy_sidecar_posture":legacy_sidecar_posture})}
+                    "legacy_sidecar_posture":legacy_sidecar_posture,
+                    "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
+                    "semantic_retrieval_posture": semantic_retrieval_posture,
+                    "semantic_embedder_identity_digest": semantic_identity_digest,
+                    "semantic_selection_digest": semantic_selection_digest,
+                    "record_validation_decisions": record_validation_decisions})}
     def open_memory_root(self, *, prepare_for_write: bool = False) -> int:
         """Open and verify the shared user-memory root without following links."""
         if os.name != "posix":

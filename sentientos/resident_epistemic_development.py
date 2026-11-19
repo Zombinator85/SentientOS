@@ -1120,7 +1120,9 @@ class ResidentEpistemicDevelopmentRuntime:
 
     def process_verified_task_family_run(self, *, experiment_store: Any,
             run_id: str, expected_run_digest: str, rule_id: str, tick: int,
-            recorded_at: str) -> EpistemicDevelopmentFeedback:
+            recorded_at: str, advance_state: bool = True,
+            allow_new_binding: bool = True
+            ) -> EpistemicDevelopmentFeedback:
         """Admit a recovered scored run through the ordinary mutation controller.
 
         The run owner determines the evidence relation from its frozen scores.
@@ -1132,6 +1134,8 @@ class ResidentEpistemicDevelopmentRuntime:
                 or rules[0].selector != {"source_kind": "embodiment",
                     "subject_kind": "developmental_history_intervention_experiment"}):
             raise EpistemicDevelopmentError("task_family_outcome_rule_invalid")
+        if type(advance_state) is not bool or type(allow_new_binding) is not bool:
+            raise EpistemicDevelopmentError("task_family_processing_options_invalid")
         rule = rules[0]
         run = experiment_store.load_run(run_id)
         descriptor = run.get("protocol", {}).get("objective_task_descriptor")
@@ -1182,6 +1186,10 @@ class ResidentEpistemicDevelopmentRuntime:
             if existing[binding.binding_id] != binding:
                 raise EpistemicDevelopmentError("task_family_evidence_identity_collision")
         else:
+            if not allow_new_binding:
+                return EpistemicDevelopmentFeedback(
+                    "binding_limit_reached", run_id, 1, 0, 0, 0,
+                    (), (), (), ())
             operation = f"{tick}:{rule_id}:{run_id}:evidence"
             configuration = self.controller.evidence_configuration_digest(
                 binding=binding, proposition_digest=rule.proposition_digest,
@@ -1194,24 +1202,55 @@ class ResidentEpistemicDevelopmentRuntime:
                 binding=binding, source_proof=proof, admission=admission,
                 operation_id=operation, correlation_id=f"tick:{tick}:{rule_id}:{run_id}")
             evidence_receipts = (evidence_receipt.receipt_id,)
-        bindings = self._effective_bindings(rule.proposition_id)
-        if len(bindings) > MAX_ACTIVE_EVIDENCE:
-            raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
-        active_ids = tuple(sorted(item.binding_id for item in bindings))
-        prior = self.owner.current_state(rule.proposition_id)
-        prior_active_ids = self.owner.active_binding_ids(rule.proposition_id)
-        all_records = self.owner.bindings(rule.proposition_id)
-        if prior is not None and binding.binding_id in prior_active_ids:
-            return EpistemicDevelopmentFeedback("already_applied", run_id, 1, 1,
-                0, 0, (), (), (), ())
-        if binding.evidence_relation == "contextualizes":
-            # A tied evaluator result remains in the evidence ledger. Even
-            # when directional history already exists, it does not create a
-            # new stance generation or refresh the direction by implication.
+        if not advance_state:
             return EpistemicDevelopmentFeedback(
                 "evidence_appended" if evidence_receipts else "already_applied",
                 run_id, 1, 1, len(evidence_receipts), 0,
                 evidence_receipts, (), (), ())
+        feedback = self.advance_task_family_proposition(
+            proposition_id=rule.proposition_id, rule_id=rule_id,
+            tick=tick, recorded_at=recorded_at)
+        return EpistemicDevelopmentFeedback(**{
+            **asdict(feedback), "snapshot_id": run_id,
+            "matched_fact_count": 1,
+            "new_binding_count": len(evidence_receipts),
+            "evidence_receipt_ids": evidence_receipts,
+        })
+
+    def advance_task_family_proposition(self, *, proposition_id: str,
+            rule_id: str, tick: int, recorded_at: str
+            ) -> EpistemicDevelopmentFeedback:
+        """Commit one state update from all task-family evidence admitted this tick."""
+        rules = [rule for rule in self.config.rules
+            if rule.rule_id == rule_id and rule.proposition_id == proposition_id]
+        if not self.config.enabled or len(rules) != 1:
+            raise EpistemicDevelopmentError("task_family_outcome_rule_invalid")
+        rule = rules[0]
+        proposition = self.owner.proposition(proposition_id)
+        if proposition.proposition_digest != rule.proposition_digest:
+            raise EpistemicDevelopmentError("proposition_digest_mismatch")
+        recovery = self.controller.verify_receipts()
+        if recovery.get("status") == "incomplete":
+            raise EpistemicDevelopmentError("epistemic_mutation_recovery_incomplete")
+        bindings = self._effective_bindings(proposition_id)
+        if len(bindings) > MAX_ACTIVE_EVIDENCE:
+            raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
+        active_ids = tuple(sorted(item.binding_id for item in bindings))
+        prior = self.owner.current_state(proposition_id)
+        prior_active_ids = self.owner.active_binding_ids(proposition_id)
+        all_records = self.owner.bindings(proposition_id)
+        if prior is not None and set(active_ids) == set(prior_active_ids):
+            return EpistemicDevelopmentFeedback(
+                "already_applied", proposition_id, 1, 0, 0, 0,
+                (), (), (), ())
+        newly_active = set(active_ids) - set(prior_active_ids)
+        if (prior is not None and newly_active
+                and all(item.evidence_relation == "contextualizes"
+                    for item in bindings if item.binding_id in newly_active)):
+            # Context evidence is retained without refreshing an unchanged
+            # epistemic stance.
+            return EpistemicDevelopmentFeedback("evidence_appended",
+                proposition_id, 1, len(newly_active), 0, 0, (), (), (), ())
         posture = evidence_posture(bindings)
         stance = {"support_only": "provisionally_supported",
             "contradiction_only": "provisionally_contradicted", "mixed": "contested",
@@ -1220,33 +1259,37 @@ class ResidentEpistemicDevelopmentRuntime:
             # A scored tie is contextual evidence. It does not justify a
             # directional state update, but its admitted binding remains.
             return EpistemicDevelopmentFeedback(
-                "evidence_appended" if evidence_receipts else "already_applied",
-                run_id, 1, 1, len(evidence_receipts), 0,
-                evidence_receipts, (), (), ())
+                "evidence_appended" if newly_active else "already_applied",
+                proposition_id, 1, len(newly_active), 0, 0,
+                (), (), (), ())
+        new_relations = {item.evidence_relation for item in bindings
+            if item.binding_id in newly_active}
         candidate = make_epistemic_update_candidate(
-            proposition_id=rule.proposition_id,
+            proposition_id=proposition_id,
             predecessor_state_digest=prior.state_digest if prior else None,
             proposed_stance=stance, evidence_binding_ids=active_ids,
             reason=("source_reliability_revision" if self._freshness_revision(
                 rule.proposition_id, bindings, prior_active_ids, all_records)
-                else "contradiction_arrival" if binding.evidence_relation == "contradicts"
+                else "contradiction_arrival" if "contradicts" in new_relations
                 else "new_evidence"),
             rationale=f"{QUALITATIVE_RULE}:{posture['posture']}; fixture scope preserved",
             uncertainty="high" if posture["dependency_unresolved"] else "medium",
             model_id=None, proposer_kind="deterministic_rule", proposer_id=rule_id)
-        operation = f"{tick}:{rule_id}:{run_id}:state"
+        operation = f"{tick}:{rule_id}:{candidate.candidate_id}:state"
         configuration = self.controller.state_configuration_digest(
             candidate=candidate, operation_id=operation)
         admission = self._issue(
             admission_id=f"epistemic-S-{tick}-{candidate.candidate_id}",
             effects=STATE_UPDATE_EFFECTS, subject_id=candidate.candidate_id,
-            configuration_digest=configuration, provenance=proof.provenance_id)
+            configuration_digest=configuration,
+            provenance=(f"task-family:{proposition_id};new-evidence-set:"
+                + digest(sorted(newly_active))))
         state_receipt = self.controller.commit_update_candidate(candidate=candidate,
             admission=admission, operation_id=operation,
-            correlation_id=f"tick:{tick}:{rule_id}:{run_id}", tick=tick,
+            correlation_id=f"tick:{tick}:{rule_id}:{proposition_id}", tick=tick,
             recorded_at=recorded_at)
-        return EpistemicDevelopmentFeedback("state_advanced", run_id, 1, 1,
-            len(evidence_receipts), 1, evidence_receipts, (state_receipt.receipt_id,),
+        return EpistemicDevelopmentFeedback("state_advanced", proposition_id, 1,
+            len(newly_active), 0, 1, (), (state_receipt.receipt_id,),
             (state_receipt.successor_state_id,), (state_receipt.generation,))
 
     def process_calibration_event(self, *, calibration_id: str,

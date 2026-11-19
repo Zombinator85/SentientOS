@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Mapping
 
+from sentientos.goal_completion import CompletionContext, eval_check
 from sentientos.epistemic_planning import (
     EpistemicPlanningError,
     epistemic_review_reason_for_goal,
@@ -65,14 +66,21 @@ class GoalPlanner:
         spent_risk = 0
         spent_throughput = 0
         prior_run = None
+        prior_attempted_goal_ids: set[str] = set()
+        prior_completion_reviews: dict[str, dict[str, object]] = {}
         if state.prior_plan is not None:
             prior_run = load_work_run(self.repo_root, state.prior_plan,
                 created_at=state.prior_plan.created_at)
             if prior_run is None:
                 raise WorkPlanError("prior_work_run_unavailable")
         prior_goal_outcomes: dict[str, set[str]] = {}
+        prior_attempts_by_goal: dict[str, list[str]] = {}
+        completion_review_required_goal_ids: set[str] = set()
         if prior_run is not None:
             for task_run in prior_run.task_runs:
+                prior_attempted_goal_ids.add(task_run.goal_id)
+                prior_attempts_by_goal.setdefault(task_run.goal_id, []).append(
+                    task_run.status)
                 if task_run.status in {"partial", "failed"} or (
                         task_run.status == "skipped"
                         and (task_run.reason == "prior_attempt_outcome_unknown"
@@ -83,6 +91,60 @@ class GoalPlanner:
         elif state.prior_run_outcome_unknown:
             for goal_id in allocation.selected:
                 prior_goal_outcomes[goal_id] = {"unknown"}
+        if prior_run is not None:
+            for completion_goal in graph.goals:
+                if (completion_goal.goal_id not in prior_attempted_goal_ids
+                        or prior_run.status != "ok"
+                        or any(status != "success" for status in
+                            prior_attempts_by_goal.get(completion_goal.goal_id, ()))
+                        or completion_goal.completion_check_name
+                            != "check_forge_last_run_ok"):
+                    continue
+                prior_run_digest = hashlib.sha256(json.dumps(
+                    prior_run.to_dict(), sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")).hexdigest()
+                try:
+                    assessment = eval_check(completion_goal.completion_check_name,
+                        CompletionContext(
+                            repo_root=self.repo_root,
+                            goal_id=completion_goal.goal_id,
+                            operating_mode=state.operating_mode,
+                            pressure_level=state.pressure_level,
+                            posture=state.posture,
+                            quarantine_active=state.quarantine_active,
+                            risk_budget_summary=state.risk_budget.to_dict(),
+                            work_run_id=prior_run.run_id,
+                            work_run_evidence_digest=prior_run.evidence_digest,
+                        ))
+                    assessment_row: dict[str, object] = {
+                        "work_run_id": prior_run.run_id,
+                        "work_run_digest": prior_run_digest,
+                        "check_name": assessment.check_name,
+                        "done": assessment.done,
+                        "status": assessment.status,
+                        "reason_stack": list(assessment.reason_stack),
+                        "evidence_paths": list(assessment.evidence_paths),
+                        "evidence_digest": assessment.evidence_digest,
+                    }
+                    unresolved = not assessment.done
+                except Exception:
+                    # A failed read-only assessment must not be treated as
+                    # evidence that a destructive retry is ready.
+                    assessment_row = {
+                        "work_run_id": prior_run.run_id,
+                        "work_run_digest": prior_run_digest,
+                        "check_name": completion_goal.completion_check_name,
+                        "done": False,
+                        "status": "assessment_unavailable",
+                        "reason_stack": ["completion_assessment_unavailable"],
+                        "evidence_paths": [],
+                        "evidence_digest": None,
+                    }
+                    unresolved = True
+                prior_completion_reviews[completion_goal.goal_id] = assessment_row
+                if unresolved:
+                    completion_review_required_goal_ids.add(
+                        completion_goal.goal_id)
         epistemic_review_goal_ids: set[str] = set()
         epistemic_projection_digest: str | None = None
         epistemic_review_scopes: dict[str, dict[str, object]] = {}
@@ -97,7 +159,8 @@ class GoalPlanner:
         if state.prior_epistemic_projection is not None:
             try:
                 epistemic_projection_digest, epistemic_review_scopes = review_required_applicability(
-                    state.prior_epistemic_projection)
+                    state.prior_epistemic_projection,
+                    evaluation_time=state.created_at)
             except EpistemicPlanningError as exc:
                 raise WorkPlanError("prior_epistemic_projection_invalid") from exc
             epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals
@@ -113,16 +176,23 @@ class GoalPlanner:
                 continue
             omissions.extend(_goal_task_omissions(goal=goal, state=state))
             prior_outcome = prior_goal_outcomes.get(goal_id, set())
+            planning_outcome = set(prior_outcome)
+            if goal_id in completion_review_required_goal_ids:
+                planning_outcome.add("completion_unresolved")
             epistemic_review = goal_id in epistemic_review_goal_ids
             if _forge_apply_would_be_allowed(goal, state):
                 if prior_outcome:
                     omissions.append(TaskOmission(goal_id, "forge_apply",
                         "prior_terminal_outcome_requires_review"))
+                elif goal_id in completion_review_required_goal_ids:
+                    omissions.append(TaskOmission(goal_id, "forge_apply",
+                        "prior_completion_assessment_unresolved"))
                 elif epistemic_review:
                     omissions.append(TaskOmission(goal_id, "forge_apply",
                         "epistemic_position_requires_review"))
             for task in _map_goal_to_tasks(goal=goal, state=state,
-                    prior_outcome=prior_outcome, epistemic_review=epistemic_review):
+                    prior_outcome=planning_outcome,
+                    epistemic_review=epistemic_review):
                 if spent_risk + task.risk_cost > state.risk_budget.router_k_max:
                     omissions.append(TaskOmission(
                         goal_id=task.goal_id, kind=task.kind, reason="risk_budget_exceeded"))
@@ -185,6 +255,7 @@ class GoalPlanner:
             "prior_run_journal_digest": state.prior_run_journal_digest,
             "no_replay_goal_outcomes": {goal_id: sorted(statuses)
                 for goal_id, statuses in sorted(prior_goal_outcomes.items())},
+            "prior_completion_reviews": prior_completion_reviews,
         }
         if allocation.prior_epistemic_priority_overflowed is not None:
             epistemic_binding["prior_epistemic_priority_admission"] = {

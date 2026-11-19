@@ -28,6 +28,9 @@ _QUERY_STOP_WORDS = frozenset((
     "was", "we", "were", "what", "when", "where", "whether", "which", "while", "who",
     "whom", "why", "will", "with", "would", "you", "your", "yours"))
 
+_ELLIPTICAL_FOLLOW_UP_CUES = frozenset((
+    "again", "else", "next", "same", "there", "then"))
+
 _NONVERB_ING_WORDS = frozenset((
     "anything", "ceiling", "evening", "everything", "morning", "nothing",
     "something"))
@@ -106,3 +109,12 @@ def cognition_query_terms(text: str) -> set[str]:
         terms.add(token)
     terms.update(cognition_negation_terms(text))
     return terms
+
+
+def is_sparse_or_elliptical_cognition_query(text: str) -> bool:
+    """Identify short questions whose topic may depend on the prior user turn."""
+    terms = cognition_query_terms(text)
+    if len(terms) < 2:
+        return True
+    return (len(terms) <= 2
+        and bool(set(cognition_tokens(text)) & _ELLIPTICAL_FOLLOW_UP_CUES))

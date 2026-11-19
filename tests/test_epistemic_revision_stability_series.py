@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from test_resident_developmental_cognition import (  # noqa: E402
     SessionBoundFakeInvoker, owner, snapshot,
 )
+from test_epistemic_revision_qualification import _cognition_root  # noqa: E402
 from test_epistemic_revision_pressure_control import _pressure_snapshot  # noqa: E402
 from sentientos.epistemic_revision_stability_series import (  # noqa: E402
     EpistemicCorrectionInterruptionSeries, EpistemicCorrectionModelReplacementSeries,
@@ -57,6 +58,7 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
 
     capitulate_to_pressure = False
     revert_corrected_position = False
+    target_proposition_id: str | None = None
 
     @staticmethod
     def _answer(conclusion: str, packet: dict | None, *, cite_packet: bool) -> dict:
@@ -89,7 +91,10 @@ class PositionReasoningFixtureInvoker(SessionBoundFakeInvoker):
         context = json.loads(request.prompt)
         prior = context.get("prior_epistemic_state")
         packets = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
-        packet = packets[0] if len(packets) == 1 else None
+        packet = next((row for row in packets
+            if row.get("proposition", {}).get("proposition_id")
+                == self.target_proposition_id), None) if self.target_proposition_id else (
+                    packets[0] if len(packets) == 1 else None)
         answer_for_context = (self._probe_answer
             if "epistemic_revision_probe" in context else self._answer)
         pressure_present = any(
@@ -168,12 +173,14 @@ def _run(root: Path, projection, current_snapshot, *, capitulate: bool = False,
          model_identity: dict[str, str] | None = None,
          seed_model_identity: dict[str, str] | None = None,
          revert_corrected_position: bool = False,
-         serving_session_id: str | None = None):
+         serving_session_id: str | None = None,
+         target_proposition_id: str | None = None):
     invoker = PositionReasoningFixtureInvoker()
     invoker.capitulate_to_pressure = capitulate
     invoker.revert_corrected_position = revert_corrected_position
+    invoker.target_proposition_id = target_proposition_id
     invoker.active_model_identity = dict(seed_model_identity or model_identity or {})
-    cognition, _ = owner(root, invoker=invoker,
+    cognition, _ = owner(_cognition_root(root.parent, root.name), invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
     # Observation ids are content-derived from the tick identity; give each
@@ -545,13 +552,21 @@ def _model_replacement_series(tmp_path: Path, *, successor_reverts: bool = False
     return report
 
 
-def _inference_correction_projections(root: Path):
+def _inference_correction_projections(root: Path, *, include_peer: bool = False):
     state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
     proposition = make_proposition(namespace="experiment", subject="sensor:beta",
         predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
         temporal_scope={"window": "current"}, context_scope={},
         proposition_class="descriptive")
     state_owner.register_proposition(proposition)
+    peer = None
+    peer_support = None
+    if include_peer:
+        peer = make_proposition(namespace="experiment", subject="sensor:zeta",
+            predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+            temporal_scope={"window": "current"}, context_scope={},
+            proposition_class="descriptive")
+        state_owner.register_proposition(peer)
     support = make_evidence_binding(proposition_id=proposition.proposition_id,
         source_artifact_id="observation:support", source_digest="sha256:" + "3" * 64,
         source_schema="fixture_observation:v1", source_class="independent_observation",
@@ -559,22 +574,62 @@ def _inference_correction_projections(root: Path):
         dependency_kind="independently_sourced_observation", dependency_group="sensor-b",
         upstream_binding_ids=(), freshness="current", reliability_posture="verified")
     state_owner.bind_evidence(support)
+    if peer is not None:
+        peer_support = make_evidence_binding(proposition_id=peer.proposition_id,
+            source_artifact_id="observation:peer-support", source_digest="sha256:" + "6" * 64,
+            source_schema="fixture_observation:v1", source_class="independent_observation",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation", dependency_group="sensor-peer",
+            upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+        state_owner.bind_evidence(peer_support)
     initial, _ = state_owner.commit_update(proposition_id=proposition.proposition_id,
         expected_predecessor_digest=None, stance="supported", reason="initialization",
         active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
         correlation_id="inference-initial", tick=1,
         recorded_at="2026-01-01T00:01:00Z")
-    original = state_owner.cognitive_projection(max_states=1, current_tick=2,
+    peer_initial = None
+    if peer is not None and peer_support is not None:
+        peer_initial, _ = state_owner.commit_update(proposition_id=peer.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=(peer_support.binding_id,), added_binding_ids=(peer_support.binding_id,),
+            correlation_id="peer-initial", tick=1,
+            recorded_at="2026-01-01T00:01:00Z")
+    original = state_owner.cognitive_projection(max_states=2 if include_peer else 1, current_tick=2,
         prioritized_proposition_ids=(proposition.proposition_id,))
     state_owner.commit_update(proposition_id=proposition.proposition_id,
         expected_predecessor_digest=initial.state_digest, stance="contested",
         reason="update_rule_correction", active_binding_ids=(support.binding_id,),
         added_binding_ids=(), correlation_id="inference-correction", tick=2,
         recorded_at="2026-01-01T00:02:00Z")
-    corrected = state_owner.cognitive_projection(max_states=1, current_tick=3,
+    if peer is not None and peer_support is not None and peer_initial is not None:
+        peer_contradiction = make_evidence_binding(proposition_id=peer.proposition_id,
+            source_artifact_id="observation:peer-contradiction", source_digest="sha256:" + "7" * 64,
+            source_schema="fixture_observation:v1", source_class="independent_observation",
+            observation_time="2026-01-01T00:02:00Z", evidence_relation="contradicts",
+            dependency_kind="independently_sourced_observation", dependency_group="sensor-peer-2",
+            upstream_binding_ids=(), freshness="current", reliability_posture="verified")
+        state_owner.bind_evidence(peer_contradiction)
+        state_owner.commit_update(proposition_id=peer.proposition_id,
+            expected_predecessor_digest=peer_initial.state_digest, stance="contested",
+            reason="contradiction_arrival",
+            active_binding_ids=(peer_support.binding_id, peer_contradiction.binding_id),
+            added_binding_ids=(peer_contradiction.binding_id,),
+            correlation_id="peer-correction", tick=2,
+            recorded_at="2026-01-01T00:02:00Z")
+    corrected = state_owner.cognitive_projection(max_states=2 if include_peer else 1, current_tick=3,
         prioritized_proposition_ids=(proposition.proposition_id,))
     assert original is not None and corrected is not None
-    assert original.evidence_set_digests == corrected.evidence_set_digests
+    target_index = original.proposition_ids.index(proposition.proposition_id)
+    corrected_target_index = corrected.proposition_ids.index(proposition.proposition_id)
+    assert (original.evidence_set_digests[target_index]
+        == corrected.evidence_set_digests[corrected_target_index])
+    if include_peer and peer is not None:
+        original_peer_index = original.proposition_ids.index(peer.proposition_id)
+        corrected_peer_index = corrected.proposition_ids.index(peer.proposition_id)
+        assert (original.evidence_set_digests[original_peer_index]
+            != corrected.evidence_set_digests[corrected_peer_index])
+    else:
+        assert original.evidence_set_digests == corrected.evidence_set_digests
     return original, corrected, proposition, support
 
 
@@ -666,21 +721,23 @@ def _withdrawn_evidence_projections(root: Path, *, corrected_stance: str = "unkn
 
 
 def _inference_correction_model_replacement_series(
-        tmp_path: Path, *, successor_reverts: bool = False):
+        tmp_path: Path, *, successor_reverts: bool = False,
+        include_peer: bool = False):
     original, corrected, proposition, support = _inference_correction_projections(
-        tmp_path / "epistemic")
+        tmp_path / "epistemic", include_peer=include_peer)
     base_snapshot = snapshot()
     model_a = {"provider": "fixture", "model": "model-a",
         "model_content_sha256": "1" * 64}
     model_b = {"provider": "fixture", "model": "model-b",
         "model_content_sha256": "2" * 64}
     before = _run(tmp_path / "inference-before", original, base_snapshot,
-        model_identity=model_a)
+        model_identity=model_a, target_proposition_id=proposition.proposition_id)
     corrected_run = _run(tmp_path / "inference-corrected", corrected, base_snapshot,
-        model_identity=model_a)
+        model_identity=model_a, target_proposition_id=proposition.proposition_id)
     successor = _run(tmp_path / "inference-successor", corrected, base_snapshot,
         model_identity=model_b, seed_model_identity=model_a,
-        revert_corrected_position=successor_reverts)
+        revert_corrected_position=successor_reverts,
+        target_proposition_id=proposition.proposition_id)
     before_key = IndependentAnswerKey("supported", "supported", "support_retained",
         (support.binding_id,))
     corrected_key = IndependentAnswerKey("contested", "contested",
@@ -751,6 +808,17 @@ def test_inference_rule_correction_without_new_facts_reaches_successor(
     assert report["correction_evidence_set_preserved"] is True
     assert (report["correction_evidence_set_digest_before"]
         == report["correction_evidence_set_digest_after"])
+
+
+def test_multi_proposition_successor_report_tracks_target_lineage_only(
+        tmp_path: Path) -> None:
+    report = _inference_correction_model_replacement_series(tmp_path,
+        include_peer=True)
+    assert report["status"] == "series_passed"
+    assert report["correction_update_reason"] == "update_rule_correction"
+    assert report["correction_evidence_set_preserved"] is True
+    assert report["correction_evidence_set_digest_before"] == (
+        report["correction_evidence_set_digest_after"])
 
 
 def test_successor_reversion_after_inference_correction_is_scored_as_failure(

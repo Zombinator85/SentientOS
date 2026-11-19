@@ -87,8 +87,19 @@ def evaluate_correction_reopening_series(
     if len(set(observation_ids)) != 3:
         raise ValueError("epistemic_reopening_observation_reuse")
 
-    [corrected_packet] = semantic_packets_for_projection(corrected_projection)
-    [reopened_packet] = semantic_packets_for_projection(reopened_projection)
+    target_proposition_id = series.reopening_case.proposition_id
+
+    def target_packet(projection: EpistemicCognitiveProjection) -> dict[str, Any]:
+        packets = semantic_packets_for_projection(projection)
+        matches = [packet for packet in packets
+            if packet.get("proposition", {}).get("proposition_id")
+                == target_proposition_id]
+        if len(matches) != 1:
+            raise ValueError("epistemic_reopening_projection_scope_mismatch")
+        return matches[0]
+
+    corrected_packet = target_packet(corrected_projection)
+    reopened_packet = target_packet(reopened_projection)
     corrected_active_ids = {
         row["binding_id"] for row in corrected_packet["active_evidence_bindings"]
     }

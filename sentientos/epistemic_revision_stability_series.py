@@ -34,6 +34,28 @@ def _digest(value: Any) -> str:
     return "sha256:" + digest_payload(value)
 
 
+def _correction_target_metadata(*, original_projection: EpistemicCognitiveProjection,
+        corrected_projection: EpistemicCognitiveProjection,
+        proposition_id: str) -> tuple[Mapping[str, Any], str | None, str | None]:
+    """Return the correction event and evidence lineage for its target only."""
+    original_matches = [index for index, value in
+        enumerate(original_projection.proposition_ids) if value == proposition_id]
+    corrected_matches = [index for index, value in
+        enumerate(corrected_projection.proposition_ids) if value == proposition_id]
+    if len(original_matches) != 1 or len(corrected_matches) != 1:
+        raise ValueError("epistemic_correction_target_projection_mismatch")
+    original_index, corrected_index = original_matches[0], corrected_matches[0]
+    before_digest = (original_projection.evidence_set_digests[original_index]
+        if original_index < len(original_projection.evidence_set_digests) else None)
+    after_digest = (corrected_projection.evidence_set_digests[corrected_index]
+        if corrected_index < len(corrected_projection.evidence_set_digests) else None)
+    events: tuple[Mapping[str, Any], ...] = ()
+    if (isinstance(corrected_projection, MeaningBearingEpistemicCognitiveProjection)
+            and corrected_index < len(corrected_projection.update_events)):
+        events = corrected_projection.update_events[corrected_index]
+    return (events[-1] if events else {}, before_digest, after_digest)
+
+
 @dataclass(frozen=True)
 class EpistemicCorrectionPressureSeries:
     correction_case: RevisionCase
@@ -209,15 +231,10 @@ def evaluate_correction_model_replacement_series(*,
     status = ("insufficient" if "insufficient" in statuses else
         "series_passed" if statuses == ("case_passed", "case_passed")
         else "series_failed")
-    correction_events: tuple[Mapping[str, Any], ...] = ()
-    if (isinstance(corrected_projection, MeaningBearingEpistemicCognitiveProjection)
-            and len(corrected_projection.update_events) == 1):
-        correction_events = corrected_projection.update_events[0]
-    correction_event: Mapping[str, Any] = correction_events[-1] if correction_events else {}
-    before_evidence_digest = (original_projection.evidence_set_digests[0]
-        if len(original_projection.evidence_set_digests) == 1 else None)
-    after_evidence_digest = (corrected_projection.evidence_set_digests[0]
-        if len(corrected_projection.evidence_set_digests) == 1 else None)
+    correction_event, before_evidence_digest, after_evidence_digest = (
+        _correction_target_metadata(original_projection=original_projection,
+            corrected_projection=corrected_projection,
+            proposition_id=series.correction_case.proposition_id))
     report = {"schema_version": MODEL_REPLACEMENT_SCHEMA,
         "series_id": series.correction_case.case_id + ":" +
             series.replacement_case.case_id,
@@ -305,15 +322,10 @@ def evaluate_correction_interruption_series(*,
         and bool(before_identity["active_model_identity"]))
     same_model_identity = (identity_material_present
         and _canonical(before_identity) == _canonical(resumed_identity))
-    correction_events: tuple[Mapping[str, Any], ...] = ()
-    if (isinstance(corrected_projection, MeaningBearingEpistemicCognitiveProjection)
-            and len(corrected_projection.update_events) == 1):
-        correction_events = corrected_projection.update_events[0]
-    correction_event = correction_events[-1] if correction_events else {}
-    before_evidence_digest = (original_projection.evidence_set_digests[0]
-        if len(original_projection.evidence_set_digests) == 1 else None)
-    after_evidence_digest = (corrected_projection.evidence_set_digests[0]
-        if len(corrected_projection.evidence_set_digests) == 1 else None)
+    correction_event, before_evidence_digest, after_evidence_digest = (
+        _correction_target_metadata(original_projection=original_projection,
+            corrected_projection=corrected_projection,
+            proposition_id=series.correction_case.proposition_id))
     statuses = (correction["status"], retained["status"])
     status = ("insufficient" if "insufficient" in statuses or not distinct_sessions
         or not same_model_identity else
