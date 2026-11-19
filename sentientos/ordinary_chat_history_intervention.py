@@ -30,6 +30,8 @@ PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v2"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
+EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v1"
+EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -610,6 +612,124 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
         "authority": False}
 
 
+def build_ordinary_chat_history_intervention_evaluation(*,
+        result: Mapping[str, Any], protocol: Mapping[str, Any],
+        prompt_bundle: Mapping[str, Any], scoring_plan: Mapping[str, Any],
+        score_artifacts: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    """Compute preregistered descriptive score deltas from verified artifacts."""
+    checked = verify_ordinary_chat_history_intervention_result(result,
+        protocol=protocol, prompt_bundle=prompt_bundle,
+        score_artifacts=score_artifacts, scoring_plan=scoring_plan)
+    if (checked["score_artifact_bindings_verified"] is not True
+            or checked["score_semantics_verified"] is not True):
+        raise ValueError("ordinary_chat_history_evaluation_scores_unverified")
+    condition_metrics: dict[str, dict[str, Any]] = {}
+    for condition in CONDITIONS:
+        reference = result["conditions"][condition]
+        artifact = score_artifacts[reference["score_artifact_id"]]
+        payload = artifact["score_payload"]
+        status = payload.get("status")
+        if status in {"correct", "incorrect", "selective", "invalid_answer"}:
+            if "probe_count" in payload:
+                probe_count = payload.get("probe_count")
+                correct_count = payload.get("correct_count")
+                if (type(probe_count) is not int or not 1 <= probe_count <= 16
+                        or type(correct_count) is not int
+                        or not 0 <= correct_count <= probe_count):
+                    raise ValueError("ordinary_chat_history_evaluation_suite_score_invalid")
+                if status == "invalid_answer":
+                    answered_count = abstained_count = None
+                else:
+                    answered_count = payload.get("answered_count", probe_count)
+                    abstained_count = payload.get("abstained_count", 0)
+                    if (type(answered_count) is not int
+                            or type(abstained_count) is not int
+                            or answered_count + abstained_count != probe_count
+                            or correct_count > answered_count):
+                        raise ValueError(
+                            "ordinary_chat_history_evaluation_suite_score_invalid")
+            else:
+                correct = payload.get("correct")
+                if type(correct) is not bool:
+                    raise ValueError("ordinary_chat_history_evaluation_scalar_score_invalid")
+                probe_count = 1
+                correct_count = int(correct)
+                answered_count, abstained_count = 1, 0
+            scoreable = True
+        elif status in {"output_unavailable", "output_truncated"}:
+            probe_count = payload.get("probe_count")
+            correct_count = answered_count = abstained_count = None
+            scoreable = False
+        else:
+            raise ValueError("ordinary_chat_history_evaluation_score_status_invalid")
+        condition_metrics[condition] = {
+            "score_artifact_id": reference["score_artifact_id"],
+            "score_artifact_digest": reference["score_artifact_digest"],
+            "output_digest": reference["output_digest"], "status": status,
+            "scoreable": scoreable, "correct_count": correct_count,
+            "probe_count": probe_count, "answered_count": answered_count,
+            "abstained_count": abstained_count,
+        }
+    comparisons: dict[str, dict[str, Any]] = {}
+    for comparison, favored in (
+            ("history_present_vs_history_withheld", "history_present"),
+            ("history_restored_vs_history_withheld", "history_restored")):
+        left, right = condition_metrics[favored], condition_metrics["history_withheld"]
+        scoreable = (left["scoreable"] is True and right["scoreable"] is True
+            and left["probe_count"] == right["probe_count"])
+        comparisons[comparison] = {
+            "favored_condition": favored,
+            "reference_condition": "history_withheld",
+            "scoreable": scoreable,
+            "correct_count_delta": (left["correct_count"] - right["correct_count"]
+                if scoreable else None),
+            "probe_count": left["probe_count"] if scoreable else None,
+        }
+    present, restored = (condition_metrics["history_present"],
+        condition_metrics["history_restored"])
+    semantic = {
+        "schema_version": EVALUATION_SCHEMA,
+        "protocol_id": protocol["protocol_id"],
+        "protocol_digest": protocol["protocol_digest"],
+        "result_id": result["result_id"], "result_digest": result["result_digest"],
+        "scoring_plan_digest": protocol["scoring_plan_digest"],
+        "scorer_identity_digest": protocol["scorer_identity_digest"],
+        "trial_index": protocol["trial_index"],
+        "condition_metrics": condition_metrics, "planned_comparisons": comparisons,
+        "restoration_score_stable": (present["correct_count"] == restored["correct_count"]
+            and present["probe_count"] == restored["probe_count"]
+            if present["scoreable"] and restored["scoreable"] else None),
+        "restoration_output_digest_stable": (
+            present["output_digest"] == restored["output_digest"]),
+        "interpretation_posture": "descriptive_preregistered_task_score:v1",
+        "effect_established": False, "improvement_established": False,
+        "learning_established": False, "authority": False,
+    }
+    _validate_json_bound(semantic, maximum_bytes=32_768,
+        error_code="ordinary_chat_history_evaluation_over_bound")
+    digest = digest_payload(semantic)
+    return {**semantic, "evaluation_id": EVALUATION_ID_PREFIX + digest[:24],
+        "evaluation_digest": digest}
+
+
+def verify_ordinary_chat_history_intervention_evaluation(
+        evaluation: Mapping[str, Any], *, result: Mapping[str, Any],
+        protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
+        scoring_plan: Mapping[str, Any],
+        score_artifacts: Mapping[str, Mapping[str, Any]]) -> dict[str, Any]:
+    rebuilt = build_ordinary_chat_history_intervention_evaluation(
+        result=result, protocol=protocol, prompt_bundle=prompt_bundle,
+        scoring_plan=scoring_plan, score_artifacts=score_artifacts)
+    if dict(evaluation) != rebuilt:
+        raise ValueError("ordinary_chat_history_evaluation_digest_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_evaluation_verification:v1",
+        "evaluation_id": evaluation["evaluation_id"],
+        "evaluation_digest": evaluation["evaluation_digest"],
+        "result_id": result["result_id"], "score_semantics_verified": True,
+        "effect_established": False, "improvement_established": False,
+        "learning_established": False, "authority": False}
+
+
 def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
         prompt_bundle: Mapping[str, Any],
         invoke: Callable[..., Mapping[str, Any]],
@@ -1156,6 +1276,25 @@ class OrdinaryChatHistoryInterventionStore:
         return self._store.runs / (
             f"{FINAL_RESULT_ID_PREFIX}{protocol_digest[:24]}.json")
 
+    def _evaluation_path(self, evaluation_id: str) -> Path:
+        if (not isinstance(evaluation_id, str)
+                or len(evaluation_id) != len(EVALUATION_ID_PREFIX) + 24
+                or not evaluation_id.startswith(EVALUATION_ID_PREFIX)
+                or re.fullmatch(r"[0-9a-f]{24}",
+                    evaluation_id[len(EVALUATION_ID_PREFIX):]) is None):
+            raise ValueError("ordinary_chat_history_evaluation_identity_invalid")
+        return self._store.runs / f"{evaluation_id}.json"
+
+    def _persist_evaluation_artifact(self,
+            evaluation: Mapping[str, Any]) -> str:
+        path = self._evaluation_path(evaluation["evaluation_id"])
+        normalized = json.loads(json.dumps(dict(evaluation), sort_keys=True))
+        self._store._write_immutable(path, evaluation)
+        reloaded = self._store._read_json(path)
+        if reloaded != normalized:
+            raise ValueError("ordinary_chat_history_evaluation_persistence_mismatch")
+        return evaluation["evaluation_id"]
+
     def _next_trial_index(self, session_id: str, task_commitment_digest: str, *,
             retry_protocol_id: str | None = None) -> int:
         for trial_index in range(MAX_SCHEDULED_TRIALS):
@@ -1388,6 +1527,10 @@ class OrdinaryChatHistoryInterventionStore:
             invocation_receipt_verifier=invocation_receipt_verifier)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_result_persistence_mismatch")
+        evaluation = build_ordinary_chat_history_intervention_evaluation(
+            result=reloaded, protocol=protocol, prompt_bundle=prompt_bundle,
+            scoring_plan=scoring_plan, score_artifacts=reloaded_scores)
+        self._persist_evaluation_artifact(evaluation)
         index = _build_final_result_index(protocol,
             execution_claim=execution_claim, result=reloaded)
         index_path = self._final_result_path(protocol)
@@ -1447,3 +1590,43 @@ class OrdinaryChatHistoryInterventionStore:
         if verification["result_id"] != result_id:
             raise ValueError("ordinary_chat_history_result_identity_mismatch")
         return result
+
+    def persist_evaluation(self, *, result_id: str,
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
+        """Persist the deterministic per-trial score comparison for a final result."""
+        result = self.load_result(result_id, protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scores = self._score_artifacts_for_result(result, protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        evaluation = build_ordinary_chat_history_intervention_evaluation(
+            result=result, protocol=protocol, prompt_bundle=prompt_bundle,
+            scoring_plan=scoring_plan, score_artifacts=scores)
+        evaluation_id = self._persist_evaluation_artifact(evaluation)
+        reloaded = self._store._read_json(self._evaluation_path(evaluation_id))
+        verify_ordinary_chat_history_intervention_evaluation(reloaded,
+            result=result, protocol=protocol, prompt_bundle=prompt_bundle,
+            scoring_plan=scoring_plan, score_artifacts=scores)
+        return evaluation_id
+
+    def load_evaluation(self, evaluation_id: str, *,
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+        path = self._evaluation_path(evaluation_id)
+        try:
+            evaluation = self._store._read_json(path)
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_evaluation_missing") from exc
+        result = self.load_result(evaluation.get("result_id"), protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scoring_plan = self.load_scoring_plan(protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        scores = self._score_artifacts_for_result(result, protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        verified = verify_ordinary_chat_history_intervention_evaluation(
+            evaluation, result=result, protocol=protocol,
+            prompt_bundle=prompt_bundle, scoring_plan=scoring_plan,
+            score_artifacts=scores)
+        if verified["evaluation_id"] != evaluation_id:
+            raise ValueError("ordinary_chat_history_evaluation_identity_mismatch")
+        return evaluation

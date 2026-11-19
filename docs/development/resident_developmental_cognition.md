@@ -883,8 +883,13 @@ score artifact's digest and output/plan binding; receipt references are not
 reverified during result reload. New result persistence requires a receipt
 verifier and publishes one immutable per-protocol finalization index bound to
 the execution claim and result digest; a competing result packet cannot replace
-the finalized result. Score semantics, effect, improvement, and learning remain
-unestablished.
+the finalized result. Finalization also derives an immutable evaluation from
+the reverified scores. It reports per-condition correct counts and the two
+preregistered paired count deltas, keeps selective abstentions separate, and
+marks unavailable or truncated outputs unscoreable. Evaluation reload
+recomputes the digest and score semantics from the stored plan and score
+artifacts. These are descriptive outcomes for one preregistered task, not
+evidence of effect, improvement, or learning.
 
 `execute_ordinary_chat_history_intervention` now supplies the dormant
 three-condition orchestration boundary. It follows the frozen counterbalanced
