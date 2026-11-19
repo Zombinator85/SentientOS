@@ -507,6 +507,42 @@ class CanonicalMemoryStore:
         records, retrieval_posture = self._records()
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
+        record_validation_decisions: list[dict[str, Any]] = []
+        record_validation_cache: dict[tuple[str, str], bool] = {}
+
+        def is_valid_record(record: Mapping[str, Any]) -> bool:
+            if record_validator is None:
+                return True
+            record_id = str(record.get("id", ""))
+            record_digest = digest(dict(record))
+            key = (record_id, record_digest)
+            if key not in record_validation_cache:
+                try:
+                    valid = record_validator(record) is True
+                except Exception:
+                    valid = False
+                record_validation_cache[key] = valid
+                record_validation_decisions.append({
+                    "memory_id": record_id,
+                    "record_digest": record_digest,
+                    "posture": "verified" if valid else "rejected",
+                })
+            return record_validation_cache[key]
+
+        source_omitted: list[tuple[tuple[Any, str], str]] = []
+        if record_validator is not None:
+            verified_records = []
+            for record in records:
+                if is_valid_record(record):
+                    verified_records.append(record)
+                else:
+                    identity = (record.get("id"), record.get("text_digest")
+                        or digest({"text": record["text"]}))
+                    source_omitted.append((identity, "source_verification"))
+            # Unverified records must not participate in correction graphs,
+            # lexical corpus statistics, semantic candidate sampling, or
+            # final bounded selection.
+            records = verified_records
         terms = _memory_retrieval_terms(query)
         by_id = {record.get("id"): record for record in records
             if isinstance(record.get("id"), str)}
@@ -681,34 +717,12 @@ class CanonicalMemoryStore:
                     if semantic_retrieval_posture == "unavailable"
                     else "no_match_lexical_fallback")
         selected: list[dict[str, Any]]=[]; used=0
-        omitted: list[tuple[tuple[Any, str], str]] = []
+        omitted: list[tuple[tuple[Any, str], str]] = list(source_omitted)
         # Relevance remains primary. Recency only orders equally relevant
         # retained reports; it is not evidence that a newer statement is true.
         ranked = sorted(ranked, key=lambda row: (-row[0], -row[1], row[2]))
         ranked_by_id = {row[2]: row for row in ranked}
         processed_correction_ids: set[str] = set()
-        record_validation_decisions: list[dict[str, Any]] = []
-        record_validation_cache: dict[tuple[str, str], bool] = {}
-
-        def is_valid_record(record: Mapping[str, Any]) -> bool:
-            if record_validator is None:
-                return True
-            record_id = str(record.get("id", ""))
-            record_digest = digest(dict(record))
-            key = (record_id, record_digest)
-            if key not in record_validation_cache:
-                try:
-                    valid = record_validator(record) is True
-                except Exception:
-                    valid = False
-                record_validation_cache[key] = valid
-                record_validation_decisions.append({
-                    "memory_id": record_id,
-                    "record_digest": record_digest,
-                    "posture": "verified" if valid else "rejected",
-                })
-            return record_validation_cache[key]
-
         for _, _, record_id, record in ranked:
             group_ids = correction_group_by_id.get(record_id)
             if group_ids is None:

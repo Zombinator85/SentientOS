@@ -3417,6 +3417,68 @@ def test_canonical_memory_source_validation_precedes_bounded_selection(
     assert filtered["snapshot_digest"] != unfiltered["snapshot_digest"]
 
 
+def test_canonical_memory_source_validation_precedes_semantic_candidate_sampling(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    query = "Summarize the orbital shift."
+    target_text = "The north instrument showed a blue pattern."
+    decoys = [{"id": f"memory-decoy-{index:03d}",
+        "text": f"A neutral retained note number {index}.",
+        "timestamp": f"2026-01-02T00:{index // 60:02d}:{index % 60:02d}+00:00"}
+        for index in range(257)]
+    target = {"id": "memory-verified-target", "text": target_text,
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([*decoys, target], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+    validated_ids: list[str] = []
+
+    def validate(record):
+        validated_ids.append(record["id"])
+        return record["id"] == target["id"]
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        assert texts == [query, target_text]
+        return SimpleNamespace(identity_digest="b" * 64,
+            vectors=[(1.0, 0.0), (1.0, 0.0)])
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    result = store.retrieve(query, limit=1, record_validator=validate,
+        semantic_model_id="test/local-embedder",
+        semantic_model_revision="a" * 40)
+
+    assert len(validated_ids) == len(decoys) + 1
+    assert result["selected_memory_ids"] == [target["id"]]
+    assert result["semantic_retrieval_posture"] == "matched"
+    assert result["record_validation_posture"] == "inspected_candidates_rejected"
+
+
+def test_unverified_memory_correction_cannot_suppress_verified_history(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    original = {"id": "memory-verified-history",
+        "text": "The cedar shelf is in the west workshop.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unverified_correction = {"id": "memory-unverified-correction",
+        "text": "The shelf was moved elsewhere.",
+        "timestamp": "2026-01-02T00:00:00+00:00",
+        "meta": {"correction_schema": "sentientos.canonical_memory_correction:v1",
+            "correction_targets": [{"memory_id": original["id"],
+                "memory_record_digest": digest(original)}]}}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: (
+        [original, unverified_correction], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    result = store.retrieve("Tell me about the cedar shelf.",
+        record_validator=lambda record: record["id"] == original["id"])
+
+    assert result["selected_memory_ids"] == [original["id"]]
+    assert result["record_validation_posture"] == "inspected_candidates_rejected"
+
+
 def test_canonical_memory_semantic_refinement_displaces_weak_overlap_but_keeps_strong_lexical_priority(
         monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
