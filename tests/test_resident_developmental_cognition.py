@@ -9991,6 +9991,114 @@ def test_companion_bridge_uses_session_topic_only_for_sparse_prior_projection_qu
     assert interaction_calls[0]["conversation_context"] == conversation_context
 
 
+def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = datetime(2026, 11, 19, 12, 0, tzinfo=timezone.utc)
+    if os.name == "nt":
+        from sentientos.windows_handle_custody import ensure_private_child_directory
+        ensure_private_child_directory(tmp_path, "cognition")
+        ensure_private_child_directory(tmp_path / "cognition", "state")
+        ensure_private_child_directory(tmp_path / "cognition", "history")
+        ensure_private_child_directory(tmp_path, "epistemic")
+    cognition, _fake = owner(tmp_path / "cognition",
+        allowed_source_kinds=("embodiment",))
+    epistemic = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    battery = make_proposition(namespace="embodiment", subject="sensor:battery",
+        predicate="reported_voltage", object_value="12.4 volts", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The battery sensor reported 12.4 volts.")
+    moon = make_proposition(namespace="embodiment", subject="sensor:moon",
+        predicate="reported_phase", object_value="waxing crescent", polarity="positive",
+        qualifiers={}, temporal_scope={}, context_scope={},
+        proposition_class="descriptive",
+        statement="The moon sensor reported a waxing crescent phase.")
+    for index, proposition in enumerate((battery, moon), start=1):
+        epistemic.register_proposition(proposition)
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="unknown",
+            reason="initialization", active_binding_ids=(),
+            correlation_id=f"session-prior-projection-{index}", tick=index,
+            recorded_at=f"2026-11-19T11:00:0{index}Z")
+
+    # Isolate the historical topic cue from current screen observations. The
+    # real projection owner remains active so this checks a retrieval outcome.
+    monkeypatch.setattr(cognition, "selected_current_relevance_context",
+        lambda _snapshot, **_kwargs: "")
+    projection_calls = []
+    project = epistemic.cognitive_projection
+
+    def capture_projection(**kwargs):
+        projection = project(**kwargs)
+        projection_calls.append((kwargs, projection))
+        return projection
+
+    monkeypatch.setattr(epistemic, "cognitive_projection", capture_projection)
+
+    interaction_calls = []
+
+    def capture_interaction(**kwargs):
+        interaction_calls.append(kwargs)
+        return SimpleNamespace(status="admitted_completed")
+
+    monkeypatch.setattr(cognition, "run_companion_interaction", capture_interaction)
+    bridge = ResidentDevelopmentalCompanionBridge(cognition,
+        epistemic_state_owner=epistemic,
+        epistemic_state_config={"cognitive_consumption_enabled": True,
+            "max_cognitive_projection_count": 1}, clock=lambda: now)
+    screen = {"modality": "screen", "text": "A fresh neutral observation.",
+        "capture_digest": "f" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": now.isoformat(), "raw_frame_retained": False}
+    baseline = epistemic.cognitive_projection(max_states=1,
+        current_tick=int(now.timestamp()), relevance_query="What now?")
+    assert baseline is not None
+
+    target = moon if baseline.proposition_ids == (battery.proposition_id,) else battery
+    target_question = ("What moon phase was reported?" if target is moon
+        else "What battery voltage was reported?")
+    prior_turn = {"turn_id": "turn-" + "6" * 24, "role": "user",
+        "text": target_question,
+        "text_digest": digest_payload({"text": target_question}),
+        "linkage_digest": digest_payload({})}
+    context_semantic = {
+        "schema_version": "sentientos.conversation_cognition_context:v1",
+        "session_id": "session-real-prior-projection",
+        "source_snapshot_digest": "a" * 64, "turns": [prior_turn],
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False,
+    }
+    conversation_context = {**context_semantic,
+        "selection_digest": digest_payload(context_semantic)}
+
+    bridge.respond(request_id="baseline-sparse-projection", question="What now?",
+        screen_observation=screen)
+    bridge.respond(request_id="topic-resolved-sparse-projection",
+        question="What now?", screen_observation=screen,
+        conversation_context=conversation_context)
+    bridge.respond(request_id="specific-projection-with-prior-topic",
+        question="What is the moon phase?", screen_observation=screen,
+        conversation_context=conversation_context)
+
+    baseline_projection = projection_calls[1][1]
+    topic_projection = projection_calls[2][1]
+    specific_projection = projection_calls[3][1]
+    assert baseline_projection is not None and topic_projection is not None
+    assert specific_projection is not None
+    assert baseline_projection.proposition_ids == baseline.proposition_ids
+    assert topic_projection.proposition_ids == (target.proposition_id,)
+    assert specific_projection.proposition_ids == (moon.proposition_id,)
+    assert topic_projection.projection_digest != baseline_projection.projection_digest
+    assert all(projection.current_truth is False and projection.authority is False
+        for projection in (baseline_projection, topic_projection, specific_projection))
+    assert interaction_calls[1]["question"] == "What now?"
+    assert interaction_calls[1]["conversation_context"]["turns"] == (
+        conversation_context["turns"])
+    assert conversation_context["selection_digest"] == digest_payload(context_semantic)
+    assert projection_calls[3][0]["relevance_query"] == "What is the moon phase?"
+
+
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:
     from types import SimpleNamespace
 
