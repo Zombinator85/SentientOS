@@ -446,7 +446,8 @@ class RootlessExperimentalOllamaDevelopmentalSession(
 
     def __init__(self, *, model_manifest_path: Path, model_name: str,
                  root: Path, session_binding: Mapping[str, Any],
-                 kernel_factory: Any | None = None) -> None:
+                 kernel_factory: Any | None = None,
+                 gpu_layers: int = 99) -> None:
         super().__init__(model_manifest_path=model_manifest_path, model_name=model_name,
             root=root, session_binding=session_binding, kernel_factory=kernel_factory,
-            developmental_cycle=True)
+            developmental_cycle=True, gpu_layers=gpu_layers)

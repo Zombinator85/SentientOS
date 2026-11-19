@@ -6,7 +6,8 @@ the existing governed SentientOS owners. This is not production serving evidence
 Select a different installed Ollama model with SENTIENTOS_HERMES_MODEL and its
 exact manifest file with SENTIENTOS_HERMES_MODEL_MANIFEST_PATH. The manifest
 must live under the configured rootless experiment custody and its SHA-256 must
-match its filename; the runner does not discover or substitute models.
+match its filename; the runner does not discover or substitute models. GPU
+placement is explicit and bounded by SENTIENTOS_HERMES_GPU_LAYERS (default 99).
 """
 from __future__ import annotations
 
@@ -28,6 +29,19 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping, NoReturn, cast
+
+
+def _gpu_layers_from_environment() -> int:
+    raw = os.environ.get("SENTIENTOS_HERMES_GPU_LAYERS", "99")
+    if (not isinstance(raw, str) or not raw.isascii() or not raw.isdecimal()):
+        raise SystemExit("hermes_gpu_layers_invalid")
+    value = int(raw)
+    if not 1 <= value <= 128:
+        raise SystemExit("hermes_gpu_layers_invalid")
+    return value
+
+
+GPU_LAYERS = _gpu_layers_from_environment()
 
 if __name__ == "__main__" and len(sys.argv) > 1:
     # Parse before creating the private workspace or importing runtime owners.
@@ -716,12 +730,13 @@ class _ResourceGuardedInvoker:
     def __init__(self, delegate: Any, coordinator: HostResourceRuntimeCoordinator,
             model_weight_bytes: int,
             evidence_records: list[dict[str, Any]] | None = None,
-            model_name: str | None = None) -> None:
+            model_name: str | None = None, gpu_layers: int = GPU_LAYERS) -> None:
         self._delegate = delegate
         self._coordinator = coordinator
         self._model_weight_bytes = model_weight_bytes
         self._evidence_records = evidence_records if evidence_records is not None else []
         self._model_name = model_name
+        self._gpu_layers = gpu_layers
         self._sequence = 0
 
     def __getattr__(self, name: str) -> Any:
@@ -731,6 +746,7 @@ class _ResourceGuardedInvoker:
         self._sequence += 1
         resource_record: dict[str, Any] = {
             "inference_sequence": self._sequence,
+            "gpu_layers_requested": self._gpu_layers,
             "gate_status": "blocked",
         }
 
@@ -1256,6 +1272,7 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
         "source_provenance": dict(RUN_SOURCE_PROVENANCE),
         "model_id": MODEL_NAME,
         "model_manifest_digest": MANIFEST_PATH.stem,
+        "gpu_layers_requested": GPU_LAYERS,
         "external_preregistration_digest": _optional_preregistration_digest(
             PREREGISTRATION_DIGEST),
         "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
@@ -1675,6 +1692,7 @@ def run() -> dict[str, Any]:
     kernel, resource_coordinator = _enforcing_resource_runtime()
     initial_resource_evidence = _refresh_resource_evidence(resource_coordinator,
         correlation_id=f"{RUN_ID}-initial-preflight")
+    initial_resource_evidence["gpu_layers_requested"] = GPU_LAYERS
     initial_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
     initial_resource_evidence["gpu_memory_free_mib"] = initial_gpu["memory_free_mib"]
     initial_resource_evidence["gpu_memory_total_mib"] = initial_gpu["memory_total_mib"]
@@ -1682,10 +1700,11 @@ def run() -> dict[str, Any]:
     session = RootlessExperimentalOllamaDevelopmentalSession(
         model_manifest_path=manifest_path, model_name=MODEL_NAME,
         root=RUN_ROOT, session_binding=binding,
-        kernel_factory=lambda _: kernel)
+        kernel_factory=lambda _: kernel, gpu_layers=GPU_LAYERS)
     session.invoker = cast(Any, _ResourceGuardedInvoker(
         session.invoker, resource_coordinator, model_weight_bytes,
-        inference_resource_evidence, model_name=MODEL_NAME))
+        inference_resource_evidence, model_name=MODEL_NAME,
+        gpu_layers=GPU_LAYERS))
     # Bind the actual execution to the fixed external protocol before its first
     # inference. The session owner computes and verifies its run-specific digest.
     if PREREGISTRATION_DIGEST != "0" * 64:
@@ -1697,6 +1716,7 @@ def run() -> dict[str, Any]:
             "run_id": RUN_ID,
             "session_id": binding["session_id"],
             "model_manifest_digest": manifest_digest,
+            "gpu_layers_requested": GPU_LAYERS,
             "runtime_bundle_digest": runtime_sha,
             "model_identity": session.active_model_identity,
             "source_provenance": RUN_SOURCE_PROVENANCE,
@@ -2390,6 +2410,7 @@ def run() -> dict[str, Any]:
                 PREREGISTRATION_DIGEST),
             "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
+            "gpu_layers_requested": GPU_LAYERS,
             **_experiment_seed_provenance(),
             "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
             "model_artifact_size_bytes": manifest_size,

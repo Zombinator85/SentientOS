@@ -126,6 +126,22 @@ def test_runner_cli_arguments_exit_before_experiment_workspace_creation(
     assert '"run_id"' not in (completed.stdout + completed.stderr)
 
 
+def test_invalid_gpu_layer_setting_exits_before_workspace_creation(
+        tmp_path):
+    repo_root = Path(__file__).resolve().parents[1]
+    script_path = repo_root / "scripts" / (
+        "run_rootless_ollama_embodied_cognition_cycle.py")
+    workspace = tmp_path / "private-workspace"
+    env = os.environ.copy()
+    env["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = str(workspace)
+    env["SENTIENTOS_HERMES_GPU_LAYERS"] = "0"
+    completed = subprocess.run([sys.executable, str(script_path), "--help"],
+        cwd=repo_root, env=env, capture_output=True, text=True, timeout=10)
+    assert completed.returncode != 0
+    assert "hermes_gpu_layers_invalid" in completed.stderr
+    assert not workspace.exists()
+
+
 @pytest.fixture
 def runner(monkeypatch, tmp_path):
     monkeypatch.setenv("SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE",
@@ -138,6 +154,18 @@ def runner(monkeypatch, tmp_path):
     module = module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_developmental_gpu_layer_setting_is_bounded_and_explicit(
+        runner, monkeypatch):
+    monkeypatch.delenv("SENTIENTOS_HERMES_GPU_LAYERS", raising=False)
+    assert runner._gpu_layers_from_environment() == 99
+    monkeypatch.setenv("SENTIENTOS_HERMES_GPU_LAYERS", "32")
+    assert runner._gpu_layers_from_environment() == 32
+    for invalid in ("0", "129", "-1", "1.5", "１２"):
+        monkeypatch.setenv("SENTIENTOS_HERMES_GPU_LAYERS", invalid)
+        with pytest.raises(SystemExit, match="hermes_gpu_layers_invalid"):
+            runner._gpu_layers_from_environment()
 
 
 def test_runner_creates_private_history_and_state_roots(runner, tmp_path):
@@ -477,7 +505,7 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
     coordinator = SimpleNamespace()
     evidence: list[dict[str, Any]] = []
     guarded = runner._ResourceGuardedInvoker(
-        delegate, coordinator, 9 * 1024**3, evidence)
+        delegate, coordinator, 9 * 1024**3, evidence, gpu_layers=48)
     monkeypatch.setattr(runner, "_refresh_resource_evidence",
         lambda *args, **kwargs: {"gpu_utilization_percent": 0})
     monkeypatch.setattr(runner, "_gpu_snapshot",
@@ -490,6 +518,7 @@ def test_guard_does_not_enter_model_backend_without_headroom(runner, monkeypatch
     assert evidence[0]["gate_status"] == "blocked"
     assert evidence[0]["gate_reason"] == "gpu_memory_headroom_insufficient"
     assert evidence[0]["gpu_memory_free_mib"] == 10000
+    assert evidence[0]["gpu_layers_requested"] == 48
 
 
 def test_guard_does_not_enter_model_backend_when_host_evidence_is_missing(
