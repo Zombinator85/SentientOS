@@ -752,6 +752,10 @@ IDs in packet order. The record is part of the projection identity and is
 validated before packet assembly, so reviewers can distinguish query-ranked
 context from recency fallback and detect altered selection provenance. It
 does not make the query or the unverified reports evidence, truth, or authority.
+When a correction causes a goal to be deferred for review, the allocator now
+preserves that same selection record in the deferred position. The review can
+therefore retain the context-selection lineage all the way from projection to
+the planning decision, including when context pressure omits some reports.
 
 When the correction is compared with a cited prior epistemic state, the later
 response now names that state as an earlier evidence-bound position and cites
