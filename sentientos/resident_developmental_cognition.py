@@ -4949,6 +4949,27 @@ def _epistemic_revision_probe_packet_view(
     }
 
 
+def _epistemic_revision_probe_relevance_query(
+        projection: EpistemicCognitiveProjection) -> str:
+    """Rank current observations against the exact proposition under review.
+
+    The query is used only by deterministic context selection; it is not added
+    to the model prompt and does not alter evidence or epistemic state.
+    """
+    packets = semantic_packets_for_projection(projection)
+    propositions = []
+    for packet in packets:
+        proposition = packet.get("proposition")
+        if not isinstance(proposition, Mapping):
+            continue
+        propositions.append({key: proposition.get(key) for key in (
+            "namespace", "subject", "predicate", "object_value", "polarity",
+            "qualifiers", "temporal_scope", "context_scope",
+            "proposition_class", "statement") if key in proposition})
+    return json.dumps({"propositions_under_review": propositions},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
 def _bind_epistemic_context(*, context: Mapping[str, Any],
                             projection: EpistemicCognitiveProjection | None,
                             evaluation_time: str | None = None,
@@ -11004,7 +11025,9 @@ class ResidentDevelopmentalCognitionOwner:
                 raise ResidentDevelopmentalCognitionError(
                     "composition_state_retention_limit_exceeded")
             prior = self._prior_projection(state, tick_id)
-            current = self._current_projection(snapshot)
+            current = self._current_projection(snapshot,
+                question=_epistemic_revision_probe_relevance_query(
+                    prior_epistemic_state))
             # The bounded epistemic probe scores the supplied prior state and
             # current evidence only. Developmental records are not part of its
             # treatment and must not add packets or history-specific guidance.
@@ -11227,8 +11250,12 @@ class ResidentDevelopmentalCognitionOwner:
             _observed_current_cognition_model_identity(self.invoker)
             if (isinstance(family_id, str)
                 or companion_intervention_question is not None) else None)
+        current_relevance_question = (
+            _epistemic_revision_probe_relevance_query(prior_epistemic_state)
+            if epistemic_revision_probe and prior_epistemic_state is not None
+            else companion_intervention_question)
         current = self._current_projection(snapshot,
-            question=companion_intervention_question)
+            question=current_relevance_question)
         current_relevance = _current_history_relevance_context(current)
         current_relevance_query = (current_relevance
             if current_relevance and not objective_only

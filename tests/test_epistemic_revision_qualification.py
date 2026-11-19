@@ -32,6 +32,7 @@ from sentientos.persistent_epistemic_state import (
     semantic_packets_for_projection, validate_cognitive_projection,
 )
 from sentientos.resident_developmental_cognition import _bind_epistemic_context
+from sentientos.world_state_board import WorldStateBoardBuilder
 
 
 pytestmark = pytest.mark.no_legacy_skip
@@ -728,6 +729,48 @@ def test_epistemic_revision_probe_prompt_is_compact_and_evidence_complete(
     assert any(seed.written_record_id in {
         packet["record_id"] for packet in context.get("developmental_history", ())}
         for context in ordinary_contexts)
+
+
+def test_epistemic_probe_ranks_current_facts_for_its_proposition(
+        tmp_path: Path) -> None:
+    projection, proposition, _state = epistemic_projection(
+        tmp_path / "epistemic", with_evidence=True)
+    current = WorldStateBoardBuilder().build([
+        {"source_id": "source-a-unrelated", "source_kind": "capability_registry",
+            "subject_id": "battery", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00Z",
+            "payload": {"description": "Battery voltage is 9 volts."}},
+        {"source_id": "source-z-target", "source_kind": "capability_registry",
+            "subject_id": "body:g1", "stage": "observation",
+            "disposition": "recorded", "observed_at": "2026-01-01T00:00:00Z",
+            "payload": {"description": "body:g1 reports healthy true."}},
+    ])
+    cognition, fake = owner(_cognition_root(tmp_path, "cognition"),
+        invoker=StructuredFixtureInvoker(), max_selected_facts=1)
+    target_fact = next(fact for fact in current.facts
+        if fact.source.source_id == "source-z-target")
+
+    # Without the epistemic proposition as a relevance query, stable source
+    # ordering admits the unrelated observation under the one-fact cap.
+    baseline = cognition._current_projection(current)
+    assert baseline.fact_ids != (target_fact.fact_id,)
+
+    preview = cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=current, tick_id="proposition-ranked-current-evidence",
+        prior_epistemic_state=projection)
+    context = json.loads(preview["prompt"])
+
+    assert context["current_evidence"]["fact_ids"] == [target_fact.fact_id]
+    assert context["prior_epistemic_state"]["semantic_packets"][0][
+        "proposition"]["proposition_id"] == proposition.proposition_id
+
+    result = cognition.run_epistemic_revision_probe_once(snapshot=current,
+        tick_id="proposition-ranked-current-evidence-run",
+        prior_epistemic_state=projection,
+        expected_prompt_digest=preview["prompt_digest"])
+    assert result.status == "epistemic_revision_probe_completed"
+    actual_context = json.loads(fake.requests[-1].prompt)
+    assert actual_context["current_evidence"]["fact_ids"] == [target_fact.fact_id]
 
 
 @pytest.mark.parametrize("additional_updates", [44, 79])
