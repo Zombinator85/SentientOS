@@ -2507,11 +2507,11 @@ class PersistentEpistemicStateOwner:
                 if item.binding_id not in retained_context_ids]
             omitted_context_identities = [{"binding_id": item.binding_id,
                 "binding_digest": item.binding_digest} for item in omitted_context]
-            context_histories.append({
+            context_history = {
                 "bindings": tuple(item.record() for item in retained_context),
                 "omitted_count": len(omitted_context),
-                "omitted_identity_digest": digest(omitted_context_identities)})
-            context_histories[-1]["selection_provenance"] = {
+                "omitted_identity_digest": digest(omitted_context_identities),
+                "selection_provenance": {
                 "schema_version": "sentientos.epistemic_context_selection_provenance:v1",
                 "selection_policy": (
                     "query_token_overlap_then_recency_then_binding_id"
@@ -2520,7 +2520,9 @@ class PersistentEpistemicStateOwner:
                     if isinstance(relevance_query, str) else None),
                 "selected_binding_ids": tuple(item.binding_id
                     for item in retained_context),
+                },
             }
+            context_histories.append(context_history)
             has_unverified_context = has_unverified_context or bool(pending_context)
         return make_cognitive_projection(selected, source_tick=source_tick,
             current_tick=projection_tick,
