@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 from .cognition_retrieval import cognition_tokens
 from .windows_handle_custody import (
     WindowsHandleCustodyError, read_explicit_file, read_regular_files,
@@ -501,7 +501,9 @@ class CanonicalMemoryStore:
 
     def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000,
             semantic_model_id: str | None = None,
-            semantic_model_revision: str | None = None)->dict[str,Any]:
+            semantic_model_revision: str | None = None,
+            record_validator: Callable[[Mapping[str, Any]], bool] | None = None
+            )->dict[str,Any]:
         records, retrieval_posture = self._records()
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
@@ -685,6 +687,28 @@ class CanonicalMemoryStore:
         ranked = sorted(ranked, key=lambda row: (-row[0], -row[1], row[2]))
         ranked_by_id = {row[2]: row for row in ranked}
         processed_correction_ids: set[str] = set()
+        record_validation_decisions: list[dict[str, Any]] = []
+        record_validation_cache: dict[tuple[str, str], bool] = {}
+
+        def is_valid_record(record: Mapping[str, Any]) -> bool:
+            if record_validator is None:
+                return True
+            record_id = str(record.get("id", ""))
+            record_digest = digest(dict(record))
+            key = (record_id, record_digest)
+            if key not in record_validation_cache:
+                try:
+                    valid = record_validator(record) is True
+                except Exception:
+                    valid = False
+                record_validation_cache[key] = valid
+                record_validation_decisions.append({
+                    "memory_id": record_id,
+                    "record_digest": record_digest,
+                    "posture": "verified" if valid else "rejected",
+                })
+            return record_validation_cache[key]
+
         for _, _, record_id, record in ranked:
             group_ids = correction_group_by_id.get(record_id)
             if group_ids is None:
@@ -704,9 +728,14 @@ class CanonicalMemoryStore:
                      ranked_by_id[str(item.get("id", ""))][2])
                     if str(item.get("id", "")) in ranked_by_id
                     else (0.0, 0.0, str(item.get("id", "")))))
-            group_char_count = sum(len(item["text"]) for item in group_records)
             group_identities = [(item.get("id"), item.get("text_digest")
                 or digest({"text": item["text"]})) for item in group_records]
+            group_validation = [is_valid_record(item) for item in group_records]
+            if not all(group_validation):
+                omitted.extend((identity, "source_verification")
+                    for identity in group_identities)
+                continue
+            group_char_count = sum(len(item["text"]) for item in group_records)
             if len(selected) + len(group_records) > max(0, limit):
                 omitted.extend((identity, "selection_limit")
                     for identity in group_identities)
@@ -737,6 +766,12 @@ class CanonicalMemoryStore:
                 "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
                 "semantic_retrieval_posture": semantic_retrieval_posture,
                 "semantic_embedder_identity_digest": semantic_identity_digest,
+                "record_validation_posture": (
+                    "not_requested" if record_validator is None else
+                    "inspected_candidates_rejected" if any(
+                        item["posture"] == "rejected"
+                        for item in record_validation_decisions) else
+                    "inspected_candidates_passed"),
                 "omitted_memory_count":len(omitted),
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "omitted":omitted,"selection_posture":selection_posture,
@@ -746,7 +781,8 @@ class CanonicalMemoryStore:
                     "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
                     "semantic_retrieval_posture": semantic_retrieval_posture,
                     "semantic_embedder_identity_digest": semantic_identity_digest,
-                    "semantic_selection_digest": semantic_selection_digest})}
+                    "semantic_selection_digest": semantic_selection_digest,
+                    "record_validation_decisions": record_validation_decisions})}
     def open_memory_root(self, *, prepare_for_write: bool = False) -> int:
         """Open and verify the shared user-memory root without following links."""
         if os.name != "posix":

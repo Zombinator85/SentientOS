@@ -1703,6 +1703,42 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
     assert remaining_context["retrieval_posture"] == "partial_source_verification"
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
+        tmp_path: Path) -> None:
+    app = service(tmp_path, cognition_bridge=object())
+    session_id = app.create_session()
+    retained_text = "The cedar shelf is in the west workshop."
+    for index in range(chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1):
+        result = app.chat(retained_text, session_id=session_id,
+            request_id=f"memory-source-starvation-{index}", retain=True)
+        assert result.retention["status"] == "memory_retention_committed"
+
+    raw_candidates = app.memories.retrieve("cedar shelf",
+        limit=chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES)
+    candidate_ids = set(raw_candidates["selected_memory_ids"])
+    all_ids = {record["id"] for record in app.memories._records()[0]}
+    valid_target_ids = all_ids - candidate_ids
+    assert len(all_ids) == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1
+    assert len(valid_target_ids) == 1
+
+    for memory_id in candidate_ids:
+        memory_path = app.memories.raw / f"{memory_id}.json"
+        altered = json.loads(memory_path.read_text(encoding="utf-8"))
+        altered["forged_selection_decoy"] = True
+        memory_path.write_text(json.dumps(altered, sort_keys=True) + "\n",
+            encoding="utf-8")
+
+    context = app._resident_canonical_memory_context("cedar shelf")
+
+    assert context is not None
+    assert [record["memory_id"] for record in context["records"]] == list(valid_target_ids)
+    assert context["record_validation_posture"] == "inspected_candidates_rejected"
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert context["retrieval_posture"] == "partial_source_verification"
+
+
 def test_failed_memory_source_verification_forces_resident_clarification(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
@@ -3355,6 +3391,30 @@ def test_canonical_memory_retrieval_shares_inflection_normalization(
     assert [row["id"] for row in result["memories"]] == ["memory-overheat"]
     assert result["retrieval_posture"] == "complete"
     assert unrelated_query["memories"] == []
+
+
+def test_canonical_memory_source_validation_precedes_bounded_selection(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    verified = {"id": "memory-verified",
+        "text": "The cedar shelf was assembled in the workshop.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    unverified = {"id": "memory-unverified",
+        "text": "The cedar shelf was assembled in the workshop.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda: ([verified, unverified], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    unfiltered = store.retrieve("cedar shelf", limit=1)
+    filtered = store.retrieve("cedar shelf", limit=1,
+        record_validator=lambda record: record["id"] == "memory-verified")
+
+    assert unfiltered["selected_memory_ids"] == ["memory-unverified"]
+    assert filtered["selected_memory_ids"] == ["memory-verified"]
+    assert filtered["record_validation_posture"] == "inspected_candidates_rejected"
+    assert filtered["omitted_memory_count"] == 1
+    assert filtered["selection_posture"] == "matching_records_omitted"
+    assert filtered["snapshot_digest"] != unfiltered["snapshot_digest"]
 
 
 def test_canonical_memory_semantic_refinement_displaces_weak_overlap_but_keeps_strong_lexical_priority(
