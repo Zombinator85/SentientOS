@@ -884,6 +884,18 @@ learning claim. A runner still needs owner-backed receipt verification and an
 independent scoring implementation before these references can become
 verified experimental outcomes.
 
+`execute_ordinary_chat_history_intervention` now supplies the dormant
+three-condition orchestration boundary. It follows the frozen counterbalanced
+order, requires a separate receipt-verification owner to bind every receipt to
+the exact prompt, output, serving identity, and generation configuration, then
+passes outputs to a scorer under freshly generated opaque sample IDs and a
+shuffled order. Only score artifact digests are copied into the result packet;
+output text and scores are not retained by the runner. The runner does not
+instantiate a model, and no live run has been performed. Integrators must
+provide owner-backed callbacks; a callback's presence alone is not proof, and
+the persisted result verifier continues to distinguish internal linkage from
+independent artifact verification.
+
 Ordinary fallback turn lineage also records a bounded retrieval posture:
 `selected`, `provider_returned_no_context`, `provider_unavailable`,
 `provider_failed`, `context_validation_failed`, `prompt_budget_unavailable`,

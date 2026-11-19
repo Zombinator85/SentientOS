@@ -1,15 +1,17 @@
 """Pre-registration and immutable result artifacts for ordinary-chat interventions.
 
-This module does not execute model calls or claim that any effect or learning
-occurred. Result packets bind external receipt and scoring references but do
-not verify those referenced artifacts.
+The runner is capability-injected and has no model access of its own. This
+module makes no effect or learning claim. Result packets bind external receipt
+and scoring references; only the runner checks them at execution time, while
+artifact reload checks internal bindings.
 """
 from __future__ import annotations
 
 import json
 import re
+import secrets
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .conversation_session import (
     verify_ordinary_chat_history_intervention_prompt_bundle,
@@ -118,6 +120,92 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
         "referenced_receipts_verified": False, "scores_verified": False,
         "effect_established": False, "learning_established": False,
         "authority": False}
+
+
+def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
+        prompt_bundle: Mapping[str, Any],
+        invoke: Callable[..., Mapping[str, Any]],
+        verify_invocation_receipt: Callable[..., Mapping[str, Any]],
+        score_blinded: Callable[..., Mapping[str, Any]]) -> dict[str, Any]:
+    """Run three matched conditions through explicit serving and scoring owners.
+
+    This function has no model access of its own. ``invoke`` and receipt
+    verification are separate required capabilities. Outputs remain in memory
+    only long enough to be scored; the returned artifact contains digests and
+    externally persisted evidence references, not output text or scores.
+    """
+    if not all(callable(value) for value in
+            (invoke, verify_invocation_receipt, score_blinded)):
+        raise ValueError("ordinary_chat_history_runner_owner_required")
+    protocol_check = verify_ordinary_chat_history_intervention_protocol(
+        protocol, prompt_bundle=prompt_bundle)
+    prompts = prompt_bundle.get("prompts")
+    outputs: dict[str, str] = {}
+    condition_evidence: dict[str, dict[str, str]] = {}
+    for condition in protocol_check["condition_order"]:
+        prompt = prompts.get(condition)
+        prompt_digest = protocol["condition_prompt_digests"][condition]
+        invoked = invoke(condition=condition, prompt=prompt, protocol=dict(protocol))
+        if (not isinstance(invoked, Mapping)
+                or set(invoked) != {"output_text", "invocation_receipt_id",
+                    "invocation_receipt_digest"}
+                or not isinstance(invoked.get("output_text"), str)
+                or len(invoked["output_text"].encode("utf-8")) > 65_536):
+            raise ValueError("ordinary_chat_history_runner_invocation_invalid")
+        output_text = invoked["output_text"]
+        output_digest = digest_payload({"output": output_text})
+        receipt_id = invoked.get("invocation_receipt_id")
+        receipt_digest = invoked.get("invocation_receipt_digest")
+        if (not isinstance(receipt_id, str) or _RUN_ID.fullmatch(receipt_id) is None
+                or not isinstance(receipt_digest, str)
+                or _HEX_DIGEST.fullmatch(receipt_digest) is None):
+            raise ValueError("ordinary_chat_history_runner_receipt_reference_invalid")
+        receipt = verify_invocation_receipt(condition=condition,
+            receipt_id=receipt_id, receipt_digest=receipt_digest,
+            protocol=dict(protocol), expected_prompt_digest=prompt_digest,
+            expected_output_digest=output_digest)
+        if (not isinstance(receipt, Mapping)
+                or receipt.get("receipt_identity_verified") is not True
+                or receipt.get("receipt_id") != receipt_id
+                or receipt.get("receipt_digest") != receipt_digest
+                or receipt.get("prompt_digest") != prompt_digest
+                or receipt.get("output_digest") != output_digest
+                or receipt.get("serving_model_identity_digest")
+                    != protocol["serving_model_identity_digest"]
+                or receipt.get("generation_config_digest")
+                    != protocol["generation_config_digest"]):
+            raise ValueError("ordinary_chat_history_runner_receipt_verification_failed")
+        outputs[condition] = output_text
+        condition_evidence[condition] = {
+            "prompt_digest": prompt_digest,
+            "output_digest": output_digest,
+            "invocation_receipt_id": receipt_id,
+            "invocation_receipt_digest": receipt_digest,
+        }
+
+    sample_ids = {condition: "blind-sample-" + secrets.token_hex(16)
+        for condition in CONDITIONS}
+    samples = [{"sample_id": sample_ids[condition],
+        "output_digest": condition_evidence[condition]["output_digest"],
+        "output_text": outputs[condition]} for condition in CONDITIONS]
+    secrets.SystemRandom().shuffle(samples)
+    scoring = score_blinded(scoring_plan_digest=protocol["scoring_plan_digest"],
+        samples=samples)
+    score_map = scoring.get("score_artifact_digests") if isinstance(scoring, Mapping) else None
+    if (not isinstance(scoring, Mapping)
+            or scoring.get("scoring_plan_digest") != protocol["scoring_plan_digest"]
+            or not isinstance(score_map, Mapping)
+            or set(score_map) != set(sample_ids.values())
+            or any(not isinstance(score_map.get(sample_id), str)
+                or _HEX_DIGEST.fullmatch(score_map[sample_id]) is None
+                for sample_id in sample_ids.values())):
+        raise ValueError("ordinary_chat_history_runner_scoring_verification_failed")
+    for condition in CONDITIONS:
+        condition_evidence[condition]["score_artifact_digest"] = score_map[
+            sample_ids[condition]]
+    return build_ordinary_chat_history_intervention_result(
+        protocol=protocol, prompt_bundle=prompt_bundle,
+        conditions=condition_evidence)
 
 
 def verify_ordinary_chat_history_intervention_protocol(
