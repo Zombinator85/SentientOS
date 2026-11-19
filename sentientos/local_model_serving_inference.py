@@ -3183,10 +3183,18 @@ class ProductionServingInferenceController:
         identity_keys = identity_keys + tuple(key for key in serving_reference_keys if key in lifetime)
         if any(key not in lifetime for key in identity_keys):
             raise ProductionServingInferenceError("stored_invocation_serving_identity_incomplete")
+        generation_config = value.get("generation_config")
+        if not isinstance(generation_config, Mapping):
+            raise ProductionServingInferenceError("stored_invocation_generation_config_invalid")
         return {"serving_identity": {key: lifetime[key] for key in identity_keys},
                 "loaded_model_identity": dict(request["active_model_identity"]),
                 "request_id": request["request_id"], "receipt_id": receipt_id,
                 "receipt_digest": receipt_digest, "status": value["status"],
+                "prompt_digest": request.get("prompt_digest"),
+                "output_digest": value.get("output_digest"),
+                "generation_config_digest": digest_payload(dict(generation_config)),
+                "output_truncated": value.get("output_truncated"),
+                "fallback_occurred": value.get("fallback_occurred"),
                 "software_generation_attribution": dict(software_generation),
                 "caller_linkage": dict(caller_context),
                 "serving_receipt_lineage": serving_receipt_lineage,

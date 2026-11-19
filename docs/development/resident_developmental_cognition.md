@@ -898,6 +898,17 @@ provide owner-backed callbacks; a callback's presence alone is not proof, and
 the persisted result verifier continues to distinguish internal linkage from
 independent artifact verification.
 
+`OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
+and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
+source session and user turn, adds protocol and condition lineage to each call,
+checks the current model identity and exact prompt digest before each
+generation, and validates the persisted
+receipt's model identity, prompt and output digests, generation configuration,
+completion status, truncation state, and fallback state. The receipt verifier
+returns those digest fields as part of its verified summary. This is a code
+integration only; it has not been called against a live model or serving
+session.
+
 Ordinary fallback turn lineage also records a bounded retrieval posture:
 `selected`, `provider_returned_no_context`, `provider_unavailable`,
 `provider_failed`, `context_validation_failed`, `prompt_budget_unavailable`,

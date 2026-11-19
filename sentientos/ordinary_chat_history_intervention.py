@@ -17,6 +17,7 @@ from .conversation_session import (
     verify_ordinary_chat_history_intervention_prompt_bundle,
 )
 from .local_model_authority import digest_payload
+from .governed_local_model_invocation import LocalModelInvocationBudget
 from .developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore,
 )
@@ -25,6 +26,7 @@ PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v1"
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v1"
 RESULT_ID_PREFIX = "ordinary-history-result-"
+INTERVENTION_LINKAGE_KEY = "ordinary_chat_history_intervention"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
 PLANNED_COMPARISONS = (
     "history_present_vs_history_withheld",
@@ -211,6 +213,100 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
     return build_ordinary_chat_history_intervention_result(
         protocol=protocol, prompt_bundle=prompt_bundle,
         conditions=condition_evidence)
+
+
+class OrdinaryChatHistoryChatInferenceAdapter:
+    """Adapt an existing governed chat inference owner to the runner contract.
+
+    The adapter neither creates nor loads a model. It uses the injected chat
+    inference owner and its persisted-receipt verifier, bound to the source
+    conversation turn recorded in the protocol.
+    """
+
+    def __init__(self, inference: Any, *, budget: LocalModelInvocationBudget,
+            caller_linkage: Mapping[str, Any] | None = None) -> None:
+        if (not callable(getattr(inference, "generate", None))
+                or not callable(getattr(inference,
+                    "current_conversation_model_identity", None))
+                or not callable(getattr(inference, "verify_stored_chat_invocation", None))
+                or not isinstance(budget, LocalModelInvocationBudget)
+                or (caller_linkage is not None and not isinstance(caller_linkage, Mapping))):
+            raise ValueError("ordinary_chat_history_chat_inference_owner_invalid")
+        _validate_json_bound(dict(caller_linkage or {}), maximum_bytes=16_384,
+            error_code="ordinary_chat_history_chat_linkage_invalid")
+        self._inference = inference
+        self._budget = budget
+        self._caller_linkage = dict(caller_linkage or {})
+
+    def invoke(self, *, condition: str, prompt: str,
+            protocol: Mapping[str, Any]) -> Mapping[str, Any]:
+        if condition not in CONDITIONS or not isinstance(prompt, str):
+            raise ValueError("ordinary_chat_history_chat_invocation_invalid")
+        if digest_payload({"prompt": prompt}) != protocol.get(
+                "condition_prompt_digests", {}).get(condition):
+            raise ValueError("ordinary_chat_history_chat_prompt_binding_invalid")
+        observed_identity = self._inference.current_conversation_model_identity()
+        expected_identity = protocol.get("serving_model_identity")
+        if (not isinstance(observed_identity, Mapping)
+                or not isinstance(expected_identity, Mapping)
+                or dict(observed_identity) != dict(expected_identity)):
+            raise ValueError("ordinary_chat_history_chat_model_identity_changed")
+        session_id = protocol.get("session_id")
+        user_turn_id = protocol.get("source_user_turn_id")
+        if (not isinstance(session_id, str) or not isinstance(user_turn_id, str)
+                or ("session_id" in self._caller_linkage
+                    and self._caller_linkage["session_id"] != session_id)
+                or ("user_turn_id" in self._caller_linkage
+                    and self._caller_linkage["user_turn_id"] != user_turn_id)):
+            raise ValueError("ordinary_chat_history_chat_source_binding_invalid")
+        linkage = {**self._caller_linkage, "session_id": session_id,
+            "user_turn_id": user_turn_id,
+            INTERVENTION_LINKAGE_KEY: {"protocol_id": protocol.get("protocol_id"),
+                "protocol_digest": protocol.get("protocol_digest"),
+                "condition": condition}}
+        correlation = (f"ordinary-history:{protocol.get('run_id')}:"
+            f"{condition}:{protocol.get('trial_index')}")
+        receipt = self._inference.generate(prompt=prompt, caller="chat_service",
+            correlation_id=correlation, budget=self._budget,
+            caller_linkage=linkage)
+        output_text = getattr(receipt, "output_text", None)
+        receipt_id = getattr(receipt, "receipt_id", None)
+        receipt_digest = getattr(receipt, "receipt_digest", None)
+        output_digest = getattr(receipt, "output_digest", None)
+        if (not isinstance(output_text, str) or not output_text
+                or not isinstance(receipt_id, str)
+                or not isinstance(receipt_digest, str)
+                or not isinstance(output_digest, str)
+                or output_digest != digest_payload({"output": output_text})):
+            raise ValueError("ordinary_chat_history_chat_receipt_invalid")
+        return {"output_text": output_text, "invocation_receipt_id": receipt_id,
+            "invocation_receipt_digest": receipt_digest}
+
+    def verify_invocation_receipt(self, *, condition: str, receipt_id: str,
+            receipt_digest: str, protocol: Mapping[str, Any],
+            expected_prompt_digest: str,
+            expected_output_digest: str) -> Mapping[str, Any]:
+        if condition not in CONDITIONS:
+            raise ValueError("ordinary_chat_history_chat_condition_invalid")
+        verified = self._inference.verify_stored_chat_invocation(
+            receipt_id=receipt_id, receipt_digest=receipt_digest,
+            session_id=str(protocol.get("session_id")),
+            user_turn_id=str(protocol.get("source_user_turn_id")))
+        if not isinstance(verified, Mapping):
+            raise ValueError("ordinary_chat_history_chat_receipt_verification_failed")
+        identity = verified.get("loaded_model_identity")
+        if not isinstance(identity, Mapping) or not identity:
+            raise ValueError("ordinary_chat_history_chat_identity_unavailable")
+        return {"receipt_identity_verified": True,
+            "receipt_id": verified.get("receipt_id"),
+            "receipt_digest": verified.get("receipt_digest"),
+            "prompt_digest": verified.get("prompt_digest"),
+            "output_digest": verified.get("output_digest"),
+            "serving_model_identity_digest": digest_payload(dict(identity)),
+            "generation_config_digest": verified.get("generation_config_digest"),
+            "status": verified.get("status"),
+            "output_truncated": verified.get("output_truncated"),
+            "fallback_occurred": verified.get("fallback_occurred")}
 
 
 def verify_ordinary_chat_history_intervention_protocol(
