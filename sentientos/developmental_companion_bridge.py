@@ -313,6 +313,12 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                         conversation_session_id) is None))
             or (developmental_history_exposure is not None
                 and conversation_session_id is None)
+            or (history_exposure is not None
+                and "prompt_block_digest" in history_exposure
+                and not any(turn_id == assistant_turn_id
+                    and digest == assistant_response_digest
+                    for turn_id, digest in zip(conversation_citation_ids,
+                        conversation_citation_digests)))
             or (correction_target_turn_id is not None
                 and (not isinstance(correction_target_turn_id, str)
                     or citation_pattern.fullmatch(correction_target_turn_id) is None

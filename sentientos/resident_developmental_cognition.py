@@ -3667,6 +3667,12 @@ def _historical_operator_feedback_context(candidate: Mapping[str, Any]
                 and not _valid_operator_feedback_history_exposure(
                     history_exposure, prompt_block_digest_required=True)):
             continue
+        if (feedback_schema == "sentientos.local_operator_feedback:v7"
+                and not any(item.get("turn_id") == payload.get("assistant_turn_id")
+                    and item.get("text_digest")
+                        == payload.get("assistant_response_digest")
+                    for item in conversation_citations)):
+            continue
         correction_target = payload.get("correction_target")
         has_correction_target = (feedback_schema in {
                 "sentientos.local_operator_feedback:v4",

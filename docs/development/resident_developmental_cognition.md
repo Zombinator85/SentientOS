@@ -880,7 +880,9 @@ the digest establishes what was presented, not whether the model used it. When
 operator feedback cites a v2 exposure, its v7 feedback record preserves the
 same prompt-block digest with the existing unverified-report posture. The digest
 is an opaque content identity: consumers cannot reconstruct prompt text from it,
-and it does not show attention or influence.
+and it does not show attention or influence. The v7 reader also requires the
+report's conversation citations to include the assistant turn and response
+digest that the exposure describes.
 
 Ordinary-chat prompt guidance now distinguishes digest-verified record
 integrity from the truth of claims inside a record. When a selected packet
