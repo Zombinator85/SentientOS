@@ -4950,7 +4950,8 @@ def _epistemic_revision_probe_packet_view(
 
 
 def _epistemic_revision_probe_relevance_query(
-        projection: EpistemicCognitiveProjection) -> str:
+        projection: EpistemicCognitiveProjection,
+        proposition_id: str | None = None) -> str:
     """Rank current observations against the exact proposition under review.
 
     The query is used only by deterministic context selection; it is not added
@@ -4960,6 +4961,9 @@ def _epistemic_revision_probe_relevance_query(
     propositions = []
     for packet in packets:
         proposition = packet.get("proposition")
+        if (proposition_id is not None and isinstance(proposition, Mapping)
+                and proposition.get("proposition_id") != proposition_id):
+            continue
         if not isinstance(proposition, Mapping):
             continue
         propositions.append({key: proposition.get(key) for key in (
@@ -4968,6 +4972,26 @@ def _epistemic_revision_probe_relevance_query(
             "proposition_class", "statement") if key in proposition})
     return json.dumps({"propositions_under_review": propositions},
         ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _epistemic_probe_target_id(projection: EpistemicCognitiveProjection,
+        requested_id: str | None) -> str:
+    """Resolve an explicit probe target, inferring only unambiguous projections."""
+    packets = semantic_packets_for_projection(projection)
+    proposition_ids = tuple(dict.fromkeys(
+        str(packet.get("proposition", {}).get("proposition_id", ""))
+        for packet in packets
+        if isinstance(packet.get("proposition"), Mapping)))
+    if requested_id is None:
+        if len(proposition_ids) != 1:
+            raise ResidentDevelopmentalCognitionError(
+                "epistemic_revision_probe_target_required")
+        return proposition_ids[0]
+    if (not isinstance(requested_id, str) or not requested_id.strip()
+            or requested_id not in proposition_ids):
+        raise ResidentDevelopmentalCognitionError(
+            "epistemic_revision_probe_target_unavailable")
+    return requested_id
 
 
 def _bind_epistemic_context(*, context: Mapping[str, Any],
@@ -5064,6 +5088,17 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         packets = semantic_packets_for_projection(projection)
     except (TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("prior_epistemic_semantics_invalid") from exc
+    probe = prompt_context.get("epistemic_revision_probe")
+    probe_target_id = None
+    if (is_epistemic_revision_probe
+            and isinstance(probe, Mapping)
+            and isinstance(probe.get("target_proposition_id"), str)
+            and isinstance(projection, MeaningBearingEpistemicCognitiveProjection)):
+        probe_target_id = _epistemic_probe_target_id(
+            projection, probe["target_proposition_id"])
+    probe_has_multiple_propositions = (probe_target_id is not None
+        and len({str(packet.get("proposition", {}).get("proposition_id", ""))
+            for packet in packets}) > 1)
     temporal_reviews_by_packet: dict[str, dict[str, Any]] = {}
     for packet in packets:
         freshness = temporal_freshness_review(packet,
@@ -5113,6 +5148,9 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         enumerate(dict.fromkeys(item for item in projection_priority_ids
             if isinstance(item, str)))}
     packets = tuple(sorted(packets, key=lambda packet: (
+        0 if probe_target_id is not None
+            and packet.get("proposition", {}).get("proposition_id")
+                == probe_target_id else 1,
         -_epistemic_packet_question_relevance(packet,
             question_terms=question_terms),
         citation_priority_rank.get(str(packet.get("proposition", {}).get(
@@ -5133,7 +5171,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     largest_candidate_chars = 0
     selected_value: dict[str, Any] | None = None
     selected_omissions: tuple[Mapping[str, Any], ...] = ()
-    for count in range(len(packets), -1, -1):
+    for count in range(len(packets), 0 if probe_target_id is not None else -1, -1):
         consumed = packets[:count]
         consumed_proposition_ids = {str(packet.get("proposition", {}).get(
             "proposition_id", "")) for packet in consumed}
@@ -5211,6 +5249,10 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                     == "sentientos.epistemic_revision_answer:v2"):
             visible_binding_ids: set[str] = set()
             for packet in consumed:
+                if (probe_target_id is not None
+                        and packet.get("proposition", {}).get("proposition_id")
+                            != probe_target_id):
+                    continue
                 # Removed bindings remain visible in the packet's audit history,
                 # but they cannot be cited as evidence for the current stance.
                 temporal_review = temporal_reviews_by_packet.get(
@@ -5241,6 +5283,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
                     visible_binding_ids.add(str(row["binding_id"]))
             candidate["epistemic_revision_probe"] = {
                 **dict(probe),
+                **({"target_proposition_id": probe_target_id}
+                    if probe_has_multiple_propositions else {}),
                 "allowed_evidence_binding_ids": sorted(visible_binding_ids)}
         has_unverified_context_text = any(
             any(isinstance(row, Mapping) and row.get("unverified_context_text")
@@ -9538,6 +9582,7 @@ class ResidentDevelopmentalCognitionOwner:
                   protocol: Any | None = None,
                   objective_plan: Mapping[str, Any] | None = None,
                   epistemic_revision_probe: bool = False,
+                  epistemic_revision_probe_proposition_id: str | None = None,
                   epistemic_revision_probe_prompt_preview: bool = False,
                   epistemic_revision_probe_expected_prompt_digest: str | None = None,
                   interaction_question: str | None = None,
@@ -9888,10 +9933,20 @@ class ResidentDevelopmentalCognitionOwner:
                     "Keep the operator report unverified and do not revise the epistemic "
                     "state from that report alone.")
         if epistemic_revision_probe:
+            multi_proposition_probe = (prior_epistemic_state is not None
+                and len(prior_epistemic_state.proposition_ids) > 1)
             context["epistemic_revision_probe"] = {
                 "schema_version": "sentientos.epistemic_revision_probe:v3",
                 "response_contract": "sentientos.epistemic_revision_answer:v2",
+                **({"target_proposition_id":
+                    epistemic_revision_probe_proposition_id}
+                    if multi_proposition_probe else {}),
                 "question": (
+                    ("What current epistemic stance is supported for target proposition "
+                    f"{epistemic_revision_probe_proposition_id} in the supplied prior "
+                    "epistemic packets, based on its active evidence bindings and update "
+                    "history? Evidence IDs for another proposition are not support for this "
+                    "target.") if multi_proposition_probe else
                     "What current epistemic stance is supported for the exact proposition in the "
                     "supplied prior epistemic packet, based on its active evidence bindings and "
                     "update history?"),
@@ -10998,7 +11053,8 @@ class ResidentDevelopmentalCognitionOwner:
             objective_request_id=None, objective_request_digest=None)
 
     def preview_epistemic_revision_probe_prompt(self, *, snapshot: WorldStateSnapshot,
-            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection
+            tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
+            proposition_id: str | None = None
             ) -> dict[str, Any]:
         """Compose the exact probe prompt without admission, invocation, or capture.
 
@@ -11024,10 +11080,12 @@ class ResidentDevelopmentalCognitionOwner:
                     >= MAX_RECOVERED_TICKS):
                 raise ResidentDevelopmentalCognitionError(
                     "composition_state_retention_limit_exceeded")
+            probe_target_id = _epistemic_probe_target_id(
+                prior_epistemic_state, proposition_id)
             prior = self._prior_projection(state, tick_id)
             current = self._current_projection(snapshot,
                 question=_epistemic_revision_probe_relevance_query(
-                    prior_epistemic_state))
+                    prior_epistemic_state, probe_target_id))
             # The bounded epistemic probe scores the supplied prior state and
             # current evidence only. Developmental records are not part of its
             # treatment and must not add packets or history-specific guidance.
@@ -11039,6 +11097,7 @@ class ResidentDevelopmentalCognitionOwner:
                     condition_id="with-history" if with_history else "prior-context",
                     prior_epistemic_state=prior_epistemic_state,
                     epistemic_revision_probe=True,
+                    epistemic_revision_probe_proposition_id=probe_target_id,
                     epistemic_revision_probe_prompt_preview=True)
             except _EpistemicRevisionProbePromptPreview as preview:
                 return {"prompt": preview.prompt,
@@ -11051,6 +11110,7 @@ class ResidentDevelopmentalCognitionOwner:
 
     def run_epistemic_revision_probe_once(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
+            proposition_id: str | None = None,
             expected_prompt_digest: str | None = None
             ) -> ResidentDevelopmentalCycleResult:
         """Capture one bounded revision judgment through the governed cognition owner."""
@@ -11063,10 +11123,13 @@ class ResidentDevelopmentalCognitionOwner:
                         or any(char not in "0123456789abcdef"
                             for char in expected_prompt_digest[7:])))):
             raise ResidentDevelopmentalCognitionError("epistemic_revision_probe_configuration_invalid")
+        probe_target_id = _epistemic_probe_target_id(
+            prior_epistemic_state, proposition_id)
         return self._run_tick(snapshot=snapshot, tick_id=tick_id,
             prior_self_model=None, prior_epistemic_state=prior_epistemic_state,
             objective_task=None, objective_only=False, objective_request_id=None,
             objective_request_digest=None, epistemic_revision_probe=True,
+            epistemic_revision_probe_proposition_id=probe_target_id,
             epistemic_revision_probe_expected_prompt_digest=expected_prompt_digest)
 
     def objective_request_disposition(self, *, request_id: str,
@@ -11109,6 +11172,7 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_request_id: str | None,
                  objective_request_digest: str | None,
                  epistemic_revision_probe: bool = False,
+                 epistemic_revision_probe_proposition_id: str | None = None,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
@@ -11131,6 +11195,8 @@ class ResidentDevelopmentalCognitionOwner:
                 objective_request_id=objective_request_id,
                 objective_request_digest=objective_request_digest,
                 epistemic_revision_probe=epistemic_revision_probe,
+                epistemic_revision_probe_proposition_id=(
+                    epistemic_revision_probe_proposition_id),
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
@@ -11152,6 +11218,8 @@ class ResidentDevelopmentalCognitionOwner:
                 objective_request_id=objective_request_id,
                 objective_request_digest=objective_request_digest,
                 epistemic_revision_probe=epistemic_revision_probe,
+                epistemic_revision_probe_proposition_id=(
+                    epistemic_revision_probe_proposition_id),
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
@@ -11171,6 +11239,7 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_request_id: str | None = None,
                  objective_request_digest: str | None = None,
                  epistemic_revision_probe: bool = False,
+                 epistemic_revision_probe_proposition_id: str | None = None,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
@@ -11251,7 +11320,8 @@ class ResidentDevelopmentalCognitionOwner:
             if (isinstance(family_id, str)
                 or companion_intervention_question is not None) else None)
         current_relevance_question = (
-            _epistemic_revision_probe_relevance_query(prior_epistemic_state)
+            _epistemic_revision_probe_relevance_query(prior_epistemic_state,
+                epistemic_revision_probe_proposition_id)
             if epistemic_revision_probe and prior_epistemic_state is not None
             else companion_intervention_question)
         current = self._current_projection(snapshot,
@@ -11331,6 +11401,8 @@ class ResidentDevelopmentalCognitionOwner:
                                     condition_id="with-history" if has_developmental_history else "prior-context",
                                     prior_self_model=prior_self_model, prior_epistemic_state=prior_epistemic_state,
                                     epistemic_revision_probe=epistemic_revision_probe,
+                                    epistemic_revision_probe_proposition_id=(
+                                        epistemic_revision_probe_proposition_id),
                                     epistemic_revision_probe_expected_prompt_digest=(
                                         epistemic_revision_probe_expected_prompt_digest),
                                     target_model_identity=preflight_target_model_identity,

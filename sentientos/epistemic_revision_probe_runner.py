@@ -46,8 +46,8 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
         raise ResidentDevelopmentalCognitionError(
             "epistemic_revision_pair_configuration_invalid")
     case.commitment()
-    if (before_projection.proposition_ids != (case.proposition_id,)
-            or after_projection.proposition_ids != (case.proposition_id,)):
+    if (case.proposition_id not in before_projection.proposition_ids
+            or case.proposition_id not in after_projection.proposition_ids):
         raise ResidentDevelopmentalCognitionError(
             "epistemic_revision_pair_projection_mismatch")
     semantic_packets_for_projection(before_projection)
@@ -64,7 +64,8 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
     for condition, snapshot, projection, expected_prompt_digest in conditions:
         preview = cognition.preview_epistemic_revision_probe_prompt(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
-            prior_epistemic_state=projection)
+            prior_epistemic_state=projection,
+            proposition_id=case.proposition_id)
         if preview.get("prompt_digest") != expected_prompt_digest:
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_prompt_digest_mismatch")
@@ -74,6 +75,7 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
         result = cognition.run_epistemic_revision_probe_once(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
+            proposition_id=case.proposition_id,
             expected_prompt_digest=expected_prompt_digest)
         if (result.status != "epistemic_revision_probe_completed"
                 or len(result.cognition_observation_ids) != 1):
@@ -122,10 +124,10 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         raise ResidentDevelopmentalCognitionError(
             "epistemic_revision_series_configuration_invalid")
     series.commitment()
-    if (original_projection.proposition_ids !=
-            (series.correction_case.proposition_id,)
-            or corrected_projection.proposition_ids !=
-                (series.correction_case.proposition_id,)):
+    if (series.correction_case.proposition_id not in
+            original_projection.proposition_ids
+            or series.correction_case.proposition_id not in
+                corrected_projection.proposition_ids):
         raise ResidentDevelopmentalCognitionError(
             "epistemic_revision_series_projection_mismatch")
     for snapshot in (original_snapshot, corrected_snapshot, pressure_snapshot):
@@ -148,7 +150,8 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
     for condition, snapshot, projection, expected_prompt_digest in conditions:
         preview = cognition.preview_epistemic_revision_probe_prompt(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
-            prior_epistemic_state=projection)
+            prior_epistemic_state=projection,
+            proposition_id=correction.proposition_id)
         if preview.get("prompt_digest") != expected_prompt_digest:
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_prompt_digest_mismatch")
@@ -158,6 +161,7 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
         result = cognition.run_epistemic_revision_probe_once(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
+            proposition_id=correction.proposition_id,
             expected_prompt_digest=expected_prompt_digest)
         if (result.status != "epistemic_revision_probe_completed"
                 or len(result.cognition_observation_ids) != 1):

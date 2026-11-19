@@ -216,6 +216,96 @@ def test_verified_proposition_relations_reach_later_bounded_cognition(
     assert outcomes[0]["recommendation"] != outcomes[1]["recommendation"]
 
 
+def test_multi_proposition_probe_keeps_target_and_scopes_citations(
+        tmp_path: Path) -> None:
+    epistemic = PersistentEpistemicStateOwner(tmp_path / "multi-probe-epistemics",
+        allowed_namespaces=("embodiment",))
+    propositions = [make_proposition(namespace="embodiment", subject=subject,
+        predicate="reports_status", object_value="healthy", polarity="positive",
+        qualifiers={}, temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive") for subject in ("body:g1", "battery:g1")]
+    binding_ids = {}
+    for index, proposition in enumerate(propositions, start=1):
+        epistemic.register_proposition(proposition)
+        binding = make_evidence_binding(proposition_id=proposition.proposition_id,
+            source_artifact_id=f"multi-probe-{index}",
+            source_digest="sha256:" + str(index) * 64,
+            source_schema="sentientos.fixture_observation:v1", source_class="fixture",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group=f"multi-probe-{index}", upstream_binding_ids=(),
+            freshness="current", reliability_posture="verified")
+        epistemic.bind_evidence(binding)
+        binding_ids[proposition.proposition_id] = binding.binding_id
+        epistemic.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=[binding.binding_id],
+            added_binding_ids=[binding.binding_id],
+            correlation_id=f"multi-probe:{index}", tick=index,
+            recorded_at="2026-01-01T00:00:00Z")
+    target, peer = propositions
+    projection = epistemic.cognitive_projection(max_states=2, current_tick=3,
+        prioritized_proposition_ids=(peer.proposition_id, target.proposition_id))
+    assert projection is not None and len(projection.proposition_ids) == 2
+    probe_context = {"instruction": "Review the target proposition.",
+        "epistemic_revision_probe": {
+            "schema_version": "sentientos.epistemic_revision_probe:v3",
+            "response_contract": "sentientos.epistemic_revision_answer:v2",
+            "target_proposition_id": target.proposition_id,
+            "question": "Review target proposition " + target.proposition_id}}
+
+    full_context, _metadata, _prompt = _bind_epistemic_context(
+        context=probe_context, projection=projection, max_input_chars=30_000)
+    full_probe = full_context["epistemic_revision_probe"]
+    full_packets = full_context["prior_epistemic_state"]["semantic_packets"]
+    assert full_probe["target_proposition_id"] == target.proposition_id
+    assert full_probe["allowed_evidence_binding_ids"] == [
+        binding_ids[target.proposition_id]]
+    assert {packet["proposition"]["proposition_id"] for packet in full_packets} == {
+        target.proposition_id, peer.proposition_id}
+
+    cognition, invoker = owner(_cognition_root(tmp_path, "multi-probe-cognition"),
+        invoker=StructuredFixtureInvoker())
+    with pytest.raises(ResidentDevelopmentalCognitionError,
+            match="epistemic_revision_probe_target_required"):
+        cognition.preview_epistemic_revision_probe_prompt(
+            snapshot=snapshot(), tick_id="multi-probe-missing-target",
+            prior_epistemic_state=projection)
+    preview = cognition.preview_epistemic_revision_probe_prompt(
+        snapshot=snapshot(), tick_id="multi-probe-preview",
+        prior_epistemic_state=projection, proposition_id=target.proposition_id)
+    preview_context = json.loads(preview["prompt"])
+    assert preview_context["epistemic_revision_probe"][
+        "target_proposition_id"] == target.proposition_id
+    result = cognition.run_epistemic_revision_probe_once(snapshot=snapshot(),
+        tick_id="multi-probe-run", prior_epistemic_state=projection,
+        proposition_id=target.proposition_id,
+        expected_prompt_digest=preview["prompt_digest"])
+    assert result.status == "epistemic_revision_probe_completed"
+    actual_context = json.loads(invoker.requests[-1].prompt)
+    assert actual_context["epistemic_revision_probe"][
+        "target_proposition_id"] == target.proposition_id
+    assert actual_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"] == [binding_ids[target.proposition_id]]
+
+    one_packet_context = None
+    for budget in range(4_000, 30_001, 250):
+        try:
+            candidate, _candidate_metadata, _candidate_prompt = _bind_epistemic_context(
+                context=probe_context, projection=projection, max_input_chars=budget)
+        except ResidentDevelopmentalCognitionError as exc:
+            assert "cognition_input_budget_exceeded" in str(exc)
+            continue
+        if len(candidate["prior_epistemic_state"]["semantic_packets"]) == 1:
+            one_packet_context = candidate
+            break
+    assert one_packet_context is not None
+    [selected_packet] = one_packet_context["prior_epistemic_state"]["semantic_packets"]
+    assert selected_packet["proposition"]["proposition_id"] == target.proposition_id
+    assert one_packet_context["epistemic_revision_probe"][
+        "allowed_evidence_binding_ids"] == [binding_ids[target.proposition_id]]
+
+
 def test_pair_context_comparison_ignores_treatments_and_detects_unlisted_fields() -> None:
     before = {"instruction": "same", "prior_epistemic_state": {"stance": "supported"},
         "current_evidence": {"fact": "old"}, "future_prompt_field": {"mode": "one"}}
