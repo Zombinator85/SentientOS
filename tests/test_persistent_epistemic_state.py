@@ -168,8 +168,27 @@ def test_query_relevance_keeps_older_matching_correction_in_bounded_context(
         relevance_query="Tell me about the lunar mission.")
     no_query = owner.cognitive_projection(max_states=1, current_tick=2)
     assert relevant is not None and unrelated is not None and no_query is not None
+    assert relevant.projection_digest != unrelated.projection_digest
 
     [relevant_packet] = semantic_packets_for_projection(relevant)
+    selection = relevant_packet["unverified_context_selection_provenance"]
+    assert selection == {
+        "schema_version": "sentientos.epistemic_context_selection_provenance:v1",
+        "selection_policy": "query_token_overlap_then_recency_then_binding_id",
+        "query_digest": digest(
+            "What is the west temperature sensor condition?"),
+        "selected_binding_ids": [corrections[index].binding_id
+            for index in (0, 2, 3, 4)],
+    }
+    assert "west temperature sensor" not in str(selection)
+    tampered_context = dict(relevant.unverified_context_evidence[0])
+    tampered_selection = dict(tampered_context["selection_provenance"])
+    tampered_selection["query_digest"] = digest("different query")
+    tampered_context["selection_provenance"] = tampered_selection
+    with pytest.raises(EpistemicStateError,
+            match="epistemic_semantic_projection_digest_mismatch"):
+        validate_cognitive_projection(replace(relevant,
+            unverified_context_evidence=(tampered_context,)), require_meaning=True)
     relevant_rows = relevant_packet["unverified_context_evidence_bindings"]
     relevant_ids = {item["binding_id"] for item in relevant_rows}
     assert corrections[0].binding_id in relevant_ids
@@ -187,6 +206,14 @@ def test_query_relevance_keeps_older_matching_correction_in_bounded_context(
 
     for fallback in (unrelated, no_query):
         [fallback_packet] = semantic_packets_for_projection(fallback)
+        fallback_selection = fallback_packet[
+            "unverified_context_selection_provenance"]
+        assert fallback_selection["selection_policy"] == (
+            "query_token_overlap_then_recency_then_binding_id"
+            if fallback is unrelated else "recency_then_binding_id")
+        assert fallback_selection["query_digest"] == (
+            digest("Tell me about the lunar mission.")
+            if fallback is unrelated else None)
         fallback_ids = {item["binding_id"] for item in
             fallback_packet["unverified_context_evidence_bindings"]}
         assert len(fallback_ids) == 4
