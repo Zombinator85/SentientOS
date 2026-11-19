@@ -5783,9 +5783,15 @@ class CurrentWorldStateCognitiveProjection:
     canonical_explicit_user_retention: bool = False
     projection_id: str = ""
     projection_digest: str = ""
+    withheld_conflict_reasons: tuple[str, ...] = ()
 
     def semantic_payload(self) -> dict[str, Any]:
-        value = asdict(self); value.pop("projection_id"); value.pop("projection_digest"); return value
+        value = asdict(self)
+        value.pop("projection_id")
+        value.pop("projection_digest")
+        if not self.withheld_conflict_reasons:
+            value.pop("withheld_conflict_reasons")
+        return value
 
 
 _EXPLICIT_CURRENT_QUESTION_MARKER = re.compile(
@@ -5943,6 +5949,8 @@ def _current_evidence_prompt_payload(
     conflicts = [dict(item) for item in raw_conflicts]
     prompt_payload: dict[str, Any] = {
         "schema_version": (
+            "sentientos.current_world_state_cognitive_projection_summary:v6"
+            if current.withheld_conflict_reasons else
             "sentientos.current_world_state_cognitive_projection_summary:v5"
             if conflicts else
             "sentientos.current_world_state_cognitive_projection_summary:v4"),
@@ -5968,6 +5976,9 @@ def _current_evidence_prompt_payload(
         "projection_posture": (
             "typed_bounded_view_with_per_fact_source_freshness_bound_to_exact_projection_digest"),
     }
+    if current.withheld_conflict_reasons:
+        prompt_payload["withheld_conflict_reasons"] = list(
+            current.withheld_conflict_reasons)
     if conflicts:
         # Conflict membership is an atomic relation over the selected fact IDs.
         # Preserve the complete owner-issued rows while compacting only the
@@ -9468,6 +9479,7 @@ class ResidentDevelopmentalCognitionOwner:
                 parent[max(left_root, right_root)] = min(left_root, right_root)
 
         unavailable_conflict_members: set[str] = set()
+        withheld_conflict_reasons: set[str] = set()
         for conflict in snapshot.conflicts:
             members = set(conflict.fact_ids)
             eligible_members = members & candidate_ids
@@ -9478,6 +9490,7 @@ class ResidentDevelopmentalCognitionOwner:
                 # reconstructed from the selected evidence. Withhold the
                 # eligible side rather than presenting it as uncontested.
                 unavailable_conflict_members.update(eligible_members)
+                withheld_conflict_reasons.add("source_policy_member_unavailable")
                 continue
             first = min(eligible_members)
             for member in eligible_members - {first}:
@@ -9498,6 +9511,8 @@ class ResidentDevelopmentalCognitionOwner:
         for members in units:
             if len(selected_ids) + len(members) <= self.config.max_selected_facts:
                 selected_ids.update(members)
+            elif len(members) > 1:
+                withheld_conflict_reasons.add("fact_budget_group_exceeded")
         facts = sorted((fact for fact in candidates if fact.fact_id in selected_ids),
             key=selection_key)
         selected = (self.writeback.select_evidence(snapshot, fact_ids=tuple(f.fact_id for f in facts))
@@ -9505,7 +9520,9 @@ class ResidentDevelopmentalCognitionOwner:
                 snapshot_digest=snapshot.digest))
         raw = CurrentWorldStateCognitiveProjection(snapshot.snapshot_id, snapshot.digest, selected.facts,
                                                     selected.sources, selected.conflicts,
-                                                    tuple(str(x["fact_id"]) for x in selected.facts))
+                                                    tuple(str(x["fact_id"]) for x in selected.facts),
+                                                    withheld_conflict_reasons=tuple(
+                                                        sorted(withheld_conflict_reasons)))
         digest = _digest(raw.semantic_payload())
         return replace(raw, projection_id="current-world-state-" + digest[7:31], projection_digest=digest)
 
@@ -9818,6 +9835,15 @@ class ResidentDevelopmentalCognitionOwner:
             "developmental_history": [],
             "developmental_history_posture": "historical_interpretation_not_current_truth",
         }
+        if current.withheld_conflict_reasons:
+            context["instruction"] += (
+                " current_evidence.withheld_conflict_reasons means at least one known "
+                "conflict was omitted from the selected facts by source policy or the "
+                "fact budget. Do not interpret omission as absence of conflict or as "
+                "support for either side. Treat current evidence as incomplete for "
+                "those conflicts and ask for eligible observations or clarification "
+                "before asserting a side as current. These reason codes are selection "
+                "metadata, not evidence or authority.")
         if interaction_question is not None:
             context["instruction"] += COMPANION_HISTORY_INTERVENTION_INSTRUCTION
             selected_self_model = context.get("prior_self_model")

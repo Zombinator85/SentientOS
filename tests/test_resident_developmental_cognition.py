@@ -6207,6 +6207,7 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             if request.structured_output_schema and "disposition" in (
                     request.structured_output_schema.get("required", ())):
                 prompt = json.loads(request.prompt)
+                self.last_prompt = prompt
                 current = prompt.get("current_evidence", {})
                 facts = current.get("facts", ())
                 text = json.dumps(facts, sort_keys=True).casefold()
@@ -6241,17 +6242,28 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
 
     bounded, bounded_invoker = owner(tmp_path / "bounded",
         invoker=FactOnlyInvoker(), max_selected_facts=1)
+    (tmp_path / "bounded" / "state").mkdir(parents=True)
     bounded_projection = bounded._current_projection(current,
         question="Is the east entry safe for entry?")
     assert bounded_projection.fact_ids == ()
+    assert bounded_projection.withheld_conflict_reasons == ("fact_budget_group_exceeded",)
     bounded_result = bounded.run_companion_interaction(snapshot=current,
         request_id="conflicting-entry-bounded", question="Is the east entry safe for entry?")
     assert bounded_result.disposition == "ask"
     assert bounded_result.evidence_ids == ()
     assert bounded_invoker.requests[-1].upstream_evidence["current_fact_ids"] == []
+    bounded_prompt = bounded_invoker.last_prompt
+    bounded_prompt_text = json.dumps(bounded_prompt, sort_keys=True)
+    assert bounded_prompt["current_evidence"]["withheld_conflict_reasons"] == [
+        "fact_budget_group_exceeded"]
+    assert "Do not interpret omission as absence of conflict" in bounded_prompt["instruction"]
+    assert "unsafe for entry" not in bounded_prompt_text
+    assert "entry-denial" not in bounded_prompt_text
+    assert all(fact_id not in bounded_prompt_text for fact_id in conflict_fact_ids)
 
     complete, complete_invoker = owner(tmp_path / "complete",
         invoker=FactOnlyInvoker(), max_selected_facts=2)
+    (tmp_path / "complete" / "state").mkdir(parents=True)
     complete_projection = complete._current_projection(current,
         question="Is the east entry safe for entry?")
     assert set(complete_projection.fact_ids) == conflict_fact_ids
@@ -6272,10 +6284,25 @@ def test_current_evidence_selection_keeps_conflicts_whole_under_fact_cap(
             "disposition": "deny", "observed_at": "2026-01-01T00:01:00+00:00",
             "payload": {"description": "The west entry is unsafe for entry."}},
     ])
-    policy_bounded, _ = owner(tmp_path / "policy-bounded",
-        allowed_source_kinds=("capability_registry",), max_selected_facts=1)
-    assert policy_bounded._current_projection(partially_eligible,
-        question="Is the west entry safe for entry?").fact_ids == ()
+    policy_bounded, policy_invoker = owner(tmp_path / "policy-bounded",
+        invoker=FactOnlyInvoker(), allowed_source_kinds=("capability_registry",),
+        max_selected_facts=1)
+    (tmp_path / "policy-bounded" / "state").mkdir(parents=True)
+    policy_projection = policy_bounded._current_projection(partially_eligible,
+        question="Is the west entry safe for entry?")
+    assert policy_projection.fact_ids == ()
+    assert policy_projection.withheld_conflict_reasons == (
+        "source_policy_member_unavailable",)
+    policy_result = policy_bounded.run_companion_interaction(snapshot=partially_eligible,
+        request_id="conflicting-west-policy-bounded",
+        question="Is the west entry safe for entry?")
+    assert policy_result.disposition == "ask"
+    policy_prompt = policy_invoker.last_prompt
+    assert policy_prompt["current_evidence"]["withheld_conflict_reasons"] == [
+        "source_policy_member_unavailable"]
+    assert "Do not interpret omission as absence of conflict" in policy_prompt["instruction"]
+    assert "unsafe for entry" not in json.dumps(policy_prompt, sort_keys=True)
+    assert "reported-entry-denial" not in json.dumps(policy_prompt, sort_keys=True)
 
 
 def test_companion_qualifies_stale_current_observations_and_answers_from_fresh_ones(
