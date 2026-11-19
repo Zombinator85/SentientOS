@@ -8370,13 +8370,28 @@ def test_pressure_deferred_writeback_is_visible_and_retried_on_a_later_tick(
         cognition.run_tick(snapshot=source, tick_id="pressure-deferred-tick")
     assert len(fake.requests) == request_count
 
-    retried = cognition.run_tick(snapshot=source, tick_id="pressure-retry-tick")
+    later_source = WorldStateBoardBuilder().build([
+        {"source_id": "source-b", "source_kind": "audit_trust",
+            "subject_id": "b", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 9}},
+        {"source_id": "source-a", "source_kind": "capability_registry",
+            "subject_id": "a", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 1}},
+        {"source_id": "source-c", "source_kind": "capability_registry",
+            "subject_id": "c", "stage": "observation", "disposition": "recorded",
+            "observed_at": "2026-01-02T00:00:00+00:00", "payload": {"value": 3}},
+    ])
+    assert later_source.snapshot_id != source.snapshot_id
+    assert {fact.fact_id for fact in later_source.facts} == {
+        fact.fact_id for fact in source.facts}
+    restarted, _ = owner(tmp_path, invoker=fake)
+    retried = restarted.run_tick(snapshot=later_source, tick_id="pressure-retry-tick")
     assert retried.status == "completed"
     assert retried.written_record_id
     assert set(retried.selected_fact_ids) == set(deferred_facts)
-    record = cognition.writeback.store.get(retried.written_record_id)
+    record = restarted.writeback.store.get(retried.written_record_id)
     assert set(record.candidate["selected_fact_ids"]) == set(deferred_facts)
-    assert set(deferred_facts).issubset(cognition._state()["processed_selection_ids"])
+    assert set(deferred_facts).issubset(restarted._state()["processed_selection_ids"])
 
 
 def test_unrecognized_writeback_deferral_remains_fail_closed(tmp_path: Path) -> None:

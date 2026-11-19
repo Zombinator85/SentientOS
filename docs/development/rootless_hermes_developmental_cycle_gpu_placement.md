@@ -96,11 +96,14 @@ failures, even though the selected fact identities were not marked processed.
 The resident owner now recognizes only the exact governed host-pressure
 deferral receipt, completes that tick with an explicit deferred status and
 selection identity, and leaves the source facts eligible for a later distinct
-tick. It does not replay the deferred tick or weaken any governor decision.
+tick if the same immutable fact identities are present in a later snapshot. It
+does not retain unadmitted evidence payloads in composition state, replay the
+deferred tick, or weaken any governor decision.
 Malformed output, other denials, and unrelated writeback failures remain
 fail-closed. A controlled CPU fake verifies that a deferred tick does not
 consume its facts and a subsequent tick writes a record bound to those same
-fact identities. This validates the retry handoff in software; it does not
+fact identities after an owner restart and a later snapshot with changed
+observation times. This validates the retry handoff in software; it does not
 remove host pressure or substitute for repeating the full real-model transfer
 comparison under a newly preregistered protocol.
 
