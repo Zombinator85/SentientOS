@@ -17,7 +17,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, List, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, List, Mapping, Protocol, Sequence
 
 from .fastapi_stub import FastAPI, HTMLResponse, HTTPException, Request, StreamingResponse
 
@@ -1785,13 +1785,14 @@ class PersistentConversationService:
                         and len(set(target_state_ids)) == len(target_state_ids)
                         and isinstance(target_source_turn, Mapping)
                         and target_source_turn.get("role") == "user"):
-                    try:
-                        target_response_verified = verifier(
-                            linkage=target_linkage,
-                            response_text=str(target_turn.get("text", "")),
-                            request_id=f"{session_id}:{target_source_turn_id}")
-                    except Exception:
-                        target_response_verified = False
+                    if callable(verifier):
+                        try:
+                            target_response_verified = verifier(
+                                linkage=target_linkage,
+                                response_text=str(target_turn.get("text", "")),
+                                request_id=f"{session_id}:{target_source_turn_id}")
+                        except Exception:
+                            target_response_verified = False
                     if target_response_verified is True:
                         correction_target_epistemic_state_ids = list(target_state_ids)
                 feedback_record = make_operator_feedback_record(
