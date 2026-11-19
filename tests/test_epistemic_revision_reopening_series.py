@@ -13,6 +13,7 @@ from test_resident_developmental_cognition import owner, snapshot  # noqa: E402
 from test_epistemic_revision_stability_series import (  # noqa: E402
     PositionReasoningFixtureInvoker,
 )
+from test_epistemic_revision_qualification import _cognition_root  # noqa: E402
 from sentientos.epistemic_revision_reopening_series import (  # noqa: E402
     EpistemicCorrectionReopeningSeries,
     evaluate_correction_reopening_series,
@@ -51,6 +52,7 @@ def _isolate_runtime_and_clock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
 class ReopeningFixtureInvoker(PositionReasoningFixtureInvoker):
     retain_corrected_answer = False
+    target_proposition_id: str | None = None
 
     def invoke(self, request, **kwargs):
         receipt = super().invoke(request, **kwargs)
@@ -59,22 +61,19 @@ class ReopeningFixtureInvoker(PositionReasoningFixtureInvoker):
         context = json.loads(request.prompt)
         prior = context.get("prior_epistemic_state")
         packets = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
-        packet = packets[0] if len(packets) == 1 else None
-        if packet is None or packet["last_update_event"]["reason"] != "source_reliability_revision":
+        packet = next((item for item in packets
+            if item.get("proposition", {}).get("proposition_id")
+                == self.target_proposition_id), None)
+        if packet is None:
             return receipt
-        lesson_candidate = {
-            "statement": "Fixture response tied to the delivered epistemic packet.",
-            "scope": "fixture case",
-            "applicability": "fixture only",
-            "uncertainty": "medium",
-            "uncertainty_rationale": "Synthetic response fixture.",
-            "evidence_dependencies": [packet["packet_id"]],
-            "possible_contradiction_ids": [],
-        }
-        if self.retain_corrected_answer:
-            answer = {"conclusion": "contested", "lesson_candidate": lesson_candidate}
+        stance = packet["state"]["stance"]
+        if packet["last_update_event"]["reason"] == "source_reliability_revision":
+            conclusion = ("contested" if self.retain_corrected_answer else "supported")
         else:
-            answer = {"conclusion": "supported", "lesson_candidate": lesson_candidate}
+            conclusion = stance
+        answer = self._answer(conclusion, packet,
+            cite_packet=bool(packet["active_evidence_bindings"]
+                or packet["removed_evidence_history"]))
         output = json.dumps(answer, sort_keys=True, separators=(",", ":"))
         updated = replace(receipt, output_text=output,
             output_digest=digest_payload({"output": output}),
@@ -84,13 +83,44 @@ class ReopeningFixtureInvoker(PositionReasoningFixtureInvoker):
         return updated
 
 
-def _three_stage_projections(root: Path):
+def _three_stage_projections(root: Path, *, include_peer: bool = False,
+        peer_only_reopen: bool = False):
     state_owner = PersistentEpistemicStateOwner(root, allowed_namespaces=("experiment",))
     proposition = make_proposition(namespace="experiment", subject="sensor:beta",
         predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
         temporal_scope={"window": "current"}, context_scope={},
         proposition_class="descriptive")
     state_owner.register_proposition(proposition)
+
+    peer = make_proposition(namespace="experiment", subject="sensor:gamma",
+        predicate="reports_safe", object_value=True, polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="descriptive")
+    peer_binding = None
+    if include_peer:
+        state_owner.register_proposition(peer)
+        peer_binding = make_evidence_binding(proposition_id=peer.proposition_id,
+            source_artifact_id="observation:peer-support",
+            source_digest="sha256:" + "4" * 64,
+            source_schema="fixture_observation:v1",
+            source_class="independent_observation",
+            observation_time="2026-01-01T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="source-peer", upstream_binding_ids=(),
+            freshness="current", reliability_posture="verified")
+        state_owner.bind_evidence(peer_binding)
+        state_owner.commit_update(proposition_id=peer.proposition_id,
+            expected_predecessor_digest=None, stance="supported", reason="initialization",
+            active_binding_ids=(peer_binding.binding_id,),
+            added_binding_ids=(peer_binding.binding_id,),
+            correlation_id="reopening-peer-support", tick=1,
+            recorded_at="2026-01-01T00:01:00Z")
+
+    def project(*, tick: int):
+        prioritized = ((peer.proposition_id, proposition.proposition_id)
+            if include_peer else (proposition.proposition_id,))
+        return state_owner.cognitive_projection(max_states=2 if include_peer else 1,
+            current_tick=tick, prioritized_proposition_ids=prioritized)
 
     def binding(artifact_id: str, seed: str, relation: str, source: str):
         return make_evidence_binding(proposition_id=proposition.proposition_id,
@@ -106,8 +136,7 @@ def _three_stage_projections(root: Path):
         expected_predecessor_digest=None, stance="supported", reason="initialization",
         active_binding_ids=(support.binding_id,), added_binding_ids=(support.binding_id,),
         correlation_id="reopening-initial", tick=1, recorded_at="2026-01-01T00:01:00Z")
-    initial = state_owner.cognitive_projection(max_states=1, current_tick=2,
-        prioritized_proposition_ids=(proposition.proposition_id,))
+    initial = project(tick=2)
 
     contradiction = binding("observation:contradiction", "2", "contradicts", "source-b")
     state_owner.bind_evidence(contradiction)
@@ -119,29 +148,55 @@ def _three_stage_projections(root: Path):
         added_binding_ids=(contradiction.binding_id,),
         correlation_id="reopening-correction", tick=2,
         recorded_at="2026-01-01T00:02:00Z")
-    corrected = state_owner.cognitive_projection(max_states=1, current_tick=3,
-        prioritized_proposition_ids=(proposition.proposition_id,))
+    corrected = project(tick=3)
 
     new_support = binding("observation:independent-followup", "3", "supports", "source-c")
     state_owner.bind_evidence(new_support)
-    state_owner.commit_update(proposition_id=proposition.proposition_id,
-        expected_predecessor_digest=corrected_state.state_digest,
-        stance="supported", reason="source_reliability_revision",
-        active_binding_ids=(support.binding_id, new_support.binding_id),
-        added_binding_ids=(new_support.binding_id,),
-        removed_binding_ids=(contradiction.binding_id,),
-        correlation_id="reopening-new-evidence", tick=3,
-        recorded_at="2026-01-01T00:03:00Z")
-    reopened = state_owner.cognitive_projection(max_states=1, current_tick=4,
-        prioritized_proposition_ids=(proposition.proposition_id,))
+    if peer_only_reopen:
+        assert include_peer and peer_binding is not None
+        peer_followup = make_evidence_binding(proposition_id=peer.proposition_id,
+            source_artifact_id="observation:peer-followup",
+            source_digest="sha256:" + "5" * 64,
+            source_schema="fixture_observation:v1",
+            source_class="independent_observation",
+            observation_time="2026-01-02T00:00:00Z", evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group="source-peer-followup", upstream_binding_ids=(),
+            freshness="current", reliability_posture="verified")
+        state_owner.bind_evidence(peer_followup)
+        peer_state = state_owner.current_state(peer.proposition_id)
+        assert peer_state is not None
+        state_owner.commit_update(proposition_id=peer.proposition_id,
+            expected_predecessor_digest=peer_state.state_digest,
+            stance="supported", reason="new_evidence",
+            active_binding_ids=(peer_binding.binding_id, peer_followup.binding_id),
+            added_binding_ids=(peer_followup.binding_id,),
+            correlation_id="reopening-peer-only-followup", tick=3,
+            recorded_at="2026-01-02T00:00:00Z")
+    else:
+        state_owner.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=corrected_state.state_digest,
+            stance="supported", reason="source_reliability_revision",
+            active_binding_ids=(support.binding_id, new_support.binding_id),
+            added_binding_ids=(new_support.binding_id,),
+            removed_binding_ids=(contradiction.binding_id,),
+            correlation_id="reopening-new-evidence", tick=3,
+            recorded_at="2026-01-01T00:03:00Z")
+    reopened = project(tick=4)
     assert initial is not None and corrected is not None and reopened is not None
+    if include_peer:
+        assert initial.proposition_ids[0] == peer.proposition_id
+        assert corrected.proposition_ids[0] == peer.proposition_id
+        assert reopened.proposition_ids[0] == peer.proposition_id
     return initial, corrected, reopened, proposition, support, contradiction, new_support
 
 
-def _observe(root: Path, projection, *, retain_corrected_answer: bool = False):
+def _observe(root: Path, projection, *, target_proposition_id: str,
+        retain_corrected_answer: bool = False):
     invoker = ReopeningFixtureInvoker()
     invoker.retain_corrected_answer = retain_corrected_answer
-    cognition, _ = owner(root, invoker=invoker,
+    invoker.target_proposition_id = target_proposition_id
+    cognition, _ = owner(_cognition_root(root.parent, root.name), invoker=invoker,
         allowed_source_kinds=("capability_registry", "owner_introspection"),
         max_selected_facts=16)
     cognition.run_tick(snapshot=snapshot(), tick_id="reopening-history-seed")
@@ -154,13 +209,18 @@ def _observe(root: Path, projection, *, retain_corrected_answer: bool = False):
     return cognition, request, result.cognition_observation_ids[0], receipt
 
 
-def _series(tmp_path: Path, *, retain_corrected_answer: bool = False):
+def _series(tmp_path: Path, *, retain_corrected_answer: bool = False,
+        include_peer: bool = False, peer_only_reopen: bool = False):
     initial_projection, corrected_projection, reopened_projection, proposition, support, contradiction, new_support = (
-        _three_stage_projections(tmp_path / "epistemic")
+        _three_stage_projections(tmp_path / "epistemic", include_peer=include_peer,
+            peer_only_reopen=peer_only_reopen)
     )
-    before = _observe(tmp_path / "initial", initial_projection)
-    corrected = _observe(tmp_path / "corrected", corrected_projection)
+    before = _observe(tmp_path / "initial", initial_projection,
+        target_proposition_id=proposition.proposition_id)
+    corrected = _observe(tmp_path / "corrected", corrected_projection,
+        target_proposition_id=proposition.proposition_id)
     reopened = _observe(tmp_path / "reopened", reopened_projection,
+        target_proposition_id=proposition.proposition_id,
         retain_corrected_answer=retain_corrected_answer)
     initial_key = IndependentAnswerKey("supported", "supported", "support_retained",
         (support.binding_id,))
@@ -210,6 +270,24 @@ def test_rigidly_retaining_the_correction_fails_after_new_evidence(tmp_path: Pat
     assert report["new_evidence_reaches_answer_key"] is True
     assert report["justified_reopening"]["state_transition_appropriate"] is True
     assert report["justified_reopening"]["after"]["answer_correct"] is False
+
+
+def test_reopening_scores_target_evidence_with_peer_packet_first(tmp_path: Path) -> None:
+    report = _series(tmp_path, include_peer=True)
+    assert report["status"] == "series_passed", report
+    assert report["new_active_evidence_count"] == 1
+    assert report["new_evidence_reaches_answer_key"] is True
+    assert report["initial_correction_passed"] is True
+    assert report["reopening_passed"] is True
+
+
+def test_peer_only_new_evidence_does_not_justify_target_reopening(
+        tmp_path: Path) -> None:
+    report = _series(tmp_path, include_peer=True, peer_only_reopen=True)
+    assert report["status"] == "insufficient"
+    assert report["new_active_evidence_count"] == 0
+    assert report["new_evidence_reaches_answer_key"] is False
+    assert report["reopening_passed"] is False
 
 
 def test_new_evidence_must_be_named_by_reopening_answer_key() -> None:
