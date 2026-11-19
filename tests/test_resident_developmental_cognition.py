@@ -2553,6 +2553,59 @@ def test_unsettled_task_family_outcomes_withhold_candidate_strategy_from_context
         "cross_model_unsettled_candidate_integer_affine_strategies"]
     assert cross_model_ref["strategy_digest"] == cross_model_strategy["strategy_digest"]
 
+    # With no observable target identity, independently oracle-scored examples
+    # remain available as tentative task evidence, while outcome-derived
+    # strategy and model-performance claims stay withheld.
+    unbound_identity_experience = {**experience,
+        "source_active_model_identity": None,
+        "source_active_model_identity_digest": None}
+    monkeypatch.setattr(cognition_module, "_task_family_history_examples",
+        lambda candidate, *, task_family_id: [dict(unbound_identity_experience)])
+    unbound_context, _, unbound_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": None},
+            records=(record,), projection=None))
+    [unbound_projected] = unbound_context["developmental_history"][0][
+        "task_relevant_experience"]
+    assert unbound_projected["model_identity_relation"] == "model_identity_unbound"
+    assert unbound_projected["applicability_posture"] == (
+        "model_identity_unbound_oracle_examples_only_performance_unproven")
+    assert unbound_projected["examples"] == experience["examples"]
+    assert "candidate_integer_affine_strategy" not in unbound_projected
+    assert "candidate_integer_affine_strategy_withheld" not in unbound_projected
+    unbound_prompt_projection = cognition_module._task_family_history_prompt_projection(
+        unbound_context, condition_id="history_present",
+        task_family_id="integer_affine_prediction")
+    assert unbound_prompt_projection["task_relevant_example_count"] == 3
+    assert unbound_prompt_projection["candidate_integer_affine_strategy_count"] == 0
+    assert "model_identity_unbound_oracle_examples_only_performance_unproven" in (
+        unbound_prompt)
+
+    def fake_replay(prompt: str, probe_input: int) -> int | None:
+        envelope = json.loads(prompt)
+        for packet in envelope.get("developmental_history", ()):
+            for item in packet.get("task_relevant_experience", ()):
+                for example in item.get("examples", ()):
+                    if (example.get("evaluator_correct") is True
+                            and example.get("probe_input") == probe_input):
+                        return example.get("observed_answer")
+        return None
+
+    replay_example = experience["examples"][0]
+    _, _, history_withheld_prompt, _, _ = (
+        cognition_module._bind_history_and_epistemic_context(
+            context={"instruction": base_instruction,
+                "developmental_history_task_family_id": "integer_affine_prediction",
+                "developmental_history_task_family_history_required": True,
+                "developmental_history_target_model_identity": None},
+            records=(record,), projection=None, history_present=False))
+    assert fake_replay(unbound_prompt, replay_example["probe_input"]) == \
+        replay_example["observed_answer"]
+    assert fake_replay(history_withheld_prompt, replay_example["probe_input"]) is None
+
 
 def test_task_family_projection_separates_correct_and_incorrect_examples() -> None:
     from sentientos.resident_developmental_cognition import (
@@ -3217,6 +3270,9 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "cross_model_oracle_verified_examples_only_performance_unproven"
     assert _task_family_model_applicability(bound_projection,
         target_model_identity=None)["model_identity_relation"] == "model_identity_unbound"
+    assert _task_family_model_applicability(bound_projection,
+        target_model_identity=None)["applicability_posture"] == \
+        "model_identity_unbound_oracle_examples_only_performance_unproven"
     from sentientos.resident_developmental_cognition import _compact_task_family_history_example
     compact = _compact_task_family_history_example({**bound_projection,
         **_task_family_model_applicability(bound_projection,
@@ -3347,9 +3403,56 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
         "created_at": "fixture-time", "epistemic_posture": "historical_only"},
         task_family_id="integer_affine_prediction", target_model_identity=None,
         compact_for_input_budget=True)
-    assert "task_relevant_experience" not in unbound_model_packet
-    assert unbound_model_packet["task_relevant_experience_omission"]["posture"] == \
-        "model_identity_unbound_examples_withheld_from_task_guidance"
+    [unbound_experience] = unbound_model_packet["task_relevant_experience"]
+    assert unbound_experience["model_identity_relation"] == "model_identity_unbound"
+    assert unbound_experience["applicability_posture"] == \
+        "model_identity_unbound_oracle_examples_only_performance_unproven"
+    assert unbound_experience["examples"]
+    assert all(item["evaluator_correct"] is True
+        for item in unbound_experience["examples"])
+    assert unbound_experience.get("candidate_integer_affine_strategy") is None
+    assert unbound_experience.get(
+        "candidate_integer_affine_strategy_withheld") is None
+    assert "task_relevant_experience_omission" not in unbound_model_packet
+
+    # Compose the production history binder with a deterministic fake policy.
+    # It can replay an exact, oracle-scored example only when history is present;
+    # this demonstrates example application without implying transfer or model
+    # performance evidence for the identity-unbound target.
+    unbound_record = {"record_id": admitted.record_id,
+        "record_digest": admitted.record_digest, "candidate": bound_model_identity,
+        "created_at": "fixture-time", "epistemic_posture": "historical_only"}
+    unbound_base = {"instruction": "Use applicable historical examples cautiously.",
+        "developmental_history_task_family_id": "integer_affine_prediction",
+        "developmental_history_task_family_history_required": True,
+        "developmental_history_target_model_identity": None}
+    present_context, _, present_prompt, _, _ = _bind_history_and_epistemic_context(
+        context=unbound_base, records=(unbound_record,), projection=None,
+        history_present=True, compact_history_for_input=True)
+    withheld_context, _, withheld_prompt, _, _ = _bind_history_and_epistemic_context(
+        context=unbound_base, records=(unbound_record,), projection=None,
+        history_present=False, compact_history_for_input=True)
+    assert present_context["developmental_history"][0][
+        "task_relevant_experience"][0]["model_identity_relation"] == "model_identity_unbound"
+
+    def fake_replay(prompt: str, probe_input: int) -> int | None:
+        envelope = json.loads(prompt)
+        for packet in envelope.get("developmental_history", ()):
+            for experience in packet.get("task_relevant_experience", ()):
+                if experience.get("model_identity_relation") not in {
+                        "same_active_model_identity", "different_active_model_identity",
+                        "model_identity_unbound"}:
+                    continue
+                for example in experience.get("examples", ()):
+                    if (example.get("evaluator_correct") is True
+                            and example.get("probe_input") == probe_input):
+                        return example.get("observed_answer")
+        return None
+
+    replay_probe = unbound_experience["examples"][0]["probe_input"]
+    replay_expected = unbound_experience["examples"][0]["observed_answer"]
+    assert fake_replay(present_prompt, replay_probe) == replay_expected
+    assert fake_replay(withheld_prompt, replay_probe) is None
     assert _task_family_history_examples(admitted.candidate,
         task_family_id="unrelated_family") == []
 
