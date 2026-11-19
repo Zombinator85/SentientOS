@@ -10778,8 +10778,22 @@ class ResidentDevelopmentalCognitionOwner:
                 "retrieval_posture", "selection_posture", "records", "read_only",
                 "historical_only", "current_truth", "authority", "mutation_performed",
                 "correction_relations", "selection_digest"}
+            optional_memory_fields = {"retrieval_policy_id",
+                "semantic_retrieval_posture"}
             semantic_memory = {key: value for key, value in canonical_memory_context.items()
                 if key != "selection_digest"}
+            retrieval_policy = canonical_memory_context.get("retrieval_policy_id")
+            semantic_posture = canonical_memory_context.get(
+                "semantic_retrieval_posture")
+            valid_retrieval_policy = ("retrieval_policy_id" not in canonical_memory_context
+                or isinstance(retrieval_policy, str) and retrieval_policy in {
+                    "lexical_only:v1", "weighted_lexical_semantic_refinement:v1"})
+            valid_semantic_posture = ("semantic_retrieval_posture"
+                not in canonical_memory_context or isinstance(semantic_posture, str)
+                and semantic_posture in {
+                    "disabled", "lexical_match_preferred", "matched",
+                    "no_candidates", "no_match_lexical_fallback", "unavailable",
+                    "unavailable_lexical_fallback"})
             records = canonical_memory_context.get("records")
             valid_records = isinstance(records, list) and 0 < len(records) <= 4
             seen_memory_ids: set[str] = set()
@@ -10848,7 +10862,9 @@ class ResidentDevelopmentalCognitionOwner:
                     else:
                         valid_relations = False
                         break
-            if (set(canonical_memory_context) != expected_memory_fields
+            if (not expected_memory_fields.issubset(canonical_memory_context)
+                    or not set(canonical_memory_context).issubset(
+                        expected_memory_fields | optional_memory_fields)
                     or canonical_memory_context.get("schema_version")
                         != "sentientos.canonical_user_memory_cognition_context:v1"
                     or not isinstance(canonical_memory_context.get(
@@ -10863,6 +10879,7 @@ class ResidentDevelopmentalCognitionOwner:
                     or canonical_memory_context.get("current_truth") is not False
                     or canonical_memory_context.get("authority") is not False
                     or canonical_memory_context.get("mutation_performed") is not False
+                    or not valid_retrieval_policy or not valid_semantic_posture
                     or not valid_records or not valid_relations
                     or canonical_memory_context.get("selection_digest")
                         != digest_payload(semantic_memory)):

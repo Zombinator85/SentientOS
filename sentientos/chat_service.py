@@ -2653,8 +2653,6 @@ class PersistentConversationService:
                 "lexical_only:v1"),
             "semantic_retrieval_posture": retrieved.get(
                 "semantic_retrieval_posture", "disabled"),
-            "record_validation_posture": retrieved.get(
-                "record_validation_posture", "not_requested"),
             "records": selected, "correction_relations": correction_relations,
             "read_only": True,
             "historical_only": True, "current_truth": False,

@@ -1707,7 +1707,7 @@ def test_resident_cognition_receives_only_verified_explicitly_retained_memory(
     reason="conversation persistence is unavailable on Windows")
 def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
         tmp_path: Path) -> None:
-    app = service(tmp_path, cognition_bridge=object())
+    app = service(tmp_path)
     session_id = app.create_session()
     retained_text = "The cedar shelf is in the west workshop."
     for index in range(chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1):
@@ -1734,7 +1734,6 @@ def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
 
     assert context is not None
     assert [record["memory_id"] for record in context["records"]] == list(valid_target_ids)
-    assert context["record_validation_posture"] == "inspected_candidates_rejected"
     assert context["selection_posture"] == "matching_records_omitted"
     assert context["retrieval_posture"] == "partial_source_verification"
 
