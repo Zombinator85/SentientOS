@@ -21,10 +21,12 @@ from .local_model_authority import digest_payload
 from .longitudinal_self_model import LongitudinalSelfModelRuntimeConfig
 from .persistent_epistemic_state import PersistentEpistemicStateOwner
 from .resident_developmental_cognition import (
+    MAX_RESIDENT_COGNITION_INPUT_CHARS,
     ResidentCompanionHistoryInterventionResult,
     ResidentCompanionInteractionResult,
     ResidentDevelopmentalCognitionOwner,
     ResidentDevelopmentalCycleResult,
+    bind_epistemic_cognitive_context,
 )
 from .world_state_board import WorldStateBoardBuilder, WorldStateSnapshot, record_digest
 
@@ -697,6 +699,57 @@ class ResidentDevelopmentalCompanionBridge:
                 or re.fullmatch(r"[0-9a-f]{40}", revision) is None):
             return None
         return model_id, revision
+
+    def ordinary_chat_epistemic_context(self, *, question: str,
+            max_input_chars: int = 8000) -> dict[str, Any] | None:
+        """Return bounded, prior-only epistemic context for ordinary fallback chat."""
+        owner = self._epistemic_state_owner
+        if (owner is None or self._epistemic_state_config.get(
+                "cognitive_consumption_enabled") is not True):
+            return None
+        if (not isinstance(question, str) or not question.strip()
+                or len(question) > 1200
+                or not isinstance(max_input_chars, int)
+                or isinstance(max_input_chars, bool)
+                or not 128 <= max_input_chars <= MAX_RESIDENT_COGNITION_INPUT_CHARS):
+            raise DevelopmentalCompanionBridgeError(
+                "ordinary_chat_epistemic_context_request_invalid")
+        maximum = self._epistemic_state_config.get(
+            "max_cognitive_projection_count")
+        if (not isinstance(maximum, int) or isinstance(maximum, bool)
+                or not 1 <= maximum <= 128):
+            raise DevelopmentalCompanionBridgeError(
+                "epistemic_projection_bound_invalid")
+        tick_id, projection_tick = self._projection_boundary()
+        projection = owner.cognitive_projection(max_states=maximum,
+            current_tick=projection_tick, relevance_query=question)
+        if projection is None:
+            return None
+        evaluation_time = datetime.fromisoformat(tick_id).isoformat()
+        instruction = (
+            "This prior epistemic position is historical context selected by the "
+            "verified epistemic owner. Use its complete source-bound packets as "
+            "defeasible knowledge when relevant; preserve recorded uncertainty and "
+            "freshness limits. It is not current evidence, truth, policy, authority, "
+            "or permission to mutate epistemic state. Omitted propositions are "
+            "unknown to this prompt, not absent or resolved.")
+        bound, _metadata, _prompt = bind_epistemic_cognitive_context(
+            context={"instruction": instruction}, projection=projection,
+            evaluation_time=evaluation_time, max_input_chars=max_input_chars)
+        prior = bound.get("prior_epistemic_state")
+        if not isinstance(prior, Mapping):
+            return None
+        packets = prior.get("semantic_packets")
+        if not isinstance(packets, (list, tuple)) or not packets:
+            return None
+        semantic = {
+            "schema_version": "sentientos.ordinary_chat_epistemic_context:v1",
+            "instruction": bound.get("instruction", instruction),
+            "prior_epistemic_state": dict(prior),
+            "historical_only": True, "current_truth": False,
+            "authority": False, "mutation_performed": False,
+        }
+        return {**semantic, "selection_digest": digest_payload(semantic)}
 
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
