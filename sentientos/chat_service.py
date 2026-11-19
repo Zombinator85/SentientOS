@@ -514,6 +514,14 @@ def _ordinary_epistemic_relevance_query(question: str,
     return question
 
 
+def _ordinary_epistemic_context_budget(base_prompt: str) -> int | None:
+    """Leave room for ordinary prompt framing when binding optional prior state."""
+    # The epistemic binder sizes its own JSON payload. Reserve space for the
+    # ordinary prompt's guidance, envelope, selection digest, and separators.
+    available = 8000 - len(base_prompt) - 512
+    return available if available >= 128 else None
+
+
 def _is_social_checkin_continuation(message: str) -> bool:
     """Recognize a check-in that explicitly refers to the immediately prior exchange."""
     normalized = " ".join(re.sub(r"[^a-z0-9]+", " ", message.casefold()).split())
@@ -4277,32 +4285,48 @@ class PersistentConversationService:
                 runtime_context=runtime_context, history=history, memory=memory,
                 on_content_chunk=on_content_chunk)
         epistemic_context = None
-        if (epistemic_fallback and not recent_session_recall and not social_checkin
-                and not current_runtime_question and not self_contained_echo
-                and not gaming_development_turn):
-            provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
-            if callable(provider):
-                try:
-                    epistemic_query = _ordinary_epistemic_relevance_query(
-                        message, history)
-                    candidate_context = provider(question=epistemic_query,
-                        max_input_chars=8000)
-                    if isinstance(candidate_context, Mapping):
-                        epistemic_context = candidate_context
-                except Exception:
-                    # Epistemic context is optional historical input. A failed
-                    # projection never blocks ordinary chat or becomes evidence.
-                    epistemic_context = None
         prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message=message,
             runtime_context=runtime_context,
-            epistemic_context=epistemic_context,
             verified_prior_runtime_lineage=predecessor_runtime_lineage,
             screen_observation=screen_observation,
             compact_history=gaming_development_turn,
             compact_screen_context=gaming_development_turn and screen_observation is not None,
             recent_session_recall=recent_session_recall,
             earliest_session_recall=earliest_session_recall)
+        if (epistemic_fallback and not recent_session_recall and not social_checkin
+                and not current_runtime_question and not self_contained_echo
+                and not gaming_development_turn):
+            provider = getattr(bridge, "ordinary_chat_epistemic_context", None)
+            max_epistemic_chars = _ordinary_epistemic_context_budget(prompt)
+            if callable(provider) and max_epistemic_chars is not None:
+                try:
+                    epistemic_query = _ordinary_epistemic_relevance_query(
+                        message, history)
+                    candidate_context = provider(question=epistemic_query,
+                        max_input_chars=max_epistemic_chars)
+                    if isinstance(candidate_context, Mapping):
+                        candidate_prompt = assemble_local_chat_context(
+                            history=history, memory_snapshot=memory,
+                            current_message=message, runtime_context=runtime_context,
+                            epistemic_context=candidate_context,
+                            verified_prior_runtime_lineage=predecessor_runtime_lineage,
+                            screen_observation=screen_observation,
+                            compact_history=gaming_development_turn,
+                            compact_screen_context=(gaming_development_turn
+                                and screen_observation is not None),
+                            recent_session_recall=recent_session_recall,
+                            earliest_session_recall=earliest_session_recall)
+                        # The binder budgets its JSON payload, while the governed
+                        # call budgets the complete serialized prompt. Keep the
+                        # optional historical projection only when both fit.
+                        if len(candidate_prompt) <= 8000:
+                            epistemic_context = candidate_context
+                            prompt = candidate_prompt
+                except Exception:
+                    # Epistemic context is optional historical input. A failed
+                    # projection never blocks ordinary chat or becomes evidence.
+                    epistemic_context = None
         if gaming_development_turn:
             effective_prompt = GamingWorkloadPolicy.apply_chat_response_style(
                 prompt, "gaming", social_checkin=social_checkin,
