@@ -751,6 +751,19 @@ class ResidentDevelopmentalCompanionBridge:
         }
         return {**semantic, "selection_digest": digest_payload(semantic)}
 
+    def ordinary_chat_developmental_history_context(self, *, question: str,
+            max_input_chars: int = 8000) -> dict[str, Any] | None:
+        """Expose verified developmental history without enabling writeback."""
+        owner = self._owner
+        if (owner is None or getattr(getattr(owner, "config", None),
+                "enabled", False) is not True):
+            return None
+        provider = getattr(owner,
+            "ordinary_chat_developmental_history_context", None)
+        if not callable(provider):
+            return None
+        return provider(question=question, max_input_chars=max_input_chars)
+
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
         owner = self._history_intervention_owner

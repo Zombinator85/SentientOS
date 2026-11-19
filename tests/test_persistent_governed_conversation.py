@@ -577,6 +577,149 @@ def test_ordinary_fallback_applies_bounded_prior_epistemic_context(
 
 @pytest.mark.skipif(os.name == "nt",
     reason="conversation persistence is unavailable on Windows")
+def test_ordinary_fallback_applies_verified_developmental_history(
+        tmp_path: Path) -> None:
+    query = "What should I do now?"
+    topic = "The west sensor reading changed after calibration."
+    record_id = "developmental-record-west-sensor"
+    record_digest = "sha256:" + "a" * 64
+    packet = {"record_id": record_id, "record_digest": record_digest,
+        "candidate_id": "candidate-west-sensor",
+        "candidate_digest": "sha256:" + "b" * 64,
+        "interpretation": "Prior calibration drift was corrected by repeating the check.",
+        "uncertainty": "One prior run only.", "selected_fact_ids": [],
+        "current_truth": False, "authority": False, "policy": False}
+    selection = {
+        "schema_version": "sentientos.ordinary_chat_developmental_history_selection:v1",
+        "policy": "resident_owner_question_ranked_prefix:v1",
+        "retrieval_policy_id": "lexical_question_relevance:v1",
+        "available_records": [{"record_id": record_id,
+            "record_digest": record_digest}],
+        "selected_records": [{"record_id": record_id,
+            "record_digest": record_digest}],
+        "omitted_records": [], "omitted_records_digest":
+            chat_service.digest_payload([]), "omission_reason": None}
+    selection["selection_digest"] = chat_service.digest_payload(selection)
+    semantic = {
+        "schema_version": "sentientos.ordinary_chat_developmental_history_context:v1",
+        "instruction": "Use relevant historical experience only as defeasible context.",
+        "developmental_history": [packet], "selection": selection,
+        "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False}
+    selected_context = {**semantic,
+        "selection_digest": chat_service.digest_payload(semantic)}
+
+    class FallbackBridge:
+        def __init__(self, selected):
+            self.selected = selected
+            self.context_requests = []
+
+        def can_handle(self):
+            return False
+
+        def respond(self, **_kwargs):
+            raise AssertionError("unavailable cognition must use ordinary fallback")
+
+        def ordinary_chat_developmental_history_context(self, *, question,
+                max_input_chars):
+            self.context_requests.append((question, max_input_chars))
+            return (self.selected if "west sensor" in question else None)
+
+    class ExperienceDecisionInvoker(FakeInvoker):
+        def invoke(self, request):
+            self.last_prompt = request.prompt
+            self.last_linkage = dict(request.linkage)
+            output = ("Repeat the calibration check before relying on the sensor."
+                if "Prior calibration drift was corrected" in request.prompt
+                else "I have no relevant prior calibration experience.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False, request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    baseline_bridge = FallbackBridge(selected_context)
+    baseline_invoker = ExperienceDecisionInvoker()
+    baseline = service(tmp_path / "history-baseline", baseline_invoker,
+        cognition_bridge=baseline_bridge)
+    baseline_session = baseline.create_session()
+    baseline_response = baseline.chat(query, session_id=baseline_session,
+        request_id="developmental-history-baseline")
+
+    bridge = FallbackBridge(selected_context)
+    invoker = ExperienceDecisionInvoker()
+    app = service(tmp_path / "history-selected", invoker, cognition_bridge=bridge)
+    session_id = app.create_session()
+    app.sessions.append_turn(session_id, role="user", text=topic)
+    app.sessions.append_turn(session_id, role="assistant",
+        text="I will keep that calibration experience in context.")
+    app.sessions.append_turn(session_id, role="user", text="Thanks!")
+    response = app.chat(query, session_id=session_id,
+        request_id="developmental-history-selected")
+
+    assert baseline_response.response == (
+        "I have no relevant prior calibration experience.")
+    assert response.response == (
+        "Repeat the calibration check before relying on the sensor.")
+    assert bridge.context_requests[0][0] == f"{query} {topic}"
+    assert 128 <= bridge.context_requests[0][1] < 8000
+    assert "[DEVELOPMENTAL_HISTORY_GUIDANCE]" in invoker.last_prompt
+    assert "Prior calibration drift was corrected" in invoker.last_prompt
+    assert '"current_truth":false' in invoker.last_prompt
+    assert invoker.last_linkage[
+        "ordinary_developmental_history_selection_digest"] == (
+            selected_context["selection_digest"])
+    assert invoker.last_linkage[
+        "ordinary_developmental_history_record_ids"] == [record_id]
+    assert invoker.last_linkage[
+        "ordinary_developmental_history_record_digests"] == [record_digest]
+    assistant = app.sessions.load(session_id)["turns"][-1]
+    assert assistant["linkage"][
+        "ordinary_developmental_history_selection_digest"] == (
+            selected_context["selection_digest"])
+
+
+def test_ordinary_developmental_history_prompt_rejects_tampering() -> None:
+    history = ContextSnapshot("session-developmental-history", (), 4000,
+        False, "a" * 64)
+    memory = {"memories": [], "retrieval_posture": "complete",
+        "selection_posture": "all_matching_records_selected",
+        "omitted_memory_count": 0}
+    record = {"record_id": "record-1", "record_digest": "sha256:" + "a" * 64,
+        "current_truth": False, "authority": False}
+    selection = {
+        "schema_version": "sentientos.ordinary_chat_developmental_history_selection:v1",
+        "policy": "resident_owner_question_ranked_prefix:v1",
+        "retrieval_policy_id": "owner_default:v1",
+        "available_records": [{"record_id": record["record_id"],
+            "record_digest": record["record_digest"]}],
+        "selected_records": [{"record_id": record["record_id"],
+            "record_digest": record["record_digest"]}],
+        "omitted_records": [], "omitted_records_digest":
+            chat_service.digest_payload([]), "omission_reason": None}
+    selection["selection_digest"] = chat_service.digest_payload(selection)
+    semantic = {
+        "schema_version": "sentientos.ordinary_chat_developmental_history_context:v1",
+        "instruction": "Historical only.", "developmental_history": [record],
+        "selection": selection, "historical_only": True, "current_truth": False,
+        "authority": False, "mutation_performed": False}
+    context = {**semantic,
+        "selection_digest": chat_service.digest_payload(semantic)}
+    prompt = assemble_local_chat_context(history=history, memory_snapshot=memory,
+        current_message="What next?", runtime_context={},
+        developmental_history_context=context)
+    assert "[DEVELOPMENTAL_HISTORY_DATA]" in prompt
+    tampered = {**context, "authority": True}
+    with pytest.raises(ValueError,
+            match="ordinary_chat_developmental_history_context_invalid"):
+        assemble_local_chat_context(history=history, memory_snapshot=memory,
+            current_message="What next?", runtime_context={},
+            developmental_history_context=tampered)
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
 def test_ordinary_epistemic_context_uses_only_remaining_prompt_budget(
         tmp_path: Path) -> None:
     class BudgetedBridge:
