@@ -1006,10 +1006,15 @@ class ResidentDevelopmentalCompanionBridge:
             relevance_parts = [question]
             turns = (conversation_context.get("turns", ())
                 if isinstance(conversation_context, Mapping) else ())
-            prior_user_text = (next((row.get("text") for row in reversed(turns)
-                if isinstance(row, Mapping) and row.get("role") == "user"
-                and isinstance(row.get("text"), str) and row.get("text").strip()), None)
-                if isinstance(turns, (list, tuple)) else None)
+            prior_user_text = None
+            if isinstance(turns, (list, tuple)):
+                for row in reversed(turns):
+                    if not isinstance(row, Mapping) or row.get("role") != "user":
+                        continue
+                    candidate_text = row.get("text")
+                    if isinstance(candidate_text, str) and candidate_text.strip():
+                        prior_user_text = candidate_text
+                        break
             if isinstance(prior_user_text, str):
                 relevance_parts.append(prior_user_text[:1000])
             current_context = self._owner.selected_current_relevance_context(
