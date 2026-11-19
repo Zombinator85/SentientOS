@@ -293,7 +293,8 @@ def test_pinned_semantic_context_ranking_applies_older_matching_correction(
     assert selection["schema_version"] == (
         "sentientos.epistemic_context_selection_provenance:v2")
     assert selection["selection_policy"] == (
-        "pinned_cpu_semantic_sample_then_token_overlap_recency_binding_id")
+        "pinned_cpu_semantic_sample_lexical_overlap_then_cosine_desc_floor_0_25_"
+        "then_recency_then_binding_id")
     assert corrections[0].binding_id in selection["selected_binding_ids"]
     assert selection["candidate_count"] == len(corrections)
     assert selection["embedder_identity_digest"] == "sha256:" + "b" * 64
@@ -321,6 +322,90 @@ def test_pinned_semantic_context_ranking_applies_older_matching_correction(
         "sentientos.epistemic_context_selection_provenance:v1")
     assert fallback_selection["selection_policy"] == (
         "query_token_overlap_then_recency_then_binding_id")
+
+
+def test_weak_semantic_corrections_do_not_displace_lexical_or_recent_context(
+        tmp_path, monkeypatch):
+    from math import sqrt
+    from types import SimpleNamespace
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path, allowed_namespaces=["embodiment"])
+    target = make_proposition(namespace="embodiment", subject="sensor:west",
+        predicate="reports_condition", object_value="unknown",
+        polarity="positive", qualifiers={}, temporal_scope={},
+        context_scope={}, proposition_class="descriptive",
+        statement="The west sensor condition is unknown.")
+    owner.register_proposition(target)
+    support = binding(target, "semantic-context-floor-baseline")
+    owner.bind_evidence(support)
+    owner.commit_update(proposition_id=target.proposition_id,
+        expected_predecessor_digest=None, stance="supported",
+        reason="initialization", active_binding_ids=(support.binding_id,),
+        added_binding_ids=(support.binding_id,),
+        correlation_id="semantic-context-floor-baseline", tick=1,
+        recorded_at="2026-11-18T10:00:00Z")
+
+    texts = (
+        "Operator correction: the west temperature sensor is offline.",
+        "The device stopped reporting after its cable came loose.",
+        "The boiler fan was inspected last week.",
+        "The hallway light flickered during the night.",
+        "The remote battery was replaced yesterday.",
+    )
+    corrections = []
+    for index, text in enumerate(texts, start=1):
+        correction = make_evidence_binding(
+            proposition_id=target.proposition_id,
+            source_artifact_id=f"operator-feedback:semantic-floor-{index}",
+            source_digest="sha256:" + f"{index:064x}",
+            source_schema="sentientos.local_operator_feedback:v5",
+            source_class="operator_input",
+            observation_time=f"2026-11-18T10:0{index}:00Z",
+            evidence_relation="contextualizes", dependency_kind="unknown_dependency",
+            dependency_group=None, upstream_binding_ids=(), freshness="unknown",
+            reliability_posture="operator_assertion_unverified_context_only",
+            unverified_context_text=text)
+        owner.bind_evidence(correction)
+        corrections.append(correction)
+
+    scores = {
+        texts[0]: 0.10,
+        texts[1]: 0.90,
+        texts[2]: 0.15,
+        texts[3]: 0.20,
+        texts[4]: 0.24,
+    }
+
+    def fake_encode(values, *, model_id, revision):
+        assert model_id == "local/model" and revision == "a" * 40
+        vectors = [(1.0, 0.0)] + [
+            (score, sqrt(1.0 - score * score)) for score in
+            (scores[value] for value in values[1:])]
+        return SimpleNamespace(vectors=tuple(vectors),
+            identity_digest="sha256:" + "c" * 64)
+
+    import semantic_embeddings
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
+    projection = owner.cognitive_projection(max_states=1, current_tick=2,
+        relevance_query="What is the west temperature sensor condition?",
+        semantic_model_id="local/model", semantic_model_revision="a" * 40)
+    [packet] = semantic_packets_for_projection(projection)
+    selection = packet["unverified_context_selection_provenance"]
+    selected_ids = set(selection["selected_binding_ids"])
+
+    assert corrections[0].binding_id in selected_ids
+    assert corrections[1].binding_id in selected_ids
+    assert corrections[3].binding_id in selected_ids
+    assert corrections[4].binding_id in selected_ids
+    assert corrections[2].binding_id not in selected_ids
+    assert selection["selection_policy"] == (
+        "pinned_cpu_semantic_sample_lexical_overlap_then_cosine_desc_floor_0_25_"
+        "then_recency_then_binding_id")
+    assert selection["candidate_count"] == len(corrections)
+    assert packet["authority"] is False
+    assert packet["unverified_context_interpretation"] == (
+        "operator_context_only_not_state_evidence_or_truth")
 
 
 def test_candidate_rationale_retrieves_its_generic_prior_proposition(tmp_path):

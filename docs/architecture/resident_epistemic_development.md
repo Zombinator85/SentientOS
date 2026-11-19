@@ -746,6 +746,16 @@ omission count and digest. This improves which unverified reports reach the
 model under context pressure; it does not interpret a report or increase its
 evidentiary weight.
 
+When an immutable-revision CPU embedder is explicitly configured, lexical
+overlap remains ahead of semantic-only matches. A semantic-only correction must
+score at least 0.25 cosine similarity to receive semantic priority; weaker
+matches fall back to recency and binding identity. The selection-policy value
+in projection provenance binds this order and floor, while the existing
+embedder and candidate digests bind the exact ranking inputs. The fixed floor
+is a retrieval default, not a cross-model similarity calibration or evidence
+that a selected operator report is true. If embedding is unavailable, the
+existing lexical/recency policy remains in force.
+
 Each such projection also carries a versioned selection record: the ranking
 policy, a digest of the query (never the query text), and the retained binding
 IDs in packet order. The record is part of the projection identity and is
