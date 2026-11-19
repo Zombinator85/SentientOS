@@ -1078,18 +1078,18 @@ def test_cognition_followup_uses_bounded_session_transcript() -> None:
 def test_sparse_topic_ranks_only_source_verified_retained_canonical_memories(
         tmp_path: Path) -> None:
     app = service(tmp_path)
-    battery_session = app.create_session()
+    battery_session_id = app.create_session()
     battery_text = "The battery calibration archive is stored in drawer amber."
-    app.chat(battery_text, session_id=battery_session.session_id,
+    app.chat(battery_text, session_id=battery_session_id,
         request_id="retain-battery-calibration-archive", retain=True)
-    moon_session = app.create_session()
+    moon_session_id = app.create_session()
     moon_text = "The moon observation archive is stored in cabinet blue."
-    app.chat(moon_text, session_id=moon_session.session_id,
+    app.chat(moon_text, session_id=moon_session_id,
         request_id="retain-moon-observation-archive", retain=True)
     battery_turn = next(turn for turn in app.sessions.load(
-        battery_session.session_id)["turns"] if turn.get("retention_state") == "retained")
+        battery_session_id)["turns"] if turn.get("retention_state") == "retained")
     moon_turn = next(turn for turn in app.sessions.load(
-        moon_session.session_id)["turns"] if turn.get("retention_state") == "retained")
+        moon_session_id)["turns"] if turn.get("retention_state") == "retained")
     battery_memory_id = battery_turn["retention_receipt"]["memory_id"]
     moon_memory_id = moon_turn["retention_receipt"]["memory_id"]
 
