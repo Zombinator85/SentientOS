@@ -1981,6 +1981,113 @@ def test_ordinary_chat_applies_only_source_verified_retained_memory(
 
 @pytest.mark.skipif(os.name == "nt",
     reason="conversation persistence is unavailable on Windows")
+def test_ordinary_chat_semantic_retrieval_applies_only_verified_paraphrased_memory(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import semantic_embeddings
+
+    target_text = "The cooling unit showed overheating during the test."
+    decoy_text = "The warm weather changed the astronomy group's star chart review."
+    query = "Did the thermal assembly get too warm?"
+
+    class SemanticConfigBridge:
+        def can_handle(self):
+            return False
+
+        def respond(self, *_args, **_kwargs):
+            raise AssertionError("ordinary chat must not route to resident cognition")
+
+        def semantic_memory_retrieval_config(self):
+            return "test/local-embedder", "a" * 40
+
+    class MemoryApplyingInvoker(FakeInvoker):
+        def invoke(self, request):
+            self.last_prompt = request.prompt
+            applies_target = target_text in request.prompt
+            output = ("The retained note described overheating."
+                if applies_target else "I have no retained overheating note.")
+            return SimpleNamespace(status="admitted_completed", output_text=output,
+                output_digest=chat_service.digest_payload({"output": output}),
+                output_truncated=False, request={"request_id": request.request_id,
+                    "active_model_identity": request.active_model_identity},
+                receipt_id="fixture-receipt-" + request.request_id,
+                receipt_digest="fixture-digest-" + request.request_id)
+
+    def encode(texts, *, model_id, revision):
+        assert model_id == "test/local-embedder"
+        assert revision == "a" * 40
+        vectors = [(1.0, 0.0)]
+        vectors.extend((1.0, 0.0) if "cooling unit" in text.casefold()
+            else (0.0, 1.0) for text in texts[1:])
+        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    invoker = MemoryApplyingInvoker()
+    app = service(tmp_path, invoker,
+        cognition_bridge=SemanticConfigBridge())
+
+    source_session = app.create_session()
+    for text, request_id in ((target_text, "retain-semantic-target"),
+            (decoy_text, "retain-lexical-decoy")):
+        retained = app.chat(text, session_id=source_session,
+            request_id=request_id, retain=True)
+        assert retained.retention["status"] == "memory_retention_committed"
+    [target_path] = [path for path in app.memories.raw.glob("*.json")
+        if json.loads(path.read_text(encoding="utf-8")).get("text") == target_text]
+
+    # Lexical-only retrieval favors the newer weak-overlap note. Configured
+    # semantic retrieval must find the older, paraphrased source after receipt
+    # validation and let the ordinary chat decision apply it.
+    lexical = app.memories.retrieve(query, limit=1)
+    assert lexical["memories"][0]["text"] == decoy_text
+    query_session = app.create_session()
+    response = app.chat(query, session_id=query_session,
+        request_id="apply-semantic-memory")
+    assert response.response == "The retained note described overheating."
+    assert target_text in invoker.last_prompt
+    assert decoy_text not in invoker.last_prompt
+    raw_status = invoker.last_prompt.split(
+        "[MEMORY_RETRIEVAL_STATUS]\n", 1)[1].splitlines()[0]
+    assert json.loads(raw_status)["semantic_retrieval_posture"] == "matched"
+
+    # If the pinned encoder cannot run, ordinary chat keeps the existing
+    # verified lexical fallback rather than failing or treating semantic scores
+    # as evidence.
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic",
+        lambda *_args, **_kwargs: None)
+    fallback_session = app.create_session()
+    fallback = app.chat(query, session_id=fallback_session,
+        request_id="semantic-memory-fallback")
+    assert fallback.response == "I have no retained overheating note."
+    assert decoy_text in invoker.last_prompt
+    assert target_text not in invoker.last_prompt
+    fallback_status = invoker.last_prompt.split(
+        "[MEMORY_RETRIEVAL_STATUS]\n", 1)[1].splitlines()[0]
+    assert json.loads(fallback_status)["semantic_retrieval_posture"] == (
+        "unavailable_lexical_fallback")
+
+    # Altering the record while keeping its source turn and receipt intact must
+    # still keep it out of semantic candidates and the later prompt.
+    altered = json.loads(target_path.read_text(encoding="utf-8"))
+    altered["text"] = "The cooling unit was inspected without an issue."
+    altered["text_digest"] = chat_service.digest_payload({"text": altered["text"]})
+    target_path.write_text(json.dumps(altered, sort_keys=True) + "\n",
+        encoding="utf-8")
+    monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode)
+    tamper_session = app.create_session()
+    tamper_response = app.chat(query, session_id=tamper_session,
+        request_id="semantic-memory-source-tamper")
+    assert tamper_response.response == "I have no retained overheating note."
+    assert target_text not in invoker.last_prompt
+    assert altered["text"] not in invoker.last_prompt
+    assert decoy_text in invoker.last_prompt
+    tamper_status = invoker.last_prompt.split(
+        "[MEMORY_RETRIEVAL_STATUS]\n", 1)[1].splitlines()[0]
+    assert json.loads(tamper_status)["retrieval_posture"] == (
+        "partial_source_verification")
+
+
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
 def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_session(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from types import SimpleNamespace
@@ -3609,6 +3716,50 @@ def test_canonical_memory_source_budget_is_reported_as_unverified(
     assert result["selected_memory_ids"] == [first["id"]]
     assert result["record_validation_posture"] == "inspected_candidates_deferred"
     assert result["omitted_memory_count"] == 1
+
+
+def test_ordinary_chat_forwards_pinned_semantic_config_to_verified_retrieval(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    class SemanticConfigBridge:
+        def can_handle(self):
+            return False
+
+        def respond(self, *_args, **_kwargs):
+            raise AssertionError("resident response is not part of retrieval")
+
+        def semantic_memory_retrieval_config(self):
+            return "test/local-embedder", "a" * 40
+
+    app = PersistentConversationService.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = SemanticConfigBridge()
+    record = {"id": "memory-ordinary-semantic",
+        "text": "The cooling unit showed overheating during the test."}
+    record_digest = chat_service.digest_payload(record)
+    verified = {"memory_id": record["id"], "text": record["text"]}
+    monkeypatch.setattr(app, "_canonical_memory_source_verifier", lambda: (
+        lambda _record: True,
+        {record["id"]: (record_digest, verified)}))
+    retrieval_calls = []
+
+    def retrieve(query, **kwargs):
+        retrieval_calls.append((query, kwargs))
+        return {"read_only": True, "snapshot_digest": "b" * 64,
+            "memories": [record], "retrieval_posture": "complete",
+            "selection_posture": "all_matching_records_selected",
+            "record_validation_posture": "inspected_candidates_passed",
+            "omitted_memory_count": 0}
+
+    app.memories = SimpleNamespace(retrieve=retrieve)
+    result = app._verified_chat_memory_snapshot(
+        "Did the thermal assembly get too warm?", budget_chars=2000)
+
+    assert len(retrieval_calls) == 1
+    query, kwargs = retrieval_calls[0]
+    assert query == "Did the thermal assembly get too warm?"
+    assert kwargs["semantic_model_id"] == "test/local-embedder"
+    assert kwargs["semantic_model_revision"] == "a" * 40
+    assert callable(kwargs["record_validator"])
+    assert result["selected_memory_ids"] == [record["id"]]
 
 
 def test_canonical_memory_source_validation_precedes_semantic_candidate_sampling(

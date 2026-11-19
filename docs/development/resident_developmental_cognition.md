@@ -697,6 +697,19 @@ interpretation, current truth, or improved outcomes. Direct low-level
 `CanonicalMemoryStore.retrieve` calls without a validator remain unverified
 retrieval results and must not be treated as prompt-safe evidence.
 
+Ordinary chat also forwards the existing resident bridge's pinned semantic
+memory configuration to this same verified retrieval path. When lexical
+coverage is weak, bounded semantic selection can recover a paraphrased retained
+statement; receipt validation still filters records before semantic candidate
+selection. If the configuration is absent or the encoder is unavailable,
+retrieval keeps its existing lexical behavior and exposes the fallback posture.
+`tests/test_persistent_governed_conversation.py::test_ordinary_chat_semantic_retrieval_applies_only_verified_paraphrased_memory`
+uses deterministic vectors to show a paraphrased older memory displacing a
+newer weak lexical match in ordinary chat, verifies the unavailable-encoder
+fallback, and rejects a tampered source record. This demonstrates the software
+path with controlled substitutes; it does not measure real embedding quality,
+real-model interpretation, or improved outcomes.
+
 Resident prompt assembly selects at most four verified memory records. Omitting
 additional records because of that context cap or the character budget is a
 selection limitation, not incomplete source verification: the context reports
