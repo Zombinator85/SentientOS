@@ -887,14 +887,28 @@ class DevelopmentalModelReplacementCampaign:
                     "campaign_report_trial_inventory_invalid")
             run_refs = tuple((item["run_id"], item["run_digest"])
                 for item in trial_refs)
+            if len({run_id for run_id, _ in run_refs}) != len(run_refs):
+                raise DevelopmentalModelReplacementError(
+                    "campaign_report_trial_inventory_invalid")
             run_records = self.experiment.store.world_state_records(run_refs=run_refs)
             records_by_run = {item.get("subject_id"): item for item in run_records
                 if isinstance(item, Mapping)}
+            expected_run_digests = dict(run_refs)
+            if (len(records_by_run) != len(run_records)
+                    or set(records_by_run) != set(expected_run_digests)
+                    or any(not isinstance(record.get("payload"), Mapping)
+                        or record["payload"].get("run_digest")
+                            != expected_run_digests[run_id]
+                        for run_id, record in records_by_run.items())):
+                # A legacy run can be score-verified yet deliberately omitted
+                # from cognition projection because its task oracle commitment
+                # is unsalted. Never reintroduce its score summary via a
+                # campaign-level aggregate.
+                raise DevelopmentalModelReplacementError(
+                    "campaign_report_run_projection_ineligible")
             event_time: str | None = None
             event_time_posture = "verified_event_time_unavailable"
-            if (len(records_by_run) == len(run_refs)
-                    and all(run_id in records_by_run
-                        and isinstance(records_by_run[run_id].get("observed_at"), str)
+            if (all(isinstance(records_by_run[run_id].get("observed_at"), str)
                         for run_id, _ in run_refs)):
                 try:
                     instants = [datetime.fromisoformat(
