@@ -142,13 +142,16 @@ def test_resident_memory_verifies_beyond_untrusted_top_candidates(tmp_path, monk
         "text": f"Atlas meeting schedule candidate {index}"} for index in range(4)]
     candidates.append(valid_record)
 
-    def retrieve(query, *, limit, budget_chars):
+    def retrieve(query, *, limit, budget_chars, record_validator):
         assert query == "When is the Atlas meeting?"
         assert limit == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES
         assert budget_chars == conversation_service.memory_budget_chars
+        verified = [record for record in candidates if record_validator(record)]
         return {"read_only": True, "snapshot_digest": "a" * 64,
-            "memories": candidates, "selection_posture": "all_matching_records_selected",
-            "retrieval_posture": "complete"}
+            "memories": verified,
+            "selection_posture": "matching_records_omitted",
+            "retrieval_posture": "complete",
+            "record_validation_posture": "inspected_candidates_rejected"}
 
     monkeypatch.setattr(conversation_service.memories, "retrieve", retrieve)
     context = conversation_service._resident_canonical_memory_context(
