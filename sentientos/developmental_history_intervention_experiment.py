@@ -311,6 +311,9 @@ class DevelopmentalExperimentStore:
                     "ordinary_chat_history_evaluation"
                     if (path.parent == self.runs
                         and path.name.startswith("ordinary-history-evaluation-")) else
+                    "ordinary_chat_history_cohort_summary"
+                    if (path.parent == self.runs
+                        and path.name.startswith("ordinary-history-cohort-")) else
                     "developmental_experiment_protocol"
                     if path.parent == self.protocols else
                     "developmental_experiment_run"

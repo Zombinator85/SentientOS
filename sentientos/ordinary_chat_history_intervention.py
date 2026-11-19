@@ -32,6 +32,7 @@ RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
 EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v2"
 EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
+COHORT_SUMMARY_ID_PREFIX = "ordinary-history-cohort-"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -865,7 +866,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     _validate_json_bound(semantic, maximum_bytes=1_048_576,
         error_code="ordinary_chat_history_cohort_summary_over_bound")
     digest = digest_payload(semantic)
-    return {**semantic, "summary_id": "ordinary-history-cohort-" + digest[:24],
+    return {**semantic, "summary_id": COHORT_SUMMARY_ID_PREFIX + digest[:24],
         "summary_digest": digest}
 
 
@@ -1784,3 +1785,60 @@ class OrdinaryChatHistoryInterventionStore:
         if verified["evaluation_id"] != evaluation_id:
             raise ValueError("ordinary_chat_history_evaluation_identity_mismatch")
         return evaluation
+
+    def _cohort_summary_path(self, summary_id: str) -> Path:
+        if (not isinstance(summary_id, str)
+                or len(summary_id) != len(COHORT_SUMMARY_ID_PREFIX) + 24
+                or not summary_id.startswith(COHORT_SUMMARY_ID_PREFIX)
+                or re.fullmatch(r"[0-9a-f]{24}",
+                    summary_id[len(COHORT_SUMMARY_ID_PREFIX):]) is None):
+            raise ValueError("ordinary_chat_history_cohort_summary_identity_invalid")
+        return self._store.runs / f"{summary_id}.json"
+
+    def _load_cohort_evaluations(self,
+            trial_bindings: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        if (not isinstance(trial_bindings, (list, tuple))
+                or not 6 <= len(trial_bindings) <= 4096
+                or len(trial_bindings) % 6 != 0):
+            raise ValueError("ordinary_chat_history_cohort_incomplete_blocks")
+        evaluations = []
+        for binding in trial_bindings:
+            if (not isinstance(binding, Mapping)
+                    or set(binding) != {"evaluation_id", "protocol", "prompt_bundle"}
+                    or not isinstance(binding.get("protocol"), Mapping)
+                    or not isinstance(binding.get("prompt_bundle"), Mapping)):
+                raise ValueError("ordinary_chat_history_cohort_trial_binding_invalid")
+            evaluations.append(self.load_evaluation(
+                binding["evaluation_id"], protocol=binding["protocol"],
+                prompt_bundle=binding["prompt_bundle"]))
+        return evaluations
+
+    def persist_cohort_summary(self, *,
+            trial_bindings: Sequence[Mapping[str, Any]]) -> str:
+        """Reverify a complete cohort of final results and save its summary."""
+        evaluations = self._load_cohort_evaluations(trial_bindings)
+        summary = build_ordinary_chat_history_intervention_cohort_summary(
+            evaluations)
+        path = self._cohort_summary_path(summary["summary_id"])
+        normalized = json.loads(json.dumps(summary, sort_keys=True))
+        self._store._write_immutable(path, summary)
+        reloaded = self._store._read_json(path)
+        verify_ordinary_chat_history_intervention_cohort_summary(
+            reloaded, evaluations=evaluations)
+        if reloaded != normalized:
+            raise ValueError("ordinary_chat_history_cohort_summary_persistence_mismatch")
+        return summary["summary_id"]
+
+    def load_cohort_summary(self, summary_id: str, *,
+            trial_bindings: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+        path = self._cohort_summary_path(summary_id)
+        try:
+            summary = self._store._read_json(path)
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_cohort_summary_missing") from exc
+        evaluations = self._load_cohort_evaluations(trial_bindings)
+        verification = verify_ordinary_chat_history_intervention_cohort_summary(
+            summary, evaluations=evaluations)
+        if verification["summary_id"] != summary_id:
+            raise ValueError("ordinary_chat_history_cohort_summary_identity_mismatch")
+        return summary

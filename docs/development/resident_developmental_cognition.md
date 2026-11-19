@@ -900,6 +900,10 @@ correct-count deltas for every trial, aggregate counts, and restoration-score
 stability while retaining unscoreable outcomes in the trial count. This is a
 descriptive within-task summary; it does not establish transfer,
 generalization, improvement, or learning.
+`OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each
+evaluation through its protocol, result, scoring plan, and score artifacts
+before publishing the summary immutably. `load_cohort_summary` repeats those
+checks and verifies the summary digest on reload.
 
 `execute_ordinary_chat_history_intervention` now supplies the dormant
 three-condition orchestration boundary. It follows the frozen counterbalanced
