@@ -1622,7 +1622,8 @@ def test_self_check_retries_required_ffmpeg_install_after_mirror_timeout() -> No
     assert step.index(initial_install) < step.rindex(fallback_update) < step.index(fallback_install)
     assert "--no-install-recommends -y ffmpeg" in step
     assert "local mirror_list=/etc/apt/apt-mirrors.txt" in step
-    assert "sed -i -E 's|azure.archive.ubuntu.com|archive.ubuntu.com|g;" in step
+    rewrite = "sed -i -E 's|azure.archive.ubuntu.com|archive.ubuntu.com|g;"
+    assert step.count(rewrite) == 2
     assert "s|[[:alnum:]-]+\\.ec2\\.archive\\.ubuntu\\.com|archive.ubuntu.com|g'" in step
     assert "A regional Azure or EC2 Ubuntu mirror remains configured after fallback rewrite." in step
     assert (
