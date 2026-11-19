@@ -22,7 +22,7 @@ in-progress trial without completion is invalidated as
 model, provenance, or trial-artifact tampering fails closed.
 
 A complete campaign rereads and digest-verifies every ordinary trial artifact before
-writing one immutable `sentientos.developmental_model_replacement_campaign_report:v1`.
+writing one immutable `sentientos.developmental_model_replacement_campaign_report:v2`.
 The report contains exact classification and comparison counts, per-condition ordered
 output digests and diversity, restoration stability, and bounded all-trial booleans.
 Zero effects, A-only, B-only, both-model effects, output variation, and restoration

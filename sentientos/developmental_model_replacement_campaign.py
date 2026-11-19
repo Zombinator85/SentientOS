@@ -27,7 +27,7 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_regular_file
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
 SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v2"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
-REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
+REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
 MIN_TRIALS = 2
 MAX_TRIALS = 32
 CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
@@ -700,6 +700,78 @@ class DevelopmentalModelReplacementCampaign:
                 objective_summary["condition_abstained_probe_count"] = {
                     condition: sum(abstained_count(score) for score in scores)
                     for condition, scores in by_condition.items()}
+                probes = plan["task"].get("probe_inputs")
+                if (not isinstance(probes, list) or not probes
+                        or any(type(probe) is not int for probe in probes)):
+                    raise DevelopmentalModelReplacementError(
+                        "campaign_objective_probe_inventory_invalid")
+                comparison_pairs = {
+                    "model_a_history": ("model_a_history_present",
+                        "model_a_history_withheld"),
+                    "model_b_history": ("model_b_history_present",
+                        "model_b_history_withheld"),
+                    "model_difference_with_history": (
+                        "model_a_history_present", "model_b_history_present"),
+                    "model_difference_without_history": (
+                        "model_a_history_withheld", "model_b_history_withheld"),
+                    "model_a_restoration": ("model_a_history_present",
+                        "model_a_history_restored"),
+                }
+                probe_rows: list[dict[str, Any]] = []
+                for probe_index, probe in enumerate(probes):
+                    condition_counts = {condition: {
+                        outcome: 0 for outcome in ("correct", "incorrect",
+                            "abstained", "invalid_answer", "unscoreable")}
+                        for condition in CONDITION_ORDER}
+                    transition_counts = {name: {} for name in comparison_pairs}
+                    comparable_trials = {name: 0 for name in comparison_pairs}
+                    for run in runs:
+                        rows = run["observations"]
+                        outcomes: dict[str, str | None] = {}
+                        for condition, row in zip(CONDITION_ORDER, rows):
+                            score = row["objective_task_score"]
+                            status = score.get("status")
+                            if status == "invalid_answer":
+                                outcome: str | None = "invalid_answer"
+                            elif status in {"output_unavailable", "output_truncated"}:
+                                outcome = None
+                            else:
+                                answer = score.get("answer")
+                                if (not isinstance(answer, list)
+                                        or len(answer) != len(probes)):
+                                    raise DevelopmentalModelReplacementError(
+                                        "campaign_objective_probe_answer_invalid")
+                                actual = answer[probe_index]
+                                if actual is None and plan["task"].get(
+                                        "schema_version") == FAMILY_TASK_SCHEMA_V4:
+                                    outcome = "abstained"
+                                elif type(actual) is int:
+                                    outcome = ("correct" if actual ==
+                                        plan["task"]["multiplier"] * probe
+                                            + plan["task"]["offset"] else "incorrect")
+                                else:
+                                    raise DevelopmentalModelReplacementError(
+                                        "campaign_objective_probe_answer_invalid")
+                            outcomes[condition] = outcome
+                            condition_counts[condition][
+                                outcome if outcome is not None else "unscoreable"] += 1
+                        for name, (left_name, right_name) in comparison_pairs.items():
+                            left, right = outcomes[left_name], outcomes[right_name]
+                            if left is None or right is None:
+                                continue
+                            comparable_trials[name] += 1
+                            transition = left + "_vs_" + right
+                            transition_counts[name][transition] = (
+                                transition_counts[name].get(transition, 0) + 1)
+                    probe_rows.append({
+                        "probe_id": _digest({"probe_input": probe}),
+                        "condition_outcome_counts": condition_counts,
+                        "comparison_transition_counts": {
+                            name: {"comparable_trial_count": comparable_trials[name],
+                                "outcomes": transition_counts[name]}
+                            for name in comparison_pairs},
+                    })
+                objective_summary["per_probe_replication"] = probe_rows
         semantic = {"campaign_id": self.protocol.campaign_id, "campaign_digest": self.protocol.campaign_digest,
             "planned_trial_count": count, "completed_valid_trial_count": count,
             "trial_artifacts": list(self.state["completed_trials"]),
