@@ -493,6 +493,12 @@ COMPANION_V5_CORRECTION_STATE_INSTRUCTION = (
     "not as evidence of its content or truth. Compare or cite a state only when its exact packet "
     "is supplied; never revise it from the operator report alone."
 )
+UNBOUND_TASK_FAMILY_HISTORY_INSTRUCTION = (
+    " For task-relevant experience marked model_identity_unbound, use only its "
+    "evaluator-correct examples as historical task evidence. Do not infer model "
+    "identity, model performance, transfer, or a candidate strategy from that "
+    "record. Check each example against the current task and retain uncertainty."
+)
 EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Reason over four separately typed, non-authoritative substrates. Current World-State is a current snapshot, but "
     "each fact's source kind and evidence strength govern what it supports. Direct sensor or owner observations may "
@@ -516,10 +522,7 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "comparison_unavailable, the history has no demonstrated benefit; treat any evaluator-correct example as tentative "
     "and retain uncertainty. Examples from a different bound model identity remain oracle-verified task examples, "
     "not evidence of cross-model performance transfer; use only for their exact task family and do not claim "
-    "generalization or learning. When either source or target model identity is unbound, "
-    "use only evaluator-correct examples as historical task evidence; do not infer model identity, model performance, "
-    "transfer, or a candidate strategy from that record. Check each example against the current task and keep its "
-    "applicability uncertain. These summaries do not establish generalization or learning. "
+    "generalization or learning. These summaries do not establish generalization or learning. "
     "A candidate_integer_affine_strategy, when present, is a provisional mathematical summary derived "
     "from at least three distinct, evaluator-correct examples in the exact declared integer-affine family. "
     "Check it against every accompanying correct example and use it only for that same task family. It is "
@@ -4331,6 +4334,21 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                             "developmental_history_instruction_invalid")
                     candidate_context["instruction"] = instruction + (
                         HISTORY_DECISION_CONTRAST_INSTRUCTION)
+                has_unbound_task_family_examples = any(
+                    isinstance(experience, Mapping)
+                    and experience.get("model_identity_relation")
+                        == "model_identity_unbound"
+                    and isinstance(experience.get("examples"), (list, tuple))
+                    and bool(experience["examples"])
+                    for packet in prompt_packets
+                    for experience in packet.get("task_relevant_experience", ()))
+                if has_unbound_task_family_examples:
+                    instruction = candidate_context.get("instruction")
+                    if not isinstance(instruction, str):
+                        raise ResidentDevelopmentalCognitionError(
+                            "developmental_history_instruction_invalid")
+                    candidate_context["instruction"] = instruction + (
+                        UNBOUND_TASK_FAMILY_HISTORY_INSTRUCTION)
                 has_unsettled_candidate_strategy = any(
                     isinstance(experience, Mapping)
                     and isinstance(experience.get(
