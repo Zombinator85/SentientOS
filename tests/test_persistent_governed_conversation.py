@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import math
 import os
@@ -1194,6 +1195,7 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             operator_feedback="This corrects an uncited turn.",
             correction_target_turn_id="turn-" + "d" * 24)
     assert len(observations) == 1
+
     app._resident_cognition_bridge.feedback_allowed = False
     with pytest.raises(chat_service.ChatRequestStateError,
             match="developmental_cycle_operator_feedback_not_enabled"):
@@ -1224,6 +1226,138 @@ def test_developmental_cycle_uses_confirmed_local_observation_and_returns_receip
             assistant_turn_id=rejected_assistant["turn_id"],
             request_id="reject-mismatched-citation",
             operator_feedback="That earlier report was incorrect.")
+    assert len(observations) == 1
+
+
+def test_developmental_cycle_accepts_only_receipt_verified_ordinary_screen_reply() -> None:
+    observations = []
+    response_text = "A saved screen-bound answer."
+    session_id = "session-ordinary-cycle"
+    expected_user_turn_id = "turn-" + "2" * 24
+    expected_client_digest = "e" * 64
+    output_lineage = {
+        "status": "exact_invocation_output_match",
+        "transcript_text_sha256": hashlib.sha256(
+            response_text.encode("utf-8")).hexdigest(),
+    }
+
+    class ReceiptVerifier:
+        def verify_stored_chat_invocation(self, *, receipt_id, receipt_digest,
+                session_id, user_turn_id, assistant_text,
+                client_request_id_digest):
+            if (receipt_id != "lmrec-" + "a" * 24
+                    or receipt_digest != "b" * 64
+                    or session_id != expected_session_id
+                    or user_turn_id != expected_user_turn_id
+                    or assistant_text != response_text
+                    or client_request_id_digest != expected_client_digest):
+                raise ValueError("stored_invocation_mismatch")
+            return {"assistant_output_lineage": output_lineage,
+                "caller_linkage": {"screen_observation_provenance": {
+                    "capture_digest": "d" * 64}}}
+
+    class Bridge:
+        feedback_enabled = True
+
+        def respond(self, *, request_id, question, screen_observation=None,
+                conversation_context=None):
+            raise AssertionError("ordinary cycle test does not invoke chat")
+
+        def developmental_cycle_available(self):
+            return True
+
+        def operator_feedback_available(self):
+            return self.feedback_enabled
+
+        def run_developmental_cycle(self, *, tick_id, screen_observation,
+                operator_feedback=None):
+            observations.append((tick_id, screen_observation, operator_feedback))
+            return SimpleNamespace(status="completed", tick_id=tick_id,
+                snapshot_id="snapshot-ordinary-cycle", selected_fact_ids=("fact-1",),
+                prior_record_ids=(), written_record_id="record-ordinary",
+                writeback_receipt_id="receipt-ordinary", cognition_observation_ids=("obs-1",))
+
+    class Sessions:
+        def __init__(self, turns):
+            self.turns = turns
+
+        def serialize_chat_requests(self, _session_id):
+            from contextlib import nullcontext
+            return nullcontext()
+
+        def load(self, _session_id):
+            return {"session_id": session_id, "turns": self.turns}
+
+    capture = {"modality": "screen", "text": "fresh local observation",
+        "capture_digest": "c" * 64,
+        "capture_scope": "allowlisted_foreground_game_client_area",
+        "captured_at": "2026-11-19T12:00:00Z", "raw_frame_retained": False}
+    expected_session_id = session_id
+    source = {"turn_id": expected_user_turn_id, "role": "user",
+        "text": "What is visible?", "text_digest": chat_service.digest_payload(
+            {"text": "What is visible?"}),
+        "linkage": {"client_request_id_digest": expected_client_digest}}
+    linkage = {
+        "source_user_turn_id": source["turn_id"],
+        "response_origin": "model_generated",
+        "response_digest": chat_service.digest_payload({"text": response_text}),
+        "screen_observation_provenance": {"capture_digest": "d" * 64},
+        "invocation_receipt_id": "lmrec-" + "a" * 24,
+        "invocation_receipt_digest": "b" * 64,
+        "assistant_output_lineage": output_lineage,
+    }
+    assistant = {"turn_id": "turn-" + "1" * 24, "role": "assistant",
+        "text": response_text, "linkage": linkage}
+    sessions = Sessions([source, assistant])
+    app = object.__new__(PersistentConversationService)
+    app._resident_cognition_bridge = Bridge()
+    app._screen_observer = lambda: capture
+    app._inference = ReceiptVerifier()
+    app._avatar_output = None
+    app._live_consequence_cycle_provider = None
+    app.sessions = sessions
+
+    assert app.developmental_cycle_reply_available(session_id=session_id,
+        session_turns=sessions.turns, assistant=assistant)
+    result = app.run_developmental_cycle(session_id=session_id,
+        assistant_turn_id=assistant["turn_id"], request_id="ordinary-cycle-1",
+        operator_feedback="The lower status indicator is amber.")
+    assert result["operator_feedback_included"] is True
+    assert result["operator_feedback_posture"] == "operator_assertion_unverified"
+    feedback = observations[0][2]
+    assert feedback["source_kind"] == "operator_input"
+    assert feedback["schema_version"] == "sentientos.local_operator_feedback:v3"
+    assert feedback["evidence_strength"] == "operator_assertion_unverified"
+    assert feedback["payload"]["assistant_turn_id"] == assistant["turn_id"]
+    assert feedback["payload"]["assistant_response_digest"] == linkage["response_digest"]
+    assert feedback["payload"]["source_capture_digest"] == "d" * 64
+    assert feedback["payload"]["followup_capture_digest"] == "c" * 64
+    assert feedback["payload"]["conversation_citations"] == []
+    assert "correction_target" not in feedback["payload"]
+
+    tampered = dict(assistant)
+    tampered["text"] = "Changed after the invocation was saved."
+    assert not app.developmental_cycle_reply_available(session_id=session_id,
+        session_turns=sessions.turns, assistant=tampered)
+    sessions.turns[1] = tampered
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_prior_response_unverified"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"], request_id="ordinary-cycle-tampered",
+            operator_feedback="A different report.")
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_correction_target_not_cited"):
+        sessions.turns[1] = assistant
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"], request_id="ordinary-cycle-target",
+            operator_feedback="This is a correction.",
+            correction_target_turn_id=source["turn_id"])
+    app._resident_cognition_bridge.feedback_enabled = False
+    with pytest.raises(chat_service.ChatRequestStateError,
+            match="developmental_cycle_operator_feedback_not_enabled"):
+        app.run_developmental_cycle(session_id=session_id,
+            assistant_turn_id=assistant["turn_id"], request_id="ordinary-feedback-disabled",
+            operator_feedback="This must not enter the owner.")
     assert len(observations) == 1
 
 
