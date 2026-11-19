@@ -35,6 +35,14 @@ After restart, `load_report(report_id, expected_report_digest=...)` first checks
 the stored report digest and campaign identity, then rebuilds the report from
 the campaign state and every verified trial artifact. A report is returned only
 when the stored content exactly matches that reconstruction.
+`world_state_records(report_refs=...)` projects only explicitly selected,
+reverified campaign reports as digest-bound historical observations. It carries
+their trial/run references, model/context identities, and bounded objective
+outcomes; it does not write developmental history. Event time is included only
+when the underlying run projection verifies every condition receipt timestamp.
+An operator must still add the returned records to the desired World-State
+snapshot and pass them through ordinary history admission before any later
+cognition can consume them.
 Zero effects, A-only, B-only, both-model effects, output variation, and restoration
 instability are valid descriptive outcomes.
 

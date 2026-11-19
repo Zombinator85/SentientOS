@@ -7,6 +7,7 @@ import re
 import secrets
 import stat
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Mapping, Sequence, cast
@@ -860,3 +861,95 @@ class DevelopmentalModelReplacementCampaign:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_trial_binding_mismatch")
         return stored
+
+    def world_state_records(self, *, report_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
+        """Project explicitly selected verified campaign reports as historical evidence."""
+        from .world_state_board import record_digest
+
+        references = tuple(report_refs)
+        if (len(references) > 32 or any(not isinstance(item, tuple) or len(item) != 2
+                or any(not isinstance(value, str) or not value for value in item)
+                for item in references)
+                or len({item[0] for item in references}) != len(references)):
+            raise DevelopmentalModelReplacementError(
+                "campaign_report_projection_selection_invalid")
+        records: list[dict[str, Any]] = []
+        for report_id, expected_report_digest in references:
+            report = self.load_report(report_id,
+                expected_report_digest=expected_report_digest)
+            trial_refs = report.get("trial_artifacts")
+            if (not isinstance(trial_refs, list) or not 2 <= len(trial_refs) <= MAX_TRIALS
+                    or any(not isinstance(item, Mapping)
+                        or not isinstance(item.get("run_id"), str)
+                        or not isinstance(item.get("run_digest"), str)
+                        for item in trial_refs)):
+                raise DevelopmentalModelReplacementError(
+                    "campaign_report_trial_inventory_invalid")
+            run_refs = tuple((item["run_id"], item["run_digest"])
+                for item in trial_refs)
+            run_records = self.experiment.store.world_state_records(run_refs=run_refs)
+            records_by_run = {item.get("subject_id"): item for item in run_records
+                if isinstance(item, Mapping)}
+            event_time: str | None = None
+            event_time_posture = "verified_event_time_unavailable"
+            if (len(records_by_run) == len(run_refs)
+                    and all(run_id in records_by_run
+                        and isinstance(records_by_run[run_id].get("observed_at"), str)
+                        for run_id, _ in run_refs)):
+                try:
+                    instants = [datetime.fromisoformat(
+                        records_by_run[run_id]["observed_at"].replace("Z", "+00:00"))
+                        for run_id, _ in run_refs]
+                except (TypeError, ValueError) as exc:
+                    raise DevelopmentalModelReplacementError(
+                        "campaign_report_event_time_invalid") from exc
+                if any(value.tzinfo is None or value.utcoffset() is None
+                        or records_by_run[run_id]["observed_at"].endswith("-00:00")
+                        for value, (run_id, _) in zip(instants, run_refs)):
+                    raise DevelopmentalModelReplacementError(
+                        "campaign_report_event_time_invalid")
+                event_time = max(instants).astimezone(timezone.utc).isoformat()
+                event_time_posture = "all_trial_condition_receipt_times_verified"
+            payload = {
+                "campaign_id": report["campaign_id"],
+                "campaign_digest": report["campaign_digest"],
+                "report_id": report["report_id"],
+                "report_digest": report["report_digest"],
+                "trial_artifacts": [dict(item) for item in trial_refs],
+                "trial_count": report["completed_valid_trial_count"],
+                "classification_counts": report["classification_counts"],
+                "model_a_identity_digest": self.protocol.model_a_identity_digest,
+                "model_b_identity_digest": self.protocol.model_b_identity_digest,
+                "history_record_set_digest": self.protocol.history_record_set_digest,
+                "current_projection_digest": self.protocol.current_projection_digest,
+                "event_time_posture": event_time_posture,
+                "claims_posture": report["claims_posture"],
+                "non_claims": report["non_claims"],
+                "current_truth": False,
+                "learning_established": False,
+                "authority": False,
+            }
+            if "objective_evaluation" in report:
+                payload["objective_evaluation"] = report["objective_evaluation"]
+            if len(json.dumps(payload, sort_keys=True, separators=(",", ":"),
+                    ensure_ascii=False).encode("utf-8")) > 1_048_576:
+                raise DevelopmentalModelReplacementError(
+                    "campaign_report_projection_over_bound")
+            record: dict[str, Any] = {
+                "source_kind": "embodiment",
+                "source_id": report_id,
+                "schema_version": REPORT_SCHEMA,
+                "subject_id": report_id,
+                "subject_kind": "developmental_model_replacement_campaign",
+                "stage": "observation",
+                "disposition": "completed_replication_campaign",
+                "evidence_strength": "digest_bound_model_replacement_replication_campaign",
+                "payload": payload,
+                "effect_claimed": False,
+                "effect_proven": False,
+            }
+            if event_time is not None:
+                record["observed_at"] = event_time
+            record["digest"] = record_digest(record)
+            records.append(record)
+        return records
