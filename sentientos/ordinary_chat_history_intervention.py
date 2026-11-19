@@ -32,6 +32,9 @@ SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
 SCORE_PLAN_ID_PREFIX = "ordinary-history-score-plan-"
+SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
+SCHEDULE_ID_PREFIX = "ordinary-history-schedule-"
+MAX_SCHEDULED_TRIALS = 65_536
 INTERVENTION_LINKAGE_KEY = "ordinary_chat_history_intervention"
 CONDITIONS = ("history_present", "history_withheld", "history_restored")
 PLANNED_COMPARISONS = (
@@ -44,6 +47,70 @@ _SESSION_ID = re.compile(r"[a-z0-9][a-z0-9-]{7,63}")
 _TURN_ID = re.compile(r"turn-[0-9a-f]{24}")
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 _BLIND_SAMPLE_ID = re.compile(r"blind-sample-[0-9a-f]{32}")
+
+
+def _schedule_key(session_id: str, task_commitment_digest: str) -> str:
+    return digest_payload({"session_id": session_id,
+        "task_commitment_digest": task_commitment_digest})[:24]
+
+
+def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
+    trial_index = protocol.get("trial_index")
+    if (type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
+            or not isinstance(protocol.get("session_id"), str)
+            or not isinstance(protocol.get("task_commitment_digest"), str)):
+        raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
+    schedule_id = (SCHEDULE_ID_PREFIX
+        + _schedule_key(protocol["session_id"], protocol["task_commitment_digest"])
+        + f"-{trial_index:08d}")
+    semantic = {"schema_version": SCHEDULE_SCHEMA,
+        "schedule_id": schedule_id,
+        "session_id": protocol["session_id"],
+        "task_commitment_digest": protocol["task_commitment_digest"],
+        "trial_index": trial_index,
+        "protocol_id": protocol["protocol_id"],
+        "protocol_digest": protocol["protocol_digest"],
+        "condition_order": list(protocol["condition_order"]),
+        "authority": False}
+    digest = digest_payload(semantic)
+    return {**semantic, "schedule_digest": digest}
+
+
+def _verify_schedule_claim(claim: Mapping[str, Any], *,
+        protocol: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    expected = {"schema_version", "schedule_id", "session_id",
+        "task_commitment_digest", "trial_index", "protocol_id",
+        "protocol_digest", "condition_order", "authority", "schedule_digest"}
+    if not isinstance(claim, Mapping) or set(claim) != expected:
+        raise ValueError("ordinary_chat_history_schedule_claim_invalid")
+    semantic = {key: value for key, value in claim.items()
+        if key != "schedule_digest"}
+    trial_index = claim.get("trial_index")
+    if (claim.get("schema_version") != SCHEDULE_SCHEMA
+            or type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
+            or claim.get("authority") is not False
+            or not isinstance(claim.get("session_id"), str)
+            or not isinstance(claim.get("task_commitment_digest"), str)
+            or not isinstance(claim.get("protocol_id"), str)
+            or not isinstance(claim.get("protocol_digest"), str)
+            or claim.get("condition_order") != (list(CONDITIONS) if trial_index % 2 == 0
+                else ["history_withheld", "history_present", "history_restored"])
+            or claim.get("schedule_id") != (SCHEDULE_ID_PREFIX
+                + _schedule_key(claim["session_id"], claim["task_commitment_digest"])
+                + f"-{trial_index:08d}")
+            or claim.get("schedule_digest") != digest_payload(semantic)):
+        raise ValueError("ordinary_chat_history_schedule_claim_invalid")
+    if protocol is not None:
+        rebuilt = _build_schedule_claim(protocol)
+        if dict(claim) != rebuilt:
+            raise ValueError("ordinary_chat_history_schedule_protocol_mismatch")
+    return {"schema_version": "sentientos.ordinary_chat_history_schedule_verification:v1",
+        "schedule_id": claim["schedule_id"],
+        "schedule_digest": claim["schedule_digest"],
+        "protocol_id": claim["protocol_id"],
+        "trial_index": trial_index,
+        "condition_order": list(claim["condition_order"]),
+        "authority": False}
 
 
 def _validate_json_bound(value: Any, *, maximum_bytes: int, error_code: str) -> None:
@@ -470,7 +537,7 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
     if protocol.get("schema_version") != PROTOCOL_SCHEMA:
         raise ValueError("ordinary_chat_history_runner_requires_current_protocol")
     persisted_protocol = store.load_protocol(protocol["protocol_id"],
-        prompt_bundle=prompt_bundle)
+        prompt_bundle=prompt_bundle, require_schedule=True)
     if dict(persisted_protocol) != dict(protocol):
         raise ValueError("ordinary_chat_history_runner_protocol_not_persisted")
     scoring_plan = store.load_scoring_plan(protocol=protocol,
@@ -782,7 +849,7 @@ def verify_ordinary_chat_history_intervention_protocol(
         else ["history_withheld", "history_present", "history_restored"]
         if type(trial_index) is int and trial_index % 2 == 1 else None)
     prompt_digests = protocol.get("condition_prompt_digests")
-    if (type(trial_index) is not int or not 0 <= trial_index <= 2**31 - 1
+    if (type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
             or protocol.get("condition_order") != order
             or not isinstance(prompt_digests, Mapping)
             or set(prompt_digests) != set(CONDITIONS)
@@ -881,6 +948,85 @@ class OrdinaryChatHistoryInterventionStore:
     def __init__(self, state_root: Path) -> None:
         self._store = DevelopmentalExperimentStore(Path(state_root))
 
+    def _schedule_path(self, session_id: str, task_commitment_digest: str,
+            trial_index: int) -> Path:
+        schedule_id = (SCHEDULE_ID_PREFIX + _schedule_key(session_id,
+            task_commitment_digest) + f"-{trial_index:08d}")
+        return self._store.protocols / f"{schedule_id}.json"
+
+    def _next_trial_index(self, session_id: str, task_commitment_digest: str, *,
+            retry_protocol_id: str | None = None) -> int:
+        for trial_index in range(MAX_SCHEDULED_TRIALS):
+            path = self._schedule_path(session_id, task_commitment_digest, trial_index)
+            try:
+                claim = self._store._read_json(path)
+            except FileNotFoundError:
+                return trial_index
+            _verify_schedule_claim(claim)
+            if (claim.get("session_id") != session_id
+                    or claim.get("task_commitment_digest") != task_commitment_digest
+                    or claim.get("trial_index") != trial_index):
+                raise ValueError("ordinary_chat_history_schedule_sequence_invalid")
+            if claim.get("protocol_id") == retry_protocol_id:
+                return trial_index
+            protocol_path = self._store.protocols / f"{claim['protocol_id']}.json"
+            try:
+                prior = self._store._read_json(protocol_path)
+            except FileNotFoundError as exc:
+                raise ValueError("ordinary_chat_history_schedule_predecessor_incomplete") from exc
+            semantic = _semantic(prior)
+            prior_digest = digest_payload(semantic)
+            if (prior.get("protocol_id") != claim.get("protocol_id")
+                    or prior.get("protocol_digest") != prior_digest
+                    or prior.get("protocol_id") != PROTOCOL_ID_PREFIX + prior_digest[:24]
+                    or prior.get("protocol_digest") != claim.get("protocol_digest")
+                    or prior.get("session_id") != session_id
+                    or prior.get("task_commitment_digest") != task_commitment_digest
+                    or prior.get("trial_index") != trial_index
+                    or prior.get("condition_order") != claim.get("condition_order")):
+                raise ValueError("ordinary_chat_history_schedule_protocol_binding_invalid")
+        raise ValueError("ordinary_chat_history_schedule_trial_limit_reached")
+
+    def next_trial_index(self, *, session_id: str,
+            task_commitment_digest: str) -> int:
+        """Return the next durable counterbalance slot for this session/task."""
+        if (not isinstance(session_id, str) or _SESSION_ID.fullmatch(session_id) is None
+                or not isinstance(task_commitment_digest, str)
+                or _HEX_DIGEST.fullmatch(task_commitment_digest) is None):
+            raise ValueError("ordinary_chat_history_schedule_key_invalid")
+        return self._next_trial_index(session_id, task_commitment_digest)
+
+    def _persist_schedule_claim(self, protocol: Mapping[str, Any]) -> dict[str, Any]:
+        claim = _build_schedule_claim(protocol)
+        index = self._next_trial_index(protocol["session_id"],
+            protocol["task_commitment_digest"],
+            retry_protocol_id=protocol["protocol_id"])
+        if index != protocol["trial_index"]:
+            raise ValueError("ordinary_chat_history_trial_index_not_next")
+        path = self._schedule_path(protocol["session_id"],
+            protocol["task_commitment_digest"], index)
+        self._store._write_immutable(path, claim)
+        reloaded = self._store._read_json(path)
+        _verify_schedule_claim(reloaded, protocol=protocol)
+        return reloaded
+
+    def load_schedule_claim(self, *, protocol: Mapping[str, Any]) -> dict[str, Any]:
+        if type(protocol.get("trial_index")) is not int:
+            raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
+        next_index = self._next_trial_index(protocol["session_id"],
+            protocol["task_commitment_digest"],
+            retry_protocol_id=protocol["protocol_id"])
+        if next_index != protocol["trial_index"]:
+            raise ValueError("ordinary_chat_history_schedule_sequence_invalid")
+        path = self._schedule_path(protocol["session_id"],
+            protocol["task_commitment_digest"], protocol["trial_index"])
+        try:
+            claim = self._store._read_json(path)
+        except FileNotFoundError as exc:
+            raise ValueError("ordinary_chat_history_schedule_claim_missing") from exc
+        _verify_schedule_claim(claim, protocol=protocol)
+        return claim
+
     def persist_scoring_plan(self, scoring_plan: Mapping[str, Any], *,
             protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
         verify_ordinary_chat_history_intervention_protocol(
@@ -923,6 +1069,7 @@ class OrdinaryChatHistoryInterventionStore:
         if protocol.get("schema_version") == PROTOCOL_SCHEMA:
             if scoring_plan is None:
                 raise ValueError("ordinary_chat_history_preregistered_scoring_plan_required")
+            self._persist_schedule_claim(protocol)
             self.persist_scoring_plan(scoring_plan, protocol=protocol,
                 prompt_bundle=prompt_bundle)
         protocol_id = verified["protocol_id"]
@@ -937,7 +1084,8 @@ class OrdinaryChatHistoryInterventionStore:
         return protocol_id
 
     def load_protocol(self, protocol_id: str, *,
-            prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+            prompt_bundle: Mapping[str, Any],
+            require_schedule: bool = False) -> dict[str, Any]:
         prefix = PROTOCOL_ID_PREFIX
         if (not isinstance(protocol_id, str)
                 or len(protocol_id) != len(prefix) + 24
@@ -953,6 +1101,8 @@ class OrdinaryChatHistoryInterventionStore:
             protocol, prompt_bundle=prompt_bundle)
         if result["protocol_id"] != protocol_id:
             raise ValueError("ordinary_chat_history_protocol_identity_mismatch")
+        if require_schedule:
+            self.load_schedule_claim(protocol=protocol)
         return protocol
 
     def persist_score_artifact(self, artifact: Mapping[str, Any], *,

@@ -914,6 +914,13 @@ readable for audit. After evaluator source changes, prior plans and score
 artifacts remain loadable and retain their digest bindings, but automatic
 semantic revalidation reports false; new scoring refuses a source mismatch.
 
+The intervention store also allocates a durable sequential schedule per source
+session and task commitment. `next_trial_index` exposes the next slot before
+prompt construction; protocol persistence claims that slot immutably and
+rejects skipped indices and a different protocol reusing a slot. The runner
+requires the matching sequential schedule claim before executing. Earlier v2 protocols without a schedule remain
+readable for audit but cannot enter the scheduled runner.
+
 `OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
 and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
 source session and user turn, adds protocol and condition lineage to each call,

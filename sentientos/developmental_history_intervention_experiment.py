@@ -290,6 +290,9 @@ class DevelopmentalExperimentStore:
                 policy = ("ordinary_chat_history_protocol"
                     if (path.parent == self.protocols
                         and path.name.startswith("ordinary-history-protocol-")) else
+                    "ordinary_chat_history_schedule"
+                    if (path.parent == self.protocols
+                        and path.name.startswith("ordinary-history-schedule-")) else
                     "ordinary_chat_history_scoring_plan"
                     if (path.parent == self.protocols
                         and path.name.startswith("ordinary-history-score-plan-")) else

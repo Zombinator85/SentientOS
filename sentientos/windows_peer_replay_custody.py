@@ -82,6 +82,9 @@ def publish_immutable_replay_bytes(
     ordinary_chat_experiment_artifact_match = (
         re.fullmatch(r"ordinary-history-protocol-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_protocol" else None)
+    ordinary_chat_schedule_artifact_match = (
+        re.fullmatch(r"ordinary-history-schedule-[0-9a-f]{24}-[0-9]{8}\.json", path.name)
+        if filename_policy == "ordinary_chat_history_schedule" else None)
     ordinary_chat_scoring_plan_artifact_match = (
         re.fullmatch(r"ordinary-history-score-plan-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_scoring_plan" else None)
@@ -118,6 +121,7 @@ def publish_immutable_replay_bytes(
             or mutable_state_match or cognition_artifact_match is not None
             or experiment_artifact_match is not None
             or ordinary_chat_experiment_artifact_match is not None
+            or ordinary_chat_schedule_artifact_match is not None
             or ordinary_chat_scoring_plan_artifact_match is not None
             or ordinary_chat_result_artifact_match is not None
             or ordinary_chat_score_artifact_match is not None
@@ -131,7 +135,8 @@ def publish_immutable_replay_bytes(
         else 4_194_304 if filename_policy in {
             "developmental_experiment_protocol", "developmental_experiment_run",
             "ordinary_chat_history_protocol", "ordinary_chat_history_result",
-            "ordinary_chat_history_score", "ordinary_chat_history_scoring_plan"}
+            "ordinary_chat_history_score", "ordinary_chat_history_scoring_plan",
+            "ordinary_chat_history_schedule"}
         else 4_194_304 if filename_policy in {
             "objective_task_plan", "objective_condition_score"}
         else 1_048_576 if filename_policy in {
@@ -142,6 +147,7 @@ def publish_immutable_replay_bytes(
                 and cognition_artifact_match is None
                 and experiment_artifact_match is None
                 and ordinary_chat_experiment_artifact_match is None
+                and ordinary_chat_schedule_artifact_match is None
                 and ordinary_chat_scoring_plan_artifact_match is None
                 and ordinary_chat_result_artifact_match is None
                 and ordinary_chat_score_artifact_match is None

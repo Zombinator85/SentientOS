@@ -30,6 +30,7 @@ MAX_TURN_BYTES = 64 * 1024
 MAX_SESSION_BYTES = 8 * 1024 * 1024
 MAX_SESSION_LIST_ENTRIES = 4096
 MAX_SESSION_LIST_TOTAL_BYTES = 32 * 1024 * 1024
+MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS = 65_536
 _ID = re.compile(r"^[a-z0-9][a-z0-9-]{7,63}$")
 _TURN_ID = re.compile(r"^turn-[0-9a-f]{24}$")
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
@@ -1198,7 +1199,8 @@ def verify_ordinary_chat_history_intervention_prompt_bundle(*,
             for prompt in prompts.values()):
         raise ValueError("ordinary_chat_history_prompt_bundle_invalid")
     trial_index = verification.get("trial_index")
-    if type(trial_index) is not int or not 0 <= trial_index <= 2**31 - 1:
+    if (type(trial_index) is not int
+            or not 0 <= trial_index < MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS):
         raise ValueError("ordinary_chat_history_prompt_bundle_schedule_invalid")
     expected_order = (["history_present", "history_withheld", "history_restored"]
         if trial_index % 2 == 0 else
@@ -1312,7 +1314,8 @@ def build_ordinary_chat_history_intervention_prompts(*,
     verification = verify_ordinary_chat_history_projection_triplet(
         history_present=history_present, history_withheld=history_withheld,
         history_restored=history_restored)
-    if (type(trial_index) is not int or not 0 <= trial_index <= 2**31 - 1
+    if (type(trial_index) is not int
+            or not 0 <= trial_index < MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS
             or not isinstance(context_arguments, Mapping)
             or "developmental_history_context" in context_arguments
             or context_arguments.get("compact_history", False) is True
