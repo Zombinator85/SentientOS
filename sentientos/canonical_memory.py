@@ -51,6 +51,12 @@ _RESPONSE_STYLE_TERMS = frozenset((
 _PROCESS_MEMORY_ROOT_IDENTITIES: dict[str, tuple[int, int]] = {}
 _PROCESS_MEMORY_ROOT_IDENTITIES_LOCK = RLock()
 _PROCESS_MEMORY_ROOT_IDENTITY_LIMIT = 32
+
+
+class MemorySourceVerificationDeferred(Exception):
+    """The source could not be checked within the current retrieval budget."""
+
+
 def digest(value: object) -> str:
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
 
@@ -514,7 +520,7 @@ class CanonicalMemoryStore:
         legacy_sidecar_posture = self._legacy_sidecar_posture()
         legacy_sidecar_present = legacy_sidecar_posture == "present_unverified"
         record_validation_decisions: list[dict[str, Any]] = []
-        record_validation_cache: dict[tuple[str, str], bool] = {}
+        record_validation_cache: dict[tuple[str, str], str] = {}
 
         def is_valid_record(record: Mapping[str, Any]) -> bool:
             if record_validator is None:
@@ -524,16 +530,18 @@ class CanonicalMemoryStore:
             key = (record_id, record_digest)
             if key not in record_validation_cache:
                 try:
-                    valid = record_validator(record) is True
+                    outcome = "verified" if record_validator(record) is True else "rejected"
+                except MemorySourceVerificationDeferred:
+                    outcome = "deferred"
                 except Exception:
-                    valid = False
-                record_validation_cache[key] = valid
+                    outcome = "rejected"
+                record_validation_cache[key] = outcome
                 record_validation_decisions.append({
                     "memory_id": record_id,
                     "record_digest": record_digest,
-                    "posture": "verified" if valid else "rejected",
+                    "posture": outcome,
                 })
-            return record_validation_cache[key]
+            return record_validation_cache[key] == "verified"
 
         source_omitted: list[tuple[tuple[Any, str], str]] = []
         if record_validator is not None:
@@ -544,7 +552,11 @@ class CanonicalMemoryStore:
                 else:
                     identity = (record.get("id"), record.get("text_digest")
                         or digest({"text": record["text"]}))
-                    source_omitted.append((identity, "source_verification"))
+                    outcome = record_validation_cache.get((str(record.get("id", "")),
+                        digest(dict(record))))
+                    source_omitted.append((identity,
+                        "source_verification_budget" if outcome == "deferred"
+                        else "source_verification"))
             # Unverified records must not participate in correction graphs,
             # lexical corpus statistics, semantic candidate sampling, or
             # final bounded selection.
@@ -795,6 +807,9 @@ class CanonicalMemoryStore:
                 "semantic_embedder_identity_digest": semantic_identity_digest,
                 "record_validation_posture": (
                     "not_requested" if record_validator is None else
+                    "inspected_candidates_deferred" if any(
+                        item["posture"] == "deferred"
+                        for item in record_validation_decisions) else
                     "inspected_candidates_rejected" if any(
                         item["posture"] == "rejected"
                         for item in record_validation_decisions) else

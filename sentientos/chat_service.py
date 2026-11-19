@@ -56,12 +56,14 @@ from .developmental_companion_bridge import (
     ResidentDevelopmentalCompanionBridge, make_operator_feedback_record,
 )
 from .conversation_session import (
-    ContextSnapshot, ConversationChatLockTimeout, ConversationSessionStore, assemble_local_chat_context,
+    MAX_SESSION_BYTES, ContextSnapshot, ConversationChatLockTimeout,
+    ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, rank_transcript_exchange_terms,
     transcript_recall_terms,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS, retention_request_id,
+    ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS,
+    MemorySourceVerificationDeferred, retention_request_id,
     sentientos_data_dir, sentientos_memory_dir)
 from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .local_model_authority import digest_payload
@@ -84,6 +86,9 @@ from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
 MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
+MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL = 4
+MAX_RESIDENT_MEMORY_SOURCE_BYTES_PER_RETRIEVAL = (
+    MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL * MAX_SESSION_BYTES)
 MAX_RESIDENT_CONVERSATION_CONTEXT_TURNS = 16
 MAX_RESIDENT_CONVERSATION_CONTEXT_CHARS = 4000
 # Keep a small rolling candidate window so resident cognition can rank older
@@ -2474,7 +2479,8 @@ class PersistentConversationService:
         return targets
 
     def _verify_resident_canonical_memory_record(self, record: Mapping[str, Any], *,
-            source_session_cache: dict[str, Mapping[str, Any] | None]
+            source_session_cache: dict[str, Mapping[str, Any] | None],
+            source_session_budget_remaining: list[int]
             ) -> dict[str, Any] | None:
         """Return a prompt-safe record only after its source turn and receipt verify."""
         memory_id, text, text_digest = (
@@ -2500,6 +2506,14 @@ class PersistentConversationService:
                 or len(admission_digest) != 64):
             return None
         if source_session_id not in source_session_cache:
+            if (len(source_session_cache)
+                    >= MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL
+                    or source_session_budget_remaining[0] < MAX_SESSION_BYTES):
+                raise MemorySourceVerificationDeferred
+            # Each load is capped at MAX_SESSION_BYTES by ConversationSessionStore.
+            # Reserve that maximum before attempting I/O; failed loads cannot
+            # accidentally permit later reads to exceed the aggregate bound.
+            source_session_budget_remaining[0] -= MAX_SESSION_BYTES
             try:
                 source_session_cache[source_session_id] = self.sessions.load(
                     source_session_id)
@@ -2550,6 +2564,8 @@ class PersistentConversationService:
         if (not isinstance(query, str) or not query.strip() or len(query) > 4000):
             raise ChatRequestStateError("canonical_memory_relevance_query_invalid")
         source_session_cache: dict[str, Mapping[str, Any] | None] = {}
+        source_session_budget_remaining = [
+            MAX_RESIDENT_MEMORY_SOURCE_BYTES_PER_RETRIEVAL]
         verified_records: dict[str, tuple[str, dict[str, Any]]] = {}
         verification_cache: dict[tuple[str, str], dict[str, Any] | None] = {}
 
@@ -2562,7 +2578,9 @@ class PersistentConversationService:
             if cache_key not in verification_cache:
                 verification_cache[cache_key] = (
                     self._verify_resident_canonical_memory_record(record,
-                        source_session_cache=source_session_cache))
+                        source_session_cache=source_session_cache,
+                        source_session_budget_remaining=(
+                            source_session_budget_remaining)))
             verified = verification_cache[cache_key]
             if verified is None:
                 return False
@@ -2639,10 +2657,14 @@ class PersistentConversationService:
                 correction_relations.append(dict(relation))
         source_binding_omitted = (len(selected) < len(retrieved["memories"])
             or retrieved.get("record_validation_posture")
-                == "inspected_candidates_rejected")
+                in {"inspected_candidates_rejected",
+                    "inspected_candidates_deferred"})
         selection_posture = ("matching_records_omitted" if source_binding_omitted
             else str(retrieved.get("selection_posture", "unknown")))
-        retrieval_posture = ("partial_source_verification" if source_binding_omitted
+        retrieval_posture = (
+            "partial_source_verification_budget" if retrieved.get(
+                "record_validation_posture") == "inspected_candidates_deferred" else
+            "partial_source_verification" if source_binding_omitted
             else str(retrieved.get("retrieval_posture", "unknown")))
         semantic = {
             "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",

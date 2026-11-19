@@ -22,7 +22,8 @@ from sentientos.chat_service import (ChatInputBudgetError,
     DevelopmentSimulationInference, PersistentConversationService,
     _select_resident_conversation_context_turns)
 from sentientos.canonical_memory import (CanonicalMemoryStore, ExplicitRetentionAdmissionGate,
-    AdmittedRetentionWriter, CANDIDATE_TYPE, digest, retention_request_id,
+    AdmittedRetentionWriter, CANDIDATE_TYPE, MemorySourceVerificationDeferred,
+    digest, retention_request_id,
     sentientos_data_dir)
 from sentientos.conversation_session import (
     ContextSnapshot, ConversationSessionStore, assemble_local_chat_context,
@@ -1738,6 +1739,29 @@ def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
     assert context["retrieval_posture"] == "partial_source_verification"
 
 
+@pytest.mark.skipif(os.name == "nt",
+    reason="conversation persistence is unavailable on Windows")
+def test_resident_memory_source_session_budget_defers_without_rejecting(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    app = service(tmp_path)
+    monkeypatch.setattr(chat_service,
+        "MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL", 2)
+    monkeypatch.setattr(chat_service, "MAX_RESIDENT_MEMORY_SOURCE_BYTES_PER_RETRIEVAL",
+        2 * chat_service.MAX_SESSION_BYTES)
+    for index in range(3):
+        session_id = app.create_session()
+        retained = app.chat("The cedar shelf is in the west workshop.",
+            session_id=session_id, request_id=f"source-budget-{index}", retain=True)
+        assert retained.retention["status"] == "memory_retention_committed"
+
+    context = app._resident_canonical_memory_context("cedar shelf")
+
+    assert context is not None
+    assert len(context["records"]) == 2
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert context["retrieval_posture"] == "partial_source_verification_budget"
+
+
 def test_failed_memory_source_verification_forces_resident_clarification(
         tmp_path: Path) -> None:
     from tests.test_resident_developmental_cognition import (
@@ -3414,6 +3438,31 @@ def test_canonical_memory_source_validation_precedes_bounded_selection(
     assert filtered["omitted_memory_count"] == 1
     assert filtered["selection_posture"] == "matching_records_omitted"
     assert filtered["snapshot_digest"] != unfiltered["snapshot_digest"]
+
+
+def test_canonical_memory_source_budget_is_reported_as_unverified(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    first = {"id": "memory-budget-first",
+        "text": "The cedar shelf is in the west workshop.",
+        "timestamp": "2026-01-02T00:00:00+00:00"}
+    deferred = {"id": "memory-budget-deferred",
+        "text": "The cedar shelf was checked after assembly.",
+        "timestamp": "2026-01-01T00:00:00+00:00"}
+    store = CanonicalMemoryStore.__new__(CanonicalMemoryStore)
+    monkeypatch.setattr(store, "_records", lambda **_kwargs: (
+        [first, deferred], "complete"))
+    monkeypatch.setattr(store, "_legacy_sidecar_posture", lambda: "missing")
+
+    def validate(record):
+        if record["id"] == deferred["id"]:
+            raise MemorySourceVerificationDeferred
+        return True
+
+    result = store.retrieve("cedar shelf", record_validator=validate)
+
+    assert result["selected_memory_ids"] == [first["id"]]
+    assert result["record_validation_posture"] == "inspected_candidates_deferred"
+    assert result["omitted_memory_count"] == 1
 
 
 def test_canonical_memory_source_validation_precedes_semantic_candidate_sampling(
