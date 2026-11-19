@@ -144,15 +144,16 @@ def verify_ordinary_chat_history_score_artifact(artifact: Mapping[str, Any], *,
         raise ValueError("ordinary_chat_history_score_artifact_digest_mismatch")
     score_semantics_verified = False
     if scoring_plan is not None:
-        verify_ordinary_chat_history_objective_scoring_plan(
+        plan_verification = verify_ordinary_chat_history_objective_scoring_plan(
             scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
-        from .developmental_model_replacement_experiment import _verify_objective_score
-        try:
-            _verify_objective_score(scoring_plan, artifact["score_payload"],
-                artifact["output_digest"], output_truncated=False)
-        except (KeyError, TypeError, ValueError) as exc:
-            raise ValueError("ordinary_chat_history_objective_score_invalid") from exc
-        score_semantics_verified = True
+        if plan_verification["scorer_source_matches"]:
+            from .developmental_model_replacement_experiment import _verify_objective_score
+            try:
+                _verify_objective_score(scoring_plan, artifact["score_payload"],
+                    artifact["output_digest"], output_truncated=False)
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ValueError("ordinary_chat_history_objective_score_invalid") from exc
+            score_semantics_verified = True
     return {"schema_version": "sentientos.ordinary_chat_history_score_verification:v1",
         "score_artifact_id": artifact["score_artifact_id"],
         "score_artifact_digest": artifact["score_artifact_digest"],
@@ -213,15 +214,16 @@ def build_ordinary_chat_history_objective_scoring_plan(task: Any) -> dict[str, A
         "sentientos.affine_prediction_task_suite:v2",
         FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
     selective_family = specification.get("schema_version") == FAMILY_TASK_SCHEMA_V4
+    scorer_identity_digest = _objective_scorer_identity_digest()
     public_semantic = {"schema_version": SCORE_PLAN_SCHEMA,
         "task_descriptor": descriptor,
         "condition_order": list(CONDITIONS),
         "rubric": ("selective_integer_answer_suite_v1" if selective_family else
             "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
+        "scorer_identity_digest": scorer_identity_digest,
         "authority": False}
     plan_digest = digest_payload(public_semantic)
     task_commitment_digest = digest_payload({"task_commitment": descriptor})
-    scorer_identity_digest = _objective_scorer_identity_digest()
     return {**public_semantic, "task": specification,
         "task_commitment_nonce": task.commitment_nonce,
         "task_commitment_digest": task_commitment_digest,
@@ -270,8 +272,25 @@ def verify_ordinary_chat_history_objective_scoring_plan(
             raise ValueError("ordinary_chat_history_objective_task_binding_invalid")
     except (KeyError, TypeError, ValueError) as exc:
         raise ValueError("ordinary_chat_history_objective_task_binding_invalid") from exc
-    rebuilt = build_ordinary_chat_history_objective_scoring_plan(task)
-    if dict(plan) != rebuilt:
+    task_specification = task.specification()
+    descriptor = task.public_descriptor()
+    suite = task_specification.get("schema_version") in {
+        "sentientos.affine_prediction_task_suite:v2",
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+    selective_family = task_specification.get("schema_version") == FAMILY_TASK_SCHEMA_V4
+    rubric = ("selective_integer_answer_suite_v1" if selective_family else
+        "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1")
+    scorer_identity_digest = plan.get("scorer_identity_digest")
+    public_semantic = {"schema_version": SCORE_PLAN_SCHEMA,
+        "task_descriptor": descriptor,
+        "condition_order": list(CONDITIONS), "rubric": rubric,
+        "scorer_identity_digest": scorer_identity_digest, "authority": False}
+    if (task_specification != task_raw or descriptor != dict(plan["task_descriptor"])
+            or not isinstance(scorer_identity_digest, str)
+            or _HEX_DIGEST.fullmatch(scorer_identity_digest) is None
+            or plan.get("task_commitment_digest")
+                != digest_payload({"task_commitment": descriptor})
+            or plan.get("scoring_plan_digest") != digest_payload(public_semantic)):
         raise ValueError("ordinary_chat_history_objective_scoring_plan_digest_mismatch")
     if prompt_bundle is not None:
         prompts = prompt_bundle.get("prompts") if isinstance(prompt_bundle, Mapping) else None
@@ -290,6 +309,8 @@ def verify_ordinary_chat_history_objective_scoring_plan(
         "scoring_plan_digest": plan["scoring_plan_digest"],
         "task_commitment_digest": plan["task_commitment_digest"],
         "scorer_identity_digest": plan["scorer_identity_digest"],
+        "scorer_source_matches": (
+            plan["scorer_identity_digest"] == _objective_scorer_identity_digest()),
         "authority": False}
 
 
@@ -369,6 +390,7 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
             or result.get("protocol_digest") != protocol.get("protocol_digest")):
         raise ValueError("ordinary_chat_history_result_digest_mismatch")
     scores_verified = False
+    score_semantics_verified = False
     receipts_verified = False
     if invocation_receipt_verifier is not None:
         if not callable(invocation_receipt_verifier):
@@ -397,6 +419,7 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
             for condition in CONDITIONS}
         if set(score_artifacts) != expected_ids:
             raise ValueError("ordinary_chat_history_result_score_artifacts_incomplete")
+        score_semantics_verified = True
         for score_id in expected_ids:
             artifact = score_artifacts[score_id]
             checked = verify_ordinary_chat_history_score_artifact(artifact,
@@ -410,13 +433,15 @@ def verify_ordinary_chat_history_intervention_result(result: Mapping[str, Any], 
                     or checked["output_digest"]
                         != conditions[matches[0]]["output_digest"]):
                 raise ValueError("ordinary_chat_history_result_score_binding_invalid")
+            score_semantics_verified = (score_semantics_verified
+                and checked["score_semantics_verified"] is True)
         scores_verified = True
     return {"schema_version": "sentientos.ordinary_chat_history_intervention_result_verification:v1",
         "result_id": result["result_id"], "result_digest": result["result_digest"],
         "protocol_id": result["protocol_id"], "references_bound": True,
         "referenced_receipts_verified": receipts_verified,
         "score_artifact_bindings_verified": scores_verified,
-        "score_semantics_verified": scores_verified,
+        "score_semantics_verified": score_semantics_verified,
         "effect_established": False, "learning_established": False,
         "authority": False}
 
@@ -648,8 +673,10 @@ class OrdinaryChatHistoryAffineObjectiveScorer:
             raise ValueError("ordinary_chat_history_score_store_required")
         verify_ordinary_chat_history_intervention_protocol(
             protocol, prompt_bundle=prompt_bundle)
-        verify_ordinary_chat_history_objective_scoring_plan(
+        plan_verification = verify_ordinary_chat_history_objective_scoring_plan(
             scoring_plan, protocol=protocol, prompt_bundle=prompt_bundle)
+        if plan_verification["scorer_source_matches"] is not True:
+            raise ValueError("ordinary_chat_history_scorer_source_changed")
         self._protocol = dict(protocol)
         self._prompt_bundle = prompt_bundle
         self._plan = dict(scoring_plan)
@@ -935,6 +962,8 @@ class OrdinaryChatHistoryInterventionStore:
         verified = verify_ordinary_chat_history_score_artifact(
             artifact, protocol=protocol, scoring_plan=scoring_plan,
             prompt_bundle=prompt_bundle)
+        if verified["score_semantics_verified"] is not True:
+            raise ValueError("ordinary_chat_history_score_semantics_unverified")
         score_id = verified["score_artifact_id"]
         path = self._store.runs / f"{score_id}.json"
         normalized = json.loads(json.dumps(dict(artifact), sort_keys=True))

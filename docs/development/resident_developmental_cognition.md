@@ -910,7 +910,9 @@ recompute each score against the stored task plan. This verifies score
 semantics under the bound local evaluator source; the source digest is not a
 cryptographically authenticated scorer identity. The artifact format requires
 the current protocol schema, while legacy protocol v1 artifacts remain
-readable for audit.
+readable for audit. After evaluator source changes, prior plans and score
+artifacts remain loadable and retain their digest bindings, but automatic
+semantic revalidation reports false; new scoring refuses a source mismatch.
 
 `OrdinaryChatHistoryChatInferenceAdapter` now adapts the existing `ChatInference`
 and `verify_stored_chat_invocation` interfaces. It binds calls to the protocol's
