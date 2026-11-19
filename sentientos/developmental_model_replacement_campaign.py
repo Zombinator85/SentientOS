@@ -9,7 +9,7 @@ import stat
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any, Mapping, Sequence, cast
 
 _fcntl: ModuleType | None
@@ -22,6 +22,7 @@ from .developmental_model_replacement_experiment import (
     CONDITION_ORDER, FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, NON_CLAIMS,
     DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, _digest,
+    ModelReplacementArtifactStore,
 )
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
@@ -557,6 +558,58 @@ class DevelopmentalModelReplacementCampaign:
             "state_revision": state.get("state_revision"), "completed_trial_count": len(state.get("completed_trials", ())),
             "in_progress_trial_id": interrupted, "recovery_posture":
                 "interrupted_trial_preserved_not_replayed" if interrupted else "durable_state_reconstructed"}
+
+    @classmethod
+    def verify_report_from_artifacts(cls, *, artifact_root: Path, experiment_state_root: Path,
+                                     campaign_id: str, report_id: str,
+                                     expected_report_digest: str) -> dict[str, Any]:
+        """Rebuild a campaign report using saved artifacts, without model endpoints.
+
+        This is an evidence recovery path: it verifies the frozen protocol and
+        context manifests, objective plan, campaign state, and every referenced
+        run artifact. It performs no inference and grants no authority.
+        """
+        if not isinstance(campaign_id, str) or not _CAMPAIGN_ID.fullmatch(campaign_id):
+            raise DevelopmentalModelReplacementError("campaign_protocol_identity_invalid")
+        campaign_store = CampaignStore(artifact_root)
+        raw = campaign_store._read_json(campaign_store.protocol_path(campaign_id),
+            missing_code="campaign_protocol_custody_changed",
+            invalid_code="campaign_protocol_custody_changed")
+        try:
+            for key in ("trial_ids", "condition_order", "aggregation_rules", "non_claims"):
+                raw[key] = tuple(raw[key])
+            campaign_protocol = CampaignProtocol(**raw)
+            campaign_protocol.verify()
+            campaign_store.verify_protocol(campaign_protocol)
+            state = campaign_store.load_state(campaign_protocol)
+            experiment_store = ModelReplacementArtifactStore(experiment_state_root, read_only=True)
+            protocol = experiment_store.load_verified_protocol(
+                campaign_protocol.base_protocol_id, campaign_protocol.base_protocol_digest)
+            context = experiment_store.load_verified_context(
+                campaign_protocol.causal_context_id, campaign_protocol.causal_context_digest)
+            plan = (experiment_store.verify_objective_plan(protocol)
+                if campaign_protocol.objective_task_plan_digest is not None else None)
+            if (protocol.causal_context_id != context["context_id"]
+                    or protocol.causal_context_digest != context["context_digest"]
+                    or campaign_protocol.objective_task_plan_digest is not None
+                        and campaign_protocol.objective_task_plan_digest != plan.get("plan_digest")):
+                raise DevelopmentalModelReplacementError("campaign_artifact_binding_invalid")
+            context_view = SimpleNamespace(
+                verify=lambda: None,
+                context_id=context["context_id"], context_digest=context["context_digest"],
+                history_record_set_digest=context["history_record_set_digest"],
+                current_projection_digest=context["current_projection_digest"],
+                inference_budget=context["inference_budget"],
+                generation_posture=context["generation_posture"])
+            experiment_view = SimpleNamespace(protocol=protocol, context=context_view,
+                objective_plan=plan, store=experiment_store)
+            campaign = cls(experiment_view, campaign_protocol, campaign_store, state)
+            campaign._verify_experiment()
+            return campaign.load_report(report_id,
+                expected_report_digest=expected_report_digest)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise DevelopmentalModelReplacementError(
+                "campaign_artifact_reconstruction_failed") from exc
 
     def _verify_experiment(self) -> None:
         p, c, expected = self.experiment.protocol, self.experiment.context, self.protocol
