@@ -159,7 +159,8 @@ class GoalPlanner:
         if state.prior_epistemic_projection is not None:
             try:
                 epistemic_projection_digest, epistemic_review_scopes = review_required_applicability(
-                    state.prior_epistemic_projection)
+                    state.prior_epistemic_projection,
+                    evaluation_time=state.created_at)
             except EpistemicPlanningError as exc:
                 raise WorkPlanError("prior_epistemic_projection_invalid") from exc
             epistemic_review_goal_ids.update(goal.goal_id for goal in graph.goals

@@ -268,6 +268,151 @@ def test_cited_unverified_correction_defers_goal_without_revising_state(
         "identity_digest"].startswith("sha256:")
 
 
+def test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support(
+        tmp_path: Path) -> None:
+    from sentientos.goal_graph import Goal, GoalGraph
+    from sentientos.persistent_epistemic_state import (
+        PersistentEpistemicStateOwner,
+        make_evidence_binding,
+        make_proposition,
+    )
+    from sentientos.risk_budget import RiskBudget
+    from sentientos.work_allocator import allocate_goals
+
+    owner = PersistentEpistemicStateOwner(
+        tmp_path / "epistemic", allowed_namespaces=("embodiment",))
+    bounded = make_proposition(namespace="embodiment",
+        subject="sensor:bounded-freshness", predicate="reports_condition",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={"window": "current", "max_evidence_age_seconds": 300},
+        context_scope={}, proposition_class="environmental")
+    unrelated = make_proposition(namespace="embodiment",
+        subject="sensor:unrelated-freshness", predicate="reports_condition",
+        object_value="stable", polarity="positive", qualifiers={},
+        temporal_scope={"window": "current"}, context_scope={},
+        proposition_class="environmental")
+    goals = GoalGraph(schema_version=1, goals=(
+        Goal("use-bounded-position", "use bounded sensor position", 2.0,
+            10, (), "rule", 1, 1,
+            (f"epistemic_proposition:{bounded.proposition_id}",), True),
+        Goal("use-unrelated-position", "use unrelated sensor position", 1.0,
+            5, (), "rule", 1, 1,
+            (f"epistemic_proposition:{unrelated.proposition_id}",), True),
+    ))
+    evidence_by_proposition = {}
+    for index, proposition in enumerate((bounded, unrelated), start=1):
+        owner.register_proposition(proposition)
+        evidence = make_evidence_binding(
+            proposition_id=proposition.proposition_id,
+            source_artifact_id=f"observation:freshness-baseline-{index}",
+            source_digest="sha256:" + str(index) * 64,
+            source_schema="sentientos.test_observation:v1",
+            source_class="independent_fixture",
+            observation_time="2026-11-18T10:00:00Z",
+            evidence_relation="supports",
+            dependency_kind="independently_sourced_observation",
+            dependency_group=f"sensor-{index}",
+            upstream_binding_ids=(), freshness="current",
+            reliability_posture="supports")
+        owner.bind_evidence(evidence)
+        owner.commit_update(proposition_id=proposition.proposition_id,
+            expected_predecessor_digest=None, stance="supported",
+            reason="initialization", active_binding_ids=(evidence.binding_id,),
+            added_binding_ids=(evidence.binding_id,),
+            correlation_id=f"freshness-baseline-{index}", tick=1,
+            recorded_at="2026-11-18T10:00:00Z")
+        evidence_by_proposition[proposition.proposition_id] = evidence
+
+    budget = RiskBudget(router_k_max=2, router_m_max=2)
+
+    def allocate(*, current_tick: int, planning_time: str | None):
+        projection = owner.cognitive_projection(max_states=2,
+            current_tick=current_tick,
+            prioritized_proposition_ids=tuple(sorted(
+                (bounded.proposition_id, unrelated.proposition_id))))
+        assert projection is not None
+        return allocate_goals(graph=goals, budget=budget,
+            operating_mode="normal", integrity_pressure_level=0,
+            quarantine_active=False, posture="balanced",
+            prior_epistemic_projection=projection,
+            planning_time=planning_time)
+
+    within_limit = allocate(current_tick=2,
+        planning_time="2026-11-18T10:04:59Z")
+    assert set(within_limit.selected) == {
+        "use-bounded-position", "use-unrelated-position"}
+
+    unevaluated = allocate(current_tick=2, planning_time=None)
+    assert unevaluated.selected == ("use-unrelated-position",)
+    [unevaluated_deferred] = [item for item in unevaluated.deferred
+        if item.goal_id == "use-bounded-position"]
+    [unevaluated_position] = unevaluated_deferred.epistemic_positions
+    assert unevaluated_position["temporal_freshness_review"]["status"] == (
+        "unresolved")
+
+    expired = allocate(current_tick=2,
+        planning_time="2026-11-18T10:05:01Z")
+    assert expired.selected == ("use-unrelated-position",)
+    [deferred] = [item for item in expired.deferred
+        if item.goal_id == "use-bounded-position"]
+    assert deferred.reason == "epistemic_review_required"
+    [position] = deferred.epistemic_positions
+    review = position["temporal_freshness_review"]
+    assert review["status"] == "expired"
+    assert review["reason"] == "supporting_evidence_exceeded_maximum_age"
+    assert review["max_evidence_age_seconds"] == 300
+    assert review["age_seconds"] == 301
+    assert review["latest_support_binding_id"] == (
+        evidence_by_proposition[bounded.proposition_id].binding_id)
+    original_state = owner.current_state(bounded.proposition_id)
+    assert original_state is not None and original_state.generation == 0
+
+    from sentientos.goal_planner import ExecutorState, GoalPlanner
+    projection = owner.cognitive_projection(max_states=2, current_tick=2,
+        prioritized_proposition_ids=tuple(sorted((
+            bounded.proposition_id, unrelated.proposition_id))))
+    assert projection is not None
+    draft = GoalPlanner(repo_root=tmp_path).build_plan_with_evidence(
+        expired, ExecutorState(repo_root=tmp_path,
+            created_at="2026-11-18T10:05:01Z", context="freshness review",
+            operating_mode="normal", quarantine_active=False,
+            allow_mutation=True, goal_graph_hash="abcd" * 16,
+            allocation_id="freshness-allocation", risk_budget=budget,
+            prior_epistemic_projection=projection), goals)
+    [plan_review] = [item for item in draft.evidence_binding["deferred_goals"]
+        if item["goal_id"] == "use-bounded-position"]
+    [plan_position] = plan_review["epistemic_positions"]
+    assert plan_position["temporal_freshness_review"] == review
+
+    fresh = make_evidence_binding(
+        proposition_id=bounded.proposition_id,
+        source_artifact_id="observation:freshness-refresh",
+        source_digest="sha256:" + "f" * 64,
+        source_schema="sentientos.test_observation:v1",
+        source_class="independent_fixture",
+        observation_time="2026-11-18T10:05:30Z",
+        evidence_relation="supports",
+        dependency_kind="independently_sourced_observation",
+        dependency_group="sensor-refresh",
+        upstream_binding_ids=(), freshness="current",
+        reliability_posture="supports")
+    owner.bind_evidence(fresh)
+    owner.commit_update(proposition_id=bounded.proposition_id,
+        expected_predecessor_digest=original_state.state_digest,
+        stance="supported",
+        reason="new_evidence",
+        active_binding_ids=tuple(sorted((
+            evidence_by_proposition[bounded.proposition_id].binding_id,
+            fresh.binding_id))),
+        added_binding_ids=(fresh.binding_id,),
+        correlation_id="freshness-refresh", tick=2,
+        recorded_at="2026-11-18T10:05:30Z")
+    refreshed = allocate(current_tick=3,
+        planning_time="2026-11-18T10:06:00Z")
+    assert set(refreshed.selected) == {
+        "use-bounded-position", "use-unrelated-position"}
+
+
 def test_supported_model_bound_position_requires_exact_identity_and_reaches_plan_evidence(
     tmp_path: Path,
 ) -> None:

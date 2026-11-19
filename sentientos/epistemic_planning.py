@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 
 from sentientos.persistent_epistemic_state import (EpistemicCognitiveProjection,
     EpistemicStateError, semantic_packets_for_projection, validate_cognitive_projection)
@@ -18,7 +19,9 @@ def review_required_propositions(
 
 
 def review_required_applicability(
-        projection: EpistemicCognitiveProjection) -> tuple[str, dict[str, dict[str, object]]]:
+        projection: EpistemicCognitiveProjection, *,
+        evaluation_time: str | None = None
+        ) -> tuple[str, dict[str, dict[str, object]]]:
     """Return applicability scopes with exact state, event, and outcome identities."""
     if not isinstance(projection, EpistemicCognitiveProjection):
         raise EpistemicPlanningError("epistemic_planning_projection_invalid")
@@ -46,6 +49,8 @@ def review_required_applicability(
         state = packet["state"]
         proposition_id = packet["proposition"]["proposition_id"]
         scope = dict(packet["proposition"].get("context_scope", {}))
+        temporal_freshness = _temporal_freshness_review(
+            packet, evaluation_time=evaluation_time)
         relation_digests = sorted(relation_review_digests.get(proposition_id, ()))
         correction_binding_ids = sorted({
             item["binding_id"] for item in packet.get(
@@ -64,7 +69,9 @@ def review_required_applicability(
         positive_current = (
             state["stance"] in {"provisionally_supported", "supported"}
             and not state["dependency_unresolved"]
-            and state["freshness"] == "current")
+            and state["freshness"] == "current"
+            and (temporal_freshness is None
+                or temporal_freshness["status"] == "within_limit"))
         # Unscoped positive history does not constrain canonical planning. A
         # task-family or model-bound positive position must remain visible so
         # planning can prove it still applies to the observed model identity.
@@ -81,6 +88,8 @@ def review_required_applicability(
             "verified_positive_current" if (positive_current
                 and not relation_digests and not correction_review_pending)
             else "review_required")
+        if temporal_freshness is not None:
+            scope["temporal_freshness_review"] = temporal_freshness
         if relation_digests:
             scope["relation_review_digests"] = relation_digests
         if correction_binding_ids:
@@ -113,6 +122,103 @@ def review_required_applicability(
                 "omitted_state_identity": dict(omitted),
             }
     return projection.projection_digest, review_scopes
+
+
+def _temporal_freshness_review(packet: Mapping[str, object], *,
+        evaluation_time: str | None) -> dict[str, object] | None:
+    proposition = packet.get("proposition")
+    temporal_scope = (proposition.get("temporal_scope")
+        if isinstance(proposition, Mapping) else None)
+    if not isinstance(temporal_scope, Mapping) or (
+            "max_evidence_age_seconds" not in temporal_scope):
+        return None
+    max_age_seconds = temporal_scope.get("max_evidence_age_seconds")
+    result: dict[str, object] = {
+        "schema_version": "sentientos.epistemic_temporal_freshness_review:v1",
+        "max_evidence_age_seconds": max_age_seconds,
+    }
+    if (type(max_age_seconds) is not int
+            or not 1 <= max_age_seconds <= 2_147_483_647):
+        result.update({"status": "policy_invalid",
+            "reason": "max_evidence_age_seconds_invalid"})
+        return result
+    if not isinstance(evaluation_time, str) or not evaluation_time:
+        result.update({"status": "unresolved",
+            "reason": "evaluation_time_unavailable"})
+        return result
+    try:
+        evaluated_at = _aware_datetime(evaluation_time)
+    except (TypeError, ValueError):
+        result.update({"status": "unresolved",
+            "reason": "evaluation_time_invalid"})
+        return result
+
+    support_ids = packet.get("supporting_evidence")
+    active_rows = packet.get("active_evidence_bindings")
+    if not isinstance(support_ids, (list, tuple)) or not isinstance(
+            active_rows, (list, tuple)):
+        result.update({"status": "unresolved",
+            "reason": "supporting_evidence_unavailable"})
+        return result
+    current_support = [
+        row for row in active_rows
+        if isinstance(row, Mapping)
+        and row.get("binding_id") in support_ids
+        and row.get("freshness") == "current"
+        and not row.get("withdrawn", False)
+        and (row.get("evidence_relation") == "supports"
+            or row.get("reliability_posture") == "supports")
+    ]
+    if not current_support:
+        result.update({"status": "unresolved",
+            "reason": "current_supporting_evidence_unavailable"})
+        return result
+    parsed_support = []
+    for row in current_support:
+        observation_time = row.get("observation_time")
+        binding_id = row.get("binding_id")
+        if not isinstance(observation_time, str) or not isinstance(
+                binding_id, str):
+            result.update({"status": "unresolved",
+                "reason": "supporting_observation_time_invalid"})
+            return result
+        try:
+            parsed_support.append((_aware_datetime(observation_time), binding_id))
+        except (TypeError, ValueError):
+            result.update({"status": "unresolved",
+                "reason": "supporting_observation_time_invalid"})
+            return result
+    try:
+        latest = max(parsed_support)
+    except ValueError:
+        result.update({"status": "unresolved",
+            "reason": "supporting_observation_time_invalid"})
+        return result
+    observed_at, binding_id = latest
+    age = (evaluated_at - observed_at).total_seconds()
+    if age < 0:
+        result.update({"status": "unresolved",
+            "reason": "supporting_observation_is_future",
+            "latest_support_binding_id": binding_id,
+            "latest_support_observed_at": observed_at.isoformat()})
+        return result
+    result.update({
+        "status": "within_limit" if age <= max_age_seconds else "expired",
+        "latest_support_binding_id": binding_id,
+        "latest_support_observed_at": observed_at.isoformat(),
+        "evaluation_time": evaluated_at.isoformat(),
+        "age_seconds": age,
+    })
+    if age > max_age_seconds:
+        result["reason"] = "supporting_evidence_exceeded_maximum_age"
+    return result
+
+
+def _aware_datetime(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("timezone_required")
+    return parsed.astimezone(timezone.utc)
 
 
 def epistemic_review_reason_for_goal(tags: Sequence[str],

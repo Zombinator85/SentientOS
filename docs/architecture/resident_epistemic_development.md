@@ -89,6 +89,18 @@ invoke a model, acquire a serving session, or execute a goal. The result does no
 establish real-model learning, external truth, improved task performance, or
 execution authority.
 
+Epistemic propositions may also set `temporal_scope.max_evidence_age_seconds`
+when a positive position is only useful while its observation is recent. The
+allocator evaluates the newest active, current supporting observation against
+the plan's timestamp. An expired or unresolvable scoped position defers only
+goals tagged with that proposition and carries the evidence binding, observed
+time, evaluated time, and age into plan evidence. A later admitted observation
+can make the position applicable again. This is a planning applicability rule:
+it does not revise epistemic state, establish truth, or impose a default expiry
+on propositions without the explicit scope. Deterministic coverage is in
+`sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
+real-model application remains unverified.
+
 Planning also treats a tagged prior position with an explicit projected
 `contradicts` relation as requiring review, even when that position's own
 evidence posture is positive and the connected proposition is not separately
