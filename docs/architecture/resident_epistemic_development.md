@@ -91,13 +91,15 @@ execution authority.
 
 Epistemic propositions may also set `temporal_scope.max_evidence_age_seconds`
 when a positive position is only useful while its observation is recent. The
-allocator evaluates the newest active, current supporting observation against
-the plan's timestamp. An expired or unresolvable scoped position defers only
-goals tagged with that proposition and carries the evidence binding, observed
-time, evaluated time, and age into plan evidence. A later admitted observation
-can make the position applicable again. This is a planning applicability rule:
-it does not revise epistemic state, establish truth, or impose a default expiry
-on propositions without the explicit scope. Deterministic coverage is in
+allocator and resident cognition prompt binder evaluate the newest active,
+current supporting observation against the plan time or the World-State
+snapshot's captured time. An expired or unresolvable scoped position defers
+only goals tagged with that proposition and is marked historical-only in
+cognition context; both paths carry the evidence binding, observed time,
+evaluation time, and age. A later admitted observation can make the position
+applicable again. These are applicability rules: they do not revise epistemic
+state, establish truth, or impose a default expiry on propositions without the
+explicit scope. Deterministic coverage is in
 `sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
 real-model application remains unverified.
 

@@ -38,6 +38,7 @@ from .governed_local_model_invocation import (
 )
 from .canonical_memory import sentientos_memory_dir
 from .cognition_retrieval import cognition_query_terms
+from .epistemic_planning import temporal_freshness_review
 from .developmental_history_intervention_experiment import (
     CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDER,
     COUNTERBALANCED_HISTORY_SELECTION_SCHEMA, SCHEDULED_HISTORY_SELECTION_SCHEMA,
@@ -4101,6 +4102,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
         projection: EpistemicCognitiveProjection | None,
         history_present: bool = True, compact_history_for_input: bool = False,
         unsettled_task_family_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset(),
+        evaluation_time: str | None = None,
         max_input_chars: int | None = None,
         ) -> tuple[dict[str, Any], dict[str, Any], str, tuple[str, ...], tuple[str, ...]]:
     """Fit whole recent history packets and epistemic packets to one input bound."""
@@ -4397,6 +4399,7 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 try:
                     bound, metadata, prompt = _bind_epistemic_context(
                         context=candidate, projection=projection,
+                        evaluation_time=evaluation_time,
                         max_input_chars=max_input_chars)
                 except ResidentDevelopmentalCognitionError as exc:
                     if str(exc) != "cognition_input_budget_exceeded":
@@ -4902,6 +4905,7 @@ def _epistemic_revision_probe_packet_view(
 
 def _bind_epistemic_context(*, context: Mapping[str, Any],
                             projection: EpistemicCognitiveProjection | None,
+                            evaluation_time: str | None = None,
                             max_input_chars: int | None = None,
                             ) -> tuple[dict[str, Any], dict[str, Any], str]:
     """Select complete meaning packets that fit the actual inference input."""
@@ -4993,6 +4997,18 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         packets = semantic_packets_for_projection(projection)
     except (TypeError, ValueError, KeyError) as exc:
         raise ResidentDevelopmentalCognitionError("prior_epistemic_semantics_invalid") from exc
+    temporal_reviews_by_packet: dict[str, dict[str, Any]] = {}
+    for packet in packets:
+        freshness = temporal_freshness_review(packet,
+            evaluation_time=evaluation_time)
+        if freshness is None:
+            continue
+        temporal_reviews_by_packet[str(packet["packet_id"])] = {
+            "packet_id": packet["packet_id"],
+            "packet_digest": packet["packet_digest"],
+            "proposition_id": packet["proposition"]["proposition_id"],
+            "review": freshness,
+        }
     # When the inference bound cannot carry every complete meaning packet,
     # question-matching propositions come first. Epistemic severity then
     # preserves withdrawn history, contradictions, and unresolved dependencies;
@@ -5073,6 +5089,11 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "omitted_packet_count": len(omitted),
             "omitted_packets_digest": _digest(list(omitted)),
             "omission_reason": "inference_input_budget" if omitted else None}
+        temporal_reviews = [temporal_reviews_by_packet[str(packet["packet_id"])]
+            for packet in consumed
+            if str(packet["packet_id"]) in temporal_reviews_by_packet]
+        if temporal_reviews:
+            prior["temporal_freshness_reviews"] = temporal_reviews
         relation_rows = tuple(getattr(projection, "proposition_relations", ()))
         delivered_relation_digests = {str(relation.get("relation_digest"))
             for packet in consumed for relation in packet.get("proposition_relations", ())
@@ -5091,6 +5112,18 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         if projection.omission_manifest is not None:
             prior["projection_omission_manifest"] = dict(projection.omission_manifest)
         candidate = {**prompt_context, "prior_epistemic_state": prior}
+        if temporal_reviews:
+            temporal_instruction = (
+                " prior_epistemic_state.temporal_freshness_reviews are applicability "
+                "checks bound to the listed semantic packet and evaluation time. "
+                "within_limit means its explicitly scoped support was recent at that "
+                "time. expired, unresolved, or policy_invalid positions are historical "
+                "context only and must not be treated as currently applicable support. "
+                "Do not revise epistemic state or infer truth from this check; request "
+                "fresh evidence when the current task depends on an expired position.")
+            instruction = candidate.get("instruction")
+            candidate["instruction"] = (instruction + temporal_instruction
+                if isinstance(instruction, str) else temporal_instruction.strip())
         probe = candidate.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
                 and probe.get("response_contract")
@@ -5177,6 +5210,9 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         "epistemic_consumed_packets_digest": consumed_packet_digest,
         "epistemic_projection_context_digest": projection_context_digest,
         "epistemic_prompt_digest": prompt_digest}
+    temporal_reviews = prior_context.get("temporal_freshness_reviews", ())
+    if temporal_reviews:
+        metadata["epistemic_temporal_freshness_reviews"] = list(temporal_reviews)
     metadata["epistemic_consumed_content_digest"] = _digest({
         "projection_id": projection.projection_id,
         "projection_digest": projection.projection_digest,
@@ -9814,6 +9850,8 @@ class ResidentDevelopmentalCognitionOwner:
         context, epistemic_metadata, prompt, record_ids, record_digests = (
             _bind_history_and_epistemic_context(context=context, records=records,
                 projection=prior_epistemic_state, history_present=with_history,
+                evaluation_time=(snapshot.custody.get("observed_at")
+                    if isinstance(snapshot.custody, Mapping) else None),
                 unsettled_task_family_outcome_groups=set(getattr(
                     projection, "task_family_unsettled_outcome_groups", ())),
                 # Interactive chat and objective-transfer cognition both run
@@ -11236,6 +11274,8 @@ class ResidentDevelopmentalCognitionOwner:
                 _, preflight_metadata, _, protocol_record_ids, record_digests = (
                     _bind_history_and_epistemic_context(context=preflight_context,
                         records=prior.records, projection=prior_epistemic_state,
+                        evaluation_time=(snapshot.custody.get("observed_at")
+                            if isinstance(snapshot.custody, Mapping) else None),
                         unsettled_task_family_outcome_groups=set(getattr(
                             prior, "task_family_unsettled_outcome_groups", ())),
                         history_present=True, compact_history_for_input=(

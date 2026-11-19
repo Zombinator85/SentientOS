@@ -49,7 +49,7 @@ def review_required_applicability(
         state = packet["state"]
         proposition_id = packet["proposition"]["proposition_id"]
         scope = dict(packet["proposition"].get("context_scope", {}))
-        temporal_freshness = _temporal_freshness_review(
+        temporal_freshness = temporal_freshness_review(
             packet, evaluation_time=evaluation_time)
         relation_digests = sorted(relation_review_digests.get(proposition_id, ()))
         correction_binding_ids = sorted({
@@ -124,8 +124,9 @@ def review_required_applicability(
     return projection.projection_digest, review_scopes
 
 
-def _temporal_freshness_review(packet: Mapping[str, object], *,
+def temporal_freshness_review(packet: Mapping[str, object], *,
         evaluation_time: str | None) -> dict[str, object] | None:
+    """Evaluate an explicitly time-bounded epistemic position without mutation."""
     proposition = packet.get("proposition")
     temporal_scope = (proposition.get("temporal_scope")
         if isinstance(proposition, Mapping) else None)
