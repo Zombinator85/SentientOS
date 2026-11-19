@@ -31,6 +31,10 @@ invalid, unavailable, and truncated responses; those remain separately classifie
 from selective abstentions in the outcome counts. The report builder checks that
 per-probe correct, answered, abstained, and transition counts reconcile with its
 aggregate totals before publishing the immutable report.
+After restart, `load_report(report_id, expected_report_digest=...)` first checks
+the stored report digest and campaign identity, then rebuilds the report from
+the campaign state and every verified trial artifact. A report is returned only
+when the stored content exactly matches that reconstruction.
 Zero effects, A-only, B-only, both-model effects, output variation, and restoration
 instability are valid descriptive outcomes.
 

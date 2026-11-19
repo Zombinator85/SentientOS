@@ -36,6 +36,7 @@ CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
 MAX_CAMPAIGN_ARTIFACT_BYTES = 4_194_304
 MAX_CAMPAIGN_STATE_REVISIONS = 256
 _CAMPAIGN_ID = re.compile(r"model-replacement-campaign-[0-9a-f]{24}\Z")
+_REPORT_ID = re.compile(r"model-replacement-campaign-report-[0-9a-f]{24}\Z")
 AGGREGATION_RULES = (
     "exact_verified_trial_artifacts_only", "ordered_counting_without_inference",
     "preserve_negative_unstable_and_invalid_outcomes",
@@ -625,7 +626,7 @@ class DevelopmentalModelReplacementCampaign:
             "failure_reason": None})
         return run
 
-    def summarize(self) -> dict[str, Any]:
+    def _build_report(self) -> dict[str, Any]:
         self.state = self.store.load_state(self.protocol); self._verify_experiment()
         if self.state["validity"] != "valid_complete": raise DevelopmentalModelReplacementError("campaign_incomplete")
         runs = [self.experiment.store.load_verified_run(item["run_id"], item["run_digest"])
@@ -821,5 +822,41 @@ class DevelopmentalModelReplacementCampaign:
         if objective_summary is not None:
             semantic["objective_evaluation"] = objective_summary
         digest = _digest(semantic); report = {**semantic, "report_id": "model-replacement-campaign-report-" + digest[7:31], "report_digest": digest}
+        return report
+
+    def summarize(self) -> dict[str, Any]:
+        report = self._build_report()
         self.store.immutable(self.store.reports / f"{report['report_id']}.json", report)
         return report
+
+    def load_report(self, report_id: str, *, expected_report_digest: str
+            ) -> dict[str, Any]:
+        """Reload a report only after rebuilding it from verified trial artifacts."""
+        if (not isinstance(report_id, str) or not _REPORT_ID.fullmatch(report_id)
+                or not isinstance(expected_report_digest, str)
+                or not expected_report_digest.startswith("sha256:")
+                or len(expected_report_digest) != 71
+                or any(character not in "0123456789abcdef"
+                    for character in expected_report_digest[7:])):
+            raise DevelopmentalModelReplacementError(
+                "campaign_report_identity_invalid")
+        stored = self.store._read_json(
+            self.store.reports / f"{report_id}.json",
+            missing_code="campaign_report_missing",
+            invalid_code="campaign_report_tampered")
+        semantic = {key: value for key, value in stored.items()
+            if key not in {"report_id", "report_digest"}}
+        digest = _digest(semantic)
+        if (stored.get("report_id") != report_id
+                or stored.get("report_digest") != digest
+                or digest != expected_report_digest
+                or report_id != "model-replacement-campaign-report-" + digest[7:31]
+                or stored.get("campaign_id") != self.protocol.campaign_id
+                or stored.get("campaign_digest") != self.protocol.campaign_digest):
+            raise DevelopmentalModelReplacementError(
+                "campaign_report_identity_mismatch")
+        rebuilt = self._build_report()
+        if stored != rebuilt:
+            raise DevelopmentalModelReplacementError(
+                "campaign_report_trial_binding_mismatch")
+        return stored
