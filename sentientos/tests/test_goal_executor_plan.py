@@ -236,6 +236,113 @@ def test_prior_partial_or_unknown_outcome_informs_later_plan(
         (row.goal_id, row.kind, row.reason) for row in next_plan.omissions}
 
 
+def test_unresolved_completion_after_successful_tasks_gates_only_that_goal(
+        tmp_path: Path) -> None:
+    from sentientos.artifact_catalog import append_catalog_entry
+
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("g1", "completion evidence unresolved", 1.0, 1, (),
+            "check_forge_last_run_ok", 2, 1, ("integrity",), True),
+        Goal("g2", "independent goal", 0.5, 1, (),
+            "check_forge_last_run_ok", 2, 1, ("integrity",), True)))
+    first_allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    next_allocation = AllocationDecision(selected=("g1", "g2"), deferred=(),
+        selected_reasons=(), budget_summary={})
+    planner = GoalPlanner(repo_root=tmp_path)
+    first_state = ExecutorState(repo_root=tmp_path,
+        created_at="2026-01-01T00:00:00Z", context="initial",
+        operating_mode="normal", quarantine_active=False, allow_mutation=True,
+        goal_graph_hash="c" * 64, allocation_id="first",
+        risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
+            forge_max_files_changed=10))
+    prior_plan = planner.build_plan(first_allocation, first_state, graph)
+    plan_path = persist_work_plan(tmp_path, prior_plan)
+    prior_run_id = work_run_id(prior_plan, created_at=prior_plan.created_at)
+    prior_run = WorkPlanRun(schema_version=2, run_id=prior_run_id,
+        plan_id=prior_plan.plan_id, created_at=prior_plan.created_at,
+        status="ok", operating_mode="normal", quarantine_active=False,
+        task_runs=tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+            "success", None, "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z",
+            1, (), task.destructive) for task in prior_plan.tasks),
+        reason_stack=(), plan_digest=prior_plan.identity_digest())
+    run_path = persist_work_run(tmp_path, prior_run)
+    append_catalog_entry(tmp_path, kind="work_plan", artifact_id=prior_plan.plan_id,
+        relative_path=plan_path, schema_name="work_plan", schema_version=1,
+        links={"work_plan_id": prior_plan.plan_id}, summary={"status": "persisted"})
+    append_catalog_entry(tmp_path, kind="work_run", artifact_id=prior_run_id,
+        relative_path=run_path, schema_name="", schema_version=2,
+        links={"work_run_id": prior_run_id, "goal_ids": ["g1"]},
+        summary={"status": "ok"})
+
+    next_state = replace(first_state, created_at="2026-01-02T00:00:00Z",
+        context="followup", allocation_id="next", prior_plan=prior_plan)
+    draft = planner.build_plan_with_evidence(next_allocation, next_state, graph)
+    next_plan = draft.work_plan
+
+    assert not any(task.goal_id == "g1" and task.kind == "forge_apply"
+        for task in next_plan.tasks)
+    assert any(task.goal_id == "g2" and task.kind == "forge_apply"
+        for task in next_plan.tasks)
+    assert ("g1", "forge_apply", "prior_completion_assessment_unresolved") in {
+        (row.goal_id, row.kind, row.reason) for row in next_plan.omissions}
+    review = draft.evidence_binding["prior_completion_reviews"]["g1"]
+    assert review["work_run_id"] == prior_run_id
+    assert review["work_run_digest"] == hashlib.sha256(json.dumps(
+        prior_run.to_dict(), sort_keys=True, separators=(",", ":"),
+        ensure_ascii=False).encode("utf-8")).hexdigest()
+    assert review["done"] is False
+    assert "run_evidence_binding_missing" in review["reason_stack"]
+    assert "g2" not in draft.evidence_binding["prior_completion_reviews"]
+
+
+def test_completed_prior_assessment_does_not_gate_next_plan(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from types import SimpleNamespace
+
+    import sentientos.goal_planner as goal_planner
+
+    monkeypatch.setattr(goal_planner, "eval_check", lambda *_args: SimpleNamespace(
+        check_name="check_forge_last_run_ok", done=True, status="ok",
+        reason_stack=(), evidence_paths=("glow/forge/work_runs/run.json",),
+        evidence_digest="a" * 64))
+    graph = GoalGraph(schema_version=1, goals=(
+        Goal("g1", "completion evidence verified", 1.0, 1, (),
+            "check_forge_last_run_ok", 2, 1, ("integrity",), True),))
+    allocation = AllocationDecision(selected=("g1",), deferred=(),
+        selected_reasons=(), budget_summary={})
+    planner = GoalPlanner(repo_root=tmp_path)
+    first_state = ExecutorState(repo_root=tmp_path,
+        created_at="2026-01-01T00:00:00Z", context="initial",
+        operating_mode="normal", quarantine_active=False, allow_mutation=True,
+        goal_graph_hash="d" * 64, allocation_id="first",
+        risk_budget=RiskBudget(router_k_max=20, router_m_max=20,
+            forge_max_files_changed=10))
+    first_draft = planner.build_plan_with_evidence(allocation, first_state, graph)
+    prior_plan = first_draft.work_plan
+    plan_path = persist_work_plan(tmp_path, prior_plan)
+    prior_run_id = work_run_id(prior_plan, created_at=prior_plan.created_at)
+    prior_run = WorkPlanRun(schema_version=2, run_id=prior_run_id,
+        plan_id=prior_plan.plan_id, created_at=prior_plan.created_at,
+        status="ok", operating_mode="normal", quarantine_active=False,
+        task_runs=tuple(TaskRun(task.task_id, task.goal_id, task.kind,
+            "success", None, "2026-01-01T00:00:01Z", "2026-01-01T00:00:02Z",
+            1, (), task.destructive) for task in prior_plan.tasks),
+        reason_stack=(), plan_digest=prior_plan.identity_digest())
+    run_path = persist_work_run(tmp_path, prior_run)
+    assert plan_path and run_path
+
+    next_state = replace(first_state, created_at="2026-01-02T00:00:00Z",
+        context="followup", allocation_id="next", prior_plan=prior_plan)
+    draft = planner.build_plan_with_evidence(allocation, next_state, graph)
+
+    assert any(task.goal_id == "g1" and task.kind == "forge_apply"
+        for task in draft.work_plan.tasks)
+    review = draft.evidence_binding["prior_completion_reviews"]["g1"]
+    assert review["work_run_id"] == prior_run_id
+    assert review["done"] is True
+
+
 def test_prior_plan_without_recovered_run_blocks_outcome_informed_planning(
         tmp_path: Path) -> None:
     graph = GoalGraph(schema_version=1, goals=(
