@@ -1199,7 +1199,7 @@ def build_ordinary_chat_history_intervention_prompts(*,
         if trial_index % 2 == 0 else
         ["history_withheld", "history_present", "history_restored"])
     verification.update({
-        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v1",
+        "schema_version": "sentientos.ordinary_chat_history_intervention_prompts:v2",
         "condition_order": condition_order,
         "condition_order_policy": "alternating_present_withheld_first:v1",
         "trial_index": trial_index,
