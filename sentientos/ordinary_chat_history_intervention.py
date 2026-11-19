@@ -1,9 +1,9 @@
-"""Pre-registration and immutable result artifacts for ordinary-chat interventions.
+"""Pre-registration and immutable artifacts for ordinary-chat interventions.
 
-The runner is capability-injected and has no model access of its own. This
-module makes no effect or learning claim. Result packets bind external receipt
-and scoring references; only the runner checks them at execution time, while
-artifact reload checks internal bindings.
+The runner is capability-injected and does not instantiate a model. Execution
+verifies inference receipts before scoring; result finalization requires a
+receipt verifier, and evaluation reload recomputes score semantics. Artifacts
+make no effect or learning claim.
 """
 from __future__ import annotations
 
@@ -886,14 +886,21 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         comparison: [] for comparison in PLANNED_COMPARISONS}
     restoration_stable: list[bool] = []
     for evaluation in ordered:
-        for comparison in PLANNED_COMPARISONS:
+        for comparison, favored in (
+                ("history_present_vs_history_withheld", "history_present"),
+                ("history_restored_vs_history_withheld", "history_restored")):
             item = evaluation["planned_comparisons"][comparison]
             if (not isinstance(item, Mapping)
-                    or item.get("scoreable") not in {True, False}
+                    or set(item) != {"favored_condition", "reference_condition",
+                        "scoreable", "correct_count_delta", "probe_count"}
+                    or item.get("favored_condition") != favored
+                    or item.get("reference_condition") != "history_withheld"
+                    or type(item.get("scoreable")) is not bool
                     or (item.get("scoreable") is True
                         and (type(item.get("correct_count_delta")) is not int
                             or type(item.get("probe_count")) is not int
-                            or item["probe_count"] < 1))
+                            or item["probe_count"] < 1
+                            or abs(item["correct_count_delta"]) > item["probe_count"]))
                     or (item.get("scoreable") is False
                         and (item.get("correct_count_delta") is not None
                             or item.get("probe_count") is not None))):
