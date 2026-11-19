@@ -1060,10 +1060,38 @@ def verify_ordinary_chat_history_projection_triplet(*,
         packets, selection = value.get("developmental_history"), value.get("selection")
         if (not isinstance(packets, (list, tuple)) or not packets or len(packets) > 64
                 or not isinstance(selection, Mapping)
+                or set(selection) != {"schema_version", "policy", "retrieval_policy_id",
+                    "available_records", "selected_records", "omitted_records",
+                    "omitted_records_digest", "omission_reason", "selection_digest"}
                 or selection.get("schema_version")
                     != "sentientos.ordinary_chat_developmental_history_selection:v1"):
             raise ValueError("ordinary_chat_history_projection_invalid")
         refs = selection.get("selected_records")
+        available = selection.get("available_records")
+        omitted = selection.get("omitted_records")
+        policy = selection.get("policy")
+        retrieval_policy_id = selection.get("retrieval_policy_id")
+        def valid_refs(rows: object) -> bool:
+            return (isinstance(rows, list) and all(
+                isinstance(row, Mapping)
+                and set(row) == {"record_id", "record_digest"}
+                and isinstance(row.get("record_id"), str) and bool(row["record_id"])
+                and isinstance(row.get("record_digest"), str)
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", row["record_digest"]) is not None
+                for row in rows)
+                and len({row["record_id"] for row in rows}) == len(rows))
+        if (not valid_refs(available) or not valid_refs(refs)
+                or not valid_refs(omitted)
+                or policy not in {"resident_owner_exact_allowlist_ranked_prefix:v1",
+                    "resident_owner_question_ranked_prefix:v1"}
+                or not isinstance(retrieval_policy_id, str) or not retrieval_policy_id
+                or len(available) > 4096
+                or available != refs + omitted
+                or available[:len(refs)] != refs
+                or selection.get("omitted_records_digest") != _digest(omitted)
+                or selection.get("omission_reason") != (
+                    "ordinary_prompt_budget" if omitted else None)):
+            raise ValueError("ordinary_chat_history_selection_invalid")
         packet_refs: list[dict[str, str]] = []
         for packet in packets:
             if (not isinstance(packet, Mapping)
