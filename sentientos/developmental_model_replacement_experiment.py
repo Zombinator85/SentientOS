@@ -2030,8 +2030,10 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         if selective_family_suite else
         {"sentientos.objective_task_score:v3"} if family_suite else
         {"sentientos.objective_task_score:v2"})
+    score_schema = value.get("schema_version")
+    if not isinstance(score_schema, str) or score_schema not in expected_score_schemas:
+        raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     if (set(value) != expected_fields
-            or value.get("schema_version") not in expected_score_schemas
             or value.get("plan_digest") != plan.get("plan_digest")
             or value.get("task_digest") != plan.get("task_descriptor", {}).get("task_digest")
             or value.get("evaluator") != ("deterministic_exact_integer_suite_oracle_v2"
