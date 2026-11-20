@@ -447,6 +447,10 @@ recommendation remains tentative, task-family-scoped retrospective evidence;
 it does not establish learning, improvement, transfer, causal benefit, or
 resource savings. `call_units_consumed` is identified as ledger-reported
 invocation cost and not host compute, energy, or cognition quality.
+The recommendation artifact also types its role as a historical condition
+comparison, marks the selected value as a history-exposure condition rather
+than a task strategy, and limits the claim to the exact task family. Prompt
+projection re-verification requires and preserves these semantic fields.
 Before task-family history reaches a later cognition prompt, the recommendation
 digest and full-suite requirement are checked and the recommendation is rebuilt
 from the retained three-condition score and ledger evidence. A mismatch removes

@@ -1904,6 +1904,9 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             "task_digest": task_digest},
         "candidate_conditions": candidates, "recommendation": recommendation,
         "condition_labels_used_as_quality": False,
+        "recommendation_role": "historical_condition_comparison_not_task_strategy",
+        "selected_condition_semantics": "history_exposure_condition",
+        "claim_scope": "exact_task_family_only",
         "authority": False, "current_truth": False, "historical_only": True}
     body["recommendation_digest"] = _digest(body)
     return body
@@ -1922,6 +1925,11 @@ def _verified_resource_strategy_recommendation(
     if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v1"
             or recommendation.get("evaluator") != "resource_quality_then_measured_call_units:v1"
             or recommendation.get("condition_labels_used_as_quality") is not False
+            or recommendation.get("recommendation_role") !=
+                "historical_condition_comparison_not_task_strategy"
+            or recommendation.get("selected_condition_semantics") !=
+                "history_exposure_condition"
+            or recommendation.get("claim_scope") != "exact_task_family_only"
             or recommendation.get("authority") is not False
             or recommendation.get("current_truth") is not False
             or recommendation.get("historical_only") is not True
@@ -2024,8 +2032,9 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
     if isinstance(recommendation, Mapping) and verified_recommendation is not None:
         compact_recommendation = {key: recommendation.get(key) for key in (
             "schema_version", "evaluator", "posture", "requirements",
-            "condition_labels_used_as_quality", "authority", "current_truth",
-            "historical_only", "recommendation_digest")}
+            "condition_labels_used_as_quality", "recommendation_role",
+            "selected_condition_semantics", "claim_scope", "authority",
+            "current_truth", "historical_only", "recommendation_digest")}
         compact_recommendation["verification_posture"] = (
             "recomputed_from_verified_condition_evidence")
         selected = recommendation.get("recommendation")
