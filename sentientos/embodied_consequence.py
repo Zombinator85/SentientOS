@@ -111,6 +111,25 @@ def _identity(prefix: str, payload: Mapping[str, Any]) -> tuple[str, str]:
     return f"{prefix}:{dg[7:31]}", dg
 
 
+def _verified_fulfillment_receipt(value: Any, *, correlation_id: str) -> bool:
+    """Accept only bounded, locally digest-valid, non-effect receipt lineage."""
+    if not isinstance(value, Mapping):
+        return False
+    try:
+        encoded = canonical_bytes(dict(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+    if len(encoded) > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES:
+        return False
+    from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
+    try:
+        return (verify_embodied_fulfillment_receipt(value)
+            and value.get("effect_proven") is not True
+            and value.get("correlation_id") == correlation_id)
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def _validate_authority(authority: Mapping[str, bool]) -> None:
     if dict(authority) != FALSE_AUTHORITY:
         raise EmbodiedConsequenceError("authority_must_be_all_false")
@@ -644,16 +663,9 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if observation:
         verify_independent_observation(observation)
     if fulfillment_receipt is not None:
-        from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
-        if (not isinstance(fulfillment_receipt, Mapping)
-                or len(canonical_bytes(dict(fulfillment_receipt)))
-                    > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES
-                or not verify_embodied_fulfillment_receipt(fulfillment_receipt)):
+        if not _verified_fulfillment_receipt(
+                fulfillment_receipt, correlation_id=expectation.correlation_id):
             raise EmbodiedConsequenceError("fulfillment_receipt_binding_invalid")
-        if (fulfillment_receipt.get("effect_proven") is True
-                or fulfillment_receipt.get("correlation_id") != expectation.correlation_id):
-            raise EmbodiedConsequenceError(
-                "fulfillment_receipt_correlation_or_effect_invalid")
     now = _time(evaluated_at)
     commanded_at = handoff.get("commanded_at")
     if commanded_at is not None and _time(commanded_at) < _time(expectation.created_at):
@@ -3184,13 +3196,8 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
             raise EmbodiedConsequenceError(
                 "consequence_attribution_fulfillment_posture_invalid")
         if fulfillment is not None:
-            from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
-            if (not isinstance(fulfillment, Mapping)
-                    or len(canonical_bytes(dict(fulfillment)))
-                        > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES
-                    or not verify_embodied_fulfillment_receipt(fulfillment)
-                    or fulfillment.get("effect_proven") is True
-                    or fulfillment.get("correlation_id") != value["correlation_id"]):
+            if not _verified_fulfillment_receipt(
+                    fulfillment, correlation_id=value["correlation_id"]):
                 raise EmbodiedConsequenceError(
                     "consequence_attribution_fulfillment_receipt_invalid")
     elif "correlation_id" in value or "fulfillment_receipt" in value:
