@@ -58,7 +58,11 @@ and reason-scored v3 response contract enter the same probe-specific context
 path: unrelated developmental history is removed, and the evidence-ID
 allowlist is derived only from consumed eligible bindings. Missing or
 identifier-only epistemic projections produce an empty allowlist for either
-contract. It still requires evaluation of active
+contract. Qualification checks that temporal-review summaries match the
+receipt-bound request and prompt, recomputes the target packet's review when an
+evaluation timestamp is available, and fails closed to excluding support for an
+unresolved review. It accepts only the resulting eligible-binding allowlist.
+The probe still requires evaluation of active
 bindings and their source qualifiers, preserves unresolved support and
 contradiction together, limits citations to the exact evidence-binding
 allowlist, and denies truth or action authority to model output. The probe's

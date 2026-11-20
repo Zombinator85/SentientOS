@@ -72,6 +72,112 @@ def _object(text: str) -> dict[str, Any]:
     return value
 
 
+def _expected_probe_evidence_allowlist(*, context: Mapping[str, Any],
+        request: Mapping[str, Any], packet: Mapping[str, Any]) -> list[str]:
+    """Re-derive target citations, including explicit temporal exclusions."""
+    from .epistemic_planning import temporal_freshness_review
+
+    prior = context.get("prior_epistemic_state")
+    probe = context.get("epistemic_revision_probe")
+    if not isinstance(prior, Mapping) or not isinstance(probe, Mapping):
+        raise ValueError("qualification_probe_evidence_allowlist_mismatch")
+    prompt_reviews = prior.get("temporal_freshness_reviews", [])
+    upstream = request.get("upstream_evidence")
+    upstream_reviews = (upstream.get("epistemic_temporal_freshness_reviews", [])
+        if isinstance(upstream, Mapping) else [])
+    if (not isinstance(prompt_reviews, list)
+            or not isinstance(upstream_reviews, list)
+            or any(not isinstance(row, Mapping) for row in prompt_reviews)
+            or _canonical(prompt_reviews) != _canonical(upstream_reviews)):
+        raise ValueError("qualification_temporal_review_binding_mismatch")
+
+    proposition = packet.get("proposition")
+    temporal_scope = (proposition.get("temporal_scope")
+        if isinstance(proposition, Mapping) else None)
+    scoped = (isinstance(temporal_scope, Mapping)
+        and "max_evidence_age_seconds" in temporal_scope)
+    target_rows = [row for row in prompt_reviews
+        if isinstance(row, Mapping) and row.get("packet_id") == packet.get("packet_id")]
+    if len(target_rows) != int(scoped):
+        raise ValueError("qualification_temporal_review_binding_mismatch")
+
+    excluded: set[str] = set()
+    if target_rows:
+        row = target_rows[0]
+        expected_row_fields = {"packet_id", "packet_digest", "proposition_id",
+            "review", "excluded_supporting_binding_ids"}
+        review = row.get("review")
+        excluded_rows = row.get("excluded_supporting_binding_ids")
+        if (set(row) != expected_row_fields
+                or row.get("packet_digest") != packet.get("packet_digest")
+                or row.get("proposition_id") != proposition.get("proposition_id")
+                or not isinstance(review, Mapping)
+                or not isinstance(excluded_rows, list)
+                or any(not isinstance(item, str) or not item for item in excluded_rows)
+                or len(excluded_rows) != len(set(excluded_rows))):
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        evaluation_time = review.get("evaluation_time")
+        if evaluation_time is not None and not isinstance(evaluation_time, str):
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        recomputed = temporal_freshness_review(packet,
+            evaluation_time=evaluation_time)
+        eligible_from_review = review.get("eligible_supporting_binding_ids", [])
+        unresolved_reasons = {
+            "evaluation_time_unavailable", "evaluation_time_invalid",
+            "current_supporting_evidence_unavailable",
+            "supporting_observation_time_invalid",
+            "supporting_observation_is_future", "supporting_evidence_unavailable",
+        }
+        conservative_unresolved = (
+            evaluation_time is None
+            and review.get("status") == "unresolved"
+            and review.get("reason") in unresolved_reasons
+            and eligible_from_review == []
+            and review.get("max_evidence_age_seconds")
+                == temporal_scope.get("max_evidence_age_seconds"))
+        if (conservative_unresolved
+                and review.get("reason") == "supporting_observation_is_future"):
+            support_rows = packet.get("active_evidence_bindings", ())
+            latest_id = review.get("latest_support_binding_id")
+            latest_time = review.get("latest_support_observed_at")
+            matching_rows = [item for item in support_rows
+                if isinstance(item, Mapping) and item.get("binding_id") == latest_id]
+            conservative_unresolved = (
+                isinstance(latest_id, str) and isinstance(latest_time, str)
+                and latest_id in packet.get("supporting_evidence", ())
+                and len(matching_rows) == 1
+                and matching_rows[0].get("observation_time") == latest_time)
+        if (recomputed is None or (dict(review) != recomputed
+                and not conservative_unresolved)):
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        support_ids = packet.get("supporting_evidence", ())
+        eligible_ids = eligible_from_review
+        if (not isinstance(support_ids, (list, tuple))
+                or any(not isinstance(item, str) or not item for item in support_ids)
+                or len(support_ids) != len(set(support_ids))
+                or not isinstance(eligible_ids, list)
+                or any(not isinstance(item, str) or not item for item in eligible_ids)
+                or len(eligible_ids) != len(set(eligible_ids))):
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        support_set = set(support_ids)
+        eligible_set = set(eligible_ids)
+        if not eligible_set <= support_set:
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        derived_excluded = support_set - eligible_set
+        if excluded_rows != sorted(derived_excluded):
+            raise ValueError("qualification_temporal_review_binding_mismatch")
+        excluded = derived_excluded
+
+    active_rows = packet.get("active_evidence_bindings")
+    if not isinstance(active_rows, (list, tuple)):
+        raise ValueError("qualification_probe_evidence_allowlist_mismatch")
+    active_ids = {row.get("binding_id") for row in active_rows
+        if isinstance(row, Mapping) and isinstance(row.get("binding_id"), str)}
+    if len(active_ids) != len(active_rows) or not excluded <= active_ids:
+        raise ValueError("qualification_probe_evidence_allowlist_mismatch")
+    return sorted(active_ids - excluded)
+
+
 def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any], *,
         additional_treatment_fields: Sequence[str] = ()) -> bool:
     """Return whether paired prompts differ outside the intended treatment fields."""
@@ -394,7 +500,8 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         if not isinstance(probe, Mapping):
             raise ValueError("qualification_probe_evidence_allowlist_mismatch")
         allowed = probe.get("allowed_evidence_binding_ids")
-        expected_allowlist = sorted(active_binding_ids)
+        expected_allowlist = _expected_probe_evidence_allowlist(
+            context=context, request=request, packet=expected_packet)
         if (not isinstance(allowed, list)
                 or any(not isinstance(item, str) or not item for item in allowed)
                 or len(allowed) != len(set(allowed))

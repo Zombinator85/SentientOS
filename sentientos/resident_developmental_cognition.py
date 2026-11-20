@@ -11157,7 +11157,11 @@ class ResidentDevelopmentalCognitionOwner:
             "epistemic_state_digests": prior_epistemic_state.state_digests if prior_epistemic_state else (),
             "epistemic_generations": prior_epistemic_state.generations if prior_epistemic_state else (),
             "epistemic_evidence_set_digests": prior_epistemic_state.evidence_set_digests if prior_epistemic_state else (),
-            **epistemic_metadata,
+            # Binder-only diagnostics such as temporal reviews are already
+            # carried by the receipt-bound prompt and request upstream data;
+            # persist only fields defined by the observation schema.
+            **{key: value for key, value in epistemic_metadata.items()
+                if key in ResidentCognitionObservation.__dataclass_fields__},
             **_resource_linkage_fields(receipt),
             "schema_version": COGNITION_OBSERVATION_SCHEMA_V15,
             "serving_session_id": serving_session_id,
