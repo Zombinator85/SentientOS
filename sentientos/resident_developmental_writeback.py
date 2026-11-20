@@ -1494,6 +1494,21 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                             or observed_at.endswith("-00:00")):
                         raise DevelopmentalWritebackError(
                             "resource_measurement_projection_invalid")
+                state = measurement.get("state")
+                attempt_id = measurement.get("attempt_id")
+                predecessor_digest = measurement.get("previous_receipt_digest")
+                effect_digest = measurement.get("effect_receipt_digest")
+                if (state is not None and (not isinstance(state, str) or state not in {
+                        "measured_completed", "measured_timeout",
+                        "measured_backend_failure", "measured_cancelled", "reconciled"})
+                        or attempt_id is not None
+                            and (not isinstance(attempt_id, str) or not attempt_id
+                                or len(attempt_id) > 128)
+                        or any(value is not None and (not isinstance(value, str)
+                            or len(value) != 64
+                            or any(character not in "0123456789abcdef" for character in value))
+                            for value in (predecessor_digest, effect_digest))):
+                    raise DevelopmentalWritebackError("resource_measurement_projection_invalid")
                 for key, value in measured_values.items():
                     if key not in {"generation_attempted", "call_units_consumed",
                             "generated_output_size_bytes", "returned_output_size_bytes",
@@ -1515,8 +1530,15 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             summary["resource_consumption_evidence"] = [{
                 "receipt_id": item["receipt_id"],
                 "receipt_digest": item["receipt_digest"],
+                **({"state": item["state"]} if isinstance(item.get("state"), str) else {}),
+                **({"attempt_id": item["attempt_id"]}
+                    if isinstance(item.get("attempt_id"), str) else {}),
                 **({"observed_at": item["observed_at"]}
                     if isinstance(item.get("observed_at"), str) else {}),
+                **({"previous_receipt_digest": item["previous_receipt_digest"]}
+                    if isinstance(item.get("previous_receipt_digest"), str) else {}),
+                **({"effect_receipt_digest": item["effect_receipt_digest"]}
+                    if isinstance(item.get("effect_receipt_digest"), str) else {}),
                 "measured_values": {key: value for key, value in
                     item["measured_values"].items() if key in measurement_fields},
                 "measurement_posture": {key: value for key, value in

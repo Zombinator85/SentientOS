@@ -1716,6 +1716,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
         seen_inference_receipt_digests: set[str] = set()
         seen_consumption_receipt_ids: set[str] = set()
         seen_consumption_receipt_digests: set[str] = set()
+        seen_resource_attempt_ids: set[str] = set()
         for condition_id in condition_ids:
             item = by_id[condition_id]
             count, probes = item.get("correct_count"), item.get("probe_count")
@@ -1766,6 +1767,12 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                 values = receipt.get("measured_values") if isinstance(receipt, Mapping) else None
                 value = values.get("call_units_consumed") if isinstance(values, Mapping) else None
                 event_time = receipt.get("observed_at") if isinstance(receipt, Mapping) else None
+                receipt_state = receipt.get("state") if isinstance(receipt, Mapping) else None
+                attempt_id = receipt.get("attempt_id") if isinstance(receipt, Mapping) else None
+                previous_digest = (receipt.get("previous_receipt_digest")
+                    if isinstance(receipt, Mapping) else None)
+                effect_digest = (receipt.get("effect_receipt_digest")
+                    if isinstance(receipt, Mapping) else None)
                 if (not isinstance(receipt_id, str) or not receipt_id
                         or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
                         or any(character not in "0123456789abcdef"
@@ -1780,6 +1787,19 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                     posture = "incomparable_invalid_resource_event_time"
                     candidates = []
                     break
+                if (receipt_state is not None and (not isinstance(receipt_state, str)
+                        or receipt_state not in {
+                        "measured_completed", "measured_timeout",
+                        "measured_backend_failure", "measured_cancelled", "reconciled"})
+                        or attempt_id is not None
+                            and (not isinstance(attempt_id, str) or not attempt_id)
+                        or any(digest_value is not None and
+                            (not isinstance(digest_value, str)
+                                or re.fullmatch(r"[0-9a-f]{64}", digest_value) is None)
+                            for digest_value in (previous_digest, effect_digest))):
+                    posture = "incomparable_resource_receipt_state"
+                    candidates = []
+                    break
                 if (receipt_id in seen_consumption_receipt_ids
                         or receipt_digest in seen_consumption_receipt_digests):
                     posture = "incomparable_duplicate_resource_receipt"
@@ -1787,12 +1807,65 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                     break
                 seen_consumption_receipt_ids.add(receipt_id)
                 seen_consumption_receipt_digests.add(receipt_digest)
-                call_units.append(value)
                 receipt_bindings.append({"receipt_id": receipt_id,
                     "receipt_digest": receipt_digest, "call_units_consumed": value,
+                    "generation_attempted": values.get("generation_attempted"),
+                    **({"state": receipt_state} if isinstance(receipt_state, str) else {}),
+                    **({"attempt_id": attempt_id} if isinstance(attempt_id, str) else {}),
+                    **({"previous_receipt_digest": previous_digest}
+                        if isinstance(previous_digest, str) else {}),
+                    **({"effect_receipt_digest": effect_digest}
+                        if isinstance(effect_digest, str) else {}),
                     **({"observed_at": event_time} if event_time is not None else {})})
             if not candidates and posture != "comparable":
                 break
+            stateful = any("state" in receipt for receipt in receipt_bindings)
+            if stateful:
+                reconciled = [receipt for receipt in receipt_bindings
+                    if receipt.get("state") == "reconciled"]
+                measured = [receipt for receipt in receipt_bindings
+                    if receipt.get("state") in {"measured_completed", "measured_timeout",
+                        "measured_backend_failure", "measured_cancelled"}]
+                attempt_ids = {receipt.get("attempt_id") for receipt in receipt_bindings}
+                normalized_effect_digest = inference_receipt_digest.removeprefix("sha256:")
+                if (any("state" not in receipt or "attempt_id" not in receipt
+                        for receipt in receipt_bindings)
+                        or len(attempt_ids) != 1 or None in attempt_ids
+                        or len(reconciled) != 1 or len(measured) != 1
+                        or reconciled[0].get("effect_receipt_digest") != normalized_effect_digest
+                        or any(receipt.get("generation_attempted") is not True
+                            for receipt in receipt_bindings)
+                        or reconciled[0].get("previous_receipt_digest") not in {
+                            receipt["receipt_digest"] for receipt in measured}
+                        or any(receipt["call_units_consumed"]
+                            != reconciled[0]["call_units_consumed"]
+                            for receipt in measured)):
+                    posture = "incomparable_unreconciled_resource_measurement"
+                    candidates = []
+                    break
+                counted_receipt_digest = reconciled[0]["receipt_digest"]
+                attempt_id = next(iter(attempt_ids))
+                if attempt_id in seen_resource_attempt_ids:
+                    posture = "incomparable_duplicate_resource_attempt"
+                    candidates = []
+                    break
+                seen_resource_attempt_ids.add(attempt_id)
+            elif len(receipt_bindings) == 1:
+                # Read historical single-row measurements, but never sum a
+                # multi-row legacy chain whose terminal reconciliation state
+                # was not retained.
+                counted_receipt_digest = receipt_bindings[0]["receipt_digest"]
+            else:
+                posture = "incomparable_ambiguous_legacy_resource_receipts"
+                candidates = []
+                break
+            for receipt in receipt_bindings:
+                counted = receipt["receipt_digest"] == counted_receipt_digest
+                receipt["cost_accounting_posture"] = (
+                    "canonical_reconciled_measurement" if counted else
+                    "same_measurement_chain_not_summed")
+                if counted:
+                    call_units.append(receipt["call_units_consumed"])
             candidates.append({"condition_id": condition_id,
                 "inference_receipt_id": item.get("inference_receipt_id"),
                 "inference_receipt_digest": item.get("inference_receipt_digest"),
@@ -1855,6 +1928,13 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         if isinstance(measurements, (list, tuple)):
             refs = [{"receipt_id": item.get("receipt_id"),
                 "receipt_digest": item.get("receipt_digest"),
+                **({"state": item.get("state")} if isinstance(item.get("state"), str) else {}),
+                **({"attempt_id": item.get("attempt_id")}
+                    if isinstance(item.get("attempt_id"), str) else {}),
+                **({"previous_receipt_digest": item.get("previous_receipt_digest")}
+                    if isinstance(item.get("previous_receipt_digest"), str) else {}),
+                **({"effect_receipt_digest": item.get("effect_receipt_digest")}
+                    if isinstance(item.get("effect_receipt_digest"), str) else {}),
                 **({"observed_at": item.get("observed_at")}
                     if isinstance(item.get("observed_at"), str) else {}),
                 "measured_values": item.get("measured_values")}
@@ -1883,6 +1963,14 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
                     resource["resource_receipts"] = [{
                         "receipt_id": item.get("receipt_id"),
                         "receipt_digest": item.get("receipt_digest"),
+                        **({"state": item.get("state")}
+                            if isinstance(item.get("state"), str) else {}),
+                        **({"attempt_id": item.get("attempt_id")}
+                            if isinstance(item.get("attempt_id"), str) else {}),
+                        **({"previous_receipt_digest": item.get("previous_receipt_digest")}
+                            if isinstance(item.get("previous_receipt_digest"), str) else {}),
+                        **({"effect_receipt_digest": item.get("effect_receipt_digest")}
+                            if isinstance(item.get("effect_receipt_digest"), str) else {}),
                         **({"observed_at": item.get("observed_at")}
                             if isinstance(item.get("observed_at"), str) else {}),
                         "measured_values": item.get("measured_values"),
@@ -2752,9 +2840,23 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     receipt_id, receipt_digest = row.get("receipt_id"), row.get("receipt_digest")
                     values, posture = row.get("measured_values"), row.get("measurement_posture")
                     receipt_event_time = row.get("observed_at")
+                    receipt_state, receipt_attempt_id = row.get("state"), row.get("attempt_id")
+                    receipt_predecessor = row.get("previous_receipt_digest")
+                    receipt_effect = row.get("effect_receipt_digest")
                     if (not isinstance(receipt_id, str) or not receipt_id
                             or not isinstance(receipt_digest, str)
                             or receipt_digest not in linked_digests
+                            or (receipt_state is not None and (not isinstance(receipt_state, str)
+                                or receipt_state not in {
+                                "measured_completed", "measured_timeout",
+                                "measured_backend_failure", "measured_cancelled", "reconciled"}))
+                            or (receipt_attempt_id is not None
+                                and (not isinstance(receipt_attempt_id, str)
+                                    or not receipt_attempt_id or len(receipt_attempt_id) > 128))
+                            or any(value is not None and (not isinstance(value, str)
+                                or len(value) != 64
+                                or any(character not in "0123456789abcdef" for character in value))
+                                for value in (receipt_predecessor, receipt_effect))
                             or (receipt_event_time is not None
                                 and (not isinstance(receipt_event_time, str)
                                     or len(receipt_event_time) > 64
@@ -2764,8 +2866,15 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         break
                     measurements.append({
                         "receipt_id": receipt_id, "receipt_digest": receipt_digest,
+                        **({"state": receipt_state} if isinstance(receipt_state, str) else {}),
+                        **({"attempt_id": receipt_attempt_id}
+                            if isinstance(receipt_attempt_id, str) else {}),
                         **({"observed_at": receipt_event_time}
                             if receipt_event_time is not None else {}),
+                        **({"previous_receipt_digest": receipt_predecessor}
+                            if isinstance(receipt_predecessor, str) else {}),
+                        **({"effect_receipt_digest": receipt_effect}
+                            if isinstance(receipt_effect, str) else {}),
                         "measured_values": {key: value for key, value in values.items()
                             if key in {"generation_attempted", "call_units_consumed",
                                 "generated_output_size_bytes", "returned_output_size_bytes",
@@ -2890,6 +2999,12 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     measurements = []
                     valid = True
                     for measurement in evidence[:8]:
+                        receipt_state = measurement.get("state") if isinstance(measurement, Mapping) else None
+                        receipt_attempt_id = measurement.get("attempt_id") if isinstance(measurement, Mapping) else None
+                        receipt_predecessor = (measurement.get("previous_receipt_digest")
+                            if isinstance(measurement, Mapping) else None)
+                        receipt_effect = (measurement.get("effect_receipt_digest")
+                            if isinstance(measurement, Mapping) else None)
                         if (not isinstance(measurement, Mapping)
                                 or not isinstance(measurement.get("receipt_id"), str)
                                 or not measurement.get("receipt_id")
@@ -2898,6 +3013,17 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                                 or any(character not in "0123456789abcdef"
                                     for character in measurement["receipt_digest"])
                                 or measurement["receipt_digest"] not in linked
+                                or (receipt_state is not None and (not isinstance(receipt_state, str)
+                                    or receipt_state not in {
+                                    "measured_completed", "measured_timeout",
+                                    "measured_backend_failure", "measured_cancelled", "reconciled"}))
+                                or (receipt_attempt_id is not None
+                                    and (not isinstance(receipt_attempt_id, str)
+                                        or not receipt_attempt_id or len(receipt_attempt_id) > 128))
+                                or any(value is not None and (not isinstance(value, str)
+                                    or len(value) != 64
+                                    or any(character not in "0123456789abcdef" for character in value))
+                                    for value in (receipt_predecessor, receipt_effect))
                                 or (measurement.get("observed_at") is not None
                                     and (not isinstance(measurement.get("observed_at"), str)
                                         or len(measurement["observed_at"]) > 64
@@ -2909,8 +3035,15 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         measurements.append({
                             "receipt_id": measurement["receipt_id"],
                             "receipt_digest": measurement["receipt_digest"],
+                            **({"state": receipt_state} if isinstance(receipt_state, str) else {}),
+                            **({"attempt_id": receipt_attempt_id}
+                                if isinstance(receipt_attempt_id, str) else {}),
                             **({"observed_at": measurement["observed_at"]}
                                 if isinstance(measurement.get("observed_at"), str) else {}),
+                            **({"previous_receipt_digest": receipt_predecessor}
+                                if isinstance(receipt_predecessor, str) else {}),
+                            **({"effect_receipt_digest": receipt_effect}
+                                if isinstance(receipt_effect, str) else {}),
                             "measured_values": {key: value for key, value in
                                 measurement["measured_values"].items() if key in {
                                     "generation_attempted", "call_units_consumed",

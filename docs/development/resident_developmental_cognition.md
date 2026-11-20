@@ -433,10 +433,14 @@ salted preregistered task descriptor, and a score's observed coverage cannot
 lower it. Timezone-aware per-receipt event times are preserved into the later
 history projection and recommendation when supplied by the ledger; malformed
 times make the comparison incomparable, while legacy receipts without event
-times remain explicitly undated. Among options meeting the frozen correctness
-requirement, the bounded evaluator ranks higher correct-probe count first, then
-lower measured `call_units_consumed`. It never infers shared-host CPU/GPU use,
-or treats expenditure as a reward or authority signal.
+times remain explicitly undated. For the current ledger chain, the sole
+`reconciled` receipt must point to the exact inference receipt and its one
+`measured_*` predecessor; both rows are retained, but only the reconciled row
+contributes cost. A legacy multi-row set without state cannot be counted and
+becomes incomparable. Among options meeting the frozen correctness requirement,
+the bounded evaluator ranks higher correct-probe count first, then lower measured
+`call_units_consumed`. It never infers shared-host CPU/GPU use, or treats
+expenditure as a reward or authority signal.
 
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
