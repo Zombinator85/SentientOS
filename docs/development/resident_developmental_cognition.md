@@ -562,6 +562,10 @@ also carries its verified score schema, evaluator identifier, plan/task digests,
 and invocation output digest; each example references that score digest. This
 identifies the deterministic benchmark measurement, not an external event, and
 does not publish the private answer oracle.
+Later task-family retrieval independently reconstructs the examples from the
+score's ordered probe results and checks the score's correct, answered, and
+abstained counts. A matching digest label alone cannot turn altered examples
+into future mapping guidance.
 When a task-family run is translated into evidence for epistemic-state
 revision, the present and restored arms must match on each probe's correctness
 and abstention outcome before a score delta can support or contradict the

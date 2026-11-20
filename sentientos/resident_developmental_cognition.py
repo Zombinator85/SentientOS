@@ -2831,6 +2831,62 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", score["score_digest"]) is None
                 or not 1 <= len(examples) <= 16):
             continue
+        probe_inputs = descriptor.get("probe_inputs")
+        probe_results = score.get("probe_results")
+        if (not isinstance(probe_inputs, (list, tuple))
+                or not isinstance(probe_results, (list, tuple))
+                or len(probe_inputs) != len(examples)
+                or len(probe_results) != len(examples)):
+            continue
+        score_bound_examples: list[dict[str, Any]] = []
+        score_rows_valid = True
+        selective_score = score.get("schema_version") in {
+            "sentientos.objective_task_score:v4",
+            "sentientos.objective_task_score:v5"}
+        for probe_input, result in zip(probe_inputs, probe_results):
+            if not isinstance(result, Mapping):
+                score_rows_valid = False
+                break
+            observed_answer = result.get("observed_answer")
+            evaluator_correct = result.get("correct")
+            result_abstained = result.get("abstained")
+            answered = (type(observed_answer) is int
+                and type(evaluator_correct) is bool
+                and "abstained" not in result)
+            abstained = (selective_score and observed_answer is None
+                and evaluator_correct is None and result_abstained is True
+                and set(result) == {"probe_input", "observed_answer", "correct",
+                    "abstained"})
+            if (type(probe_input) is not int
+                    or result.get("probe_input") != probe_input
+                    or set(result) not in ({"probe_input", "observed_answer", "correct"},
+                        {"probe_input", "observed_answer", "correct", "abstained"})
+                    or not (answered or abstained)):
+                score_rows_valid = False
+                break
+            score_bound_examples.append({"probe_input": probe_input,
+                "observed_answer": observed_answer,
+                "evaluator_correct": evaluator_correct,
+                "source_score_digest": score["score_digest"],
+                "source_condition": "history_present"})
+        correct_result_count = sum(
+            result.get("correct") is True for result in probe_results
+            if isinstance(result, Mapping))
+        answered_result_count = sum(
+            result.get("correct") is not None for result in probe_results
+            if isinstance(result, Mapping))
+        if (type(score.get("probe_count")) is not int
+                or score["probe_count"] != len(probe_inputs)
+                or type(score.get("correct_count")) is not int
+                or score["correct_count"] != correct_result_count
+                or selective_score and (
+                    type(score.get("answered_count")) is not int
+                    or score["answered_count"] != answered_result_count
+                    or type(score.get("abstained_count")) is not int
+                    or score["abstained_count"] != len(probe_results) - answered_result_count)):
+            score_rows_valid = False
+        if not score_rows_valid:
+            continue
         rows: list[dict[str, Any]] = []
         valid = True
         for example in examples:
@@ -2860,7 +2916,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     "sentientos.objective_task_score:v5"}:
                 row["abstained"] = abstained
             rows.append(row)
-        if not valid:
+        if not valid or list(examples) != score_bound_examples:
             continue
         # Join resource evidence only when it names this exact experiment run,
         # score, condition, and inference receipt. Missing or mismatched joins
