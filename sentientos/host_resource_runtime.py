@@ -2995,6 +2995,22 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
     if not 1 <= max_records <= 32:
         raise ValueError("resource_proposal_join_bound_invalid")
     from sentientos.local_model_authority import digest_payload
+    from sentientos.governed_local_model_resource_allocation import (
+        GovernedLocalModelResourceConsumptionReceipt)
+
+    receipt_fields = frozenset(
+        GovernedLocalModelResourceConsumptionReceipt.__dataclass_fields__)
+
+    def projected_receipt_is_valid(value: object) -> bool:
+        if (not isinstance(value, Mapping)
+                or set(value) != receipt_fields | {"measurement_posture"}):
+            return False
+        try:
+            GovernedLocalModelResourceConsumptionReceipt.from_mapping(
+                {key: value[key] for key in receipt_fields})
+        except (KeyError, OverflowError, TypeError, ValueError):
+            return False
+        return True
 
     def score_projection_is_consistent(score: Mapping[str, Any], *,
             expected_probe_count: int | None = None) -> bool:
@@ -3469,6 +3485,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                             or type(item["measured_values"].get(
                                 "call_units_consumed")) is not int
                             or item["measured_values"].get("call_units_consumed") != 1
+                            for item in (begun_row, measured_row, reconciled_row))
+                        or any(not projected_receipt_is_valid(item)
                             for item in (begun_row, measured_row, reconciled_row))):
                     findings.append("resource_consumption_receipt_chain_invalid")
             if resource_record.get("digest") != record_digest(resource_record):
