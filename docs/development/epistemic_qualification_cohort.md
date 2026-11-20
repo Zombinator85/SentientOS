@@ -15,6 +15,10 @@ and evaluator version. This keeps results from different test commitments or
 execution identities separate. Scored pass, scored fail, and insufficient
 outcomes are counted explicitly. Samples without an attributable case or a
 complete execution identity remain visible as unattributed insufficient rows.
+Schema v3 also counts per-condition reason-code outcomes independently as
+scored correct, scored incorrect, not scored, or insufficient. A reason-code
+score is counted only when the sample declares exact matching against an
+exposed preregistered vocabulary; it does not replace the pair-level outcome.
 
 The digest checks establish integrity relative to supplied content; they do not
 establish who produced it, whether its answer key was independent, whether the

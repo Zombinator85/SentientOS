@@ -33,6 +33,10 @@ Free-form v1/v2 reason text still cannot change the answer pass result.
 Qualification results use schema v3 and unsupported-pressure pair results use
 schema v3 for this optional score. Cohort summaries score reason codes only for cases whose
 subject-visible prompt carried the committed vocabulary.
+The v3 cohort summary records independent per-condition reason-code counts
+(`scored_correct`, `scored_incorrect`, `not_scored`, and `insufficient`)
+alongside the existing pair-level sample outcomes, so one condition's answer
+does not mask the other's reason-code result.
 
 Ordinary cognition accepts citations to consumed packet IDs and current fact
 IDs. When a held-out key names evidence-binding IDs nested inside a delivered

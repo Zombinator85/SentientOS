@@ -11,7 +11,7 @@ from typing import Any, Mapping, Sequence
 
 from .local_model_authority import digest_payload
 
-SCHEMA = "sentientos.epistemic_qualification_cohort:v2"
+SCHEMA = "sentientos.epistemic_qualification_cohort:v3"
 MAX_REPORTS = 256
 MAX_REPORT_BYTES = 1_048_576
 SCORE_FIELDS = (
@@ -81,6 +81,21 @@ def _sample_outcome(pair_status: Any, sample: Mapping[str, Any], binding: Mappin
     return "scored_pass" if all(score is True for score in scores) else "scored_fail"
 
 
+def _reason_code_outcome(sample: Mapping[str, Any], binding: Mapping[str, Any]) -> str:
+    """Summarize the independently measured reason-code field, when present."""
+    if sample.get("measurement_status") != "scored" or binding.get("complete") is not True:
+        return "insufficient"
+    score = sample.get("reason_code_correct")
+    if sample.get("reason_code_scoring_status") != (
+            "exact_match_to_exposed_preregistered_vocabulary"):
+        return "not_scored" if score is None else "insufficient"
+    if score is True:
+        return "scored_correct"
+    if score is False:
+        return "scored_incorrect"
+    return "insufficient"
+
+
 def _pair_nodes(value: Any, *, path: str = "report") -> list[tuple[str, Mapping[str, Any]]]:
     found: list[tuple[str, Mapping[str, Any]]] = []
     if isinstance(value, Mapping):
@@ -148,6 +163,7 @@ def summarize_qualification_reports(reports: Sequence[Mapping[str, Any]]) -> dic
                     raise ValueError(
                         f"epistemic_cohort_execution_binding_context_mismatch:{report_index}:{pair_path}.{condition}")
                 outcome = _sample_outcome(pair_status, sample, binding)
+                reason_code_outcome = _reason_code_outcome(sample, binding)
                 identity = {field: binding.get(field) for field in IDENTITY_FIELDS}
                 identity_complete = (binding.get("complete") is True
                     and all(isinstance(identity[field], str) and identity[field]
@@ -172,6 +188,8 @@ def summarize_qualification_reports(reports: Sequence[Mapping[str, Any]]) -> dic
                     "execution_identity": identity,
                     "sample_count": 0,
                     "sample_outcomes": {"scored_pass": 0, "scored_fail": 0, "insufficient": 0},
+                    "reason_code_outcomes": {"scored_correct": 0,
+                        "scored_incorrect": 0, "not_scored": 0, "insufficient": 0},
                     "pair_status_counts": {},
                     "conditions": {"before": 0, "after": 0},
                     "source_report_digests": [],
@@ -181,6 +199,7 @@ def summarize_qualification_reports(reports: Sequence[Mapping[str, Any]]) -> dic
                     raise ValueError("epistemic_cohort_case_id_commitment_conflict")
                 group["sample_count"] += 1
                 group["sample_outcomes"][outcome] += 1
+                group["reason_code_outcomes"][reason_code_outcome] += 1
                 group["pair_status_counts"][str(pair_status)] = (
                     group["pair_status_counts"].get(str(pair_status), 0) + 1)
                 group["conditions"][condition] += 1
@@ -191,6 +210,7 @@ def summarize_qualification_reports(reports: Sequence[Mapping[str, Any]]) -> dic
                     "condition": condition,
                     "pair_status": pair_status,
                     "sample_outcome": outcome,
+                    "reason_code_outcome": reason_code_outcome,
                     "execution_status": sample.get("execution_status"),
                     "execution_binding_digest": binding["binding_digest"],
                 })
