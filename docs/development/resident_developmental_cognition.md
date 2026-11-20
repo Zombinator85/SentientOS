@@ -321,6 +321,11 @@ requires the full sequence of a real observation, prediction or decision, an
 action, an independently observed consequence, a governed update, and a later
 decision comparison with history present and withheld under controlled
 conditions.
+The embodied strategy scorer evaluates proposed decisions against admitted
+consequence history; it does not observe an action. Its
+`repeats_previously_contradicted_action` field is derived from the proposal's
+`retry_prior_strategy` self-report and must not be read as an executed-action
+finding.
 
 ### One explicitly staged objective intervention
 

@@ -1192,6 +1192,12 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal],
         resource_evidence_bindings: Sequence[Mapping[str, Any]] = (),
         consequence_events: Sequence[Mapping[str, Any]] | None = None,
         situation: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Score proposed decisions against retained evidence, without scoring action.
+
+    In the single-consequence result, ``repeats_previously_contradicted_action``
+    reflects the proposal's ``retry_prior_strategy`` field. It is a model-reported
+    intention; this scorer does not observe or establish that an action was taken.
+    """
     if consequence_events is not None:
         if consequence is not None or resource_evidence_bindings or situation is None:
             raise EmbodiedConsequenceError("strategy_consequence_set_inputs_invalid")
