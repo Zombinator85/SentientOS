@@ -27,7 +27,9 @@ reason codes remain free-form and unscored because the subject received no
 preregistered vocabulary. A case may instead commit a bounded reason-code
 vocabulary; the v4 probe context exposes those exact choices before inference
 under response contract v3, and the v3 qualification result scores an exact
-match to the private key.
+match to the private key. Committed reason codes and exposed vocabulary entries
+must be non-empty after trimming; vocabulary entries also reject surrounding
+whitespace so the exact-match taxonomy has one canonical spelling per label.
 Vocabulary exposure must match the case commitment for both paired prompts.
 Free-form v1/v2 reason text still cannot change the answer pass result.
 Qualification results use schema v3 and unsupported-pressure pair results use

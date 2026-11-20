@@ -642,6 +642,8 @@ def _validate_epistemic_revision_probe_reason_code_vocabulary(
                 or not 2 <= len(vocabulary) <= 32
                 or any(not isinstance(item, str) or not item.strip() or len(item) > 64
                     for item in vocabulary)
+                or any(item != item.strip() for item in vocabulary
+                    if isinstance(item, str))
                 or len(set(vocabulary)) != len(vocabulary))):
         raise ResidentDevelopmentalCognitionError(
             "epistemic_revision_probe_reason_vocabulary_invalid")

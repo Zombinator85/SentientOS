@@ -130,14 +130,19 @@ class RevisionCase:
                 or any(c not in "0123456789abcdef" for c in self.commitment_nonce)):
             raise ValueError("qualification_case_invalid")
         for key in (self.before_key, self.after_key):
-            if (key.stance not in STANCES or not key.conclusion or len(key.conclusion) > 4096
-                    or not key.reason_code or len(key.reason_code) > 128
+            if (not isinstance(key.stance, str) or key.stance not in STANCES
+                    or not isinstance(key.conclusion, str)
+                    or not key.conclusion.strip() or len(key.conclusion) > 4096
+                    or not isinstance(key.reason_code, str)
+                    or not key.reason_code.strip() or len(key.reason_code) > 128
                     or any(not isinstance(item, str) or not item for item in key.evidence_ids)
                     or len(key.evidence_ids) > 256 or len(set(key.evidence_ids)) != len(key.evidence_ids)):
                 raise ValueError("qualification_answer_key_invalid")
         if (not isinstance(self.reason_code_vocabulary, tuple)
                 or any(not isinstance(item, str) or not item.strip()
                     for item in self.reason_code_vocabulary)
+                or any(item != item.strip() for item in self.reason_code_vocabulary
+                    if isinstance(item, str))
                 or len(self.reason_code_vocabulary) != len(set(self.reason_code_vocabulary))
                 or len(self.reason_code_vocabulary) > 32
                 or any(len(item) > 64 for item in self.reason_code_vocabulary)
