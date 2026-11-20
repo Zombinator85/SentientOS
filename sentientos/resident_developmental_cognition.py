@@ -139,13 +139,19 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
     dependencies = lesson.get("evidence_dependencies")
     contradictions = lesson.get("possible_contradiction_ids")
     if (not isinstance(dependencies, list) or not 1 <= len(dependencies) <= 8
-            or len(set(dependencies)) != len(dependencies)
-            or any(not isinstance(item, str) or not item or len(item) > 256 for item in dependencies)
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in dependencies)
+            or (isinstance(dependencies, list)
+                and len(set(dependencies)) != len(dependencies))
             or not isinstance(contradictions, list) or len(contradictions) > 8
-            or len(set(contradictions)) != len(contradictions)
-            or any(not isinstance(item, str) or not item or len(item) > 256 for item in contradictions)
-            or not set(dependencies).issubset(consumed_ids)
-            or not set(contradictions).issubset(consumed_ids)):
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in contradictions)
+            or (isinstance(contradictions, list)
+                and len(set(contradictions)) != len(contradictions))
+            or (isinstance(dependencies, list)
+                and not set(dependencies).issubset(consumed_ids))
+            or (isinstance(contradictions, list)
+                and not set(contradictions).issubset(consumed_ids))):
         raise ValueError("cognition_lesson_evidence_binding_invalid")
     return payload
 
