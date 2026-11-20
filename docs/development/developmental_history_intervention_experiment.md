@@ -106,14 +106,18 @@ answers, excludes adverse or unsettled source-outcome groups, and binds the
 summary to the contributing run, score, record, and source-model digests. The
 aggregation step recomputes each bound source-model digest from its retained
 identity before counting it; sources without a verified identity remain
-unbound. The prompt-bound summary includes each run's distinct-input count and
-a digest of those counts, plus the number and source counts of bound model
+unbound. It also requires all contributing examples to have the same target
+model identity, and checks each `same` or `different` applicability label
+against the bound source and target digests. The prompt-bound summary includes
+each run's distinct-input count and a digest of those counts, plus the number
+and source counts of bound model
 identities and unbound model sources. These summaries make the cross-run
 qualification and source-model coverage auditable. The prompt instruction
-treats model-identity counts as provenance, not independent trials or added
-evidence weight. The relation remains historical guidance: neither learning nor
-cross-model performance transfer is established. The projection digest records
-whether this accumulated candidate was included in each history-present/restored prompt;
+treats model-identity counts and the target identity digest as provenance, not
+independent trials or added evidence weight. The relation remains historical
+guidance: neither learning nor cross-model performance transfer is established.
+The projection digest records whether this accumulated candidate was included
+in each history-present/restored prompt;
 real-model use and transfer remain unverified.
 
 Within equal outcome posture and model applicability, retrieval ranks exact

@@ -558,6 +558,7 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "outcome groups in that same family, with fewer than three distinct inputs in each run. "
     "Check it against every accompanying correct example; "
     "use it provisionally only for that same declared family when it agrees with the examples and current task. "
+    "Its target_active_model_identity_digest binds the identity against which applicability was assessed. "
     "Its supporting_model_identity_source_counts and supporting_unbound_model_source_count describe provenance only; "
     "they are not independent trials, do not increase evidence weight, and do not establish cross-model transfer. "
     "Surface any conflict instead of applying it. It does not establish learning or cross-model performance transfer. "
@@ -2259,6 +2260,8 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     inputs_by_run: dict[str, set[int]] = {}
     source_refs: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     runs: set[tuple[str, str]] = set()
+    target_model_digests: set[str | None] = set()
+    source_model_relations: dict[str, str] = {}
     for packet in packets:
         if not isinstance(packet, Mapping):
             continue
@@ -2300,6 +2303,13 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
             source_model_binding_posture = experience.get(
                 "model_identity_binding_posture")
             model_relation = experience.get("model_identity_relation")
+            target_model_digest = experience.get(
+                "target_active_model_identity_digest")
+            if (target_model_digest is not None
+                    and (not isinstance(target_model_digest, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            target_model_digest) is None)):
+                continue
             if (not isinstance(record_id, str) or not record_id
                     or not isinstance(record_digest, str)
                     or re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest) is None
@@ -2325,6 +2335,12 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                             != "source_model_identity_unbound")
                     or (model_relation != "model_identity_unbound"
                         and source_model_digest is None)
+                    or (model_relation != "model_identity_unbound"
+                        and target_model_digest is None)
+                    or (model_relation == "same_active_model_identity"
+                        and source_model_digest != target_model_digest)
+                    or (model_relation == "different_active_model_identity"
+                        and source_model_digest == target_model_digest)
                     or experience.get("evaluator")
                         != "deterministic_exact_integer_suite_oracle_v2"
                     or experience.get("historical_only") is not True
@@ -2348,6 +2364,13 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                     example["observed_answer"]))
             if invalid_source_examples or not source_pairs:
                 continue
+            target_model_digests.add(target_model_digest)
+            if source_model_digest is not None:
+                previous_relation = source_model_relations.get(source_model_digest)
+                if (previous_relation is not None
+                        and previous_relation != model_relation):
+                    return None
+                source_model_relations[source_model_digest] = model_relation
             source_key = (provenance["source_run_digest"],
                 provenance["source_score_digest"], record_digest,
                 provenance["source_fact_id"], source_model_digest or "")
@@ -2374,6 +2397,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     if (len(answers_by_input) < 3 or len(run_digests) < 2
             or len(run_ids) != len(runs)
             or len(run_digests) != len(runs)
+            or len(target_model_digests) != 1
             or len(distinct_input_contributors) < 2
             or any(len(inputs) >= 3 for inputs in inputs_by_run.values())):
         return None
@@ -2412,8 +2436,9 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     } for model_digest in sorted(model_source_counts)]
     offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
     body = {
-        "schema_version": "sentientos.accumulated_integer_affine_strategy:v3",
+        "schema_version": "sentientos.accumulated_integer_affine_strategy:v4",
         "task_family_id": task_family_id,
+        "target_active_model_identity_digest": next(iter(target_model_digests)),
         "multiplier": multiplier,
         "offset": offset,
         "relation": f"output = {multiplier} * input {offset_term}",
@@ -5487,7 +5512,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         raise ResidentDevelopmentalCognitionError(
             "task_family_accumulated_strategy_projection_mismatch")
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v13",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v14",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
