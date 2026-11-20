@@ -30,6 +30,13 @@ permitted correction event. It does not decide whether the evidence justifies
 the correction or whether an answer is true; the independent case author owns
 those judgments.
 
+Reason-code scoring is optional and preregistered. A case that supplies a
+bounded vocabulary exposes the exact list in both v3 probe prompts before
+inference; the v3 qualification evaluator checks the returned code against the
+case key. Cases without a vocabulary retain the v2 free-form, unscored reason
+field. The vocabulary is a scoring taxonomy for evidence-basis reports, not a
+policy or instruction about which stance the system should adopt.
+
 Each before/after sample also carries a deterministic execution binding. It
 identifies the model and artifact, hashes the active serving identity and
 generation configuration, and binds the exact supplied prompt, semantic

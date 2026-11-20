@@ -65,7 +65,8 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
         preview = cognition.preview_epistemic_revision_probe_prompt(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
-            proposition_id=case.proposition_id)
+            proposition_id=case.proposition_id,
+            reason_code_vocabulary=(case.reason_code_vocabulary or None))
         if preview.get("prompt_digest") != expected_prompt_digest:
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_prompt_digest_mismatch")
@@ -76,6 +77,7 @@ def run_epistemic_revision_pair_once(*, cognition: ResidentDevelopmentalCognitio
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
             proposition_id=case.proposition_id,
+            reason_code_vocabulary=(case.reason_code_vocabulary or None),
             expected_prompt_digest=expected_prompt_digest)
         if (result.status != "epistemic_revision_probe_completed"
                 or len(result.cognition_observation_ids) != 1):

@@ -17,7 +17,7 @@ from .persistent_epistemic_state import (
     semantic_packets_for_projection,
 )
 
-SCHEMA = "sentientos.epistemic_revision_case_result:v2"
+SCHEMA = "sentientos.epistemic_revision_case_result:v3"
 KINDS = frozenset({"contrary_evidence", "unsupported_pressure", "inference_correction",
                    "retained_correction", "outdated_evidence", "model_replacement",
                    "unverified_operator_context"})
@@ -85,8 +85,10 @@ def _prompt_context_mismatch(before: Mapping[str, Any], after: Mapping[str, Any]
     for fixed in (before_fixed, after_fixed):
         probe = fixed.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
-                and probe.get("response_contract")
-                    == "sentientos.epistemic_revision_answer:v2"):
+                and isinstance(probe.get("response_contract"), str)
+                and probe["response_contract"] in {
+                    "sentientos.epistemic_revision_answer:v2",
+                    "sentientos.epistemic_revision_answer:v3"}):
             normalized_probe = dict(probe)
             normalized_probe.pop("allowed_evidence_binding_ids", None)
             fixed["epistemic_revision_probe"] = normalized_probe
@@ -137,6 +139,8 @@ class RevisionCase:
                 or any(not isinstance(item, str) or not item.strip()
                     for item in self.reason_code_vocabulary)
                 or len(self.reason_code_vocabulary) != len(set(self.reason_code_vocabulary))
+                or len(self.reason_code_vocabulary) > 32
+                or any(len(item) > 64 for item in self.reason_code_vocabulary)
                 or (self.reason_code_vocabulary and len(self.reason_code_vocabulary) < 2)):
             raise ValueError("qualification_reason_code_vocabulary_invalid")
         if self.reason_code_vocabulary and any(
@@ -172,7 +176,8 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             projection: EpistemicCognitiveProjection, proposition_id: str,
             prompt: str, expected_prompt_digest: str, receipt: LocalModelInvocationReceipt,
             key: IndependentAnswerKey, case_id: str, evaluator_version: str,
-            condition: str) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
+            condition: str, reason_code_vocabulary: tuple[str, ...]
+            ) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
     observation = reader.verified_cognition_observation(observation_id)
     if proposition_id not in projection.proposition_ids:
         raise ValueError("qualification_proposition_scope_mismatch")
@@ -244,17 +249,34 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     probe = context.get("epistemic_revision_probe")
     probe_contract_version = (probe.get("response_contract")
         if isinstance(probe, Mapping) else None)
-    probe_contract = probe_contract_version in {
-        "sentientos.epistemic_revision_answer:v1",
-        "sentientos.epistemic_revision_answer:v2",
-    }
-    unscored_reason_code_status = ("not_scored_probe_vocabulary_not_exposed"
-        if probe_contract else
+    probe_contract = (isinstance(probe_contract_version, str)
+        and probe_contract_version in {
+            "sentientos.epistemic_revision_answer:v1",
+            "sentientos.epistemic_revision_answer:v2",
+            "sentientos.epistemic_revision_answer:v3"})
+    reason_code_status = ("exact_match_to_exposed_preregistered_vocabulary"
+        if probe_contract_version == "sentientos.epistemic_revision_answer:v3" else
+        "not_scored_probe_vocabulary_not_exposed" if probe_contract else
         "not_scored_local_cognition_response_contract_has_no_reason_code")
+    if reason_code_vocabulary:
+        exposed_vocabulary = (probe.get("reason_code_vocabulary")
+            if isinstance(probe, Mapping) else None)
+        if (probe_contract_version != "sentientos.epistemic_revision_answer:v3"
+                or probe.get("schema_version") != "sentientos.epistemic_revision_probe:v4"
+                or not isinstance(exposed_vocabulary, list)
+                or tuple(exposed_vocabulary) != reason_code_vocabulary):
+            raise ValueError("qualification_reason_code_vocabulary_not_exposed")
+    elif probe_contract_version == "sentientos.epistemic_revision_answer:v3":
+        raise ValueError("qualification_unexpected_reason_code_vocabulary")
+    elif (probe_contract_version == "sentientos.epistemic_revision_answer:v2"
+            and isinstance(probe, Mapping)
+            and probe.get("schema_version") != "sentientos.epistemic_revision_probe:v3"):
+        raise ValueError("qualification_probe_schema_contract_mismatch")
     prior = context.get("prior_epistemic_state")
     delivered = prior.get("semantic_packets", []) if isinstance(prior, dict) else []
     expected_visible_packet = expected_packet
-    if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
+    if probe_contract_version in {"sentientos.epistemic_revision_answer:v2",
+            "sentientos.epistemic_revision_answer:v3"}:
         from .resident_developmental_cognition import (
             _epistemic_revision_probe_packet_view,
         )
@@ -274,7 +296,7 @@ def _sample(*, reader: ObservationReader, observation_id: str,
         "state_stance_correct": expected_packet["state"]["stance"] == key.stance,
         "relevant_packet_delivered": complete, "execution_status": receipt.status,
         "answer_correct": None, "reason_code_correct": None,
-        "reason_code_scoring_status": unscored_reason_code_status,
+        "reason_code_scoring_status": reason_code_status,
         "citations_correct": None, "citation_scoring_status": "not_scored_incomplete_observation",
         "answer_shape_valid": None, "measurement_status": "insufficient",
         "execution_session_kind": ("rootless_experimental" if rootless_bound
@@ -301,8 +323,9 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     try:
         answer = _object(output)
     except (ValueError, TypeError):
-        result.update(answer_shape_valid=False, answer_correct=False, reason_code_correct=None,
-            reason_code_scoring_status=unscored_reason_code_status,
+        result.update(answer_shape_valid=False, answer_correct=False,
+            reason_code_correct=False if reason_code_vocabulary else None,
+            reason_code_scoring_status=reason_code_status,
             citations_correct=False, citation_scoring_status="not_scored_invalid_response_shape",
             measurement_status="scored")
         return result, expected_packet, context
@@ -318,8 +341,10 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             and all(isinstance(item, str) and item for item in citations)
             and len(set(citations)) == len(citations))
         citations = citations if isinstance(citations, list) else []
-        reason_code_correct = None
-        reason_code_status = "not_scored_probe_vocabulary_not_exposed"
+        reason_code_correct = (
+            bool(shape_valid and reason_code == key.reason_code)
+            if probe_contract_version == "sentientos.epistemic_revision_answer:v3"
+            else None)
     else:
         lesson = answer.get("lesson_candidate")
         lesson_shape_valid = lesson is None or (
@@ -349,7 +374,6 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             and bool(conclusion.strip()) and lesson_shape_valid
             and len(citations) <= 256 and all(isinstance(item, str) for item in citations))
         reason_code_correct = None
-        reason_code_status = "not_scored_local_cognition_response_contract_has_no_reason_code"
     current_evidence = context.get("current_evidence")
     available = (set(current_evidence.get("fact_ids", ()))
         if isinstance(current_evidence, Mapping) else set())
@@ -360,7 +384,8 @@ def _sample(*, reader: ObservationReader, observation_id: str,
     binding_ids = active_binding_ids | historical_binding_ids
     available.update(binding_ids)
     available.add(str(expected_packet["packet_id"]))
-    if probe_contract_version == "sentientos.epistemic_revision_answer:v2":
+    if probe_contract_version in {"sentientos.epistemic_revision_answer:v2",
+            "sentientos.epistemic_revision_answer:v3"}:
         if not isinstance(probe, Mapping):
             raise ValueError("qualification_probe_evidence_allowlist_mismatch")
         allowed = probe.get("allowed_evidence_binding_ids")
@@ -459,11 +484,13 @@ def evaluate_pair(*, case: RevisionCase,
     before, old, old_context = _sample(reader=before_reader, observation_id=before_observation_id,
         projection=before_projection, proposition_id=case.proposition_id, prompt=before_prompt,
         expected_prompt_digest=case.before_prompt_digest, receipt=before_receipt, key=case.before_key,
-        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="before")
+        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="before",
+        reason_code_vocabulary=case.reason_code_vocabulary)
     after, new, new_context = _sample(reader=after_reader, observation_id=after_observation_id,
         projection=after_projection, proposition_id=case.proposition_id, prompt=after_prompt,
         expected_prompt_digest=case.after_prompt_digest, receipt=after_receipt, key=case.after_key,
-        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="after")
+        case_id=case.case_id, evaluator_version=case.evaluator_version, condition="after",
+        reason_code_vocabulary=case.reason_code_vocabulary)
     controls = []
     for field in ("budget", "authority_map_digest"):
         if _canonical(before_receipt.request.get(field)) != _canonical(after_receipt.request.get(field)):
@@ -546,6 +573,9 @@ def evaluate_pair(*, case: RevisionCase,
     insufficient = bool(controls) or any(row["measurement_status"] != "scored" for row in (before, after))
     passed = transition and all(row[field] is True for row in (before, after)
         for field in ("state_stance_correct", "answer_correct", "citations_correct"))
+    if case.reason_code_vocabulary:
+        passed = passed and all(row["reason_code_correct"] is True
+            for row in (before, after))
     report = {"schema_version": SCHEMA, "case_id": case.case_id, "kind": case.kind,
         "case_commitment": commitment, "evaluator_version": case.evaluator_version,
         "status": "insufficient" if insufficient else "case_passed" if passed else "case_failed",

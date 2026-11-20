@@ -635,6 +635,18 @@ class ResidentDevelopmentalCognitionError(ValueError):
         self.diagnostic = dict(diagnostic) if isinstance(diagnostic, Mapping) else None
 
 
+def _validate_epistemic_revision_probe_reason_code_vocabulary(
+        vocabulary: tuple[str, ...] | None, *, probe: bool) -> None:
+    if (vocabulary is not None
+            and (not probe or type(vocabulary) is not tuple
+                or not 2 <= len(vocabulary) <= 32
+                or any(not isinstance(item, str) or not item.strip() or len(item) > 64
+                    for item in vocabulary)
+                or len(set(vocabulary)) != len(vocabulary))):
+        raise ResidentDevelopmentalCognitionError(
+            "epistemic_revision_probe_reason_vocabulary_invalid")
+
+
 class _EpistemicRevisionProbePromptPreview(Exception):
     """Internal control flow that returns a composed prompt before any call."""
 
@@ -5223,6 +5235,8 @@ EPISTEMIC_REVISION_PROBE_CONTEXT_SCHEMA = (
     "sentientos.epistemic_revision_probe_context:v1")
 EPISTEMIC_REVISION_PROBE_PACKET_VIEW_SCHEMA = (
     "sentientos.epistemic_revision_probe_packet_view:v4")
+EPISTEMIC_REVISION_PROBE_REASON_SCORED_CONTEXT_SCHEMA = (
+    "sentientos.epistemic_revision_probe:v4")
 MAX_EPISTEMIC_PROBE_UPDATE_EVENTS = 64
 EPISTEMIC_PROBE_RECENT_UPDATE_EVENTS = 48
 EPISTEMIC_PROBE_PRIORITY_UPDATE_EVENTS = (
@@ -5243,6 +5257,8 @@ EPISTEMIC_PROBE_UPDATE_EVENT_COLUMNS = (
 )
 EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT = (
     "sentientos.epistemic_revision_answer:v2")
+EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT = (
+    "sentientos.epistemic_revision_answer:v3")
 _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
     "developmental_history", "developmental_history_posture",
     "developmental_history_retrieval_policy_id",
@@ -5398,8 +5414,10 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         value = {**prompt_context, "prior_epistemic_state": None}
         probe = value.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
-                and probe.get("response_contract")
-                    == "sentientos.epistemic_revision_answer:v2"):
+                and isinstance(probe.get("response_contract"), str)
+                and probe["response_contract"] in {
+                    "sentientos.epistemic_revision_answer:v2",
+                    EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT}):
             value["epistemic_revision_probe"] = {
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -10149,6 +10167,7 @@ class ResidentDevelopmentalCognitionOwner:
                   objective_plan: Mapping[str, Any] | None = None,
                   epistemic_revision_probe: bool = False,
                   epistemic_revision_probe_proposition_id: str | None = None,
+                  epistemic_revision_probe_reason_code_vocabulary: tuple[str, ...] | None = None,
                   epistemic_revision_probe_prompt_preview: bool = False,
                   epistemic_revision_probe_expected_prompt_digest: str | None = None,
                   interaction_question: str | None = None,
@@ -10160,6 +10179,9 @@ class ResidentDevelopmentalCognitionOwner:
                   target_model_identity: Mapping[str, Any] | None = None,
                   target_model_identity_observed: bool = False
                   ) -> ResidentCognitionObservation:
+        _validate_epistemic_revision_probe_reason_code_vocabulary(
+            epistemic_revision_probe_reason_code_vocabulary,
+            probe=epistemic_revision_probe)
         # Keep the full eligible set in custody metadata for withheld controls;
         # only the bounded selected suffix is put into the model prompt.
         records = projection.records
@@ -10517,9 +10539,17 @@ class ResidentDevelopmentalCognitionOwner:
         if epistemic_revision_probe:
             multi_proposition_probe = (prior_epistemic_state is not None
                 and len(prior_epistemic_state.proposition_ids) > 1)
+            reason_scored = bool(epistemic_revision_probe_reason_code_vocabulary)
             context["epistemic_revision_probe"] = {
-                "schema_version": "sentientos.epistemic_revision_probe:v3",
-                "response_contract": "sentientos.epistemic_revision_answer:v2",
+                "schema_version": (
+                    EPISTEMIC_REVISION_PROBE_REASON_SCORED_CONTEXT_SCHEMA
+                    if reason_scored else "sentientos.epistemic_revision_probe:v3"),
+                "response_contract": (
+                    EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT
+                    if reason_scored else EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT),
+                **({"reason_code_vocabulary": list(
+                    epistemic_revision_probe_reason_code_vocabulary)}
+                    if reason_scored else {}),
                 **({"target_proposition_id":
                     epistemic_revision_probe_proposition_id}
                     if multi_proposition_probe else {}),
@@ -10533,6 +10563,12 @@ class ResidentDevelopmentalCognitionOwner:
                     "supplied prior epistemic packet, based on its active evidence bindings and "
                     "update history?"),
             }
+            if reason_scored:
+                context["instruction"] += (
+                    " For this probe, reason_code must be exactly one item from the "
+                    "subject-visible epistemic_revision_probe.reason_code_vocabulary. "
+                    "Choose the code that best describes the evidence basis for your "
+                    "conclusion; the vocabulary is a scoring taxonomy, not authority." )
         if objective_plan is not None:
             # This preregistered public question is a task input, not current
             # World-State evidence or an authority-bearing instruction.
@@ -11659,7 +11695,8 @@ class ResidentDevelopmentalCognitionOwner:
 
     def preview_epistemic_revision_probe_prompt(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
-            proposition_id: str | None = None
+            proposition_id: str | None = None,
+            reason_code_vocabulary: tuple[str, ...] | None = None
             ) -> dict[str, Any]:
         """Compose the exact probe prompt without admission, invocation, or capture.
 
@@ -11703,6 +11740,8 @@ class ResidentDevelopmentalCognitionOwner:
                     prior_epistemic_state=prior_epistemic_state,
                     epistemic_revision_probe=True,
                     epistemic_revision_probe_proposition_id=probe_target_id,
+                    epistemic_revision_probe_reason_code_vocabulary=(
+                        reason_code_vocabulary),
                     epistemic_revision_probe_prompt_preview=True)
             except _EpistemicRevisionProbePromptPreview as preview:
                 return {"prompt": preview.prompt,
@@ -11716,6 +11755,7 @@ class ResidentDevelopmentalCognitionOwner:
     def run_epistemic_revision_probe_once(self, *, snapshot: WorldStateSnapshot,
             tick_id: str, prior_epistemic_state: EpistemicCognitiveProjection,
             proposition_id: str | None = None,
+            reason_code_vocabulary: tuple[str, ...] | None = None,
             expected_prompt_digest: str | None = None
             ) -> ResidentDevelopmentalCycleResult:
         """Capture one bounded revision judgment through the governed cognition owner."""
@@ -11735,6 +11775,8 @@ class ResidentDevelopmentalCognitionOwner:
             objective_task=None, objective_only=False, objective_request_id=None,
             objective_request_digest=None, epistemic_revision_probe=True,
             epistemic_revision_probe_proposition_id=probe_target_id,
+            epistemic_revision_probe_reason_code_vocabulary=(
+                reason_code_vocabulary),
             epistemic_revision_probe_expected_prompt_digest=expected_prompt_digest)
 
     def objective_request_disposition(self, *, request_id: str,
@@ -11778,6 +11820,7 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_request_digest: str | None,
                  epistemic_revision_probe: bool = False,
                  epistemic_revision_probe_proposition_id: str | None = None,
+                 epistemic_revision_probe_reason_code_vocabulary: tuple[str, ...] | None = None,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
@@ -11802,6 +11845,8 @@ class ResidentDevelopmentalCognitionOwner:
                 epistemic_revision_probe=epistemic_revision_probe,
                 epistemic_revision_probe_proposition_id=(
                     epistemic_revision_probe_proposition_id),
+                epistemic_revision_probe_reason_code_vocabulary=(
+                    epistemic_revision_probe_reason_code_vocabulary),
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
@@ -11825,6 +11870,8 @@ class ResidentDevelopmentalCognitionOwner:
                 epistemic_revision_probe=epistemic_revision_probe,
                 epistemic_revision_probe_proposition_id=(
                     epistemic_revision_probe_proposition_id),
+                epistemic_revision_probe_reason_code_vocabulary=(
+                    epistemic_revision_probe_reason_code_vocabulary),
                 epistemic_revision_probe_expected_prompt_digest=(
                     epistemic_revision_probe_expected_prompt_digest),
                 companion_intervention_question=companion_intervention_question,
@@ -11845,6 +11892,7 @@ class ResidentDevelopmentalCognitionOwner:
                  objective_request_digest: str | None = None,
                  epistemic_revision_probe: bool = False,
                  epistemic_revision_probe_proposition_id: str | None = None,
+                 epistemic_revision_probe_reason_code_vocabulary: tuple[str, ...] | None = None,
                  epistemic_revision_probe_expected_prompt_digest: str | None = None,
                  companion_intervention_question: str | None = None,
                  companion_intervention_captures: list[dict[str, Any]] | None = None,
@@ -11854,6 +11902,9 @@ class ResidentDevelopmentalCognitionOwner:
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
             return ResidentDevelopmentalCycleResult("disabled", tick_id, snapshot.snapshot_id)
+        _validate_epistemic_revision_probe_reason_code_vocabulary(
+            epistemic_revision_probe_reason_code_vocabulary,
+            probe=epistemic_revision_probe)
         if not isinstance(tick_id, str) or not tick_id or len(tick_id) > 256:
             raise ResidentDevelopmentalCognitionError("composition_tick_identity_invalid")
         validation = validate_snapshot(snapshot)
@@ -12008,6 +12059,8 @@ class ResidentDevelopmentalCognitionOwner:
                                     epistemic_revision_probe=epistemic_revision_probe,
                                     epistemic_revision_probe_proposition_id=(
                                         epistemic_revision_probe_proposition_id),
+                                    epistemic_revision_probe_reason_code_vocabulary=(
+                                        epistemic_revision_probe_reason_code_vocabulary),
                                     epistemic_revision_probe_expected_prompt_digest=(
                                         epistemic_revision_probe_expected_prompt_digest),
                                     target_model_identity=preflight_target_model_identity,

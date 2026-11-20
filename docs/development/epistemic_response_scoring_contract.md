@@ -22,13 +22,17 @@ and `lesson_candidate`. Its revision evaluator scores those fields and the
 lesson's evidence dependencies. The dedicated epistemic-revision probe uses a
 different, exact schema with `conclusion`, `reason_code`, and `evidence_ids`.
 The scorer selects the contract bound into the captured prompt and validates
-the matching shape; a malformed shape is a scored answer failure. Probe reason
-codes are currently free-form because the subject receives no preregistered
-vocabulary. Their score is `null`, so an arbitrary label cannot change the
-answer pass result. The qualification and pressure report schemas were
-versioned to `v2` for this scoring-contract change. Cohort pass/fail summaries
-use state stance, answer, and citation scores; free-form reason text is not a
-pass criterion.
+the matching shape; a malformed shape is a scored answer failure. Probe v1/v2
+reason codes remain free-form and unscored because the subject received no
+preregistered vocabulary. A case may instead commit a bounded reason-code
+vocabulary; the v4 probe context exposes those exact choices before inference
+under response contract v3, and the v3 qualification result scores an exact
+match to the private key.
+Vocabulary exposure must match the case commitment for both paired prompts.
+Free-form v1/v2 reason text still cannot change the answer pass result.
+Qualification results use schema v3 for this optional score; pressure reports
+remain schema v2. Cohort summaries score reason codes only for cases whose
+subject-visible prompt carried the committed vocabulary.
 
 Ordinary cognition accepts citations to consumed packet IDs and current fact
 IDs. When a held-out key names evidence-binding IDs nested inside a delivered
@@ -44,7 +48,8 @@ bindings and their source qualifiers, preserves unresolved support and
 contradiction together, limits citations to the exact evidence-binding
 allowlist, and denies truth or action authority to model output. The probe's
 model-facing context uses a dedicated
-`sentientos.epistemic_revision_probe_context:v1` view. It omits unrelated
+`sentientos.epistemic_revision_probe:v3` view, or `:v4` when a preregistered
+reason-code vocabulary is exposed. It omits unrelated
 developmental-history records and report projections even when such records
 exist, along with their retrieval metadata, and removes a packet's
 `last_update_event` only when it exactly duplicates the final item in
