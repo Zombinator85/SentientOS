@@ -1930,6 +1930,7 @@ def _verified_resource_strategy_recommendation(
     semantic = {key: value for key, value in recommendation.items()
         if key != "recommendation_digest"}
     requirements = recommendation.get("requirements")
+    selection_reason = recommendation.get("selection_reason")
     if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v3"
             or recommendation.get("evaluator") != "resource_quality_then_measured_call_units:v1"
             or recommendation.get("condition_labels_used_as_quality") is not False
@@ -1938,10 +1939,11 @@ def _verified_resource_strategy_recommendation(
             or recommendation.get("selected_condition_semantics") !=
                 "history_exposure_condition"
             or recommendation.get("claim_scope") != "exact_task_family_only"
-            or recommendation.get("selection_reason") not in {
-                "unique_highest_correct_count",
-                "lowest_measured_call_units_among_equal_quality_conditions"}
-                and recommendation.get("selection_reason") is not None
+            or (selection_reason is not None and (
+                not isinstance(selection_reason, str)
+                or selection_reason not in {
+                    "unique_highest_correct_count",
+                    "lowest_measured_call_units_among_equal_quality_conditions"}))
             or recommendation.get("authority") is not False
             or recommendation.get("current_truth") is not False
             or recommendation.get("historical_only") is not True
