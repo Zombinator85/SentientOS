@@ -2835,6 +2835,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
         probe_results = score.get("probe_results")
         if (not isinstance(probe_inputs, (list, tuple))
                 or not isinstance(probe_results, (list, tuple))
+                or any(type(value) is not int for value in probe_inputs)
+                or len(set(probe_inputs)) != len(probe_inputs)
                 or len(probe_inputs) != len(examples)
                 or len(probe_results) != len(examples)):
             continue
