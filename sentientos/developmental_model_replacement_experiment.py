@@ -1355,6 +1355,19 @@ class ModelReplacementArtifactStore:
             protocol = self.load_verified_protocol(value["protocol"]["protocol_id"],
                 value["protocol"]["protocol_digest"])
             plan = self.verify_objective_plan(protocol)
+            if context_lineage_posture == "verified_persisted_frozen_context":
+                frozen_context = self.load_verified_context(
+                    protocol.causal_context_id, protocol.causal_context_digest)
+                requested_tokens = frozen_context.get("inference_budget", {}).get(
+                    "max_new_tokens")
+                if type(requested_tokens) is not int or any(
+                        not isinstance(observation.get(
+                            "actual_generation_parameters"), Mapping)
+                        or observation["actual_generation_parameters"].get(
+                            "max_new_tokens") != requested_tokens
+                        for observation in value["observations"]):
+                    raise DevelopmentalModelReplacementError(
+                        "objective_generation_budget_drift")
             for observation in value["observations"]:
                 score = observation.get("objective_task_score")
                 _verify_objective_score(plan, score, observation.get("output_digest"),
