@@ -357,7 +357,9 @@ typed receipt summaries per selected record, alongside the record citation
 and explicit self-report/non-effect posture, with a digest and total/omitted
 summary counts; other embodiment details remain omitted. This lets a receipt
 outcome that affected retrieval also inform the response as an attributed
-historical report. Historical v1 attributions remain readable.
+historical report. The ordinary-chat history instruction explicitly says that
+the reported outcome is not an observation or proof of action and requires the
+containing history record citation. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 
