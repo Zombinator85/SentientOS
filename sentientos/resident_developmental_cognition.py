@@ -2821,8 +2821,7 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 or score.get("task_digest") != descriptor.get("task_digest")
                 or score.get("evaluator") != "deterministic_exact_integer_suite_oracle_v2"
                 or not isinstance(score.get("score_digest"), str)
-                or len(score["score_digest"]) != 71
-                or not score["score_digest"].startswith("sha256:")
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", score["score_digest"]) is None
                 or not 1 <= len(examples) <= 16):
             continue
         rows: list[dict[str, Any]] = []
