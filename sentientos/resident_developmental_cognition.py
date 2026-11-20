@@ -1902,6 +1902,37 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
     return body
 
 
+def _verified_resource_strategy_recommendation(
+        example: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Recompute a derived recommendation before it enters a cognition prompt."""
+    recommendation = example.get("resource_strategy_recommendation")
+    condition_outcomes = example.get("condition_outcomes")
+    if not isinstance(recommendation, Mapping) or not isinstance(condition_outcomes, (list, tuple)):
+        return None
+    semantic = {key: value for key, value in recommendation.items()
+        if key != "recommendation_digest"}
+    requirements = recommendation.get("requirements")
+    if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v1"
+            or recommendation.get("evaluator") != "resource_quality_then_measured_call_units:v1"
+            or recommendation.get("condition_labels_used_as_quality") is not False
+            or recommendation.get("authority") is not False
+            or recommendation.get("current_truth") is not False
+            or recommendation.get("historical_only") is not True
+            or not isinstance(requirements, Mapping)
+            or requirements.get("source") != "frozen_task_descriptor_full_suite_correctness"
+            or type(requirements.get("minimum_correct_count")) is not int
+            or type(requirements.get("probe_count")) is not int
+            or requirements.get("minimum_correct_count") != requirements.get("probe_count")
+            or requirements.get("task_digest") != example.get("source_task_digest")
+            or not isinstance(recommendation.get("recommendation_digest"), str)
+            or recommendation["recommendation_digest"] != _digest(semantic)):
+        return None
+    rebuilt = _resource_condition_recommendation(condition_outcomes,
+        minimum_correct_count=requirements["minimum_correct_count"],
+        probe_count=requirements["probe_count"], task_digest=requirements["task_digest"])
+    return dict(recommendation) if rebuilt == dict(recommendation) else None
+
+
 def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str, Any]:
     """Keep decision evidence and exact identities while removing repeated prompt fields."""
     retained = {key: example.get(key) for key in (
@@ -1982,11 +2013,14 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
             compact_outcomes.append(row)
         retained["condition_outcomes"] = compact_outcomes
     recommendation = example.get("resource_strategy_recommendation")
-    if isinstance(recommendation, Mapping):
+    verified_recommendation = _verified_resource_strategy_recommendation(example)
+    if isinstance(recommendation, Mapping) and verified_recommendation is not None:
         compact_recommendation = {key: recommendation.get(key) for key in (
             "schema_version", "evaluator", "posture", "requirements",
             "condition_labels_used_as_quality", "authority", "current_truth",
             "historical_only", "recommendation_digest")}
+        compact_recommendation["verification_posture"] = (
+            "recomputed_from_verified_condition_evidence")
         selected = recommendation.get("recommendation")
         if isinstance(selected, Mapping):
             compact_recommendation["recommendation"] = {key: selected.get(key) for key in (
@@ -1994,6 +2028,12 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
                 "score_digest", "correct_count", "probe_count", "call_units_consumed",
                 "resource_receipts")}
         retained["resource_strategy_recommendation"] = compact_recommendation
+    elif isinstance(recommendation, Mapping):
+        retained["resource_strategy_recommendation_verification"] = {
+            "posture": "recommendation_rejected_on_reverification",
+            "source_task_digest": example.get("source_task_digest"),
+            "authority": False,
+        }
     evidence_conditions = example.get("execution_evidence_conditions")
     if isinstance(evidence_conditions, (list, tuple)):
         retained["execution_evidence_conditions"] = [{key: item.get(key) for key in (

@@ -441,6 +441,11 @@ becomes incomparable. Among options meeting the frozen correctness requirement,
 the bounded evaluator ranks higher correct-probe count first, then lower measured
 `call_units_consumed`. It never infers shared-host CPU/GPU use, or treats
 expenditure as a reward or authority signal.
+Before task-family history reaches a later cognition prompt, the recommendation
+digest and full-suite requirement are checked and the recommendation is rebuilt
+from the retained three-condition score and ledger evidence. A mismatch removes
+the recommendation from the prompt and records a rejected-reverification
+posture; it does not suppress the underlying historical evidence.
 
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
