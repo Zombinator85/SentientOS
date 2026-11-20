@@ -33,6 +33,8 @@ per-probe correct, answered, abstained, and transition counts reconcile with its
 aggregate totals before publishing the immutable report. Objective summaries also
 retain each trial's paired correctness, answer-coverage, and abstention deltas for
 history-present versus withheld, model A versus B, and A restoration comparisons.
+Each paired summary reports positive, negative, and zero trial counts alongside
+the net delta sums, so opposing outcomes remain visible even when their net is zero.
 Unscoreable pairs remain in the trial list with their statuses and null deltas, so
 the aggregate cannot hide which repetitions contributed evidence.
 After restart, `load_report(report_id, expected_report_digest=...)` first checks

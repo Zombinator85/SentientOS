@@ -939,6 +939,10 @@ class DevelopmentalModelReplacementCampaign:
                 "trial_count": count, "scoreable_trial_count": 0,
                 "paired_probe_count": 0, "correct_probe_delta_sum": 0,
                 "answered_probe_delta_sum": 0, "abstained_probe_delta_sum": 0,
+                **{f"{metric}_delta_{direction}_trial_count": 0
+                    for metric in ("correct_probe", "answered_probe",
+                        "abstained_probe")
+                    for direction in ("positive", "negative", "zero")},
             } for name in comparison_conditions}
             for run in runs:
                 score_by_condition = {condition: row["objective_task_score"]
@@ -975,6 +979,14 @@ class DevelopmentalModelReplacementCampaign:
                         accumulator["correct_probe_delta_sum"] += correct_delta
                         accumulator["answered_probe_delta_sum"] += answered_delta
                         accumulator["abstained_probe_delta_sum"] += abstained_delta
+                        for metric, delta in (
+                                ("correct_probe", correct_delta),
+                                ("answered_probe", answered_delta),
+                                ("abstained_probe", abstained_delta)):
+                            direction = ("positive" if delta > 0 else
+                                "negative" if delta < 0 else "zero")
+                            key = f"{metric}_delta_{direction}_trial_count"
+                            accumulator[key] += 1
                 per_trial_paired_scores.append({
                     "trial_id": run["trial_id"],
                     "run_id": run["run_id"],
