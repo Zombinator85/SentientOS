@@ -35,6 +35,7 @@ OBSERVATION_SCHEMA = "sentientos.avatar_independent_observation:v1"
 ATTRIBUTION_SCHEMA = "sentientos.embodied_consequence_attribution:v1"
 COMPARISON_SCHEMA = "sentientos.embodied_prediction_comparison:v1"
 STRATEGY_SCHEMA = "sentientos.embodied_strategy_proposal:v1"
+STRATEGY_SCORING_SCHEMA = "sentientos.embodied_strategy_scoring:v1"
 EXPERIMENT_SCHEMA = "sentientos.embodied_strategy_experiment:v1"
 LEGACY_EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v1"
 EXPERIMENT_RESULT_SCHEMA = "sentientos.embodied_strategy_experiment_result:v2"
@@ -1294,6 +1295,8 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal],
             "resource_source_citations":resource_source_citations,
             "unverified_resource_factual_assertions":unverified_resource_assertions,
             "unsupported_factual_assertions":unsupported,"repeats_previously_contradicted_action":contradicted and p.retry_prior_strategy,
+            "proposal_to_prior_command_comparison": compare_strategy_proposal_to_prior_command(
+                proposal=p, consequence=consequence),
             "requests_more_evidence_under_unresolved_attribution":p.more_observation_required if consequence["causal_attribution_posture"] in {"external_interference_possible","causal_attribution_insufficient"} else None,
             "distinguishes_renderer_report_from_independent_observation":p.distinguishes_renderer_and_observer,
             "unsupported_body_modification":p.alter_body_or_rig and not bool(cited),"provenance_correct":cited<=known,
@@ -1305,7 +1308,8 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal],
     elif not structural[1]: outcome="unstable"
     elif structural[0]: outcome="unchanged"
     else: outcome="changed"
-    payload={"proposal_structural_equalities":{"present_equals_withheld":structural[0],"present_equals_restored":structural[1]},
+    payload={"schema_version":STRATEGY_SCORING_SCHEMA,
+        "proposal_structural_equalities":{"present_equals_withheld":structural[0],"present_equals_restored":structural[1]},
         "proposal_scores":rows,"outcome":outcome,"improvement_claimed":False,"authority":dict(FALSE_AUTHORITY)}
     payload["score_digest"]=digest(payload); return payload
 
