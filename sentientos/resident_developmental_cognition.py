@@ -4693,7 +4693,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
             packet["historical_embodiment_report_count"] = len(embodiment_context)
             packet["historical_embodiment_reports_posture"] = (
-                "receipt_summaries_retained_other_details_omitted_for_cognition_input_budget")
+                "details_omitted_for_cognition_input_budget")
             receipt_candidates: list[tuple[int, int, dict[str, Any]]] = []
             receipt_summary_count = 0
             query_terms = cognition_query_terms(relevance_query or "")
@@ -4737,6 +4737,8 @@ def _history_context_packet(record: Mapping[str, Any], *,
             selected_receipt_candidates.sort(key=lambda item: item[1])
             receipt_reports = [item[2] for item in selected_receipt_candidates]
             if receipt_reports:
+                packet["historical_embodiment_reports_posture"] = (
+                    "receipt_summaries_retained_other_details_omitted_for_cognition_input_budget")
                 packet["historical_embodiment_reports"] = receipt_reports
                 packet["historical_embodiment_receipt_summary_count"] = (
                     receipt_summary_count)
