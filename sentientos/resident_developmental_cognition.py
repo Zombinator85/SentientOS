@@ -7398,10 +7398,15 @@ class ResidentDevelopmentalCognitionOwner:
                 or not isinstance(source_text, str)
                 or digest_payload({"output": source_text}) != observation.get("output_digest")):
             raise ResidentDevelopmentalCognitionError("recovered_cognition_candidate_source_mismatch")
-        consumed = (set(observation.get("retrieved_record_ids", ()))
-            | set(observation.get("current_fact_ids", ()))
-            | set(observation.get("self_model_claim_ids", ()))
-            | set(observation.get("epistemic_consumed_packet_ids", ())))
+        consumed_groups = tuple(observation.get(key, ()) for key in (
+            "retrieved_record_ids", "current_fact_ids", "self_model_claim_ids",
+            "epistemic_consumed_packet_ids"))
+        if any(not isinstance(group, (list, tuple))
+                or any(not isinstance(item, str) or not item for item in group)
+                for group in consumed_groups):
+            raise ResidentDevelopmentalCognitionError(
+                "recovered_cognition_candidate_output_invalid")
+        consumed = set().union(*(set(group) for group in consumed_groups))
         try:
             parsed = _parse_cognition_lesson_output(source_text, consumed)
         except (TypeError, ValueError, json.JSONDecodeError) as exc:
