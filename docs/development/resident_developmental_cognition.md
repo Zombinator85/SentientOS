@@ -428,7 +428,9 @@ Resource-aware task-family recommendations compare the exact
 They require a distinct verified inference receipt for each condition and
 distinct measured-consumption receipt IDs and digests across all conditions;
 repeated receipts make the comparison incomparable instead of counting the
-same cost more than once. Among options meeting the frozen correctness
+same cost more than once. The full-suite correctness threshold comes from the
+salted preregistered task descriptor, and a score's observed coverage cannot
+lower it. Among options meeting the frozen correctness
 requirement, the bounded evaluator ranks higher correct-probe count first, then
 lower measured `call_units_consumed`. It never infers shared-host CPU/GPU use,
 or treats expenditure as a reward or authority signal.

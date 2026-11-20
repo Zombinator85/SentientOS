@@ -2936,11 +2936,18 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         **({"unqualified_lineage": unqualified[:4]} if unqualified else {})}),
                     "historical_only": True, "current_truth": False, "authority": False,
                 })
-        observed_probe_count = score.get("probe_count")
+        # The quality threshold comes from the salted preregistered task
+        # descriptor. A score artifact's own coverage cannot lower the bar.
+        descriptor_probe_inputs = descriptor.get("probe_inputs")
+        frozen_probe_count = descriptor.get("probe_count")
+        if (not isinstance(descriptor_probe_inputs, (list, tuple))
+                or type(frozen_probe_count) is not int
+                or len(descriptor_probe_inputs) != frozen_probe_count):
+            frozen_probe_count = 0
         resource_strategy_recommendation = _resource_condition_recommendation(
             condition_outcomes,
-            minimum_correct_count=(observed_probe_count if type(observed_probe_count) is int else 0),
-            probe_count=(observed_probe_count if type(observed_probe_count) is int else 0),
+            minimum_correct_count=frozen_probe_count,
+            probe_count=frozen_probe_count,
             task_digest=str(descriptor.get("task_digest", "")))
         # Keep the execution posture attached to the acquired examples when
         # they are retrieved later.  A deterministic task score establishes
