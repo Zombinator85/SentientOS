@@ -1480,6 +1480,20 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
                         or not isinstance(measured_values, Mapping)
                         or not isinstance(measurement.get("measurement_posture"), Mapping)):
                     raise DevelopmentalWritebackError("resource_measurement_projection_invalid")
+                observed_at = measurement.get("observed_at")
+                if observed_at is not None:
+                    try:
+                        parsed_event_time = datetime.fromisoformat(
+                            observed_at.replace("Z", "+00:00")
+                            if isinstance(observed_at, str) else "")
+                    except ValueError as exc:
+                        raise DevelopmentalWritebackError(
+                            "resource_measurement_projection_invalid") from exc
+                    if (len(observed_at) > 64 or parsed_event_time.tzinfo is None
+                            or parsed_event_time.utcoffset() is None
+                            or observed_at.endswith("-00:00")):
+                        raise DevelopmentalWritebackError(
+                            "resource_measurement_projection_invalid")
                 for key, value in measured_values.items():
                     if key not in {"generation_attempted", "call_units_consumed",
                             "generated_output_size_bytes", "returned_output_size_bytes",
@@ -1501,6 +1515,8 @@ def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, An
             summary["resource_consumption_evidence"] = [{
                 "receipt_id": item["receipt_id"],
                 "receipt_digest": item["receipt_digest"],
+                **({"observed_at": item["observed_at"]}
+                    if isinstance(item.get("observed_at"), str) else {}),
                 "measured_values": {key: value for key, value in
                     item["measured_values"].items() if key in measurement_fields},
                 "measurement_posture": {key: value for key, value in

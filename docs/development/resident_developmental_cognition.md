@@ -430,7 +430,10 @@ distinct measured-consumption receipt IDs and digests across all conditions;
 repeated receipts make the comparison incomparable instead of counting the
 same cost more than once. The full-suite correctness threshold comes from the
 salted preregistered task descriptor, and a score's observed coverage cannot
-lower it. Among options meeting the frozen correctness
+lower it. Timezone-aware per-receipt event times are preserved into the later
+history projection and recommendation when supplied by the ledger; malformed
+times make the comparison incomparable, while legacy receipts without event
+times remain explicitly undated. Among options meeting the frozen correctness
 requirement, the bounded evaluator ranks higher correct-probe count first, then
 lower measured `call_units_consumed`. It never infers shared-host CPU/GPU use,
 or treats expenditure as a reward or authority signal.

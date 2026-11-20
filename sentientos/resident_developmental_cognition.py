@@ -1765,12 +1765,19 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                     if isinstance(receipt, Mapping) else None
                 values = receipt.get("measured_values") if isinstance(receipt, Mapping) else None
                 value = values.get("call_units_consumed") if isinstance(values, Mapping) else None
+                event_time = receipt.get("observed_at") if isinstance(receipt, Mapping) else None
                 if (not isinstance(receipt_id, str) or not receipt_id
                         or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
                         or any(character not in "0123456789abcdef"
                             for character in receipt_digest)
                         or type(value) is not int or value < 0):
                     posture = "incomparable_unknown_call_units"
+                    candidates = []
+                    break
+                if (event_time is not None
+                        and (not isinstance(event_time, str) or len(event_time) > 64
+                            or not _aware_event_time(event_time))):
+                    posture = "incomparable_invalid_resource_event_time"
                     candidates = []
                     break
                 if (receipt_id in seen_consumption_receipt_ids
@@ -1782,7 +1789,8 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                 seen_consumption_receipt_digests.add(receipt_digest)
                 call_units.append(value)
                 receipt_bindings.append({"receipt_id": receipt_id,
-                    "receipt_digest": receipt_digest, "call_units_consumed": value})
+                    "receipt_digest": receipt_digest, "call_units_consumed": value,
+                    **({"observed_at": event_time} if event_time is not None else {})})
             if not candidates and posture != "comparable":
                 break
             candidates.append({"condition_id": condition_id,
@@ -1847,6 +1855,8 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         if isinstance(measurements, (list, tuple)):
             refs = [{"receipt_id": item.get("receipt_id"),
                 "receipt_digest": item.get("receipt_digest"),
+                **({"observed_at": item.get("observed_at")}
+                    if isinstance(item.get("observed_at"), str) else {}),
                 "measured_values": item.get("measured_values")}
                 for item in measurements if isinstance(item, Mapping)]
             retained_resource_context["measurement_receipt_refs"] = refs
@@ -1873,6 +1883,8 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
                     resource["resource_receipts"] = [{
                         "receipt_id": item.get("receipt_id"),
                         "receipt_digest": item.get("receipt_digest"),
+                        **({"observed_at": item.get("observed_at")}
+                            if isinstance(item.get("observed_at"), str) else {}),
                         "measured_values": item.get("measured_values"),
                         "measurement_posture": item.get("measurement_posture"),
                     } for item in receipts if isinstance(item, Mapping)]
@@ -2739,14 +2751,21 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         break
                     receipt_id, receipt_digest = row.get("receipt_id"), row.get("receipt_digest")
                     values, posture = row.get("measured_values"), row.get("measurement_posture")
+                    receipt_event_time = row.get("observed_at")
                     if (not isinstance(receipt_id, str) or not receipt_id
                             or not isinstance(receipt_digest, str)
                             or receipt_digest not in linked_digests
+                            or (receipt_event_time is not None
+                                and (not isinstance(receipt_event_time, str)
+                                    or len(receipt_event_time) > 64
+                                    or not _aware_event_time(receipt_event_time)))
                             or not isinstance(values, Mapping) or not isinstance(posture, Mapping)):
                         valid_evidence = False
                         break
                     measurements.append({
                         "receipt_id": receipt_id, "receipt_digest": receipt_digest,
+                        **({"observed_at": receipt_event_time}
+                            if receipt_event_time is not None else {}),
                         "measured_values": {key: value for key, value in values.items()
                             if key in {"generation_attempted", "call_units_consumed",
                                 "generated_output_size_bytes", "returned_output_size_bytes",
@@ -2879,6 +2898,10 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                                 or any(character not in "0123456789abcdef"
                                     for character in measurement["receipt_digest"])
                                 or measurement["receipt_digest"] not in linked
+                                or (measurement.get("observed_at") is not None
+                                    and (not isinstance(measurement.get("observed_at"), str)
+                                        or len(measurement["observed_at"]) > 64
+                                        or not _aware_event_time(measurement["observed_at"])))
                                 or not isinstance(measurement.get("measured_values"), Mapping)
                                 or not isinstance(measurement.get("measurement_posture"), Mapping)):
                             valid = False
@@ -2886,6 +2909,8 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                         measurements.append({
                             "receipt_id": measurement["receipt_id"],
                             "receipt_digest": measurement["receipt_digest"],
+                            **({"observed_at": measurement["observed_at"]}
+                                if isinstance(measurement.get("observed_at"), str) else {}),
                             "measured_values": {key: value for key, value in
                                 measurement["measured_values"].items() if key in {
                                     "generation_attempted", "call_units_consumed",
