@@ -105,11 +105,13 @@ run IDs and run digests, deduplicates repeated probe inputs, rejects conflicting
 answers, excludes adverse or unsettled source-outcome groups, and binds the
 summary to the contributing run, score, record, and source-model digests. The
 prompt-bound summary includes each run's distinct-input count and a digest of
-those counts, making the cross-run qualification auditable. The relation remains
-historical guidance: it establishes neither learning nor cross-model performance
-transfer. The projection digest records whether this accumulated candidate was
-included in each history-present/restored prompt; real-model use and transfer
-remain unverified.
+those counts, plus the number and source counts of bound model identities and
+unbound model sources. These summaries make the cross-run qualification and
+source-model coverage auditable. The relation remains historical guidance: it
+establishes neither learning nor cross-model performance transfer. The
+projection digest records whether this accumulated candidate was included in
+each history-present/restored prompt; real-model use and transfer remain
+unverified.
 
 Within equal outcome posture and model applicability, retrieval ranks exact
 overlap with the current task's probe inputs before the number of distinct

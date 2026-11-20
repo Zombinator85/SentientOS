@@ -1954,7 +1954,7 @@ def test_incorrect_family_experience_remains_adverse_through_writeback_and_trans
     prompt_projection = final_history_request.upstream_evidence[
         "task_family_history_prompt_projection"]
     assert prompt_projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v12"
+        "sentientos.task_family_history_prompt_projection:v13"
     [projected_prior_errors] = prompt_projection["prior_incorrect_examples"]
     assert prompt_projection["prior_incorrect_example_count"] == 3
     assert projected_prior_errors["record_id"] == retained.record_id
@@ -2745,7 +2745,7 @@ def test_task_family_projection_separates_correct_and_incorrect_examples() -> No
         condition_id="history_present", task_family_id="integer_affine_prediction")
     assert projection["task_relevant_example_count"] == 1
     assert projection["schema_version"] == \
-        "sentientos.task_family_history_prompt_projection:v12"
+        "sentientos.task_family_history_prompt_projection:v13"
     assert projection["records"][0]["evaluator_correct_count"] == 1
     assert projection["records"][0]["evaluator_incorrect_count"] == 2
     assert projection["records"][0]["prior_incorrect_example_count"] == 2
