@@ -18,7 +18,7 @@ from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import urlsplit
 
 from .epistemic_revision_qualification import (
-    STANCES, IndependentAnswerKey, RevisionCase, _canonical, _digest, _object,
+    IndependentAnswerKey, RevisionCase, _canonical, _digest, _object,
 )
 from .external_model_custody import (
     CustodyRegistry, CustodyValidationError, InvocationReceipt,
@@ -443,7 +443,8 @@ def _score_external_observation(*, case: RevisionCase, side: str,
                 reason_code = answer.get("reason_code")
                 shape_valid = (
                     set(answer) == {"conclusion", "reason_code", "evidence_ids"}
-                    and isinstance(conclusion, str) and conclusion in STANCES
+                    and isinstance(conclusion, str) and bool(conclusion.strip())
+                    and len(conclusion) <= 4096
                     and isinstance(reason_code, str) and bool(reason_code.strip())
                     and len(reason_code) <= 128
                     and isinstance(citations, list) and len(citations) <= 256
