@@ -34,7 +34,8 @@ RESULT_ID_PREFIX = "ordinary-history-result-"
 EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v3"
 EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
 COHORT_SUMMARY_ID_PREFIX = "ordinary-history-cohort-"
-COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v2"
+LEGACY_COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v2"
+COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v3"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -982,6 +983,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 raise ValueError("ordinary_chat_history_cohort_comparison_invalid")
             trial_deltas[comparison].append({
                 "trial_index": evaluation["trial_index"],
+                "condition_order": list(evaluation["condition_order"]),
                 "scoreable": item["scoreable"],
                 "correct_count_delta": item["correct_count_delta"],
                 "probe_count": item["probe_count"],
@@ -993,6 +995,12 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 raise ValueError("ordinary_chat_history_cohort_restoration_invalid")
             restoration_stable.append(stable)
     aggregate: dict[str, dict[str, Any]] = {}
+    condition_orders = tuple(tuple(ordinary_chat_history_condition_order(index))
+        for index in range(6))
+    favored_conditions = {
+        "history_present_vs_history_withheld": "history_present",
+        "history_restored_vs_history_withheld": "history_restored",
+    }
     for comparison, rows in trial_deltas.items():
         scoreable_rows = [row for row in rows if row["scoreable"]]
         probe_accumulators: dict[str, dict[str, Any]] = {}
@@ -1034,6 +1042,35 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             outcome_transitions[pair] = outcome_transitions.get(pair, 0) + 1
         probe_summaries = sorted(probe_accumulators.values(),
             key=lambda item: item["probe_id"])
+        order_strata = []
+        for condition_order in condition_orders:
+            order_rows = [row for row in rows
+                if tuple(row["condition_order"]) == condition_order]
+            scoreable_order_rows = [row for row in order_rows if row["scoreable"]]
+            order_probe_outcomes = [probe for row in scoreable_order_rows
+                for probe in row["per_probe_outcomes"]]
+            favored_condition = favored_conditions[comparison]
+            order_strata.append({
+                "condition_order": list(condition_order),
+                "favored_condition_position": condition_order.index(favored_condition),
+                "reference_condition_position": condition_order.index(
+                    "history_withheld"),
+                "trial_count": len(order_rows),
+                "scoreable_trial_count": len(scoreable_order_rows),
+                "correct_count_delta_sum": sum(
+                    row["correct_count_delta"] for row in scoreable_order_rows),
+                "probe_count_sum": sum(
+                    row["probe_count"] for row in scoreable_order_rows),
+                "favored_correctness_gain_count": sum(
+                    probe["correctness_delta"] == 1
+                    for probe in order_probe_outcomes),
+                "favored_correctness_loss_count": sum(
+                    probe["correctness_delta"] == -1
+                    for probe in order_probe_outcomes),
+                "correctness_tie_count": sum(
+                    probe["correctness_delta"] == 0
+                    for probe in order_probe_outcomes),
+            })
         aggregate[comparison] = {
             "trial_count": len(rows), "scoreable_trial_count": len(scoreable_rows),
             "paired_probe_observation_count": len(paired_observations),
@@ -1044,6 +1081,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             "correctness_tie_count": sum(
                 probe["correctness_delta"] == 0 for probe in paired_observations),
             "outcome_transition_counts": outcome_transitions,
+            "order_stratified_summary": order_strata,
             "correct_count_delta_sum": sum(row["correct_count_delta"]
                 for row in scoreable_rows),
             "probe_count_sum": sum(row["probe_count"] for row in scoreable_rows),
@@ -1084,6 +1122,20 @@ def verify_ordinary_chat_history_intervention_cohort_summary(
         summary: Mapping[str, Any], *,
         evaluations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     rebuilt = build_ordinary_chat_history_intervention_cohort_summary(evaluations)
+    if isinstance(summary, Mapping) and summary.get("schema_version") == (
+            LEGACY_COHORT_SUMMARY_SCHEMA):
+        legacy_semantic = {key: value for key, value in rebuilt.items()
+            if key not in {"summary_id", "summary_digest"}}
+        legacy_semantic["schema_version"] = LEGACY_COHORT_SUMMARY_SCHEMA
+        comparisons = legacy_semantic["planned_comparisons"]
+        for comparison in comparisons.values():
+            comparison.pop("order_stratified_summary", None)
+            for row in comparison["per_trial"]:
+                row.pop("condition_order", None)
+        legacy_digest = digest_payload(legacy_semantic)
+        rebuilt = {**legacy_semantic,
+            "summary_id": COHORT_SUMMARY_ID_PREFIX + legacy_digest[:24],
+            "summary_digest": legacy_digest}
     if dict(summary) != rebuilt:
         raise ValueError("ordinary_chat_history_cohort_summary_digest_mismatch")
     return {"schema_version": "sentientos.ordinary_chat_history_cohort_summary_verification:v1",
