@@ -2245,7 +2245,7 @@ def _task_family_history_retrieval_utility(experiences: object, *,
     if not isinstance(experiences, (list, tuple)):
         return (0, 0, 0)
     outcome_priority = 0
-    usable_example_count = 0
+    usable_probe_inputs: set[int] = set()
     probe_overlap: set[int] = set()
     for experience in experiences:
         if not isinstance(experience, Mapping):
@@ -2295,7 +2295,10 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         outcome_priority = max(outcome_priority, priority)
         # Score-bound errors are useful negative context, but remain below
         # records with positive guidance because outcome priority sorts first.
-        usable_example_count += len(guidance) + len(prior_incorrect) + len(prior_abstained)
+        for item in (*guidance, *prior_incorrect, *prior_abstained):
+            probe_input = item.get("probe_input")
+            if type(probe_input) is int:
+                usable_probe_inputs.add(probe_input)
         probe_overlap.update(item["probe_input"] for item in guidance
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
@@ -2305,7 +2308,7 @@ def _task_family_history_retrieval_utility(experiences: object, *,
         probe_overlap.update(item["probe_input"] for item in prior_abstained
             if type(item.get("probe_input")) is int
             and item["probe_input"] in task_probe_inputs)
-    return outcome_priority, usable_example_count, len(probe_overlap)
+    return outcome_priority, len(usable_probe_inputs), len(probe_overlap)
 
 
 def _task_family_corroborated_favorable_runs(experiences_by_record: Mapping[str, object], *,
@@ -5930,6 +5933,8 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
                 "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
                 "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6",
                 "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7",
+                "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_unique_probe_coverage_then_recency_fill:v8",
+                "task_family_probe_overlap_then_unique_probe_coverage_then_recency_fill:v3",
                 "query_overlap_then_recency_fill:v1",
                 "query_overlap_with_operator_reports_then_recency_fill:v2",
                 "query_overlap_with_operator_reports_then_recency_fill:v3",
@@ -5958,7 +5963,9 @@ def _validate_developmental_history_selection(value: Mapping[str, Any]) -> None:
         "task_family_model_identity_then_probe_overlap_then_recency_fill:v3",
         "task_family_model_identity_then_outcome_guidance_then_probe_overlap_then_recency_fill:v4",
         "task_family_outcome_guidance_then_model_identity_then_probe_overlap_then_recency_fill:v6",
-        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"}
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7",
+        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_unique_probe_coverage_then_recency_fill:v8",
+        "task_family_probe_overlap_then_unique_probe_coverage_then_recency_fill:v3"}
     if family_policy != isinstance(family, str):
         raise ResidentDevelopmentalCognitionError(
             "developmental_history_selection_policy_family_mismatch")
@@ -9054,7 +9061,7 @@ class ResidentDevelopmentalCognitionOwner:
             relevance: dict[str, int] = {}
             model_relevance: dict[str, int] = {}
             outcome_relevance: dict[str, int] = {}
-            task_example_counts: dict[str, int] = {}
+            task_probe_coverage_counts: dict[str, int] = {}
             experiences_by_record: dict[str, list[dict[str, Any]]] = {}
             matching_facts_by_record: dict[str, list[Mapping[str, Any]]] = {}
             for record_id in reversed(ids):
@@ -9104,7 +9111,7 @@ class ResidentDevelopmentalCognitionOwner:
                     corroborated_favorable_runs=corroborated_favorable_runs,
                     conflicting_probe_inputs=conflicting_probe_inputs,
                     unsettled_outcome_groups=unsettled_outcome_groups)
-                outcome_relevance[record_id], task_example_counts[record_id], \
+                outcome_relevance[record_id], task_probe_coverage_counts[record_id], \
                     relevance[record_id] = utility
             # Measured outcome posture and evaluator-correct guidance rank first;
             # score-bound errors can rank within the lowest outcome tier so they
@@ -9120,7 +9127,7 @@ class ResidentDevelopmentalCognitionOwner:
             # used by the existing three-condition experiment.
             relevant_newest_first.sort(key=lambda record_id: (
                 outcome_relevance[record_id], model_relevance[record_id],
-                relevance[record_id], task_example_counts[record_id],
+                relevance[record_id], task_probe_coverage_counts[record_id],
                 ids.index(record_id)), reverse=True)
             selected = list(relevant_newest_first[:self.config.max_retrieved_records])
             selected_set = set(selected)
@@ -9140,14 +9147,14 @@ class ResidentDevelopmentalCognitionOwner:
                 # The prompt binder admits a complete suffix as capacity shrinks.
                 # Order the selected set from least to most relevant so that
                 # every smaller suffix keeps the best outcome, model, and
-                # exact-probe matches before example volume;
+                # exact-probe matches before distinct usable probe coverage;
                 # checkpoint order remains the stable tie-breaker.
                 ids = sorted((record_id for record_id in ids
                     if record_id in selected_set), key=lambda record_id: (
                         outcome_relevance.get(record_id, 0),
                         model_relevance.get(record_id, 0),
                         relevance.get(record_id, -1),
-                        task_example_counts.get(record_id, 0), ids.index(record_id)))
+                        task_probe_coverage_counts.get(record_id, 0), ids.index(record_id)))
             else:
                 # Keep the established family-only order for legacy callers.
                 ids = list(reversed(selected))
@@ -10675,11 +10682,11 @@ class ResidentDevelopmentalCognitionOwner:
             if (getattr(projection, "retrieval_policy_id", None) is not None
                 and interaction_question is not None
                 and condition_id == "companion-interaction") else
-            "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"
+            "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_unique_probe_coverage_then_recency_fill:v8"
             if (isinstance(task_family_id, str)
                 and isinstance(observed_target_identity, Mapping)
                 and bool(observed_target_identity))
-            else "task_family_probe_overlap_then_recency_fill:v2"
+            else "task_family_probe_overlap_then_unique_probe_coverage_then_recency_fill:v3"
             if isinstance(task_family_id, str) else
             "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
             if interaction_question is not None
@@ -12161,11 +12168,11 @@ class ResidentDevelopmentalCognitionOwner:
                             "requires_task_family_history") is True),
                     "developmental_history_target_model_identity": preflight_target_model_identity,
                     "developmental_history_retrieval_policy_id": (
-                        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_example_volume_then_recency_fill:v7"
+                        "task_family_outcome_guidance_then_model_identity_then_probe_overlap_before_unique_probe_coverage_then_recency_fill:v8"
                         if (isinstance(family_for_preflight, str)
                             and isinstance(preflight_target_model_identity, Mapping)
                             and bool(preflight_target_model_identity))
-                        else "task_family_probe_overlap_then_recency_fill:v2"
+                        else "task_family_probe_overlap_then_unique_probe_coverage_then_recency_fill:v3"
                         if isinstance(family_for_preflight, str)
                         else "completed_tick_recency_suffix:v1"),
                 }
