@@ -976,8 +976,10 @@ evaluation artifacts from one session, task, scorer, serving-model identity,
 generation configuration, shared non-history prompt, and exact selected-history
 projection. It requires a complete trial sequence from
 index zero in full six-trial counterbalance blocks, so an interrupted or
-omitted trial prevents a seemingly complete cohort summary. It reports paired
-correct-count deltas and paired per-probe outcomes for every trial, aggregates
+omitted trial prevents a seemingly complete cohort summary. It verifies that
+the six scheduled orders are distinct and each occurs once per block. It
+reports paired correct-count deltas and paired per-probe outcomes for every
+trial, aggregates
 correctness and outcome transitions per probe across scoreable repetitions,
 reports paired probe gains, losses, ties, and outcome-transition counts, and
 reports restoration-score stability while retaining unscoreable outcomes in

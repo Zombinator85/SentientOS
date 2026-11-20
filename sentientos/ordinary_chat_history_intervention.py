@@ -1110,6 +1110,9 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     aggregate: dict[str, dict[str, Any]] = {}
     condition_orders = tuple(tuple(ordinary_chat_history_condition_order(index))
         for index in range(6))
+    if len(set(condition_orders)) != 6:
+        raise ValueError("ordinary_chat_history_cohort_schedule_permutations_invalid")
+    expected_trials_per_order = len(ordered) // 6
     favored_conditions = {
         "history_present_vs_history_withheld": "history_present",
         "history_restored_vs_history_withheld": "history_restored",
@@ -1159,6 +1162,8 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         for condition_order in condition_orders:
             order_rows = [row for row in rows
                 if tuple(row["condition_order"]) == condition_order]
+            if len(order_rows) != expected_trials_per_order:
+                raise ValueError("ordinary_chat_history_cohort_schedule_balance_invalid")
             scoreable_order_rows = [row for row in order_rows if row["scoreable"]]
             order_probe_outcomes = [probe for row in scoreable_order_rows
                 for probe in row["per_probe_outcomes"]]
@@ -1232,6 +1237,8 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     for condition_order in condition_orders:
         order_rows = [row for row in restoration_probe_per_trial
             if tuple(row["condition_order"]) == condition_order]
+        if len(order_rows) != expected_trials_per_order:
+            raise ValueError("ordinary_chat_history_cohort_schedule_balance_invalid")
         scoreable_score_rows = [row for row in order_rows
             if row["score_stable"] is not None]
         scoreable_pattern_rows = [row for row in order_rows if row["scoreable"]]
