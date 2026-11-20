@@ -3414,7 +3414,11 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             if len(attempts) != 1 or (allocations and attempts
                     and attempts[0].get("allocation_id") != allocations[0].get("allocation_id")):
                 findings.append("resource_attempt_missing_or_substituted")
-            ledger_receipts = [item for item in resource_payload.get("consumption_receipts", ())
+            raw_consumption_receipts = resource_payload.get("consumption_receipts", ())
+            if not isinstance(raw_consumption_receipts, (list, tuple)):
+                findings.append("resource_consumption_receipt_collection_invalid")
+                raw_consumption_receipts = ()
+            ledger_receipts = [item for item in raw_consumption_receipts
                 if isinstance(item, Mapping) and item.get("receipt_digest") in expected_receipts]
             if (len(ledger_receipts) != len(expected_receipts)
                     or len({item.get("receipt_digest") for item in ledger_receipts}) != len(expected_receipts)
@@ -3427,6 +3431,42 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 and item.get("effect_receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")]
             if len(reconciled) != 1:
                 findings.append("resource_effect_receipt_not_reconciled")
+            begun = [item for item in raw_consumption_receipts
+                if isinstance(item, Mapping)
+                and item.get("attempt_id") == proposal_resource_linkage.get("attempt_id")
+                and item.get("allocation_digest") ==
+                    proposal_resource_linkage.get("allocation_digest")
+                and item.get("state") == "attempt_begun"]
+            measured = [item for item in ledger_receipts
+                if item.get("state") in {"measured_completed", "measured_timeout",
+                    "measured_backend_failure", "measured_cancelled"}]
+            if (len(ledger_receipts) != 2 or len(begun) != 1 or len(measured) != 1
+                    or len(reconciled) != 1):
+                findings.append("resource_consumption_receipt_chain_incomplete")
+            else:
+                begun_row, measured_row, reconciled_row = (
+                    begun[0], measured[0], reconciled[0])
+                measured_values = measured_row.get("measured_values")
+                reconciled_values = reconciled_row.get("measured_values")
+                if (begun_row.get("previous_receipt_digest") is not None
+                        or begun_row.get("effect_receipt_digest") is not None
+                        or measured_row.get("previous_receipt_digest")
+                            != begun_row.get("receipt_digest")
+                        or measured_row.get("effect_receipt_digest") is not None
+                        or reconciled_row.get("previous_receipt_digest")
+                            != measured_row.get("receipt_digest")
+                        or reconciled_row.get("effect_receipt_digest")
+                            != proposal_resource_linkage.get("effect_receipt_digest")
+                        or not isinstance(measured_values, Mapping)
+                        or not isinstance(reconciled_values, Mapping)
+                        or dict(measured_values) != dict(reconciled_values)
+                        or any(not isinstance(item.get("measured_values"), Mapping)
+                            or item["measured_values"].get("generation_attempted") is not True
+                            or type(item["measured_values"].get(
+                                "call_units_consumed")) is not int
+                            or item["measured_values"].get("call_units_consumed") != 1
+                            for item in (begun_row, measured_row, reconciled_row))):
+                    findings.append("resource_consumption_receipt_chain_invalid")
             if resource_record.get("digest") != record_digest(resource_record):
                 findings.append("resource_world_state_record_digest_invalid")
 

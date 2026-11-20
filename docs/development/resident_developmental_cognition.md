@@ -441,6 +441,12 @@ becomes incomparable. Among options meeting the frozen correctness requirement,
 the bounded evaluator ranks higher correct-probe count first, then lower measured
 `call_units_consumed`. It never infers shared-host CPU/GPU use, or treats
 expenditure as a reward or authority signal.
+The strategy/model invocation-resource join also checks the exact ledger chain:
+the invocation-linked measured and reconciled rows must be unique, the owner
+projection must retain their `attempt_begun` predecessor, both predecessor
+digests and the inference effect digest must link in order, and the reconciled
+measurement must equal the measured row. Incomplete or substituted chains stay
+degraded and are withheld from verified resource evidence.
 In cognition prompts, the three condition names are explicitly described as
 experimental history-exposure labels, not current-task directives. A surfaced
 recommendation remains tentative, task-family-scoped retrospective evidence;

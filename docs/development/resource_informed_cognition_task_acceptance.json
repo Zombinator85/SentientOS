@@ -5,7 +5,7 @@
   "exact_nodes": [
     {
       "node_id": "tests/test_strategy_resource_lineage_integration.py::test_resource_linked_strategy_proposals_join_to_reconciled_ledger",
-      "expected": "Canonical writeback retains the exact measured consumption rows and their receipt digest bindings alongside the admitted scored developmental outcome."
+      "expected": "Canonical writeback retains the exact measured and reconciled consumption rows and their receipt digest bindings alongside the admitted scored developmental outcome; the owner ledger projection retains and verifies the attempt_begun predecessor, exact predecessor chain, and equality of measured and reconciled values."
     },
     {
       "node_id": "tests/test_resident_developmental_cognition.py::test_admitted_family_example_supports_second_heldout_episode_after_restart",
