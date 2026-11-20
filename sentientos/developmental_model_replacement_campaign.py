@@ -32,7 +32,8 @@ STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
 LEGACY_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
 PREVIOUS_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
 PREVIOUS_PROBE_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
-REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v4"
+PREVIOUS_PAIRED_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v4"
+REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v5"
 WORLD_STATE_RECORD_SCHEMA = (
     "sentientos.developmental_model_replacement_campaign_world_state_record:v1")
 MIN_TRIALS = 2
@@ -1028,7 +1029,8 @@ class DevelopmentalModelReplacementCampaign:
     def _report_for_schema(self, report: Mapping[str, Any],
             schema_version: str) -> dict[str, Any]:
         if schema_version not in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
-                PREVIOUS_PROBE_REPORT_SCHEMA, REPORT_SCHEMA}:
+                PREVIOUS_PROBE_REPORT_SCHEMA, PREVIOUS_PAIRED_REPORT_SCHEMA,
+                REPORT_SCHEMA}:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_schema_unsupported")
         semantic = json.loads(json.dumps({key: value for key, value in report.items()
@@ -1072,6 +1074,23 @@ class DevelopmentalModelReplacementCampaign:
                         scored[condition] = legacy_answered
                     objective["condition_answered_probe_count"] = dict(answered)
                     objective["condition_scored_probe_count"] = dict(scored)
+                semantic["objective_evaluation"] = objective
+        elif schema_version == PREVIOUS_PAIRED_REPORT_SCHEMA:
+            if isinstance(objective, Mapping):
+                objective = dict(objective)
+                paired = objective.get("paired_score_comparisons")
+                if isinstance(paired, Mapping):
+                    paired_without_directions: dict[str, Any] = {}
+                    for name, raw_counts in paired.items():
+                        if not isinstance(raw_counts, Mapping):
+                            raise DevelopmentalModelReplacementError(
+                                "campaign_report_paired_summary_invalid")
+                        paired_without_directions[name] = {
+                            key: value for key, value in raw_counts.items()
+                            if not (key.endswith("_delta_positive_trial_count")
+                                or key.endswith("_delta_negative_trial_count")
+                                or key.endswith("_delta_zero_trial_count"))}
+                    objective["paired_score_comparisons"] = paired_without_directions
                 semantic["objective_evaluation"] = objective
         semantic["schema_version"] = schema_version
         digest = _digest(semantic)
