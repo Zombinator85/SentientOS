@@ -26,7 +26,7 @@ Before inference, `sentientos.developmental_model_replacement_protocol:v1`, both
 4. `model_b_history_withheld`
 5. `model_a_history_restored`
 
-The instrument compares A+H/A-H, B+H/B-H, A+H/B+H, A-H/B-H, and baseline A+H/restored A+H. Durable observations contain prompt/output/request/receipt digests and identities, never raw output. Before and after every call it checks the exact endpoint identity, frozen context, and immutable protocol; it also checks completed non-fallback inference and actual temperature zero. Changed model/artifact/configuration/authority identity, causal context, history, protocol, generation posture, or an inexact final A restoration fails closed.
+The instrument compares A+H/A-H, B+H/B-H, A+H/B+H, A-H/B-H, and baseline A+H/restored A+H. Durable observations contain prompt/output/request/receipt digests and identities, never raw output. Before and after every call it checks the exact endpoint identity, frozen context, and immutable protocol; it also checks completed non-fallback inference and actual temperature zero. For objective tasks, the observed `max_new_tokens` must match the preregistered budget both during execution and when stored observations are reverified after restart. Changed model/artifact/configuration/authority identity, causal context, history, protocol, generation posture, or an inexact final A restoration fails closed.
 
 Classifications are limited to no observable history effect, A-only, B-only, both-model history association, restoration instability, or contamination. Digest equality/inequality is not semantic scoring. Even a stable both-model association does not prove learning, model-independent identity, persistent individuality, selfhood, sentience, consciousness, or causal closure.
 

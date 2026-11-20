@@ -2578,6 +2578,12 @@ class DevelopmentalModelReplacementExperiment:
                     "inference_receipt_digest", "output_digest"))
                 or not isinstance(generation, Mapping) or generation.get("temperature") != 0):
             raise DevelopmentalModelReplacementError("condition_observation_binding_invalid")
+        if self.objective_plan is not None:
+            requested_tokens = self.context.inference_budget.get("max_new_tokens")
+            if (type(requested_tokens) is not int
+                    or generation.get("max_new_tokens") != requested_tokens):
+                raise DevelopmentalModelReplacementError(
+                    "objective_generation_budget_drift")
         score = value.get("objective_task_score")
         if self.objective_plan is not None:
             if type(value.get("output_truncated")) is not bool:
