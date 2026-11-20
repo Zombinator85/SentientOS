@@ -2287,10 +2287,13 @@ class OrdinaryChatHistoryInterventionStore:
         return result
 
     def persist_evaluation(self, *, result_id: str,
-            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> str:
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> str:
         """Persist the deterministic per-trial score comparison for a final result."""
         result = self.load_result(result_id, protocol=protocol,
-            prompt_bundle=prompt_bundle)
+            prompt_bundle=prompt_bundle,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         scoring_plan = self.load_scoring_plan(protocol=protocol,
             prompt_bundle=prompt_bundle)
         scores = self._score_artifacts_for_result(result, protocol=protocol,
@@ -2306,7 +2309,9 @@ class OrdinaryChatHistoryInterventionStore:
         return evaluation_id
 
     def load_evaluation(self, evaluation_id: str, *,
-            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any]) -> dict[str, Any]:
+            protocol: Mapping[str, Any], prompt_bundle: Mapping[str, Any],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> dict[str, Any]:
         path = self._evaluation_path(evaluation_id)
         try:
             evaluation = self._store._read_json(path)
@@ -2315,7 +2320,8 @@ class OrdinaryChatHistoryInterventionStore:
         if not isinstance(evaluation, Mapping):
             raise ValueError("ordinary_chat_history_evaluation_invalid")
         result = self.load_result(evaluation.get("result_id"), protocol=protocol,
-            prompt_bundle=prompt_bundle)
+            prompt_bundle=prompt_bundle,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         scoring_plan = self.load_scoring_plan(protocol=protocol,
             prompt_bundle=prompt_bundle)
         scores = self._score_artifacts_for_result(result, protocol=protocol,
@@ -2338,7 +2344,9 @@ class OrdinaryChatHistoryInterventionStore:
         return self._store.runs / f"{summary_id}.json"
 
     def _load_cohort_evaluations(self,
-            trial_bindings: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+            trial_bindings: Sequence[Mapping[str, Any]], *,
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> list[dict[str, Any]]:
         if (not isinstance(trial_bindings, (list, tuple))
                 or not 6 <= len(trial_bindings) <= 4096
                 or len(trial_bindings) % 6 != 0):
@@ -2352,13 +2360,17 @@ class OrdinaryChatHistoryInterventionStore:
                 raise ValueError("ordinary_chat_history_cohort_trial_binding_invalid")
             evaluations.append(self.load_evaluation(
                 binding["evaluation_id"], protocol=binding["protocol"],
-                prompt_bundle=binding["prompt_bundle"]))
+                prompt_bundle=binding["prompt_bundle"],
+                invocation_receipt_verifier=invocation_receipt_verifier))
         return evaluations
 
     def persist_cohort_summary(self, *,
-            trial_bindings: Sequence[Mapping[str, Any]]) -> str:
+            trial_bindings: Sequence[Mapping[str, Any]],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> str:
         """Reverify a complete cohort of final results and save its summary."""
-        evaluations = self._load_cohort_evaluations(trial_bindings)
+        evaluations = self._load_cohort_evaluations(trial_bindings,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         summary = build_ordinary_chat_history_intervention_cohort_summary(
             evaluations)
         path = self._cohort_summary_path(summary["summary_id"])
@@ -2372,13 +2384,16 @@ class OrdinaryChatHistoryInterventionStore:
         return summary["summary_id"]
 
     def load_cohort_summary(self, summary_id: str, *,
-            trial_bindings: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+            trial_bindings: Sequence[Mapping[str, Any]],
+            invocation_receipt_verifier: Callable[..., Mapping[str, Any]] | None = None
+            ) -> dict[str, Any]:
         path = self._cohort_summary_path(summary_id)
         try:
             summary = self._store._read_json(path)
         except FileNotFoundError as exc:
             raise ValueError("ordinary_chat_history_cohort_summary_missing") from exc
-        evaluations = self._load_cohort_evaluations(trial_bindings)
+        evaluations = self._load_cohort_evaluations(trial_bindings,
+            invocation_receipt_verifier=invocation_receipt_verifier)
         verification = verify_ordinary_chat_history_intervention_cohort_summary(
             summary, evaluations=evaluations)
         if verification["summary_id"] != summary_id:

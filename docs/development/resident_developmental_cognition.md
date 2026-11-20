@@ -957,11 +957,15 @@ packet binds all three condition prompt digests to output digests, invocation
 receipt references, and blinded score artifact references, and binds the packet
 back to the exact protocol and prompt bundle. The packet is immutable in the
 experiment run collection. The store reloads and verifies every referenced
-score artifact's digest and output/plan binding; receipt references are not
-reverified during result reload. New result persistence requires a receipt
-verifier and publishes one immutable per-protocol finalization index bound to
-the execution claim and result digest; a competing result packet cannot replace
-the finalized result. Finalization also derives an immutable evaluation from
+score artifact's digest and output/plan binding. Result reload accepts the same
+optional owner-backed receipt verifier used at persistence; without that
+callback, receipt references are not independently reverified. Evaluation and
+cohort persistence/reload forward this optional verifier, so a cohort can
+recheck every invocation receipt when its verification owner is available. New
+result persistence requires a receipt verifier and publishes one immutable
+per-protocol finalization index bound to the execution claim and result digest;
+a competing result packet cannot replace the finalized result. Finalization
+also derives an immutable evaluation from
 the reverified scores. It reports per-condition correct counts and the two
 preregistered paired count deltas, retains digest-identified per-probe outcomes,
 keeps selective abstentions and invalid answers distinct, and marks unavailable
