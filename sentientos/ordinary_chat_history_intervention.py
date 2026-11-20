@@ -37,8 +37,9 @@ COHORT_SUMMARY_ID_PREFIX = "ordinary-history-cohort-"
 LEGACY_COHORT_SUMMARY_SCHEMAS = frozenset({
     "sentientos.ordinary_chat_history_cohort_summary:v2",
     "sentientos.ordinary_chat_history_cohort_summary:v3",
+    "sentientos.ordinary_chat_history_cohort_summary:v4",
 })
-COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v4"
+COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v5"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -860,6 +861,43 @@ def verify_ordinary_chat_history_intervention_evaluation(
         "learning_established": False, "authority": False}
 
 
+def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
+        ) -> tuple[bool | None, list[dict[str, Any]] | None]:
+    metrics = evaluation.get("condition_metrics")
+    if not isinstance(metrics, Mapping):
+        raise ValueError("ordinary_chat_history_restoration_metrics_invalid")
+    present, restored = metrics.get("history_present"), metrics.get("history_restored")
+    if (not isinstance(present, Mapping) or not isinstance(restored, Mapping)
+            or type(present.get("scoreable")) is not bool
+            or type(restored.get("scoreable")) is not bool):
+        raise ValueError("ordinary_chat_history_restoration_metrics_invalid")
+    if present["scoreable"] is not True or restored["scoreable"] is not True:
+        return None, None
+    present_rows, restored_rows = (present.get("probe_outcomes"),
+        restored.get("probe_outcomes"))
+    allowed_outcomes = {"correct", "incorrect", "abstained", "invalid_answer"}
+    for rows in (present_rows, restored_rows):
+        if (not isinstance(rows, list) or not rows
+                or any(not isinstance(row, Mapping)
+                    or set(row) != {"probe_id", "outcome"}
+                    or not isinstance(row.get("probe_id"), str)
+                    or _HEX_DIGEST.fullmatch(row["probe_id"]) is None
+                    or row.get("outcome") not in allowed_outcomes
+                    for row in rows)
+                or len({row["probe_id"] for row in rows}) != len(rows)):
+            raise ValueError("ordinary_chat_history_restoration_probe_outcomes_invalid")
+    if ([row["probe_id"] for row in present_rows]
+            != [row["probe_id"] for row in restored_rows]):
+        raise ValueError("ordinary_chat_history_restoration_probe_alignment_invalid")
+    transitions = [{
+        "probe_id": present_row["probe_id"],
+        "history_present_outcome": present_row["outcome"],
+        "history_restored_outcome": restored_row["outcome"],
+    } for present_row, restored_row in zip(present_rows, restored_rows)]
+    return (all(row["history_present_outcome"]
+        == row["history_restored_outcome"] for row in transitions), transitions)
+
+
 def build_ordinary_chat_history_intervention_cohort_summary(
         evaluations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Aggregate a complete, same-model sequence of counterbalanced trials.
@@ -945,6 +983,10 @@ def build_ordinary_chat_history_intervention_cohort_summary(
     trial_deltas: dict[str, list[dict[str, Any]]] = {
         comparison: [] for comparison in PLANNED_COMPARISONS}
     restoration_stable: list[bool] = []
+    restoration_output_stable: list[bool] = []
+    restoration_probe_stable: list[bool] = []
+    restoration_probe_per_trial: list[dict[str, Any]] = []
+    restoration_probe_accumulators: dict[str, dict[str, Any]] = {}
     for evaluation in ordered:
         for comparison, favored in (
                 ("history_present_vs_history_withheld", "history_present"),
@@ -997,6 +1039,46 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             if type(stable) is not bool:
                 raise ValueError("ordinary_chat_history_cohort_restoration_invalid")
             restoration_stable.append(stable)
+        output_stable = evaluation.get("restoration_output_digest_stable")
+        if type(output_stable) is not bool:
+            raise ValueError("ordinary_chat_history_cohort_restoration_invalid")
+        restoration_output_stable.append(output_stable)
+        probe_stable, probe_transitions = _restoration_probe_outcomes(evaluation)
+        if probe_stable is not None:
+            restoration_probe_stable.append(probe_stable)
+            if probe_transitions is None:
+                raise ValueError("ordinary_chat_history_restoration_probe_outcomes_invalid")
+            restoration_probe_per_trial.append({
+                "trial_index": evaluation["trial_index"],
+                "condition_order": list(evaluation["condition_order"]),
+                "scoreable": True,
+                "pattern_stable": probe_stable,
+                "per_probe_outcomes": probe_transitions,
+            })
+            for transition in probe_transitions:
+                probe_id = transition["probe_id"]
+                accumulator = restoration_probe_accumulators.setdefault(probe_id, {
+                    "probe_id": probe_id, "paired_trial_count": 0,
+                    "same_outcome_count": 0, "changed_outcome_count": 0,
+                    "outcome_pair_counts": {},
+                })
+                accumulator["paired_trial_count"] += 1
+                same_outcome = (transition["history_present_outcome"]
+                    == transition["history_restored_outcome"])
+                accumulator["same_outcome_count"] += int(same_outcome)
+                accumulator["changed_outcome_count"] += int(not same_outcome)
+                pair = (transition["history_present_outcome"] + "_vs_"
+                    + transition["history_restored_outcome"])
+                accumulator["outcome_pair_counts"][pair] = (
+                    accumulator["outcome_pair_counts"].get(pair, 0) + 1)
+        else:
+            restoration_probe_per_trial.append({
+                "trial_index": evaluation["trial_index"],
+                "condition_order": list(evaluation["condition_order"]),
+                "scoreable": False,
+                "pattern_stable": None,
+                "per_probe_outcomes": None,
+            })
     aggregate: dict[str, dict[str, Any]] = {}
     condition_orders = tuple(tuple(ordinary_chat_history_condition_order(index))
         for index in range(6))
@@ -1136,6 +1218,16 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         "planned_comparisons": aggregate,
         "restoration_score_stability_count": sum(restoration_stable),
         "restoration_score_stability_denominator": len(restoration_stable),
+        "restoration_output_digest_stability_count": sum(
+            restoration_output_stable),
+        "restoration_output_digest_stability_denominator": len(
+            restoration_output_stable),
+        "restoration_probe_pattern_stability_count": sum(restoration_probe_stable),
+        "restoration_probe_pattern_stability_denominator": len(
+            restoration_probe_stable),
+        "restoration_probe_pattern_stability_per_trial": restoration_probe_per_trial,
+        "restoration_probe_summary": sorted(
+            restoration_probe_accumulators.values(), key=lambda item: item["probe_id"]),
         "interpretation_posture": "descriptive_complete_counterbalanced_blocks:v1",
         "effect_established": False, "improvement_established": False,
         "learning_established": False, "authority": False}
@@ -1156,6 +1248,14 @@ def verify_ordinary_chat_history_intervention_cohort_summary(
         legacy_semantic = {key: value for key, value in rebuilt.items()
             if key not in {"summary_id", "summary_digest"}}
         legacy_semantic["schema_version"] = legacy_schema
+        for key in (
+                "restoration_probe_pattern_stability_count",
+                "restoration_probe_pattern_stability_denominator",
+                "restoration_probe_pattern_stability_per_trial",
+                "restoration_probe_summary",
+                "restoration_output_digest_stability_count",
+                "restoration_output_digest_stability_denominator"):
+            legacy_semantic.pop(key, None)
         comparisons = legacy_semantic["planned_comparisons"]
         for comparison in comparisons.values():
             if legacy_schema == "sentientos.ordinary_chat_history_cohort_summary:v2":

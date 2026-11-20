@@ -987,7 +987,9 @@ outcomes in each order, so position-dependent patterns stay visible instead of
 being hidden in the pooled aggregate. It verifies paired probe identities and
 probe-level deltas across trials and against aggregate deltas. This is a
 descriptive within-task summary; it does not establish transfer, generalization,
-improvement, or learning. New summaries use schema v4; v2 and v3 summaries
+improvement, or learning. Restoration reports aggregate score stability, exact
+output-digest stability, and whether the same per-probe outcome pattern
+returned as separate measures. New summaries use schema v5; v2 through v4 summaries
 remain verifiable in their original shapes.
 `OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each
 evaluation through its protocol, result, scoring plan, and score artifacts
