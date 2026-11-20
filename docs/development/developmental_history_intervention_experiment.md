@@ -111,12 +111,12 @@ unbound. It also requires all contributing examples to have the same target
 model identity, and checks each `same` or `different` applicability label
 against the bound source and target digests. The prompt-bound summary includes
 each run's distinct-input count and a digest of those counts, plus the number
-and source counts of bound model
-identities and unbound model sources. These summaries make the cross-run
-qualification and source-model coverage auditable. The prompt instruction
-treats model-identity counts and the target identity digest as provenance, not
-independent trials or added evidence weight. The relation remains historical
-guidance: neither learning nor cross-model performance transfer is established.
+of bound model identities, per-identity run counts, and unbound model run count.
+These summaries make the cross-run qualification and source-model coverage
+auditable. The prompt instruction treats model-identity run counts and the
+target identity digest as provenance, not independent trials or added evidence
+weight. The relation remains historical guidance; neither learning nor
+cross-model performance transfer is established.
 The projection digest records whether this accumulated candidate was included
 in each history-present/restored prompt;
 real-model use and transfer remain unverified.

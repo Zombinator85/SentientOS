@@ -559,7 +559,7 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Check it against every accompanying correct example; "
     "use it provisionally only for that same declared family when it agrees with the examples and current task. "
     "Its target_active_model_identity_digest binds the identity against which applicability was assessed. "
-    "Its supporting_model_identity_source_counts and supporting_unbound_model_source_count describe provenance only; "
+    "Its supporting_model_identity_run_counts and supporting_unbound_model_run_count describe provenance only; "
     "they are not independent trials, do not increase evidence weight, and do not establish cross-model transfer. "
     "Surface any conflict instead of applying it. It does not establish learning or cross-model performance transfer. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
@@ -2430,22 +2430,21 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     run_input_counts = [{"source_run_digest": run_digest,
         "distinct_input_count": len(inputs_by_run[run_digest])}
         for run_digest in sorted(run_digests)]
-    model_source_counts: dict[str, int] = {}
-    unbound_model_source_count = 0
-    for source in ordered_sources:
-        model_digest = source.get("source_active_model_identity_digest")
+    model_run_counts: dict[str, int] = {}
+    unbound_model_run_count = 0
+    for _, _, _, model_digest in run_source_bindings.values():
         if model_digest is None:
-            unbound_model_source_count += 1
+            unbound_model_run_count += 1
         else:
-            model_source_counts[model_digest] = (
-                model_source_counts.get(model_digest, 0) + 1)
-    model_identity_source_counts = [{
+            model_run_counts[model_digest] = (
+                model_run_counts.get(model_digest, 0) + 1)
+    model_identity_run_counts = [{
         "source_active_model_identity_digest": model_digest,
-        "source_count": model_source_counts[model_digest],
-    } for model_digest in sorted(model_source_counts)]
+        "run_count": model_run_counts[model_digest],
+    } for model_digest in sorted(model_run_counts)]
     offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
     body = {
-        "schema_version": "sentientos.accumulated_integer_affine_strategy:v5",
+        "schema_version": "sentientos.accumulated_integer_affine_strategy:v6",
         "task_family_id": task_family_id,
         "target_active_model_identity_digest": next(iter(target_model_digests)),
         "multiplier": multiplier,
@@ -2459,11 +2458,11 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
         "supporting_run_input_counts_digest": _digest(run_input_counts),
         "max_distinct_inputs_per_run": max(
             item["distinct_input_count"] for item in run_input_counts),
-        "supporting_model_identity_count": len(model_identity_source_counts),
-        "supporting_model_identity_source_counts": model_identity_source_counts,
-        "supporting_model_identity_source_counts_digest": _digest(
-            model_identity_source_counts),
-        "supporting_unbound_model_source_count": unbound_model_source_count,
+        "supporting_model_identity_count": len(model_identity_run_counts),
+        "supporting_model_identity_run_counts": model_identity_run_counts,
+        "supporting_model_identity_run_counts_digest": _digest(
+            model_identity_run_counts),
+        "supporting_unbound_model_run_count": unbound_model_run_count,
         "distinct_input_contributing_run_count": len(distinct_input_contributors),
         "supporting_source_count": len(ordered_sources),
         "supporting_sources_digest": _digest(ordered_sources),
@@ -5521,7 +5520,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         raise ResidentDevelopmentalCognitionError(
             "task_family_accumulated_strategy_projection_mismatch")
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v15",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v16",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
