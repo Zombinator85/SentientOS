@@ -906,14 +906,26 @@ class DevelopmentalModelReplacementCampaign:
                     correct_count = score.get("correct_count")
                     probe_count = score.get("probe_count")
                     if (type(correct_count) is not int
+                            or not 0 <= correct_count <= expected_probe_count
+                            or type(probe_count) is not int
                             or probe_count != expected_probe_count):
                         raise DevelopmentalModelReplacementError(
                             "campaign_objective_trial_score_invalid")
                     answered = score.get("answered_count")
                     abstained = score.get("abstained_count")
-                    if type(answered) is not int:
+                    if score.get("schema_version") == "sentientos.objective_task_score:v5":
+                        if (type(answered) is not int or type(abstained) is not int
+                                or answered + abstained != probe_count
+                                or not correct_count <= answered <= probe_count
+                                or (score.get("status") == "selective")
+                                    != (abstained > 0)):
+                            raise DevelopmentalModelReplacementError(
+                                "campaign_objective_trial_score_invalid")
+                    else:
+                        if score.get("status") == "selective":
+                            raise DevelopmentalModelReplacementError(
+                                "campaign_objective_trial_score_invalid")
                         answered = probe_count
-                    if type(abstained) is not int:
                         abstained = 0
                     return correct_count, probe_count, answered, abstained
                 correct = score.get("correct")
