@@ -554,7 +554,8 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "historical evidence, not current truth, and does not establish transfer or learning. If it conflicts "
     "with examples or current task evidence, surface the conflict and do not apply it. "
     "A task_family_accumulated_candidate_strategy is a provisional fit across at least two distinct, "
-    "score-bound runs outside known unsettled task/model outcome groups in that same family. Check it against every accompanying correct example; "
+    "score-bound runs that each contribute a distinct probe input, outside known unsettled task/model "
+    "outcome groups in that same family. Check it against every accompanying correct example; "
     "use it provisionally only for that same declared family when it agrees with the examples and current task. "
     "Surface any conflict instead of applying it. It does not establish learning or cross-model performance transfer. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
@@ -2251,6 +2252,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     if not isinstance(packets, (list, tuple)):
         return None
     answers_by_input: dict[int, int] = {}
+    input_run_sources: dict[int, set[str]] = {}
     source_refs: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     runs: set[tuple[str, str]] = set()
     for packet in packets:
@@ -2343,10 +2345,16 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                 if previous is not None and previous != answer:
                     return None
                 answers_by_input[probe_input] = answer
+                input_run_sources.setdefault(probe_input, set()).add(
+                    provenance["source_run_digest"])
     run_ids = {run_id for run_id, _ in runs}
     run_digests = {run_digest for _, run_digest in runs}
+    distinct_input_contributors = {
+        next(iter(sources)) for sources in input_run_sources.values()
+        if len(sources) == 1}
     if (len(answers_by_input) < 3 or len(run_digests) < 2
-            or len(run_ids) != len(runs)):
+            or len(run_ids) != len(runs)
+            or len(distinct_input_contributors) < 2):
         return None
     ordered_pairs = sorted(answers_by_input.items())
     first_input, first_output = ordered_pairs[0]
@@ -2376,6 +2384,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
         "supporting_examples_digest": _digest(evidence),
         "supporting_run_count": len(run_digests),
         "supporting_runs_digest": _digest(sorted(run_digests)),
+        "distinct_input_contributing_run_count": len(distinct_input_contributors),
         "supporting_source_count": len(ordered_sources),
         "supporting_sources_digest": _digest(ordered_sources),
         "supporting_source_refs": visible_sources,
