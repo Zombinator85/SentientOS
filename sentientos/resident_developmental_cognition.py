@@ -3847,11 +3847,13 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
         values: dict[str, Any] = {}
         fields: tuple[str, ...]
         roles: dict[str, Any] = {}
-        if schema == "sentientos.embodied_consequence_attribution:v1":
+        if schema in {"sentientos.embodied_consequence_attribution:v1",
+                "sentientos.embodied_consequence_attribution:v2"}:
             fields = ("classification", "commanded_value", "predicted_value",
                 "renderer_reported_value", "independently_observed_value",
                 "observation_independence_posture", "causal_attribution_posture",
-                "effect_proven", "proven_consequence_value")
+                "effect_proven", "proven_consequence_value", "correlation_id",
+                "fulfillment_receipt")
         elif isinstance(schema, str) and "proprioception" in schema:
             fields = ("requested_pose", "encoder_pose", "joint_state",
                 "evidence_posture", "observer_issuer_posture",
@@ -4008,7 +4010,26 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                             for item in value)):
                     values[key] = [dict(item) if isinstance(item, Mapping) else item
                         for item in value]
-            if schema == "sentientos.embodied_consequence_attribution:v1":
+            if schema == "sentientos.embodied_consequence_attribution:v2":
+                receipt = payload.get("fulfillment_receipt")
+                if isinstance(receipt, Mapping):
+                    receipt_summary = {
+                        key: value for key in (
+                            "fulfillment_receipt_id", "fulfillment_receipt_digest",
+                            "source_proposal_id", "fulfillment_outcome",
+                            "fulfiller_kind", "correlation_id",
+                            "fulfillment_receipt_is_not_effect",
+                            "receipt_does_not_prove_side_effect")
+                        if ((isinstance((value := receipt.get(key)), str)
+                                and len(value) <= 256)
+                            or type(value) is bool)
+                    }
+                    receipt_posture = payload.get("fulfillment_receipt_posture")
+                    if isinstance(receipt_posture, str) and len(receipt_posture) <= 64:
+                        receipt_summary["receipt_binding_posture"] = receipt_posture
+                    values["fulfillment_receipt_summary"] = receipt_summary
+            if schema in {"sentientos.embodied_consequence_attribution:v1",
+                    "sentientos.embodied_consequence_attribution:v2"}:
                 roles = {
                     "commanded_request": values.get("commanded_value"),
                     "predicted_observation": values.get("predicted_value"),
@@ -4016,6 +4037,8 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                     "observer_report_field": values.get("independently_observed_value"),
                     "observer_independence_posture": values.get(
                         "observation_independence_posture"),
+                    "fulfillment_receipt": values.get(
+                        "fulfillment_receipt_summary"),
                 }
             elif isinstance(schema, str) and "proprioception" in schema:
                 roles = {"body_proprioception_report": {

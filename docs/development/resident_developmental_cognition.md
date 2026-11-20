@@ -338,6 +338,13 @@ bounded selected event set and keeps each event's citation and unverified
 applicability posture beside its field comparison. This can reveal which
 command details a proposal matches without treating the comparison as event
 relevance, action, or outcome evidence.
+When a v2 consequence attribution receives an embodied fulfillment receipt, it
+verifies and retains that receipt only when its correlation ID matches the
+expectation. Later cognition receives a bounded receipt summary with the
+receipt's explicit non-effect flags and the `digest_verified_self_report_non_effect`
+posture. This is local digest validation, not independent issuer authentication;
+neither the receipt nor its reported fulfillment outcome establishes that a
+physical action occurred. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 

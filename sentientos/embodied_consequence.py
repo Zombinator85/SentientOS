@@ -32,7 +32,9 @@ EXPECTATION_SCHEMA = "sentientos.embodied_action_expectation:v1"
 HANDOFF_SCHEMA = "sentientos.avatar_renderer_handoff:v1"
 REPORT_SCHEMA = "sentientos.avatar_renderer_report:v1"
 OBSERVATION_SCHEMA = "sentientos.avatar_independent_observation:v1"
-ATTRIBUTION_SCHEMA = "sentientos.embodied_consequence_attribution:v1"
+LEGACY_ATTRIBUTION_SCHEMA = "sentientos.embodied_consequence_attribution:v1"
+ATTRIBUTION_SCHEMA = "sentientos.embodied_consequence_attribution:v2"
+SUPPORTED_ATTRIBUTION_SCHEMAS = frozenset({LEGACY_ATTRIBUTION_SCHEMA, ATTRIBUTION_SCHEMA})
 COMPARISON_SCHEMA = "sentientos.embodied_prediction_comparison:v1"
 STRATEGY_SCHEMA = "sentientos.embodied_strategy_proposal:v1"
 STRATEGY_SCORING_SCHEMA = "sentientos.embodied_strategy_scoring:v1"
@@ -52,6 +54,7 @@ MAX_CONSEQUENCE_ARTIFACT_BYTES = 2_097_152
 MAX_CONSEQUENCE_ARTIFACTS_PER_KIND = 4096
 MAX_WORLD_STATE_PROJECTION_RECORDS = 48
 MAX_WORLD_STATE_PROJECTION_RECORD_BYTES = 32_768
+MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES = 8_192
 _CONSEQUENCE_KINDS = {"expectations", "reports", "observations", "attributions", "comparisons",
     "strategy-experiments", "strategy-experiment-starts", "strategy-experiment-conditions",
     "consequence-chains"}
@@ -640,8 +643,17 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
     if renderer_report: verify_renderer_report(renderer_report)
     if observation:
         verify_independent_observation(observation)
-    if fulfillment_receipt and fulfillment_receipt.get("effect_proven") is True:
-        raise EmbodiedConsequenceError("unverified_fulfillment_receipt_cannot_prove_effect")
+    if fulfillment_receipt is not None:
+        from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
+        if (not isinstance(fulfillment_receipt, Mapping)
+                or len(canonical_bytes(dict(fulfillment_receipt)))
+                    > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES
+                or not verify_embodied_fulfillment_receipt(fulfillment_receipt)):
+            raise EmbodiedConsequenceError("fulfillment_receipt_binding_invalid")
+        if (fulfillment_receipt.get("effect_proven") is True
+                or fulfillment_receipt.get("correlation_id") != expectation.correlation_id):
+            raise EmbodiedConsequenceError(
+                "fulfillment_receipt_correlation_or_effect_invalid")
     now = _time(evaluated_at)
     commanded_at = handoff.get("commanded_at")
     if commanded_at is not None and _time(commanded_at) < _time(expectation.created_at):
@@ -728,6 +740,10 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "observation_id":observation.observation_id if observation else None,"observation_digest":observation.observation_digest if observation else None,
         "comparison_id":comparison_base["comparison_id"],"comparison_digest":comparison_base["comparison_digest"],
         "body_generation":expectation.body_generation,"current_body_pointer_digest":current_body.get("pointer_digest"),
+        "correlation_id":expectation.correlation_id,
+        "fulfillment_receipt_posture": (
+            "digest_verified_self_report_non_effect" if fulfillment_receipt is not None
+            else "not_supplied"),
         "classification":classification,"causal_attribution_posture":causal,"commanded_value":dict(expectation.requested),
         "predicted_value":dict(expectation.predicted_observables),"renderer_reported_value":dict(renderer_report.applied) if renderer_report else None,
         "independently_observed_value":dict(observation.observed) if observation else None,
@@ -740,6 +756,8 @@ def evaluate_consequence(*, expectation: EmbodiedActionExpectation, handoff: Map
         "measured_evidence":list(measured_evidence),"evaluated_at":evaluated_at,"authority":dict(FALSE_AUTHORITY)}
     if observation_authentication_receipt is not None:
         attribution_base["observation_authentication_receipt"] = dict(observation_authentication_receipt)
+    if fulfillment_receipt is not None:
+        attribution_base["fulfillment_receipt"] = dict(fulfillment_receipt)
     attribution_base["attribution_id"], attribution_base["attribution_digest"] = _identity("consequence", attribution_base)
     if consequence_store is not None:
         persist_chain = getattr(consequence_store, "put_consequence_chain", None)
@@ -1936,7 +1954,7 @@ def build_operator_codex_strategy_multi_event_packets(*, writeback: Any,
         for fact in facts:
             payload = fact.get("payload") if isinstance(fact, Mapping) else None
             if (not isinstance(payload, Mapping)
-                    or payload.get("schema_version") != ATTRIBUTION_SCHEMA):
+                    or payload.get("schema_version") not in SUPPORTED_ATTRIBUTION_SCHEMAS):
                 continue
             try:
                 _verify_consequence_attribution(payload)
@@ -3143,7 +3161,9 @@ def run_strategy_experiment(*, protocol: Mapping[str, Any], history_record: Mapp
 def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
     semantic=dict(value); claimed_id=semantic.pop("attribution_id",None); claimed_digest=semantic.pop("attribution_digest",None)
     expected_id,expected_digest=_identity("consequence",semantic)
-    if (claimed_id!=expected_id or claimed_digest!=expected_digest
+    schema = value.get("schema_version")
+    if (schema not in SUPPORTED_ATTRIBUTION_SCHEMAS
+            or claimed_id!=expected_id or claimed_digest!=expected_digest
             or dict(value.get("authority",{}))!=dict(FALSE_AUTHORITY)
             or value.get("effect_proven") is not False
             or value.get("proven_consequence_value") is not None
@@ -3153,6 +3173,28 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
                 "unverified_caller_assertion", "no_observation",
                 "authenticated_source_distinct_from_renderer_at_ingress"}):
         raise EmbodiedConsequenceError("consequence_attribution_binding_invalid")
+    if schema == ATTRIBUTION_SCHEMA:
+        if (not isinstance(value.get("correlation_id"), str)
+                or not value.get("correlation_id")):
+            raise EmbodiedConsequenceError("consequence_attribution_correlation_invalid")
+        fulfillment = value.get("fulfillment_receipt")
+        expected_receipt_posture = ("digest_verified_self_report_non_effect"
+            if fulfillment is not None else "not_supplied")
+        if value.get("fulfillment_receipt_posture") != expected_receipt_posture:
+            raise EmbodiedConsequenceError(
+                "consequence_attribution_fulfillment_posture_invalid")
+        if fulfillment is not None:
+            from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
+            if (not isinstance(fulfillment, Mapping)
+                    or len(canonical_bytes(dict(fulfillment)))
+                        > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES
+                    or not verify_embodied_fulfillment_receipt(fulfillment)
+                    or fulfillment.get("effect_proven") is True
+                    or fulfillment.get("correlation_id") != value["correlation_id"]):
+                raise EmbodiedConsequenceError(
+                    "consequence_attribution_fulfillment_receipt_invalid")
+    elif "correlation_id" in value or "fulfillment_receipt" in value:
+        raise EmbodiedConsequenceError("consequence_attribution_legacy_shape_invalid")
     posture = value.get("observation_independence_posture")
     receipt = value.get("observation_authentication_receipt")
     if posture == "authenticated_source_distinct_from_renderer_at_ingress":
