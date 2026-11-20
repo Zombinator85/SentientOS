@@ -353,9 +353,11 @@ in a fixed order so process hash randomization does not reorder semantic model
 inputs. Lexical IDF contributions are also summed in sorted term order in both
 developmental-history and current-fact ranking, avoiding hash-order variation
 in close score ties. The compact ordinary-chat prompt retains at most four
-typed receipt summaries per selected record, alongside the record citation
-and explicit self-report/non-effect posture, with a digest and total/omitted
-summary counts; other embodiment details remain omitted. This lets a receipt
+typed receipt summaries per selected record, preferring query-term matches on
+reported outcome and uncertainty posture with stable source-order ties. It
+keeps the record citation and explicit self-report/non-effect posture, with a
+digest and total/omitted summary counts; other embodiment details remain
+omitted. This lets a receipt
 outcome that affected retrieval also inform the response as an attributed
 historical report. The ordinary-chat history instruction explicitly says that
 the reported outcome is not an observation or proof of action and requires the

@@ -4621,6 +4621,7 @@ def _history_context_packet(record: Mapping[str, Any], *,
         include_source_evidence_context: bool = True,
         compact_for_input_budget: bool = False,
         omit_historical_embodiment_details: bool = False,
+        relevance_query: str | None = None,
         task_family_id: str | None = None,
         target_model_identity: Mapping[str, Any] | None = None,
         unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset()
@@ -4679,8 +4680,9 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["historical_embodiment_report_count"] = len(embodiment_context)
             packet["historical_embodiment_reports_posture"] = (
                 "receipt_summaries_retained_other_details_omitted_for_cognition_input_budget")
-            receipt_reports: list[dict[str, Any]] = []
+            receipt_candidates: list[tuple[int, int, dict[str, Any]]] = []
             receipt_summary_count = 0
+            query_terms = cognition_query_terms(relevance_query or "")
             for report in embodiment_context:
                 fields = report.get("typed_report_fields")
                 receipt = (fields.get("fulfillment_receipt_summary")
@@ -4696,9 +4698,13 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 if not isinstance(receipt, Mapping):
                     continue
                 receipt_summary_count += 1
-                if len(receipt_reports) >= 4:
-                    continue
-                receipt_reports.append({
+                searchable_receipt_text = " ".join(str(receipt.get(key, ""))
+                    for key in ("fulfillment_outcome", "fulfillment_outcome_posture",
+                        "receipt_binding_posture", "fulfiller_kind"))
+                receipt_match_score = len(query_terms &
+                    cognition_query_terms(searchable_receipt_text))
+                receipt_candidates.append((receipt_match_score,
+                    receipt_summary_count - 1, {
                     "fact_id": report.get("fact_id"),
                     "source_schema_version": report.get("source_schema_version"),
                     "stage": report.get("stage"),
@@ -4711,7 +4717,11 @@ def _history_context_packet(record: Mapping[str, Any], *,
                     "historical_only": True,
                     "current_truth": False,
                     "authority": False,
-                })
+                }))
+            receipt_candidates.sort(key=lambda item: (-item[0], item[1]))
+            selected_receipt_candidates = receipt_candidates[:4]
+            selected_receipt_candidates.sort(key=lambda item: item[1])
+            receipt_reports = [item[2] for item in selected_receipt_candidates]
             if receipt_reports:
                 packet["historical_embodiment_reports"] = receipt_reports
                 packet["historical_embodiment_receipt_summary_count"] = (
@@ -10063,6 +10073,7 @@ class ResidentDevelopmentalCognitionOwner:
                 include_source_evidence_context=False,
                 compact_for_input_budget=True,
                 omit_historical_embodiment_details=True,
+                relevance_query=question,
                 target_model_identity=target_model_identity)
                 for record in projection.records[:count]]
             selection = {
