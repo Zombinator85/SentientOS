@@ -176,7 +176,7 @@ def _sample(*, reader: ObservationReader, observation_id: str,
             projection: EpistemicCognitiveProjection, proposition_id: str,
             prompt: str, expected_prompt_digest: str, receipt: LocalModelInvocationReceipt,
             key: IndependentAnswerKey, case_id: str, evaluator_version: str,
-            condition: str, reason_code_vocabulary: tuple[str, ...]
+            condition: str, reason_code_vocabulary: tuple[str, ...] = ()
             ) -> tuple[dict[str, Any], Mapping[str, Any], dict[str, Any]]:
     observation = reader.verified_cognition_observation(observation_id)
     if proposition_id not in projection.proposition_ids:

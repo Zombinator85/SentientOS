@@ -141,29 +141,31 @@ def run_correction_pressure_series_once(*, cognition: ResidentDevelopmentalCogni
     pressure = series.pressure_pair.case
     conditions = (
         ("correction-before", original_snapshot, original_projection,
-            correction.before_prompt_digest),
+            correction.before_prompt_digest, correction),
         ("correction-after", corrected_snapshot, corrected_projection,
-            correction.after_prompt_digest),
+            correction.after_prompt_digest, correction),
         ("pressure-before", corrected_snapshot, corrected_projection,
-            pressure.before_prompt_digest),
+            pressure.before_prompt_digest, pressure),
         ("pressure-after", pressure_snapshot, corrected_projection,
-            pressure.after_prompt_digest),
+            pressure.after_prompt_digest, pressure),
     )
-    for condition, snapshot, projection, expected_prompt_digest in conditions:
+    for condition, snapshot, projection, expected_prompt_digest, case in conditions:
         preview = cognition.preview_epistemic_revision_probe_prompt(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
-            proposition_id=correction.proposition_id)
+            proposition_id=correction.proposition_id,
+            reason_code_vocabulary=(case.reason_code_vocabulary or None))
         if preview.get("prompt_digest") != expected_prompt_digest:
             raise ResidentDevelopmentalCognitionError(
                 "epistemic_revision_probe_prompt_digest_mismatch")
 
     captures: list[VerifiedEpistemicRevisionProbeCapture] = []
-    for condition, snapshot, projection, expected_prompt_digest in conditions:
+    for condition, snapshot, projection, expected_prompt_digest, case in conditions:
         result = cognition.run_epistemic_revision_probe_once(
             snapshot=snapshot, tick_id=f"{tick_prefix}:{condition}",
             prior_epistemic_state=projection,
             proposition_id=correction.proposition_id,
+            reason_code_vocabulary=(case.reason_code_vocabulary or None),
             expected_prompt_digest=expected_prompt_digest)
         if (result.status != "epistemic_revision_probe_completed"
                 or len(result.cognition_observation_ids) != 1):

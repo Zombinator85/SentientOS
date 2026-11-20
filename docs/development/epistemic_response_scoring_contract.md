@@ -30,8 +30,8 @@ under response contract v3, and the v3 qualification result scores an exact
 match to the private key.
 Vocabulary exposure must match the case commitment for both paired prompts.
 Free-form v1/v2 reason text still cannot change the answer pass result.
-Qualification results use schema v3 for this optional score; pressure reports
-remain schema v2. Cohort summaries score reason codes only for cases whose
+Qualification results use schema v3 and unsupported-pressure pair results use
+schema v3 for this optional score. Cohort summaries score reason codes only for cases whose
 subject-visible prompt carried the committed vocabulary.
 
 Ordinary cognition accepts citations to consumed packet IDs and current fact
