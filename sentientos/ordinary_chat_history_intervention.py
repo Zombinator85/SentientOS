@@ -896,6 +896,7 @@ def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
                     or set(row) != {"probe_id", "outcome"}
                     or not isinstance(row.get("probe_id"), str)
                     or _HEX_DIGEST.fullmatch(row["probe_id"]) is None
+                    or not isinstance(row.get("outcome"), str)
                     or row.get("outcome") not in allowed_outcomes
                     for row in rows)
                 or len({row["probe_id"] for row in rows}) != len(rows)):
