@@ -3138,8 +3138,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         and (family_probe_count is None
                             or probe_count == family_probe_count))
                     if (not isinstance(score.get("score_digest"), str)
-                            or not score["score_digest"].startswith("sha256:")
-                            or len(score["score_digest"]) != 71
+                            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                score["score_digest"]) is None
                             or not score_projection_is_consistent(
                                 score, expected_probe_count=family_probe_count)
                             or not valid_counts):
@@ -3255,8 +3255,8 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                         and 0 <= correct_count <= probe_count <= 16)
                     if (not isinstance(raw_score, Mapping)
                             or not isinstance(raw_score.get("score_digest"), str)
-                            or len(raw_score["score_digest"]) != 71
-                            or not raw_score["score_digest"].startswith("sha256:")
+                            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                raw_score["score_digest"]) is None
                             or not score_projection_is_consistent(raw_score)
                             or not valid_counts):
                         candidate_findings.append(
