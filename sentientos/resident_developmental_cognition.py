@@ -4686,6 +4686,14 @@ def _history_context_packet(record: Mapping[str, Any], *,
                 receipt = (fields.get("fulfillment_receipt_summary")
                     if isinstance(fields, Mapping) else None)
                 if not isinstance(receipt, Mapping):
+                    roles = report.get("reported_values")
+                    receipt = (roles.get("fulfillment_receipt")
+                        if isinstance(roles, Mapping) else None)
+                if not isinstance(receipt, Mapping):
+                    roles = report.get("semantic_report_roles")
+                    receipt = (roles.get("fulfillment_receipt")
+                        if isinstance(roles, Mapping) else None)
+                if not isinstance(receipt, Mapping):
                     continue
                 receipt_summary_count += 1
                 if len(receipt_reports) >= 4:
