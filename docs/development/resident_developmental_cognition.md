@@ -348,7 +348,9 @@ physical action occurred. The cognition prompt labels the outcome as an
 `unverified_fulfiller_self_report` and instructs the model not to upgrade it to
 an observation. Retrieval can match experience using the reported outcome and
 its uncertainty posture while excluding opaque receipt IDs and digests from
-lexical ranking. Historical v1 attributions remain readable.
+lexical ranking. Typed embodiment fields enter lexical and semantic retrieval
+in a fixed order so process hash randomization does not reorder semantic model
+inputs. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 

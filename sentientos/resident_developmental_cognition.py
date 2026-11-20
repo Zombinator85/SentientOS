@@ -4109,13 +4109,13 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
     return summaries
 
 
-_EMBODIMENT_RETRIEVAL_FIELDS = frozenset((
+_EMBODIMENT_RETRIEVAL_FIELDS = (
     "classification", "commanded_value", "predicted_value",
     "renderer_reported_value", "independently_observed_value",
     "proven_consequence_value", "requested_pose", "encoder_pose",
     "joint_state", "requested", "predicted_observables", "observable_fields",
     "observed", "observable_results", "universal_numeric_loss", "task_goal",
-    "task_goal_met"))
+    "task_goal_met")
 
 
 def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any], *,
