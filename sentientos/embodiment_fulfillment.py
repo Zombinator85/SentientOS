@@ -194,6 +194,25 @@ def verify_embodied_fulfillment_receipt(record: Mapping[str, Any]) -> bool:
                 "does_not_trigger_feedback", "does_not_commit_retention", "does_not_admit_work",
                 "does_not_execute_or_route_work"))):
         return False
+    non_effect_flags = ("effect_proven", "effect_claimed",
+        "actual_effect_observed", "side_effect_observed", "effect_authority",
+        "decision_authority", "admission_authority", "adoption_authority",
+        "observation_authority", "goal_authority", "authoring_authority",
+        "execution_authority", "renderer_authority")
+    try:
+        if any(key in record and record.get(key) is not False
+                for key in non_effect_flags):
+            return False
+        authority = record.get("authority")
+        if (authority is not None and authority is not False
+                and (not isinstance(authority, Mapping)
+                or any(value is not False for value in authority.values()))):
+            return False
+        if ("decision_power" in record
+                and record.get("decision_power") != "none"):
+            return False
+    except (TypeError, ValueError, OverflowError):
+        return False
     try:
         value = dict(record)
         claimed_digest = value.pop("fulfillment_receipt_digest")
