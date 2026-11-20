@@ -1788,6 +1788,8 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                     if isinstance(receipt, Mapping) else None
                 values = receipt.get("measured_values") if isinstance(receipt, Mapping) else None
                 value = values.get("call_units_consumed") if isinstance(values, Mapping) else None
+                generation_attempted = (values.get("generation_attempted")
+                    if isinstance(values, Mapping) else None)
                 event_time = receipt.get("observed_at") if isinstance(receipt, Mapping) else None
                 receipt_state = receipt.get("state") if isinstance(receipt, Mapping) else None
                 attempt_id = receipt.get("attempt_id") if isinstance(receipt, Mapping) else None
@@ -1799,7 +1801,10 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                         or not isinstance(receipt_digest, str) or len(receipt_digest) != 64
                         or any(character not in "0123456789abcdef"
                             for character in receipt_digest)
-                        or type(value) is not int or value < 0):
+                        or type(value) is not int or value not in (0, 1)
+                        or (generation_attempted is not None
+                            and (type(generation_attempted) is not bool
+                                or value != int(generation_attempted)))):
                     posture = "incomparable_unknown_call_units"
                     candidates = []
                     break
@@ -1831,7 +1836,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                 seen_consumption_receipt_digests.add(receipt_digest)
                 receipt_bindings.append({"receipt_id": receipt_id,
                     "receipt_digest": receipt_digest, "call_units_consumed": value,
-                    "generation_attempted": values.get("generation_attempted"),
+                    "generation_attempted": generation_attempted,
                     **({"state": receipt_state} if isinstance(receipt_state, str) else {}),
                     **({"attempt_id": attempt_id} if isinstance(attempt_id, str) else {}),
                     **({"previous_receipt_digest": previous_digest}
