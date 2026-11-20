@@ -140,7 +140,7 @@ def temporal_freshness_review(packet: Mapping[str, object], *,
         return None
     max_age_seconds = temporal_scope.get("max_evidence_age_seconds")
     result: dict[str, object] = {
-        "schema_version": "sentientos.epistemic_temporal_freshness_review:v1",
+        "schema_version": "sentientos.epistemic_temporal_freshness_review:v2",
         "max_evidence_age_seconds": max_age_seconds,
     }
     if (type(max_age_seconds) is not int
@@ -158,6 +158,7 @@ def temporal_freshness_review(packet: Mapping[str, object], *,
         result.update({"status": "unresolved",
             "reason": "evaluation_time_invalid"})
         return result
+    result["evaluation_time"] = evaluated_at.isoformat()
 
     support_ids = packet.get("supporting_evidence")
     active_rows = packet.get("active_evidence_bindings")
@@ -218,7 +219,6 @@ def temporal_freshness_review(packet: Mapping[str, object], *,
         "status": "within_limit" if age <= max_age_seconds else "expired",
         "latest_support_binding_id": binding_id,
         "latest_support_observed_at": observed_at.isoformat(),
-        "evaluation_time": evaluated_at.isoformat(),
         "age_seconds": age,
         "eligible_supporting_binding_ids": eligible_binding_ids,
     })

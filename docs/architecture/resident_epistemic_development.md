@@ -110,6 +110,13 @@ explicit scope. Deterministic coverage is in
 `sentientos/tests/test_epistemic_planning.py::test_expired_scoped_evidence_defers_only_its_goal_until_fresh_support`;
 real-model application remains unverified.
 
+Temporal freshness review v2 preserves the normalized evaluation timestamp for
+every outcome after timestamp parsing, including unresolved support and future
+observations. Probe qualification can therefore recompute the same target
+review and citation allowlist from the receipt-bound packet. Historical v1
+reviews remain readable; outcomes without a recorded timestamp keep their
+conservative, support-excluding posture.
+
 One resident cognition tick captures a single evaluation instant and reuses it
 across history-present, history-withheld, and history-restored conditions, so a
 clock boundary cannot become an unintended difference between controlled

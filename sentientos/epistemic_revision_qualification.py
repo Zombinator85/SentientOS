@@ -112,6 +112,9 @@ def _expected_probe_evidence_allowlist(*, context: Mapping[str, Any],
                 or row.get("packet_digest") != packet.get("packet_digest")
                 or row.get("proposition_id") != proposition.get("proposition_id")
                 or not isinstance(review, Mapping)
+                or review.get("schema_version") not in {
+                    "sentientos.epistemic_temporal_freshness_review:v1",
+                    "sentientos.epistemic_temporal_freshness_review:v2"}
                 or not isinstance(excluded_rows, list)
                 or any(not isinstance(item, str) or not item for item in excluded_rows)
                 or len(excluded_rows) != len(set(excluded_rows))):
@@ -121,6 +124,13 @@ def _expected_probe_evidence_allowlist(*, context: Mapping[str, Any],
             raise ValueError("qualification_temporal_review_binding_mismatch")
         recomputed = temporal_freshness_review(packet,
             evaluation_time=evaluation_time)
+        if (recomputed is not None
+                and review.get("schema_version")
+                    == "sentientos.epistemic_temporal_freshness_review:v1"):
+            # Historical v1 reviews did not retain valid evaluation times on
+            # unresolved branches; keep their original schema identity during
+            # re-derivation and use the conservative legacy path below there.
+            recomputed["schema_version"] = "sentientos.epistemic_temporal_freshness_review:v1"
         eligible_from_review = review.get("eligible_supporting_binding_ids", [])
         unresolved_reasons = {
             "evaluation_time_unavailable", "evaluation_time_invalid",
@@ -135,18 +145,6 @@ def _expected_probe_evidence_allowlist(*, context: Mapping[str, Any],
             and eligible_from_review == []
             and review.get("max_evidence_age_seconds")
                 == temporal_scope.get("max_evidence_age_seconds"))
-        if (conservative_unresolved
-                and review.get("reason") == "supporting_observation_is_future"):
-            support_rows = packet.get("active_evidence_bindings", ())
-            latest_id = review.get("latest_support_binding_id")
-            latest_time = review.get("latest_support_observed_at")
-            matching_rows = [item for item in support_rows
-                if isinstance(item, Mapping) and item.get("binding_id") == latest_id]
-            conservative_unresolved = (
-                isinstance(latest_id, str) and isinstance(latest_time, str)
-                and latest_id in packet.get("supporting_evidence", ())
-                and len(matching_rows) == 1
-                and matching_rows[0].get("observation_time") == latest_time)
         if (recomputed is None or (dict(review) != recomputed
                 and not conservative_unresolved)):
             raise ValueError("qualification_temporal_review_binding_mismatch")
