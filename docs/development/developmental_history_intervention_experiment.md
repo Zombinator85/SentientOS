@@ -103,11 +103,13 @@ contributing a distinct probe input, outside known unsettled task/model outcome
 groups in the same declared family. It requires a one-to-one binding between
 run IDs and run digests, deduplicates repeated probe inputs, rejects conflicting
 answers, excludes adverse or unsettled source-outcome groups, and binds the
-summary to the contributing run, score, record, and source-model digests. The relation
-remains historical guidance: it establishes neither learning nor cross-model
-performance transfer. The projection digest records whether this accumulated
-candidate was included in each history-present/restored prompt; real-model use
-and transfer remain unverified.
+summary to the contributing run, score, record, and source-model digests. The
+prompt-bound summary includes each run's distinct-input count and a digest of
+those counts, making the cross-run qualification auditable. The relation remains
+historical guidance: it establishes neither learning nor cross-model performance
+transfer. The projection digest records whether this accumulated candidate was
+included in each history-present/restored prompt; real-model use and transfer
+remain unverified.
 
 Within equal outcome posture and model applicability, retrieval ranks exact
 overlap with the current task's probe inputs before the number of distinct

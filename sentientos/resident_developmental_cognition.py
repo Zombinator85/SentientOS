@@ -2379,9 +2379,12 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     ordered_sources = [source_refs[key] for key in sorted(source_refs)]
     visible_sources = ordered_sources[:16]
     omitted_sources = ordered_sources[16:]
+    run_input_counts = [{"source_run_digest": run_digest,
+        "distinct_input_count": len(inputs_by_run[run_digest])}
+        for run_digest in sorted(run_digests)]
     offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
     body = {
-        "schema_version": "sentientos.accumulated_integer_affine_strategy:v1",
+        "schema_version": "sentientos.accumulated_integer_affine_strategy:v2",
         "task_family_id": task_family_id,
         "multiplier": multiplier,
         "offset": offset,
@@ -2390,6 +2393,10 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
         "supporting_examples_digest": _digest(evidence),
         "supporting_run_count": len(run_digests),
         "supporting_runs_digest": _digest(sorted(run_digests)),
+        "supporting_run_input_counts": run_input_counts,
+        "supporting_run_input_counts_digest": _digest(run_input_counts),
+        "max_distinct_inputs_per_run": max(
+            item["distinct_input_count"] for item in run_input_counts),
         "distinct_input_contributing_run_count": len(distinct_input_contributors),
         "supporting_source_count": len(ordered_sources),
         "supporting_sources_digest": _digest(ordered_sources),
@@ -5447,7 +5454,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         raise ResidentDevelopmentalCognitionError(
             "task_family_accumulated_strategy_projection_mismatch")
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v11",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v12",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
