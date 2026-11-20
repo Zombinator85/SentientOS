@@ -881,14 +881,16 @@ def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
             or evaluation.get("restoration_output_digest_stable")
                 is not expected_output_stable):
         raise ValueError("ordinary_chat_history_restoration_output_digest_mismatch")
-    if present["scoreable"] is not True or restored["scoreable"] is not True:
-        if evaluation.get("restoration_score_stable") is not None:
-            raise ValueError("ordinary_chat_history_restoration_score_mismatch")
-        return None, None
-    present_rows, restored_rows = (present.get("probe_outcomes"),
-        restored.get("probe_outcomes"))
     allowed_outcomes = {"correct", "incorrect", "abstained", "invalid_answer"}
-    for rows in (present_rows, restored_rows):
+    rows_by_condition: dict[str, list[Mapping[str, Any]] | None] = {}
+    for condition_id, condition in (("history_present", present),
+            ("history_restored", restored)):
+        rows = condition.get("probe_outcomes")
+        if condition["scoreable"] is not True:
+            if rows is not None or condition.get("correct_count") is not None:
+                raise ValueError("ordinary_chat_history_restoration_score_mismatch")
+            rows_by_condition[condition_id] = None
+            continue
         if (not isinstance(rows, list) or not rows
                 or any(not isinstance(row, Mapping)
                     or set(row) != {"probe_id", "outcome"}
@@ -898,16 +900,24 @@ def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
                     for row in rows)
                 or len({row["probe_id"] for row in rows}) != len(rows)):
             raise ValueError("ordinary_chat_history_restoration_probe_outcomes_invalid")
-    if ([row["probe_id"] for row in present_rows]
-            != [row["probe_id"] for row in restored_rows]):
-        raise ValueError("ordinary_chat_history_restoration_probe_alignment_invalid")
-    for condition, rows in ((present, present_rows), (restored, restored_rows)):
         if (type(condition.get("probe_count")) is not int
                 or condition["probe_count"] != len(rows)
                 or type(condition.get("correct_count")) is not int
                 or condition["correct_count"] != sum(
                     row["outcome"] == "correct" for row in rows)):
             raise ValueError("ordinary_chat_history_restoration_score_mismatch")
+        rows_by_condition[condition_id] = rows
+    if present["scoreable"] is not True or restored["scoreable"] is not True:
+        if evaluation.get("restoration_score_stable") is not None:
+            raise ValueError("ordinary_chat_history_restoration_score_mismatch")
+        return None, None
+    present_rows, restored_rows = (rows_by_condition["history_present"],
+        rows_by_condition["history_restored"])
+    if present_rows is None or restored_rows is None:
+        raise ValueError("ordinary_chat_history_restoration_probe_outcomes_invalid")
+    if ([row["probe_id"] for row in present_rows]
+            != [row["probe_id"] for row in restored_rows]):
+        raise ValueError("ordinary_chat_history_restoration_probe_alignment_invalid")
     expected_score_stable = (
         present["correct_count"] == restored["correct_count"]
         and present["probe_count"] == restored["probe_count"])
