@@ -34,8 +34,11 @@ RESULT_ID_PREFIX = "ordinary-history-result-"
 EVALUATION_SCHEMA = "sentientos.ordinary_chat_history_evaluation:v3"
 EVALUATION_ID_PREFIX = "ordinary-history-evaluation-"
 COHORT_SUMMARY_ID_PREFIX = "ordinary-history-cohort-"
-LEGACY_COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v2"
-COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v3"
+LEGACY_COHORT_SUMMARY_SCHEMAS = frozenset({
+    "sentientos.ordinary_chat_history_cohort_summary:v2",
+    "sentientos.ordinary_chat_history_cohort_summary:v3",
+})
+COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v4"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -1050,6 +1053,30 @@ def build_ordinary_chat_history_intervention_cohort_summary(
             order_probe_outcomes = [probe for row in scoreable_order_rows
                 for probe in row["per_probe_outcomes"]]
             favored_condition = favored_conditions[comparison]
+            order_probe_summaries = []
+            order_probe_ids = sorted({probe["probe_id"]
+                for probe in order_probe_outcomes})
+            for probe_id in order_probe_ids:
+                probe_rows = [probe for probe in order_probe_outcomes
+                    if probe["probe_id"] == probe_id]
+                probe_transitions: dict[str, int] = {}
+                for probe in probe_rows:
+                    pair = (probe["favored_outcome"] + "_vs_"
+                        + probe["reference_outcome"])
+                    probe_transitions[pair] = probe_transitions.get(pair, 0) + 1
+                order_probe_summaries.append({
+                    "probe_id": probe_id,
+                    "paired_trial_count": len(probe_rows),
+                    "favored_correct_count": sum(
+                        probe["favored_outcome"] == "correct"
+                        for probe in probe_rows),
+                    "reference_correct_count": sum(
+                        probe["reference_outcome"] == "correct"
+                        for probe in probe_rows),
+                    "correctness_delta_sum": sum(
+                        probe["correctness_delta"] for probe in probe_rows),
+                    "outcome_pair_counts": probe_transitions,
+                })
             order_strata.append({
                 "condition_order": list(condition_order),
                 "favored_condition_position": condition_order.index(favored_condition),
@@ -1070,6 +1097,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 "correctness_tie_count": sum(
                     probe["correctness_delta"] == 0
                     for probe in order_probe_outcomes),
+                "per_probe_summary": order_probe_summaries,
             })
         aggregate[comparison] = {
             "trial_count": len(rows), "scoreable_trial_count": len(scoreable_rows),
@@ -1122,16 +1150,21 @@ def verify_ordinary_chat_history_intervention_cohort_summary(
         summary: Mapping[str, Any], *,
         evaluations: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     rebuilt = build_ordinary_chat_history_intervention_cohort_summary(evaluations)
-    if isinstance(summary, Mapping) and summary.get("schema_version") == (
-            LEGACY_COHORT_SUMMARY_SCHEMA):
+    legacy_schema = (summary.get("schema_version")
+        if isinstance(summary, Mapping) else None)
+    if legacy_schema in LEGACY_COHORT_SUMMARY_SCHEMAS:
         legacy_semantic = {key: value for key, value in rebuilt.items()
             if key not in {"summary_id", "summary_digest"}}
-        legacy_semantic["schema_version"] = LEGACY_COHORT_SUMMARY_SCHEMA
+        legacy_semantic["schema_version"] = legacy_schema
         comparisons = legacy_semantic["planned_comparisons"]
         for comparison in comparisons.values():
-            comparison.pop("order_stratified_summary", None)
-            for row in comparison["per_trial"]:
-                row.pop("condition_order", None)
+            if legacy_schema == "sentientos.ordinary_chat_history_cohort_summary:v2":
+                comparison.pop("order_stratified_summary", None)
+                for row in comparison["per_trial"]:
+                    row.pop("condition_order", None)
+            else:
+                for order_row in comparison["order_stratified_summary"]:
+                    order_row.pop("per_probe_summary", None)
         legacy_digest = digest_payload(legacy_semantic)
         rebuilt = {**legacy_semantic,
             "summary_id": COHORT_SUMMARY_ID_PREFIX + legacy_digest[:24],

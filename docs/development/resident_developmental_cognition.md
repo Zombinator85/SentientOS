@@ -982,13 +982,13 @@ correctness and outcome transitions per probe across scoreable repetitions,
 reports paired probe gains, losses, ties, and outcome-transition counts, and
 reports restoration-score stability while retaining unscoreable outcomes in
 the trial count. Each planned comparison is also stratified by the six exact
-condition orders, with condition positions and paired score deltas, so
-position-dependent patterns stay visible instead of being hidden in the pooled
-aggregate. It verifies paired probe identities and probe-level deltas across
-trials and against aggregate deltas. This is a descriptive within-task summary;
-it does not establish transfer,
-generalization, improvement, or learning. New summaries use schema v3; v2
-summaries remain verifiable with their original pooled-only shape.
+condition orders, with condition positions, paired score deltas, and per-probe
+outcomes in each order, so position-dependent patterns stay visible instead of
+being hidden in the pooled aggregate. It verifies paired probe identities and
+probe-level deltas across trials and against aggregate deltas. This is a
+descriptive within-task summary; it does not establish transfer, generalization,
+improvement, or learning. New summaries use schema v4; v2 and v3 summaries
+remain verifiable in their original shapes.
 `OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each
 evaluation through its protocol, result, scoring plan, and score artifacts
 before publishing the summary immutably. `load_cohort_summary` repeats those
