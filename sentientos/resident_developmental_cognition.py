@@ -121,6 +121,10 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
             or not payload["conclusion"].strip()
             or len(payload["conclusion"]) > 2500):
         raise ValueError("cognition_lesson_shape_invalid")
+    try:
+        payload["conclusion"].encode("utf-8")
+    except UnicodeEncodeError:
+        raise ValueError("cognition_lesson_text_invalid") from None
     lesson = payload["lesson_candidate"]
     if lesson is None:
         return payload
@@ -134,6 +138,10 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
         value = lesson.get(key)
         if not isinstance(value, str) or not value.strip() or len(value) > maximum:
             raise ValueError("cognition_lesson_text_invalid")
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError("cognition_lesson_text_invalid") from None
     if lesson.get("uncertainty") not in {"low", "medium", "high", "unknown"}:
         raise ValueError("cognition_lesson_uncertainty_invalid")
     dependencies = lesson.get("evidence_dependencies")
