@@ -333,6 +333,11 @@ and reports matching or differing fields by digest. Its execution posture is
 was executed or that the new proposal was acted on. Both single- and multi-event
 comparisons now reject proposals from different situations or body generations,
 so the history conditions remain anchored to one frozen decision context.
+`compare_strategy_proposal_to_consequence_set` applies the same comparison to a
+bounded selected event set and keeps each event's citation and unverified
+applicability posture beside its field comparison. This can reveal which
+command details a proposal matches without treating the comparison as event
+relevance, action, or outcome evidence.
 
 ### One explicitly staged objective intervention
 

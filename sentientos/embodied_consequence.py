@@ -1428,6 +1428,49 @@ def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyPropos
     return payload
 
 
+def compare_strategy_proposal_to_consequence_set(*,
+        proposal: EmbodiedStrategyProposal, situation: Mapping[str, Any],
+        events: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """Compare one proposal with every selected command, retaining applicability.
+
+    Event identity and applicability are revalidated through the consequence-set
+    scorer. Exact field agreement remains descriptive: no event is promoted to
+    applicable, and no command execution or later action is established.
+    """
+    verified_set = score_strategy_consequence_set(
+        proposals=(proposal, proposal, proposal), situation=situation, events=events)
+    cited = set(proposal.relevant_consequence_ids)
+    attribution_by_id = {item["attribution"]["attribution_id"]: item["attribution"]
+        for item in events}
+    comparisons = []
+    for event in verified_set["events"]:
+        attribution = attribution_by_id[event["event_id"]]
+        comparisons.append({
+            "event_id": event["event_id"],
+            "event_digest": event["event_digest"],
+            "source_record_id": event["source_record_id"],
+            "source_record_digest": event["source_record_digest"],
+            "source_fact_id": event["source_fact_id"],
+            "proposal_cites_event": event["event_id"] in cited,
+            "applicability_posture": event["applicability"]["posture"],
+            "applicability_relation": event["applicability"]["relation"],
+            "applicability_independently_verified": False,
+            "command_comparison": compare_strategy_proposal_to_prior_command(
+                proposal=proposal, consequence=attribution),
+        })
+    result = {"schema_version": "sentientos.embodied_proposal_consequence_comparison:v1",
+        "proposal_id": proposal.strategy_id,
+        "proposal_digest": proposal.strategy_digest,
+        "situation_digest": verified_set["situation_digest"],
+        "comparisons": comparisons,
+        "interpretation_posture": "field_agreement_only_no_action_or_applicability_finding",
+        "execution_posture": "not_observed",
+        "improvement_claimed": False,
+        "authority": dict(FALSE_AUTHORITY)}
+    result["comparison_digest"] = digest(result)
+    return result
+
+
 STRATEGY_DECISION_QUALITY_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v2"
 STRATEGY_DECISION_QUALITY_WITH_ACTION_SCHEMA = "sentientos.embodied_strategy_decision_quality_preregistration:v3"
 STRATEGY_DECISION_QUALITY_FEEDBACK_SCHEMA = "sentientos.embodied_strategy_decision_quality_feedback:v1"
