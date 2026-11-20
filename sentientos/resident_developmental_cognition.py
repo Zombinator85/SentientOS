@@ -2260,6 +2260,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     inputs_by_run: dict[str, set[int]] = {}
     source_refs: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
     runs: set[tuple[str, str]] = set()
+    run_source_bindings: dict[str, tuple[str, str, str, str | None]] = {}
     target_model_digests: set[str | None] = set()
     source_model_relations: dict[str, str] = {}
     for packet in packets:
@@ -2364,6 +2365,14 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                     example["observed_answer"]))
             if invalid_source_examples or not source_pairs:
                 continue
+            run_binding = (provenance["source_run_id"],
+                provenance["source_task_digest"], provenance["source_score_digest"],
+                source_model_digest)
+            prior_run_binding = run_source_bindings.get(
+                provenance["source_run_digest"])
+            if prior_run_binding is not None and prior_run_binding != run_binding:
+                return None
+            run_source_bindings[provenance["source_run_digest"]] = run_binding
             target_model_digests.add(target_model_digest)
             if source_model_digest is not None:
                 previous_relation = source_model_relations.get(source_model_digest)
@@ -2436,7 +2445,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
     } for model_digest in sorted(model_source_counts)]
     offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
     body = {
-        "schema_version": "sentientos.accumulated_integer_affine_strategy:v4",
+        "schema_version": "sentientos.accumulated_integer_affine_strategy:v5",
         "task_family_id": task_family_id,
         "target_active_model_identity_digest": next(iter(target_model_digests)),
         "multiplier": multiplier,
@@ -5512,7 +5521,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         raise ResidentDevelopmentalCognitionError(
             "task_family_accumulated_strategy_projection_mismatch")
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v14",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v15",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",

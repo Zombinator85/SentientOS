@@ -101,8 +101,9 @@ contains three distinct inputs, the prompt builder can fit a provisional
 integer-affine relation across at least two distinct score-bound runs, each
 contributing a distinct probe input, outside known unsettled task/model outcome
 groups in the same declared family. It requires a one-to-one binding between
-run IDs and run digests, deduplicates repeated probe inputs, rejects conflicting
-answers, excludes adverse or unsettled source-outcome groups, and binds the
+run IDs and run digests and one task, score, and source-model binding per run.
+It deduplicates repeated probe inputs, rejects conflicting answers, excludes
+adverse or unsettled source-outcome groups, and binds the
 summary to the contributing run, score, record, and source-model digests. The
 aggregation step recomputes each bound source-model digest from its retained
 identity before counting it; sources without a verified identity remain
