@@ -9731,7 +9731,8 @@ class ResidentDevelopmentalCognitionOwner:
                 weights = document_term_weights[record_id]
                 shared = query_terms & weights.keys()
                 relevance_score = sum(weights[term] * (math.log((document_count + 1) /
-                    (document_frequency[term] + 0.5)) + 1) ** 2 for term in shared)
+                    (document_frequency[term] + 0.5)) + 1) ** 2
+                    for term in sorted(shared))
                 exchange_mentions_decision = bool(
                     weights.keys() & _HISTORY_DECISION_PREDICATE_TERMS)
                 if relevance_score or record_id in semantic_scores:
@@ -10415,7 +10416,7 @@ class ResidentDevelopmentalCognitionOwner:
             relevance = (len(matched_terms), sum(
                 math.log((len(candidates) + 1) /
                     (term_document_frequency.get(term, 0) + 1)) + 1
-                for term in matched_terms))
+                for term in sorted(matched_terms)))
             return (-relevance[0], -relevance[1], *existing_priority)
 
         # Conflicting facts are one retrieval unit. A question-relevant ranking

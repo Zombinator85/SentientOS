@@ -350,7 +350,9 @@ an observation. Retrieval can match experience using the reported outcome and
 its uncertainty posture while excluding opaque receipt IDs and digests from
 lexical ranking. Typed embodiment fields enter lexical and semantic retrieval
 in a fixed order so process hash randomization does not reorder semantic model
-inputs. Historical v1 attributions remain readable.
+inputs. Lexical IDF contributions are also summed in sorted term order in both
+developmental-history and current-fact ranking, avoiding hash-order variation
+in close score ties. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 
