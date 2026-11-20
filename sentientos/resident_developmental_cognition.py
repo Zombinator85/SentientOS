@@ -2993,13 +2993,13 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                     if isinstance(item, Mapping) and item.get("condition_id") == condition_id), None)
                 score_row = score_by_condition[condition_id]
                 if (not isinstance(raw_condition, Mapping)
-                        or score_row.get("schema_version", "sentientos.objective_task_score:v3")
+                        or score_row.get("schema_version")
                             not in {"sentientos.objective_task_score:v3",
                                 "sentientos.objective_task_score:v4",
                                 "sentientos.objective_task_score:v5"}
-                        or score_row.get("task_digest", descriptor.get("task_digest"))
+                        or score_row.get("task_digest")
                             != descriptor.get("task_digest")
-                        or score_row.get("evaluator", score.get("evaluator"))
+                        or score_row.get("evaluator")
                             != "deterministic_exact_integer_suite_oracle_v2"
                         or not isinstance(score_row.get("score_digest"), str)
                         or len(score_row["score_digest"]) != 71
