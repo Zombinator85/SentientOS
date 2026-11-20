@@ -22,7 +22,7 @@ in-progress trial without completion is invalidated as
 model, provenance, or trial-artifact tampering fails closed.
 
 A complete campaign rereads and digest-verifies every ordinary trial artifact before
-writing one immutable `sentientos.developmental_model_replacement_campaign_report:v3`.
+writing one immutable `sentientos.developmental_model_replacement_campaign_report:v4`.
 The report contains exact classification and comparison counts, per-condition ordered
 output digests and diversity, restoration stability, and bounded all-trial booleans.
 For scored probe suites it also records each probe's condition-outcome counts and
@@ -30,7 +30,11 @@ cross-condition transitions across replications. Answered-probe totals exclude
 invalid, unavailable, and truncated responses; those remain separately classified
 from selective abstentions in the outcome counts. The report builder checks that
 per-probe correct, answered, abstained, and transition counts reconcile with its
-aggregate totals before publishing the immutable report.
+aggregate totals before publishing the immutable report. Objective summaries also
+retain each trial's paired correctness, answer-coverage, and abstention deltas for
+history-present versus withheld, model A versus B, and A restoration comparisons.
+Unscoreable pairs remain in the trial list with their statuses and null deltas, so
+the aggregate cannot hide which repetitions contributed evidence.
 After restart, `load_report(report_id, expected_report_digest=...)` first checks
 the stored report digest and campaign identity, then rebuilds the report from
 the campaign state and every verified trial artifact. A report is returned only
@@ -47,9 +51,9 @@ replacement.
 experiment_state_root=..., campaign_id=..., report_refs=...)` uses that same
 read-only reconstruction to emit the explicitly selected, reverified historical
 World-State observations without requiring the original endpoint objects.
-The loader also reconstructs historical v1 aggregate-only and v2 per-probe
-reports using their original invalid-answer coverage semantics; new summaries
-are written only as v3.
+The loader also reconstructs historical v1 aggregate-only, v2 per-probe, and v3
+per-probe reports using their original invalid-answer coverage semantics; new
+summaries are written only as v4.
 `world_state_records(report_refs=...)` projects only explicitly selected,
 reverified campaign reports as digest-bound historical observations. It carries
 their trial/run references, model/context identities, and bounded objective

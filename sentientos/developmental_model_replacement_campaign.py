@@ -31,7 +31,8 @@ SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_pr
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
 LEGACY_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
 PREVIOUS_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
-REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
+PREVIOUS_PROBE_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
+REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v4"
 WORLD_STATE_RECORD_SCHEMA = (
     "sentientos.developmental_model_replacement_campaign_world_state_record:v1")
 MIN_TRIALS = 2
@@ -879,6 +880,99 @@ class DevelopmentalModelReplacementCampaign:
                             raise DevelopmentalModelReplacementError(
                                 "campaign_objective_probe_transition_mismatch")
                 objective_summary["per_probe_replication"] = probe_rows
+            suite_task = plan.get("task")
+            is_suite = (isinstance(suite_task, Mapping)
+                and isinstance(suite_task.get("probe_inputs"), list))
+            expected_probe_count = (len(suite_task["probe_inputs"])
+                if is_suite else 1)
+            comparison_conditions = {
+                "model_a_history": ("model_a_history_present",
+                    "model_a_history_withheld"),
+                "model_b_history": ("model_b_history_present",
+                    "model_b_history_withheld"),
+                "model_difference_with_history": (
+                    "model_a_history_present", "model_b_history_present"),
+                "model_difference_without_history": (
+                    "model_a_history_withheld", "model_b_history_withheld"),
+                "model_a_restoration": ("model_a_history_present",
+                    "model_a_history_restored"),
+            }
+
+            def score_counts(score: Mapping[str, Any]
+                    ) -> tuple[int, int, int, int] | None:
+                if score.get("status") not in {"correct", "incorrect", "selective"}:
+                    return None
+                if is_suite:
+                    correct_count = score.get("correct_count")
+                    probe_count = score.get("probe_count")
+                    if (type(correct_count) is not int
+                            or probe_count != expected_probe_count):
+                        raise DevelopmentalModelReplacementError(
+                            "campaign_objective_trial_score_invalid")
+                    answered = score.get("answered_count")
+                    abstained = score.get("abstained_count")
+                    if type(answered) is not int:
+                        answered = probe_count
+                    if type(abstained) is not int:
+                        abstained = 0
+                    return correct_count, probe_count, answered, abstained
+                correct = score.get("correct")
+                if type(correct) is not bool:
+                    raise DevelopmentalModelReplacementError(
+                        "campaign_objective_trial_score_invalid")
+                return int(correct), 1, 1, 0
+
+            per_trial_paired_scores: list[dict[str, Any]] = []
+            paired_score_accumulators = {name: {
+                "trial_count": count, "scoreable_trial_count": 0,
+                "paired_probe_count": 0, "correct_probe_delta_sum": 0,
+                "answered_probe_delta_sum": 0, "abstained_probe_delta_sum": 0,
+            } for name in comparison_conditions}
+            for run in runs:
+                score_by_condition = {condition: row["objective_task_score"]
+                    for condition, row in zip(CONDITION_ORDER, run["observations"])}
+                comparisons: dict[str, dict[str, Any]] = {}
+                for name, (left_condition, right_condition) in comparison_conditions.items():
+                    left_score, right_score = (score_by_condition[left_condition],
+                        score_by_condition[right_condition])
+                    left_counts, right_counts = (score_counts(left_score),
+                        score_counts(right_score))
+                    scoreable = (left_counts is not None and right_counts is not None
+                        and left_counts[1] == right_counts[1])
+                    correct_delta = (left_counts[0] - right_counts[0]
+                        if scoreable else None)
+                    answered_delta = (left_counts[2] - right_counts[2]
+                        if scoreable else None)
+                    abstained_delta = (left_counts[3] - right_counts[3]
+                        if scoreable else None)
+                    comparisons[name] = {
+                        "left_condition": left_condition,
+                        "right_condition": right_condition,
+                        "left_status": left_score.get("status"),
+                        "right_status": right_score.get("status"),
+                        "scoreable": scoreable,
+                        "probe_count": left_counts[1] if scoreable else None,
+                        "correct_probe_delta": correct_delta,
+                        "answered_probe_delta": answered_delta,
+                        "abstained_probe_delta": abstained_delta,
+                    }
+                    if scoreable:
+                        accumulator = paired_score_accumulators[name]
+                        accumulator["scoreable_trial_count"] += 1
+                        accumulator["paired_probe_count"] += left_counts[1]
+                        accumulator["correct_probe_delta_sum"] += correct_delta
+                        accumulator["answered_probe_delta_sum"] += answered_delta
+                        accumulator["abstained_probe_delta_sum"] += abstained_delta
+                per_trial_paired_scores.append({
+                    "trial_id": run["trial_id"],
+                    "run_id": run["run_id"],
+                    "run_digest": run["run_digest"],
+                    "comparisons": comparisons,
+                })
+            objective_summary["paired_score_comparisons"] = {
+                name: values for name, values in paired_score_accumulators.items()}
+            objective_summary["per_trial_paired_score_deltas"] = (
+                per_trial_paired_scores)
         semantic = {"campaign_id": self.protocol.campaign_id, "campaign_digest": self.protocol.campaign_digest,
             "planned_trial_count": count, "completed_valid_trial_count": count,
             "trial_artifacts": list(self.state["completed_trials"]),
@@ -910,17 +1004,20 @@ class DevelopmentalModelReplacementCampaign:
     def _report_for_schema(self, report: Mapping[str, Any],
             schema_version: str) -> dict[str, Any]:
         if schema_version not in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
-                REPORT_SCHEMA}:
+                PREVIOUS_PROBE_REPORT_SCHEMA, REPORT_SCHEMA}:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_schema_unsupported")
         semantic = json.loads(json.dumps({key: value for key, value in report.items()
             if key not in {"report_id", "report_digest"}}, sort_keys=True))
         objective = semantic.get("objective_evaluation")
-        if schema_version in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA}:
+        if schema_version in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
+                PREVIOUS_PROBE_REPORT_SCHEMA}:
             if isinstance(objective, Mapping):
                 objective = dict(objective)
                 if schema_version == LEGACY_REPORT_SCHEMA:
                     objective.pop("per_probe_replication", None)
+                objective.pop("paired_score_comparisons", None)
+                objective.pop("per_trial_paired_score_deltas", None)
                 answered = objective.get("condition_answered_probe_count")
                 scored = objective.get("condition_scored_probe_count")
                 status_counts = objective.get("condition_status_counts")
@@ -929,7 +1026,8 @@ class DevelopmentalModelReplacementCampaign:
                     if isinstance(plan, Mapping) else None)
                 probe_count = (task_descriptor.get("probe_count")
                     if isinstance(task_descriptor, Mapping) else None)
-                if isinstance(answered, Mapping) or isinstance(scored, Mapping):
+                if (schema_version in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA}
+                        and (isinstance(answered, Mapping) or isinstance(scored, Mapping))):
                     if (not isinstance(answered, Mapping)
                             or not isinstance(scored, Mapping)
                             or not isinstance(status_counts, Mapping)
