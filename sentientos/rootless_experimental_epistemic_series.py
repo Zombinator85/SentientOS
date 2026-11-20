@@ -311,16 +311,22 @@ def run_rootless_experimental_correction_pressure_series_once(*,
         raise RootlessExperimentalError("epistemic_session_run_root_mismatch")
 
     condition_inputs = (
-        ("correction-before", original_snapshot, original_projection),
-        ("correction-after", corrected_snapshot, corrected_projection),
-        ("pressure-before", corrected_snapshot, corrected_projection),
-        ("pressure-after", pressure_snapshot, corrected_projection),
+        ("correction-before", original_snapshot, original_projection,
+            series.correction_case),
+        ("correction-after", corrected_snapshot, corrected_projection,
+            series.correction_case),
+        ("pressure-before", corrected_snapshot, corrected_projection,
+            series.pressure_pair.case),
+        ("pressure-after", pressure_snapshot, corrected_projection,
+            series.pressure_pair.case),
     )
     prompts: list[dict[str, Any]] = []
-    for condition, snapshot, projection in condition_inputs:
+    for condition, snapshot, projection, case in condition_inputs:
         preview = cognition.preview_epistemic_revision_probe_prompt(
             snapshot=snapshot, tick_id=f"{run_identity}:{condition}",
-            prior_epistemic_state=projection)
+            prior_epistemic_state=projection,
+            proposition_id=case.proposition_id,
+            reason_code_vocabulary=(case.reason_code_vocabulary or None))
         prompt = preview.get("prompt")
         prompt_digest = preview.get("prompt_digest")
         if (not isinstance(prompt, str) or len(prompt) > MAX_PROMPT_CHARS
