@@ -1264,6 +1264,12 @@ def score_strategy_experiment(*, proposals: Sequence[EmbodiedStrategyProposal],
     if len(proposals)!=3: raise EmbodiedConsequenceError("strategy_condition_count_invalid")
     _verify_consequence_attribution(consequence)
     for proposal in proposals: verify_strategy_proposal(proposal)
+    consequence_generation = consequence.get("body_generation")
+    if (type(consequence_generation) is not int or consequence_generation < 1
+            or len({proposal.situation_binding for proposal in proposals}) != 1
+            or len({proposal.body_generation for proposal in proposals}) != 1
+            or proposals[0].body_generation != consequence_generation):
+        raise EmbodiedConsequenceError("strategy_condition_context_mismatch")
     present,withheld,restored=proposals
     known={str(consequence["attribution_id"])}
     if len(resource_evidence_bindings)>16:
@@ -1326,11 +1332,16 @@ def score_strategy_consequence_set(*, proposals: Sequence[EmbodiedStrategyPropos
     """
     if (len(proposals) != 3 or not isinstance(situation, Mapping)
             or not isinstance(situation.get("situation_binding"), str)
-            or not situation.get("situation_binding") or not isinstance(events, (list, tuple))
+            or not situation.get("situation_binding")
+            or type(situation.get("body_generation")) is not int
+            or situation["body_generation"] < 1
+            or not isinstance(events, (list, tuple))
             or not 1 <= len(events) <= 12):
         raise EmbodiedConsequenceError("strategy_consequence_set_inputs_invalid")
     for proposal in proposals:
-        verify_strategy_proposal(proposal)
+        verify_strategy_proposal(proposal,
+            situation_binding=situation["situation_binding"],
+            body_generation=situation["body_generation"])
     situation_digest = digest(dict(situation))
     event_rows: list[dict[str, Any]] = []
     event_ids: set[str] = set()

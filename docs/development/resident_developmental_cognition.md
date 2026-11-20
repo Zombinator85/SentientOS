@@ -330,7 +330,9 @@ finding. The single-consequence scorer also emits a separately named
 expression fields with the retained command record when those fields overlap,
 and reports matching or differing fields by digest. Its execution posture is
 `not_observed_by_this_comparison`; it does not establish that the prior command
-was executed or that the new proposal was acted on.
+was executed or that the new proposal was acted on. Both single- and multi-event
+comparisons now reject proposals from different situations or body generations,
+so the history conditions remain anchored to one frozen decision context.
 
 ### One explicitly staged objective intervention
 
