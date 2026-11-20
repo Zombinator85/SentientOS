@@ -1712,6 +1712,10 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
     else:
         candidates = []
         posture = "comparable"
+        seen_inference_receipt_ids: set[str] = set()
+        seen_inference_receipt_digests: set[str] = set()
+        seen_consumption_receipt_ids: set[str] = set()
+        seen_consumption_receipt_digests: set[str] = set()
         for condition_id in condition_ids:
             item = by_id[condition_id]
             count, probes = item.get("correct_count"), item.get("probe_count")
@@ -1742,6 +1746,17 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                 posture = "incomparable_missing_or_unbound_measurement"
                 candidates = []
                 break
+            inference_receipt_id = item["inference_receipt_id"]
+            inference_receipt_digest = item["inference_receipt_digest"]
+            normalized_inference_digest = (inference_receipt_digest[7:]
+                if len(inference_receipt_digest) == 71 else inference_receipt_digest)
+            if (inference_receipt_id in seen_inference_receipt_ids
+                    or normalized_inference_digest in seen_inference_receipt_digests):
+                posture = "incomparable_duplicate_condition_receipt"
+                candidates = []
+                break
+            seen_inference_receipt_ids.add(inference_receipt_id)
+            seen_inference_receipt_digests.add(normalized_inference_digest)
             call_units = []
             receipt_bindings = []
             for receipt in receipts:
@@ -1758,6 +1773,13 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
                     posture = "incomparable_unknown_call_units"
                     candidates = []
                     break
+                if (receipt_id in seen_consumption_receipt_ids
+                        or receipt_digest in seen_consumption_receipt_digests):
+                    posture = "incomparable_duplicate_resource_receipt"
+                    candidates = []
+                    break
+                seen_consumption_receipt_ids.add(receipt_id)
+                seen_consumption_receipt_digests.add(receipt_digest)
                 call_units.append(value)
                 receipt_bindings.append({"receipt_id": receipt_id,
                     "receipt_digest": receipt_digest, "call_units_consumed": value})

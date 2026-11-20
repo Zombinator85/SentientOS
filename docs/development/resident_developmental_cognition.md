@@ -423,6 +423,16 @@ receipt identities only as invocation-receipt linkage until the resource ledger
 is independently reconciled. CPU, GPU, energy, and generated-token measurements
 remain unknown when this result path has no corroborating measurement owner.
 
+Resource-aware task-family recommendations compare the exact
+`history_present`/`history_withheld`/`history_restored` score and resource joins.
+They require a distinct verified inference receipt for each condition and
+distinct measured-consumption receipt IDs and digests across all conditions;
+repeated receipts make the comparison incomparable instead of counting the
+same cost more than once. Among options meeting the frozen correctness
+requirement, the bounded evaluator ranks higher correct-probe count first, then
+lower measured `call_units_consumed`. It never infers shared-host CPU/GPU use,
+or treats expenditure as a reward or authority signal.
+
 Before staging, an operator can run a bounded read-only preflight against one
 explicitly selected model file:
 
