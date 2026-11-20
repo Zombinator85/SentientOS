@@ -449,11 +449,15 @@ resource savings. `call_units_consumed` is identified as ledger-reported
 invocation cost and not host compute, energy, or cognition quality.
 The recommendation artifact also types its role as a historical condition
 comparison, marks the selected value as a history-exposure condition rather
-than a task strategy, and limits the claim to the exact task family. Prompt
-projection re-verification requires and preserves these semantic fields.
-This semantic contract is `sentientos.resource_strategy_recommendation:v2`;
-older untyped v1 recommendations remain historical data but are not admitted
-into later prompts as verified recommendations.
+than a task strategy, and limits the claim to the exact task family. It also
+records `selection_reason`: either a unique highest correctness score selected
+the condition, or measured cost broke a tie between equally correct
+conditions. Prompt projection re-verification requires and preserves these
+semantic fields.
+This semantic contract is `sentientos.resource_strategy_recommendation:v3`;
+older v1/v2 recommendations remain historical data but are not admitted into
+later prompts as verified recommendations because they lack the typed selection
+rationale.
 Before task-family history reaches a later cognition prompt, the recommendation
 digest and full-suite requirement are checked and the recommendation is rebuilt
 from the retained three-condition score and ledger evidence. A mismatch removes

@@ -537,6 +537,9 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "recorded invocation cost only, not a measure of host compute, energy, cognition quality, "
     "or causal benefit. Use a recommendation only as tentative evidence for that exact task family, "
     "and do not infer learning, improvement, resource savings, or transfer from it. "
+    "Its selection_reason says whether correctness alone selected the condition or measured "
+    "call_units_consumed broke a tie between equally correct conditions; do not imply the latter "
+    "when selection_reason is unique_highest_correct_count. "
     "When task-family context contains a controlled_task_effect summary, do not imitate observed answers from an "
     "episode classified history_adverse; treat those answers as a failed historical outcome and prefer separately "
     "validated corrective experience. A history_favorable comparison may inform the exact task family, but rely on "
@@ -1708,7 +1711,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             or not isinstance(task_digest, str) or len(task_digest) != 71
             or not task_digest.startswith("sha256:")
             or len(condition_outcomes) != len(condition_ids)):
-        return {"schema_version": "sentientos.resource_strategy_recommendation:v2",
+        return {"schema_version": "sentientos.resource_strategy_recommendation:v3",
             "evaluator": evaluator, "posture": "incomparable_missing_preregistered_inputs",
             "recommendation": None, "authority": False, "current_truth": False}
     by_id = {str(item.get("condition_id")): item for item in condition_outcomes
@@ -1883,6 +1886,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
     eligible = [item for item in candidates
         if item["correct_count"] >= minimum_correct_count]
     recommendation: dict[str, Any] | None = None
+    selection_reason: str | None = None
     if posture == "comparable" and eligible:
         best_quality = max(item["correct_count"] for item in eligible)
         best_quality_rows = [item for item in eligible if item["correct_count"] == best_quality]
@@ -1891,18 +1895,22 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             if item["call_units_consumed"] == lowest_cost]
         if len(best) == 1:
             recommendation = best[0]
+            selection_reason = ("unique_highest_correct_count"
+                if len(best_quality_rows) == 1 else
+                "lowest_measured_call_units_among_equal_quality_conditions")
             posture = "bounded_recommendation"
         else:
             posture = "incomparable_equivalent_options"
     elif posture == "comparable":
         posture = "no_option_meets_preregistered_quality_requirement"
-    body = {"schema_version": "sentientos.resource_strategy_recommendation:v2",
+    body = {"schema_version": "sentientos.resource_strategy_recommendation:v3",
         "evaluator": evaluator, "posture": posture,
         "requirements": {"minimum_correct_count": minimum_correct_count,
             "probe_count": probe_count,
             "source": "frozen_task_descriptor_full_suite_correctness",
             "task_digest": task_digest},
         "candidate_conditions": candidates, "recommendation": recommendation,
+        "selection_reason": selection_reason,
         "condition_labels_used_as_quality": False,
         "recommendation_role": "historical_condition_comparison_not_task_strategy",
         "selected_condition_semantics": "history_exposure_condition",
@@ -1922,7 +1930,7 @@ def _verified_resource_strategy_recommendation(
     semantic = {key: value for key, value in recommendation.items()
         if key != "recommendation_digest"}
     requirements = recommendation.get("requirements")
-    if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v2"
+    if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v3"
             or recommendation.get("evaluator") != "resource_quality_then_measured_call_units:v1"
             or recommendation.get("condition_labels_used_as_quality") is not False
             or recommendation.get("recommendation_role") !=
@@ -1930,6 +1938,10 @@ def _verified_resource_strategy_recommendation(
             or recommendation.get("selected_condition_semantics") !=
                 "history_exposure_condition"
             or recommendation.get("claim_scope") != "exact_task_family_only"
+            or recommendation.get("selection_reason") not in {
+                "unique_highest_correct_count",
+                "lowest_measured_call_units_among_equal_quality_conditions"}
+                and recommendation.get("selection_reason") is not None
             or recommendation.get("authority") is not False
             or recommendation.get("current_truth") is not False
             or recommendation.get("historical_only") is not True
@@ -2033,7 +2045,7 @@ def _compact_task_family_history_example(example: Mapping[str, Any]) -> dict[str
         compact_recommendation = {key: recommendation.get(key) for key in (
             "schema_version", "evaluator", "posture", "requirements",
             "condition_labels_used_as_quality", "recommendation_role",
-            "selected_condition_semantics", "claim_scope", "authority",
+            "selected_condition_semantics", "claim_scope", "selection_reason", "authority",
             "current_truth", "historical_only", "recommendation_digest")}
         compact_recommendation["verification_posture"] = (
             "recomputed_from_verified_condition_evidence")
