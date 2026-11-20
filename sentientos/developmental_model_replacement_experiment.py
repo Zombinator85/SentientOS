@@ -1256,7 +1256,9 @@ class ModelReplacementArtifactStore:
             raise DevelopmentalModelReplacementError("trial_run_artifact_tampered")
         condition_statuses = value.get("condition_statuses")
         context_lineage_posture = value.get("context_lineage_posture")
-        if (context_lineage_posture not in {None, "legacy_context_not_persisted",
+        if ((context_lineage_posture is not None
+                and not isinstance(context_lineage_posture, str))
+                or context_lineage_posture not in {None, "legacy_context_not_persisted",
                 "verified_persisted_frozen_context"}
                 or (context_lineage_posture == "verified_persisted_frozen_context"
                     and condition_statuses is None)):
@@ -1269,6 +1271,7 @@ class ModelReplacementArtifactStore:
             if (not isinstance(protocol, Mapping) or not isinstance(trial_id, str)
                     or not isinstance(condition_statuses, list) or not 1 <= len(condition_statuses) <= len(CONDITION_ORDER)
                     or not isinstance(observations, list) or len(observations) > len(CONDITION_ORDER)
+                    or not isinstance(completion, str)
                     or completion not in {"completed", "incomplete", "contradictory"}):
                 raise DevelopmentalModelReplacementError("trial_condition_lineage_incomplete")
             protocol_id = str(protocol.get("protocol_id") or "")
@@ -1293,6 +1296,7 @@ class ModelReplacementArtifactStore:
                 status_value = status.get("status")
                 if (saw_terminal_status or status.get("condition") != condition
                         or status.get("condition_id") != condition_id
+                        or not isinstance(status_value, str)
                         or status_value not in {"completed", "incomplete", "contradictory"}
                         or not isinstance(status.get("condition_input_digest"), str)):
                     raise DevelopmentalModelReplacementError("trial_condition_lineage_invalid")
