@@ -2296,6 +2296,9 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
             }
             source_model_digest = experience.get(
                 "source_active_model_identity_digest")
+            source_model_identity = experience.get("source_active_model_identity")
+            source_model_binding_posture = experience.get(
+                "model_identity_binding_posture")
             model_relation = experience.get("model_identity_relation")
             if (not isinstance(record_id, str) or not record_id
                     or not isinstance(record_digest, str)
@@ -2310,6 +2313,16 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                         and (not isinstance(source_model_digest, str)
                             or re.fullmatch(r"sha256:[0-9a-f]{64}",
                                 source_model_digest) is None))
+                    or (source_model_digest is not None
+                        and (not isinstance(source_model_identity, Mapping)
+                            or not source_model_identity
+                            or _digest(dict(source_model_identity))
+                                != source_model_digest
+                            or source_model_binding_posture
+                                != "protocol_bound_source_identity"))
+                    or (source_model_digest is None
+                        and source_model_binding_posture
+                            != "source_model_identity_unbound")
                     or (model_relation != "model_identity_unbound"
                         and source_model_digest is None)
                     or experience.get("evaluator")
