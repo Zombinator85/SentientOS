@@ -99,11 +99,11 @@ Outcome posture affects retrieval priority only when the restored score matches 
 When eligible examples are spread across runs and no single contributing run
 contains three distinct inputs, the prompt builder can fit a provisional
 integer-affine relation across at least two distinct score-bound runs, each
-contributing a distinct probe input, outside known unsettled task/model outcome groups in the same
-declared family. It deduplicates
-repeated probe inputs, rejects conflicting answers, excludes adverse or
-unsettled source-outcome groups, and binds the summary to
-the contributing run, score, record, and source-model digests. The relation
+contributing a distinct probe input, outside known unsettled task/model outcome
+groups in the same declared family. It requires a one-to-one binding between
+run IDs and run digests, deduplicates repeated probe inputs, rejects conflicting
+answers, excludes adverse or unsettled source-outcome groups, and binds the
+summary to the contributing run, score, record, and source-model digests. The relation
 remains historical guidance: it establishes neither learning nor cross-model
 performance transfer. The projection digest records whether this accumulated
 candidate was included in each history-present/restored prompt; real-model use

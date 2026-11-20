@@ -2358,6 +2358,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
         if len(sources) == 1}
     if (len(answers_by_input) < 3 or len(run_digests) < 2
             or len(run_ids) != len(runs)
+            or len(run_digests) != len(runs)
             or len(distinct_input_contributors) < 2
             or any(len(inputs) >= 3 for inputs in inputs_by_run.values())):
         return None
