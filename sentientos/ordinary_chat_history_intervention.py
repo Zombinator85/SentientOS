@@ -2257,9 +2257,10 @@ class OrdinaryChatHistoryInterventionStore:
             result = self._store._read_json(self._store.runs / f"{result_id}.json")
         except FileNotFoundError as exc:
             raise ValueError("ordinary_chat_history_result_missing") from exc
+        # Validate links before following score references. Defer the external
+        # receipt check to the combined result-and-score verification below.
         verification = verify_ordinary_chat_history_intervention_result(
-            result, protocol=protocol, prompt_bundle=prompt_bundle,
-            invocation_receipt_verifier=invocation_receipt_verifier)
+            result, protocol=protocol, prompt_bundle=prompt_bundle)
         scores = self._score_artifacts_for_result(result, protocol=protocol,
             prompt_bundle=prompt_bundle)
         scoring_plan = self.load_scoring_plan(protocol=protocol,
