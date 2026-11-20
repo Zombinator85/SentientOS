@@ -117,14 +117,21 @@ def _verified_fulfillment_receipt(value: Any, *, correlation_id: str) -> bool:
         return False
     try:
         encoded = canonical_bytes(dict(value))
+        non_effect_flags = ("effect_proven", "effect_claimed",
+            "actual_effect_observed", "side_effect_observed", "authority",
+            "decision_authority", "admission_authority", "execution_authority")
+        contradictory_effect_claim = (
+            any(key in value and value.get(key) is not False
+                for key in non_effect_flags)
+            or ("decision_power" in value and value.get("decision_power") != "none"))
     except (TypeError, ValueError, OverflowError):
         return False
-    if len(encoded) > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES:
+    if (len(encoded) > MAX_FULFILLMENT_RECEIPT_ATTRIBUTION_BYTES
+            or contradictory_effect_claim):
         return False
     from .embodiment_fulfillment import verify_embodied_fulfillment_receipt
     try:
         return (verify_embodied_fulfillment_receipt(value)
-            and value.get("effect_proven") is not True
             and value.get("correlation_id") == correlation_id)
     except (TypeError, ValueError, OverflowError):
         return False
