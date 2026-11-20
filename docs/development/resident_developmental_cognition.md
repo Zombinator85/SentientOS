@@ -459,7 +459,10 @@ invocation cost and not host compute, energy, or cognition quality.
 The current objective intervention invokes each of its three history-exposure
 conditions once, and the governed ledger records backend entry as one call unit
 per attempt. A completed three-condition run therefore cannot demonstrate
-resource savings between conditions. If a unique correctness score selects a
+resource savings between conditions. Ledger receipt validation requires
+`call_units_consumed` to equal one when `generation_attempted` is true and zero
+when it is false; inconsistent measurements cannot enter later resource
+recommendations. If a unique correctness score selects a
 condition, that is a quality result; cost selection is demonstrated only when
 owner-reconciled call counts vary between correctness-equivalent alternatives.
 Synthetic fixtures that vary costs establish evaluator ordering only. Actual

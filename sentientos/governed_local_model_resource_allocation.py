@@ -340,7 +340,12 @@ class GovernedLocalModelResourceConsumptionReceipt:
                 frozenset(_MEASUREMENT_FIELDS | {"backend_resource_observation"})}:
             raise GovernedLocalModelResourceError("measurement_fields_not_exact")
         if measurement["actual_token_count"] is not None: raise GovernedLocalModelResourceError("actual_token_count_untrusted")
-        if type(measurement["generation_attempted"]) is not bool or type(measurement["call_units_consumed"]) is not int or measurement["call_units_consumed"] not in (0, 1):
+        generation_attempted = measurement["generation_attempted"]
+        call_units_consumed = measurement["call_units_consumed"]
+        if (type(generation_attempted) is not bool
+                or type(call_units_consumed) is not int
+                or call_units_consumed not in (0, 1)
+                or call_units_consumed != int(generation_attempted)):
             raise GovernedLocalModelResourceError("invalid_measurement")
         configured = measurement["configured_bounds"]
         if not isinstance(configured, Mapping): raise GovernedLocalModelResourceError("invalid_configured_bounds")
