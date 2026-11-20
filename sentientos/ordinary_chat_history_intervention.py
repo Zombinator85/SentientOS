@@ -1051,8 +1051,10 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                                     "reference_outcome", "correctness_delta"}
                                 or not isinstance(probe.get("probe_id"), str)
                                 or _HEX_DIGEST.fullmatch(probe["probe_id"]) is None
+                                or not isinstance(probe.get("favored_outcome"), str)
                                 or probe.get("favored_outcome") not in {
                                     "correct", "incorrect", "abstained", "invalid_answer"}
+                                or not isinstance(probe.get("reference_outcome"), str)
                                 or probe.get("reference_outcome") not in {
                                     "correct", "incorrect", "abstained", "invalid_answer"}
                                 or type(probe.get("correctness_delta")) is not int

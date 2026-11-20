@@ -142,7 +142,8 @@ def _parse_cognition_lesson_output(text: str, consumed_ids: set[str]) -> Mapping
             value.encode("utf-8")
         except UnicodeEncodeError:
             raise ValueError("cognition_lesson_text_invalid") from None
-    if lesson.get("uncertainty") not in {"low", "medium", "high", "unknown"}:
+    if (not isinstance(lesson.get("uncertainty"), str)
+            or lesson.get("uncertainty") not in {"low", "medium", "high", "unknown"}):
         raise ValueError("cognition_lesson_uncertainty_invalid")
     dependencies = lesson.get("evidence_dependencies")
     contradictions = lesson.get("possible_contradiction_ids")
@@ -194,6 +195,7 @@ def _parse_companion_interaction_output(text: str,
     if (not isinstance(value, dict)
             or set(value) != expected_fields and not (
                 allowed_self_model_ids is None and set(value) == legacy_fields)
+            or not isinstance(value.get("disposition"), str)
             or value.get("disposition") not in {"answer", "ask", "abstain"}
             or not isinstance(value.get("response"), str)
             or not value["response"].strip() or len(value["response"]) > 1600):
@@ -3724,7 +3726,9 @@ def _history_decision_contrast_context(payload: Mapping[str, Any], *,
         response_digest = decision.get("response_digest")
         if (not isinstance(response_digest, str) or len(response_digest) != 64
                 or any(character not in "0123456789abcdef" for character in response_digest)
+                or not isinstance(decision.get("disposition"), str)
                 or decision.get("disposition") not in {"answer", "ask", "abstain"}
+                or not isinstance(decision.get("model_disposition"), str)
                 or decision.get("model_disposition") not in {"answer", "ask", "abstain"}):
             raise ResidentDevelopmentalCognitionError(
                 "history_decision_contrast_decision_invalid")
