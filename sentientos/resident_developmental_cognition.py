@@ -553,6 +553,10 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "Check it against every accompanying correct example and use it only for that same task family. It is "
     "historical evidence, not current truth, and does not establish transfer or learning. If it conflicts "
     "with examples or current task evidence, surface the conflict and do not apply it. "
+    "A task_family_accumulated_candidate_strategy is a provisional fit across at least two distinct, "
+    "score-bound runs outside known unsettled task/model outcome groups in that same family. Check it against every accompanying correct example; "
+    "use it provisionally only for that same declared family when it agrees with the examples and current task. "
+    "Surface any conflict instead of applying it. It does not establish learning or cross-model performance transfer. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
     "or latency."
@@ -2224,6 +2228,160 @@ def _candidate_integer_affine_strategy(experience: Mapping[str, Any],
         **provenance,
         "model_identity_relation": experience.get("model_identity_relation"),
         "posture": "provisional_relation_fit_to_score_bound_examples",
+        "scope": "exact_declared_integer_affine_task_family_only",
+        "performance_transfer_established": False,
+        "learning_established": False,
+        "historical_only": True,
+        "current_truth": False,
+        "authority": False,
+    }
+    return {**body, "strategy_digest": _digest(body)}
+
+
+def _candidate_integer_affine_strategy_from_history(packets: object, *,
+        task_family_id: str,
+        unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]]
+        = frozenset()) -> dict[str, Any] | None:
+    """Fit a provisional relation across score-bound runs outside known unsettled groups."""
+    if (not isinstance(task_family_id, str)
+            or (task_family_id != "integer_affine_prediction"
+                and not task_family_id.startswith(
+                    "rootless_integer_affine_transfer_"))):
+        return None
+    if not isinstance(packets, (list, tuple)):
+        return None
+    answers_by_input: dict[int, int] = {}
+    source_refs: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
+    runs: set[tuple[str, str]] = set()
+    for packet in packets:
+        if not isinstance(packet, Mapping):
+            continue
+        record_id, record_digest = packet.get("record_id"), packet.get("record_digest")
+        experiences = packet.get("task_relevant_experience", ())
+        if not isinstance(experiences, (list, tuple)):
+            continue
+        for experience in experiences:
+            if (not isinstance(experience, Mapping)
+                    or experience.get("task_family_id") != task_family_id
+                    or experience.get("model_identity_relation") not in {
+                        "same_active_model_identity", "different_active_model_identity",
+                        "model_identity_unbound"}
+                    or experience.get("candidate_integer_affine_strategy_withheld") is not None
+                    or experience.get(
+                        "candidate_integer_affine_strategy_source_outcomes_unsettled")
+                        is not None):
+                continue
+            effect = experience.get("controlled_task_effect")
+            if (not isinstance(effect, Mapping)
+                    or effect.get("effect_classification") not in {
+                        "history_favorable", "no_difference_observed",
+                        "comparison_unavailable"}):
+                continue
+            outcome_group = (experience.get("source_task_digest"),
+                experience.get("source_active_model_identity_digest"))
+            if outcome_group in unsettled_outcome_groups:
+                continue
+            provenance = {
+                "source_fact_id": experience.get("source_fact_id"),
+                "source_run_id": experience.get("source_run_id"),
+                "source_run_digest": experience.get("source_run_digest"),
+                "source_task_digest": experience.get("source_task_digest"),
+                "source_score_digest": experience.get("source_score_digest"),
+            }
+            source_model_digest = experience.get(
+                "source_active_model_identity_digest")
+            model_relation = experience.get("model_identity_relation")
+            if (not isinstance(record_id, str) or not record_id
+                    or not isinstance(record_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest) is None
+                    or any(not isinstance(provenance[key], str) or not provenance[key]
+                        for key in ("source_fact_id", "source_run_id"))
+                    or any(not isinstance(provenance[key], str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", provenance[key]) is None
+                        for key in ("source_run_digest", "source_task_digest",
+                            "source_score_digest"))
+                    or (source_model_digest is not None
+                        and (not isinstance(source_model_digest, str)
+                            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                                source_model_digest) is None))
+                    or (model_relation != "model_identity_unbound"
+                        and source_model_digest is None)
+                    or experience.get("evaluator")
+                        != "deterministic_exact_integer_suite_oracle_v2"
+                    or experience.get("historical_only") is not True
+                    or experience.get("current_truth") is not False
+                    or experience.get("authority") is not False):
+                continue
+            examples = experience.get("examples")
+            if not isinstance(examples, (list, tuple)) or not examples:
+                continue
+            source_pairs: list[tuple[int, int]] = []
+            invalid_source_examples = False
+            for example in examples:
+                if (not isinstance(example, Mapping)
+                        or example.get("evaluator_correct") is not True
+                        or example.get("abstained") not in (None, False)
+                        or type(example.get("probe_input")) is not int
+                        or type(example.get("observed_answer")) is not int):
+                    invalid_source_examples = True
+                    break
+                source_pairs.append((example["probe_input"],
+                    example["observed_answer"]))
+            if invalid_source_examples or not source_pairs:
+                continue
+            source_key = (provenance["source_run_digest"],
+                provenance["source_score_digest"], record_digest,
+                provenance["source_fact_id"], source_model_digest or "")
+            source_refs[source_key] = {
+                "record_id": record_id, "record_digest": record_digest,
+                **{key: str(value) for key, value in provenance.items()},
+                "source_active_model_identity_digest": source_model_digest,
+            }
+            runs.add((provenance["source_run_id"], provenance["source_run_digest"]))
+            for probe_input, answer in source_pairs:
+                previous = answers_by_input.get(probe_input)
+                if previous is not None and previous != answer:
+                    return None
+                answers_by_input[probe_input] = answer
+    run_ids = {run_id for run_id, _ in runs}
+    run_digests = {run_digest for _, run_digest in runs}
+    if (len(answers_by_input) < 3 or len(run_digests) < 2
+            or len(run_ids) != len(runs)):
+        return None
+    ordered_pairs = sorted(answers_by_input.items())
+    first_input, first_output = ordered_pairs[0]
+    second_input, second_output = ordered_pairs[1]
+    delta_input = second_input - first_input
+    delta_output = second_output - first_output
+    if delta_input == 0 or delta_output % delta_input:
+        return None
+    multiplier = delta_output // delta_input
+    offset = first_output - multiplier * first_input
+    if any(output != multiplier * probe_input + offset
+            for probe_input, output in ordered_pairs):
+        return None
+    evidence = [{"probe_input": probe_input, "observed_answer": output}
+        for probe_input, output in ordered_pairs]
+    ordered_sources = [source_refs[key] for key in sorted(source_refs)]
+    visible_sources = ordered_sources[:16]
+    omitted_sources = ordered_sources[16:]
+    offset_term = (f"+ {offset}" if offset >= 0 else f"- {abs(offset)}")
+    body = {
+        "schema_version": "sentientos.accumulated_integer_affine_strategy:v1",
+        "task_family_id": task_family_id,
+        "multiplier": multiplier,
+        "offset": offset,
+        "relation": f"output = {multiplier} * input {offset_term}",
+        "supporting_distinct_input_count": len(evidence),
+        "supporting_examples_digest": _digest(evidence),
+        "supporting_run_count": len(run_digests),
+        "supporting_runs_digest": _digest(sorted(run_digests)),
+        "supporting_source_count": len(ordered_sources),
+        "supporting_sources_digest": _digest(ordered_sources),
+        "supporting_source_refs": visible_sources,
+        "omitted_supporting_source_count": len(omitted_sources),
+        "omitted_supporting_source_refs_digest": _digest(omitted_sources),
+        "posture": "provisional_relation_fit_to_score_bound_examples_accumulated_across_runs",
         "scope": "exact_declared_integer_affine_task_family_only",
         "performance_transfer_established": False,
         "learning_established": False,
@@ -4878,6 +5036,14 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     "developmental_history": prompt_packets,
                     "historical_embodiment_reports": historical_embodiment_reports,
                     "developmental_history_selection": prompt_selection}
+                candidate.pop("task_family_accumulated_candidate_strategy", None)
+                if isinstance(task_family_id, str):
+                    accumulated_strategy = _candidate_integer_affine_strategy_from_history(
+                        prompt_packets, task_family_id=task_family_id,
+                        unsettled_outcome_groups=unsettled_task_family_outcome_groups)
+                    if accumulated_strategy is not None:
+                        candidate["task_family_accumulated_candidate_strategy"] = (
+                            accumulated_strategy)
                 if self_model_selection is not None:
                     omitted_conflicts = self_model_selection.get(
                         "omitted_conflict_groups", ())
@@ -4985,8 +5151,10 @@ def _withhold_conflicting_task_family_examples(
 
 
 def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
-        condition_id: str, task_family_id: str) -> dict[str, Any]:
-    """Record digest-only evidence of task-family examples in the bound prompt."""
+        condition_id: str, task_family_id: str,
+        unsettled_outcome_groups: set[tuple[str, str]] | frozenset[tuple[str, str]]
+        = frozenset()) -> dict[str, Any]:
+    """Record source and derived-strategy evidence in the bound task-family prompt."""
     if (not isinstance(condition_id, str) or not condition_id
             or not isinstance(task_family_id, str) or not task_family_id):
         raise ResidentDevelopmentalCognitionError(
@@ -5257,8 +5425,14 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
                 "example_count": entry["prior_abstained_example_count"],
                 "examples_digest": entry["prior_abstained_examples_digest"],
             })
+    accumulated_strategy = _candidate_integer_affine_strategy_from_history(
+        history, task_family_id=task_family_id,
+        unsettled_outcome_groups=unsettled_outcome_groups)
+    if context.get("task_family_accumulated_candidate_strategy") != accumulated_strategy:
+        raise ResidentDevelopmentalCognitionError(
+            "task_family_accumulated_strategy_projection_mismatch")
     semantic = {
-        "schema_version": "sentientos.task_family_history_prompt_projection:v10",
+        "schema_version": "sentientos.task_family_history_prompt_projection:v11",
         "condition_id": condition_id,
         "task_family_id": task_family_id,
         "treatment": "withheld" if condition_id == "history_withheld" else "present",
@@ -5268,6 +5442,7 @@ def _task_family_history_prompt_projection(context: Mapping[str, Any], *,
         "records": entries,
         "candidate_integer_affine_strategy_count": len(candidate_strategy_refs),
         "candidate_integer_affine_strategies": candidate_strategy_refs,
+        "accumulated_candidate_integer_affine_strategy": accumulated_strategy,
         "withheld_unsettled_candidate_integer_affine_strategy_count": len(
             withheld_candidate_strategy_refs),
         "withheld_unsettled_candidate_integer_affine_strategies": (
@@ -10782,7 +10957,9 @@ class ResidentDevelopmentalCognitionOwner:
             if isinstance(task_family_id, str) and protocol is not None:
                 upstream_evidence["task_family_history_prompt_projection"] = (
                     _task_family_history_prompt_projection(context,
-                        condition_id=condition_id, task_family_id=task_family_id))
+                        condition_id=condition_id, task_family_id=task_family_id,
+                        unsettled_outcome_groups=set(getattr(projection,
+                            "task_family_unsettled_outcome_groups", ()))))
                 family_fact_ids: set[str] = set()
                 for record_id in protocol.record_ids:
                     record = self.writeback.store.get(record_id)

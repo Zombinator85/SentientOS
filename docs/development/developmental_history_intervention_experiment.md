@@ -96,6 +96,18 @@ For a structured objective task whose descriptor explicitly requires task-family
 
 Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
 
+When no single experience contains enough examples to derive a candidate
+integer-affine relation, the prompt builder can now fit a provisional relation
+across at least two distinct score-bound runs outside known unsettled
+task/model outcome groups in the same declared family. It deduplicates
+repeated probe inputs, rejects conflicting answers,
+excludes adverse or unsettled source-outcome groups, and binds the summary to
+the contributing run, score, record, and source-model digests. The relation
+remains historical guidance: it establishes neither learning nor cross-model
+performance transfer. The projection digest records whether this accumulated
+candidate was included in each history-present/restored prompt; real-model use
+and transfer remain unverified.
+
 Within equal outcome posture and model applicability, retrieval ranks exact
 overlap with the current task's probe inputs before the number of distinct
 usable probe inputs in a record. Repeated rows for the same input no longer
