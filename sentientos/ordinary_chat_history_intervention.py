@@ -38,8 +38,9 @@ LEGACY_COHORT_SUMMARY_SCHEMAS = frozenset({
     "sentientos.ordinary_chat_history_cohort_summary:v2",
     "sentientos.ordinary_chat_history_cohort_summary:v3",
     "sentientos.ordinary_chat_history_cohort_summary:v4",
+    "sentientos.ordinary_chat_history_cohort_summary:v5",
 })
-COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v5"
+COHORT_SUMMARY_SCHEMA = "sentientos.ordinary_chat_history_cohort_summary:v6"
 SCORE_SCHEMA = "sentientos.ordinary_chat_history_score_artifact:v1"
 SCORE_ID_PREFIX = "ordinary-history-score-"
 SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
@@ -1075,6 +1076,8 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 "trial_index": evaluation["trial_index"],
                 "condition_order": list(evaluation["condition_order"]),
                 "scoreable": True,
+                "score_stable": evaluation["restoration_score_stable"],
+                "output_digest_stable": output_stable,
                 "pattern_stable": probe_stable,
                 "per_probe_outcomes": probe_transitions,
             })
@@ -1099,6 +1102,8 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 "trial_index": evaluation["trial_index"],
                 "condition_order": list(evaluation["condition_order"]),
                 "scoreable": False,
+                "score_stable": None,
+                "output_digest_stable": output_stable,
                 "pattern_stable": None,
                 "per_probe_outcomes": None,
             })
@@ -1223,6 +1228,46 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                 for row in rows],
             "per_trial": rows,
         }
+    restoration_order_strata = []
+    for condition_order in condition_orders:
+        order_rows = [row for row in restoration_probe_per_trial
+            if tuple(row["condition_order"]) == condition_order]
+        scoreable_score_rows = [row for row in order_rows
+            if row["score_stable"] is not None]
+        scoreable_pattern_rows = [row for row in order_rows if row["scoreable"]]
+        order_probe_accumulators: dict[str, dict[str, Any]] = {}
+        for row in scoreable_pattern_rows:
+            for transition in row["per_probe_outcomes"]:
+                probe_id = transition["probe_id"]
+                accumulator = order_probe_accumulators.setdefault(probe_id, {
+                    "probe_id": probe_id, "paired_trial_count": 0,
+                    "same_outcome_count": 0, "changed_outcome_count": 0,
+                    "outcome_pair_counts": {},
+                })
+                accumulator["paired_trial_count"] += 1
+                same_outcome = (transition["history_present_outcome"]
+                    == transition["history_restored_outcome"])
+                accumulator["same_outcome_count"] += int(same_outcome)
+                accumulator["changed_outcome_count"] += int(not same_outcome)
+                pair = (transition["history_present_outcome"] + "_vs_"
+                    + transition["history_restored_outcome"])
+                accumulator["outcome_pair_counts"][pair] = (
+                    accumulator["outcome_pair_counts"].get(pair, 0) + 1)
+        restoration_order_strata.append({
+            "condition_order": list(condition_order),
+            "trial_count": len(order_rows),
+            "score_stability_count": sum(
+                row["score_stable"] is True for row in scoreable_score_rows),
+            "score_stability_denominator": len(scoreable_score_rows),
+            "output_digest_stability_count": sum(
+                row["output_digest_stable"] is True for row in order_rows),
+            "output_digest_stability_denominator": len(order_rows),
+            "probe_pattern_stability_count": sum(
+                row["pattern_stable"] is True for row in scoreable_pattern_rows),
+            "probe_pattern_stability_denominator": len(scoreable_pattern_rows),
+            "per_probe_summary": sorted(order_probe_accumulators.values(),
+                key=lambda item: item["probe_id"]),
+        })
     semantic = {"schema_version": COHORT_SUMMARY_SCHEMA,
         "session_id": cohort_identity[0],
         "task_commitment_digest": cohort_identity[1],
@@ -1251,6 +1296,7 @@ def build_ordinary_chat_history_intervention_cohort_summary(
         "restoration_probe_pattern_stability_per_trial": restoration_probe_per_trial,
         "restoration_probe_summary": sorted(
             restoration_probe_accumulators.values(), key=lambda item: item["probe_id"]),
+        "restoration_order_stratified_summary": restoration_order_strata,
         "interpretation_posture": "descriptive_complete_counterbalanced_blocks:v1",
         "effect_established": False, "improvement_established": False,
         "learning_established": False, "authority": False}
@@ -1271,14 +1317,16 @@ def verify_ordinary_chat_history_intervention_cohort_summary(
         legacy_semantic = {key: value for key, value in rebuilt.items()
             if key not in {"summary_id", "summary_digest"}}
         legacy_semantic["schema_version"] = legacy_schema
-        for key in (
-                "restoration_probe_pattern_stability_count",
-                "restoration_probe_pattern_stability_denominator",
-                "restoration_probe_pattern_stability_per_trial",
-                "restoration_probe_summary",
-                "restoration_output_digest_stability_count",
-                "restoration_output_digest_stability_denominator"):
-            legacy_semantic.pop(key, None)
+        legacy_semantic.pop("restoration_order_stratified_summary", None)
+        if legacy_schema != "sentientos.ordinary_chat_history_cohort_summary:v5":
+            for key in (
+                    "restoration_probe_pattern_stability_count",
+                    "restoration_probe_pattern_stability_denominator",
+                    "restoration_probe_pattern_stability_per_trial",
+                    "restoration_probe_summary",
+                    "restoration_output_digest_stability_count",
+                    "restoration_output_digest_stability_denominator"):
+                legacy_semantic.pop(key, None)
         comparisons = legacy_semantic["planned_comparisons"]
         for comparison in comparisons.values():
             if legacy_schema == "sentientos.ordinary_chat_history_cohort_summary:v2":
