@@ -2040,6 +2040,8 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
                 if key != "score_digest"})):
         raise DevelopmentalModelReplacementError("objective_score_binding_invalid")
     status = value.get("status")
+    if not isinstance(status, str):
+        raise DevelopmentalModelReplacementError("objective_score_status_invalid")
     if status in {"correct", "incorrect", "selective"}:
         if output_truncated or value.get("output_digest") != expected_output_digest:
             raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
