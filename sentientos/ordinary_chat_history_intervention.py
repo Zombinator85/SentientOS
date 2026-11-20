@@ -871,7 +871,18 @@ def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
             or type(present.get("scoreable")) is not bool
             or type(restored.get("scoreable")) is not bool):
         raise ValueError("ordinary_chat_history_restoration_metrics_invalid")
+    expected_output_stable = (present.get("output_digest")
+        == restored.get("output_digest"))
+    if (not isinstance(present.get("output_digest"), str)
+            or _HEX_DIGEST.fullmatch(present["output_digest"]) is None
+            or not isinstance(restored.get("output_digest"), str)
+            or _HEX_DIGEST.fullmatch(restored["output_digest"]) is None
+            or evaluation.get("restoration_output_digest_stable")
+                is not expected_output_stable):
+        raise ValueError("ordinary_chat_history_restoration_output_digest_mismatch")
     if present["scoreable"] is not True or restored["scoreable"] is not True:
+        if evaluation.get("restoration_score_stable") is not None:
+            raise ValueError("ordinary_chat_history_restoration_score_mismatch")
         return None, None
     present_rows, restored_rows = (present.get("probe_outcomes"),
         restored.get("probe_outcomes"))
@@ -889,6 +900,18 @@ def _restoration_probe_outcomes(evaluation: Mapping[str, Any]
     if ([row["probe_id"] for row in present_rows]
             != [row["probe_id"] for row in restored_rows]):
         raise ValueError("ordinary_chat_history_restoration_probe_alignment_invalid")
+    for condition, rows in ((present, present_rows), (restored, restored_rows)):
+        if (type(condition.get("probe_count")) is not int
+                or condition["probe_count"] != len(rows)
+                or type(condition.get("correct_count")) is not int
+                or condition["correct_count"] != sum(
+                    row["outcome"] == "correct" for row in rows)):
+            raise ValueError("ordinary_chat_history_restoration_score_mismatch")
+    expected_score_stable = (
+        present["correct_count"] == restored["correct_count"]
+        and present["probe_count"] == restored["probe_count"])
+    if evaluation.get("restoration_score_stable") is not expected_score_stable:
+        raise ValueError("ordinary_chat_history_restoration_score_mismatch")
     transitions = [{
         "probe_id": present_row["probe_id"],
         "history_present_outcome": present_row["outcome"],

@@ -989,8 +989,10 @@ probe-level deltas across trials and against aggregate deltas. This is a
 descriptive within-task summary; it does not establish transfer, generalization,
 improvement, or learning. Restoration reports aggregate score stability, exact
 output-digest stability, and whether the same per-probe outcome pattern
-returned as separate measures. New summaries use schema v5; v2 through v4 summaries
-remain verifiable in their original shapes.
+returned as separate measures. New summaries use schema v5; v2 through v4
+summaries remain verifiable in their original shapes. The cohort rebuilds
+restoration flags from paired condition metrics and rejects inconsistent score
+or output-digest stability claims.
 `OrdinaryChatHistoryInterventionStore.persist_cohort_summary` reloads each
 evaluation through its protocol, result, scoring plan, and score artifacts
 before publishing the summary immutably. `load_cohort_summary` repeats those
