@@ -2312,6 +2312,8 @@ class OrdinaryChatHistoryInterventionStore:
             evaluation = self._store._read_json(path)
         except FileNotFoundError as exc:
             raise ValueError("ordinary_chat_history_evaluation_missing") from exc
+        if not isinstance(evaluation, Mapping):
+            raise ValueError("ordinary_chat_history_evaluation_invalid")
         result = self.load_result(evaluation.get("result_id"), protocol=protocol,
             prompt_bundle=prompt_bundle)
         scoring_plan = self.load_scoring_plan(protocol=protocol,
