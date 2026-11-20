@@ -5326,6 +5326,10 @@ EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT = (
     "sentientos.epistemic_revision_answer:v2")
 EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT = (
     "sentientos.epistemic_revision_answer:v3")
+EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACTS = frozenset({
+    EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT,
+    EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT,
+})
 _EPISTEMIC_REVISION_PROBE_UNRELATED_CONTEXT_FIELDS = (
     "developmental_history", "developmental_history_posture",
     "developmental_history_retrieval_policy_id",
@@ -5464,7 +5468,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
     is_epistemic_revision_probe = (
         isinstance(probe_context, Mapping)
         and probe_context.get("response_contract")
-            == EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACT)
+            in EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACTS)
     if is_epistemic_revision_probe:
         # This probe is scoped to a supplied epistemic state and current
         # evidence. Unrelated developmental history and its retrieval metadata
@@ -5481,10 +5485,8 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         value = {**prompt_context, "prior_epistemic_state": None}
         probe = value.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
-                and isinstance(probe.get("response_contract"), str)
-                and probe["response_contract"] in {
-                    "sentientos.epistemic_revision_answer:v2",
-                    EPISTEMIC_REVISION_PROBE_REASON_SCORED_RESPONSE_CONTRACT}):
+                and probe.get("response_contract")
+                    in EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACTS):
             value["epistemic_revision_probe"] = {
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -5517,11 +5519,11 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
             "source_tick": projection.source_tick,
             "semantic_status": "canonical_definition_unavailable",
             "semantic_packets": []}
-        value = {**dict(context), "prior_epistemic_state": prior}
+        value = {**prompt_context, "prior_epistemic_state": prior}
         probe = value.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
                 and probe.get("response_contract")
-                    == "sentientos.epistemic_revision_answer:v2"):
+                    in EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACTS):
             value["epistemic_revision_probe"] = {
                 **dict(probe), "allowed_evidence_binding_ids": []}
         prompt = json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -5705,7 +5707,7 @@ def _bind_epistemic_context(*, context: Mapping[str, Any],
         probe = candidate.get("epistemic_revision_probe")
         if (isinstance(probe, Mapping)
                 and probe.get("response_contract")
-                    == "sentientos.epistemic_revision_answer:v2"):
+                    in EPISTEMIC_REVISION_PROBE_RESPONSE_CONTRACTS):
             visible_binding_ids: set[str] = set()
             for packet in consumed:
                 if (probe_target_id is not None

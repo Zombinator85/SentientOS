@@ -52,8 +52,13 @@ discrimination among its bindings. The dedicated probe schema instead exposes
 exact evidence-binding IDs and checks them directly against the held-out key.
 Use the probe path when a case requires per-evidence discrimination.
 
-The bounded probe now uses a task-specific instruction instead of the ordinary
-cross-domain cognition instructions. It still requires evaluation of active
+The bounded probe uses a task-specific instruction instead of the ordinary
+cross-domain cognition instructions. Both the free-form v2 response contract
+and reason-scored v3 response contract enter the same probe-specific context
+path: unrelated developmental history is removed, and the evidence-ID
+allowlist is derived only from consumed eligible bindings. Missing or
+identifier-only epistemic projections produce an empty allowlist for either
+contract. It still requires evaluation of active
 bindings and their source qualifiers, preserves unresolved support and
 contradiction together, limits citations to the exact evidence-binding
 allowlist, and denies truth or action authority to model output. The probe's
