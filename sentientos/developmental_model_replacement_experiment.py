@@ -1363,6 +1363,8 @@ class ModelReplacementArtifactStore:
                 if type(requested_tokens) is not int or any(
                         not isinstance(observation.get(
                             "actual_generation_parameters"), Mapping)
+                        or type(observation["actual_generation_parameters"].get(
+                            "max_new_tokens")) is not int
                         or observation["actual_generation_parameters"].get(
                             "max_new_tokens") != requested_tokens
                         for observation in value["observations"]):
@@ -2484,6 +2486,7 @@ class DevelopmentalModelReplacementExperiment:
         requested_tokens = self.context.inference_budget.get("max_new_tokens")
         if (self.objective_plan is not None and
                 (type(requested_tokens) is not int
+                 or type(actual.get("max_new_tokens")) is not int
                  or actual.get("max_new_tokens") != requested_tokens)):
             raise DevelopmentalModelReplacementError("objective_generation_budget_drift",
                 evidence=_inference_failure_evidence(receipt))
@@ -2596,6 +2599,7 @@ class DevelopmentalModelReplacementExperiment:
         if self.objective_plan is not None:
             requested_tokens = self.context.inference_budget.get("max_new_tokens")
             if (type(requested_tokens) is not int
+                    or type(generation.get("max_new_tokens")) is not int
                     or generation.get("max_new_tokens") != requested_tokens):
                 raise DevelopmentalModelReplacementError(
                     "objective_generation_budget_drift")
