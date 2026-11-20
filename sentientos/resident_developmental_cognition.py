@@ -2289,6 +2289,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
         for experience in experiences:
             if (not isinstance(experience, Mapping)
                     or experience.get("task_family_id") != task_family_id
+                    or not isinstance(experience.get("model_identity_relation"), str)
                     or experience.get("model_identity_relation") not in {
                         "same_active_model_identity", "different_active_model_identity",
                         "model_identity_unbound"}
@@ -2299,6 +2300,7 @@ def _candidate_integer_affine_strategy_from_history(packets: object, *,
                 continue
             effect = experience.get("controlled_task_effect")
             if (not isinstance(effect, Mapping)
+                    or not isinstance(effect.get("effect_classification"), str)
                     or effect.get("effect_classification") not in {
                         "history_favorable", "no_difference_observed",
                         "comparison_unavailable"}):
@@ -4516,6 +4518,7 @@ def _validated_historical_citation_context(value: Mapping[str, Any] | None, *,
                 or re.fullmatch(r"turn-[0-9a-f]{24}", turn_id) is None
                 or (session_id == (conversation_context or {}).get("session_id")
                     and turn_id in current_ids)
+                or not isinstance(row.get("role"), str)
                 or row.get("role") not in {"user", "assistant"}
                 or not isinstance(text, str) or not text or len(text) > 2000
                 or not isinstance(text_digest, str)
@@ -4650,11 +4653,13 @@ def _history_context_packet(record: Mapping[str, Any], *,
             item.update(_task_family_model_applicability(item,
                 target_model_identity=target_model_identity))
         eligible = [item for item in task_examples
-            if item.get("model_identity_relation") in {
+            if isinstance(item.get("model_identity_relation"), str)
+            and item.get("model_identity_relation") in {
                 "same_active_model_identity", "different_active_model_identity",
                 "model_identity_unbound"}]
         omitted = [item for item in task_examples
-            if item.get("model_identity_relation") not in {
+            if not isinstance(item.get("model_identity_relation"), str)
+            or item.get("model_identity_relation") not in {
                 "same_active_model_identity", "different_active_model_identity",
                 "model_identity_unbound"}]
         if eligible:
