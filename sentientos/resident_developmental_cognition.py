@@ -4678,7 +4678,40 @@ def _history_context_packet(record: Mapping[str, Any], *,
             packet["historical_embodiment_reports_digest"] = _digest(embodiment_context)
             packet["historical_embodiment_report_count"] = len(embodiment_context)
             packet["historical_embodiment_reports_posture"] = (
-                "details_omitted_for_cognition_input_budget")
+                "receipt_summaries_retained_other_details_omitted_for_cognition_input_budget")
+            receipt_reports: list[dict[str, Any]] = []
+            receipt_summary_count = 0
+            for report in embodiment_context:
+                fields = report.get("typed_report_fields")
+                receipt = (fields.get("fulfillment_receipt_summary")
+                    if isinstance(fields, Mapping) else None)
+                if not isinstance(receipt, Mapping):
+                    continue
+                receipt_summary_count += 1
+                if len(receipt_reports) >= 4:
+                    continue
+                receipt_reports.append({
+                    "fact_id": report.get("fact_id"),
+                    "source_schema_version": report.get("source_schema_version"),
+                    "stage": report.get("stage"),
+                    "disposition": report.get("disposition"),
+                    "evidence_strength": report.get("evidence_strength"),
+                    "effect_proven": False,
+                    "reported_values": {"fulfillment_receipt": dict(receipt)},
+                    "typed_report_fields": {
+                        "fulfillment_receipt_summary": dict(receipt)},
+                    "historical_only": True,
+                    "current_truth": False,
+                    "authority": False,
+                })
+            if receipt_reports:
+                packet["historical_embodiment_reports"] = receipt_reports
+                packet["historical_embodiment_receipt_summary_count"] = (
+                    receipt_summary_count)
+                packet["historical_embodiment_receipt_summaries_omitted_count"] = (
+                    receipt_summary_count - len(receipt_reports))
+                packet["historical_embodiment_receipt_summaries_digest"] = (
+                    _digest(receipt_reports))
         else:
             packet["historical_embodiment_reports"] = embodiment_context
     operator_feedback_context = ([] if task_family_scoped else

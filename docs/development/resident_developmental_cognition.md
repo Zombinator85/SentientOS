@@ -352,7 +352,12 @@ lexical ranking. Typed embodiment fields enter lexical and semantic retrieval
 in a fixed order so process hash randomization does not reorder semantic model
 inputs. Lexical IDF contributions are also summed in sorted term order in both
 developmental-history and current-fact ranking, avoiding hash-order variation
-in close score ties. Historical v1 attributions remain readable.
+in close score ties. The compact ordinary-chat prompt retains at most four
+typed receipt summaries per selected record, alongside the record citation
+and explicit self-report/non-effect posture, with a digest and total/omitted
+summary counts; other embodiment details remain omitted. This lets a receipt
+outcome that affected retrieval also inform the response as an attributed
+historical report. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 
