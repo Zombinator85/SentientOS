@@ -4142,6 +4142,15 @@ def _historical_embodiment_retrieval_text(candidate: Mapping[str, Any], *,
         for name in _EMBODIMENT_RETRIEVAL_FIELDS:
             if name in fields:
                 collect(fields[name])
+        receipt = fields.get("fulfillment_receipt_summary")
+        if isinstance(receipt, Mapping):
+            # Outcome language can make relevant experience retrievable, while
+            # opaque receipt identities and digests add no lexical relevance.
+            for name in ("fulfillment_outcome", "fulfillment_outcome_posture",
+                    "receipt_binding_posture", "fulfiller_kind"):
+                value = receipt.get(name)
+                if isinstance(value, str):
+                    searchable.append(value)
         roles = report.get("semantic_report_roles")
         intervention = (roles.get("history_intervention_result")
             if isinstance(roles, Mapping) else None)
