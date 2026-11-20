@@ -325,7 +325,11 @@ The embodied strategy scorer evaluates proposed decisions against admitted
 consequence history; it does not observe an action. Its
 `repeats_previously_contradicted_action` field is derived from the proposal's
 `retry_prior_strategy` self-report and must not be read as an executed-action
-finding.
+finding. `compare_strategy_proposal_to_prior_command` separately compares exact
+proposed pose and expression fields with a retained command record when those
+fields overlap. It reports matching or differing fields by digest and keeps
+execution posture `not_observed_by_this_comparison`; it does not establish that
+the prior command was executed or that the new proposal was acted on.
 
 ### One explicitly staged objective intervention
 

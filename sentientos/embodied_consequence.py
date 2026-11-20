@@ -887,12 +887,25 @@ def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_requir
                              situation_binding: str | None = None,
                              body_generation: int | None = None) -> None:
     _validate_authority(value.authority)
-    if (value.schema_version != STRATEGY_SCHEMA or not value.situation_binding
-            or value.body_generation < 1 or value.uncertainty not in {"low","medium","high","unknown"}
+    if (value.schema_version != STRATEGY_SCHEMA
+            or not isinstance(value.situation_binding, str) or not value.situation_binding
+            or type(value.body_generation) is not int or value.body_generation < 1
+            or not isinstance(value.uncertainty, str)
+            or value.uncertainty not in {"low","medium","high","unknown"}
             or not isinstance(value.rationale, str) or len(value.rationale) > 2000
             or not isinstance(value.proposed_next_action_class, str) or not value.proposed_next_action_class
+            or len(value.proposed_next_action_class) > 64
+            or any(item is not None and (not isinstance(item, str) or len(item) > 128)
+                for item in (value.requested_pose, value.requested_expression))
+            or any(type(item) is not bool for item in (value.retry_prior_strategy,
+                value.alter_body_or_rig, value.more_observation_required,
+                value.distinguishes_renderer_and_observer))
+            or not isinstance(value.relevant_consequence_ids, tuple)
             or len(value.relevant_consequence_ids) > 64
+            or any(not isinstance(item, str) or not item
+                for item in value.relevant_consequence_ids)
             or len(set(value.relevant_consequence_ids)) != len(value.relevant_consequence_ids)
+            or not isinstance(value.factual_assertions, tuple)
             or len(value.factual_assertions) > 64
             or (situation_binding is not None and value.situation_binding != situation_binding)
             or (body_generation is not None and value.body_generation != body_generation)):
@@ -902,6 +915,48 @@ def verify_strategy_proposal(value: EmbodiedStrategyProposal, *, identity_requir
         raise EmbodiedConsequenceError("strategy_assertion_bounds_invalid")
     if identity_required and (value.strategy_id, value.strategy_digest) != _identity("strategy", value.semantic_payload()):
         raise EmbodiedConsequenceError("strategy_proposal_digest_mismatch")
+
+
+def compare_strategy_proposal_to_prior_command(*,
+        proposal: EmbodiedStrategyProposal,
+        consequence: Mapping[str, Any]) -> dict[str, Any]:
+    """Compare proposed pose/expression fields with a prior command record.
+
+    This exact field comparison does not establish that the prior command was
+    executed or that the proposal was subsequently acted on.
+    """
+    verify_strategy_proposal(proposal)
+    _verify_consequence_attribution(consequence)
+    prior_command = consequence.get("commanded_value")
+    if not isinstance(prior_command, Mapping):
+        raise EmbodiedConsequenceError("strategy_prior_command_invalid")
+    proposed_fields = {"pose": proposal.requested_pose,
+        "expression": proposal.requested_expression}
+    compared: list[dict[str, Any]] = []
+    for field in ("pose", "expression"):
+        proposed_value = proposed_fields[field]
+        if proposed_value is None or field not in prior_command:
+            continue
+        prior_value = prior_command[field]
+        compared.append({"field": field, "values_equal": proposed_value == prior_value,
+            "proposal_value_digest": digest({"value": proposed_value}),
+            "prior_command_value_digest": digest({"value": prior_value})})
+    matching_fields = [item["field"] for item in compared if item["values_equal"]]
+    differing_fields = [item["field"] for item in compared if not item["values_equal"]]
+    comparison = {"schema_version": "sentientos.embodied_proposal_command_comparison:v1",
+        "proposal_id": proposal.strategy_id, "proposal_digest": proposal.strategy_digest,
+        "prior_consequence_id": consequence["attribution_id"],
+        "prior_consequence_digest": consequence["attribution_digest"],
+        "prior_command_digest": digest(dict(prior_command)),
+        "compared_fields": compared, "matching_fields": matching_fields,
+        "differing_fields": differing_fields,
+        "posture": ("no_shared_action_fields" if not compared else
+            "proposal_matches_prior_command_fields" if not differing_fields else
+            "proposal_differs_from_prior_command_fields"),
+        "execution_posture": "not_observed_by_this_comparison",
+        "authority": dict(FALSE_AUTHORITY)}
+    comparison["comparison_digest"] = digest(comparison)
+    return comparison
 
 
 def strategy_proposal_review_record(value: EmbodiedStrategyProposal, *,
