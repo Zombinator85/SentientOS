@@ -360,7 +360,9 @@ typed receipt summaries per selected record, preferring query-term matches on
 reported outcome and uncertainty posture with stable source-order ties. It
 keeps the record citation and explicit self-report/non-effect posture, with a
 digest and total/omitted summary counts; other embodiment details remain
-omitted. This lets a receipt
+omitted. The history projector re-verifies the enclosing v1/v2 attribution and
+its nested receipt before exposing receipt fields; an invalid attribution does
+not contribute a receipt summary. This lets a receipt
 outcome that affected retrieval also inform the response as an attributed
 historical report. The ordinary-chat history instruction explicitly says that
 the reported outcome is not an observation or proof of action and requires the

@@ -3847,6 +3847,17 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             # World-State renderer-report facts store the report body directly
             # as their payload; consequence-attribution facts may nest it.
             renderer_report = payload
+        attribution_verified = False
+        if schema in {"sentientos.embodied_consequence_attribution:v1",
+                "sentientos.embodied_consequence_attribution:v2"}:
+            try:
+                from .embodied_consequence import verify_consequence_attribution
+                verify_consequence_attribution(payload)
+                attribution_verified = True
+            except (ImportError, KeyError, TypeError, ValueError, OverflowError):
+                # A malformed historical attribution must not contribute a
+                # nested receipt summary to later cognition.
+                attribution_verified = False
         values: dict[str, Any] = {}
         fields: tuple[str, ...]
         roles: dict[str, Any] = {}
@@ -3998,6 +4009,8 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
             continue
         if fields:
             for key in fields:
+                if key == "fulfillment_receipt" and not attribution_verified:
+                    continue
                 value = payload.get(key)
                 if value is None or isinstance(value, (str, bool, int, float)):
                     values[key] = value
@@ -4013,7 +4026,8 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                             for item in value)):
                     values[key] = [dict(item) if isinstance(item, Mapping) else item
                         for item in value]
-            if schema == "sentientos.embodied_consequence_attribution:v2":
+            if (schema == "sentientos.embodied_consequence_attribution:v2"
+                    and attribution_verified):
                 receipt = payload.get("fulfillment_receipt")
                 if isinstance(receipt, Mapping):
                     receipt_summary = {

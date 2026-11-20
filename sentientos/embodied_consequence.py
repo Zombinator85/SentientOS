@@ -3288,6 +3288,11 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
         raise EmbodiedConsequenceError("consequence_observer_receipt_unexpected")
 
 
+def verify_consequence_attribution(value: Mapping[str, Any]) -> None:
+    """Verify a historical consequence attribution before cognition projects it."""
+    _verify_consequence_attribution(value)
+
+
 def _strategy_prior_consequence_binding(history_record: Mapping[str, Any],
                                         consequence: Mapping[str, Any]) -> dict[str, Any]:
     candidate = history_record.get("candidate")
