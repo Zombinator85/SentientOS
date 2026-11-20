@@ -441,6 +441,12 @@ becomes incomparable. Among options meeting the frozen correctness requirement,
 the bounded evaluator ranks higher correct-probe count first, then lower measured
 `call_units_consumed`. It never infers shared-host CPU/GPU use, or treats
 expenditure as a reward or authority signal.
+In cognition prompts, the three condition names are explicitly described as
+experimental history-exposure labels, not current-task directives. A surfaced
+recommendation remains tentative, task-family-scoped retrospective evidence;
+it does not establish learning, improvement, transfer, causal benefit, or
+resource savings. `call_units_consumed` is identified as ledger-reported
+invocation cost and not host compute, energy, or cognition quality.
 Before task-family history reaches a later cognition prompt, the recommendation
 digest and full-suite requirement are checked and the recommendation is rebuilt
 from the retained three-condition score and ledger evidence. A mismatch removes
