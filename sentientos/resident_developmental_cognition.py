@@ -558,6 +558,8 @@ EXPERIMENT_CONTEXT_INSTRUCTION = (
     "outcome groups in that same family, with fewer than three distinct inputs in each run. "
     "Check it against every accompanying correct example; "
     "use it provisionally only for that same declared family when it agrees with the examples and current task. "
+    "Its supporting_model_identity_source_counts and supporting_unbound_model_source_count describe provenance only; "
+    "they are not independent trials, do not increase evidence weight, and do not establish cross-model transfer. "
     "Surface any conflict instead of applying it. It does not establish learning or cross-model performance transfer. "
     "Treat measured, estimated, predicted, and unknown quantities according to their source posture; "
     "never infer per-invocation CPU, GPU, energy, or token measurements from shared host use, call counts, output size, "
