@@ -1708,7 +1708,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             or not isinstance(task_digest, str) or len(task_digest) != 71
             or not task_digest.startswith("sha256:")
             or len(condition_outcomes) != len(condition_ids)):
-        return {"schema_version": "sentientos.resource_strategy_recommendation:v1",
+        return {"schema_version": "sentientos.resource_strategy_recommendation:v2",
             "evaluator": evaluator, "posture": "incomparable_missing_preregistered_inputs",
             "recommendation": None, "authority": False, "current_truth": False}
     by_id = {str(item.get("condition_id")): item for item in condition_outcomes
@@ -1896,7 +1896,7 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
             posture = "incomparable_equivalent_options"
     elif posture == "comparable":
         posture = "no_option_meets_preregistered_quality_requirement"
-    body = {"schema_version": "sentientos.resource_strategy_recommendation:v1",
+    body = {"schema_version": "sentientos.resource_strategy_recommendation:v2",
         "evaluator": evaluator, "posture": posture,
         "requirements": {"minimum_correct_count": minimum_correct_count,
             "probe_count": probe_count,
@@ -1922,7 +1922,7 @@ def _verified_resource_strategy_recommendation(
     semantic = {key: value for key, value in recommendation.items()
         if key != "recommendation_digest"}
     requirements = recommendation.get("requirements")
-    if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v1"
+    if (recommendation.get("schema_version") != "sentientos.resource_strategy_recommendation:v2"
             or recommendation.get("evaluator") != "resource_quality_then_measured_call_units:v1"
             or recommendation.get("condition_labels_used_as_quality") is not False
             or recommendation.get("recommendation_role") !=
