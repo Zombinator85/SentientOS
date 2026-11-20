@@ -17,6 +17,12 @@
     "cognition": "bounded historical context without effect authority",
     "missing_evidence": "explicitly unknown; no CPU, GPU, energy, token, or external outcome is inferred"
   },
+  "known_experiment_limitations": [
+    "The current objective intervention performs one inference per history-exposure condition.",
+    "The governed ledger records call_units_consumed as 0 or 1 per attempt; completed backend entries consume one unit.",
+    "Consequently, current live three-condition runs cannot demonstrate resource savings between completed conditions. Synthetic evaluator fixtures that vary costs verify ordering logic only.",
+    "Resource-allocation learning requires a preregistered comparison of task strategies with owner-reconciled variable call counts and independent held-out quality scoring."
+  ],
   "evaluation": {
     "evaluator": "resource_quality_then_measured_call_units:v1",
     "preregistered_requirement": "frozen_task_descriptor_full_suite_correctness",
@@ -26,6 +32,8 @@
       "minimize measured call_units_consumed"
     ],
     "condition_label_used_as_quality": false,
+    "cost_selection_is_demonstrated": false,
+    "cost_selection_evidence_required": "variable owner-reconciled call counts across correctness-equivalent strategy alternatives",
     "unknown_measurements": "incomparable; no recommendation"
   }
 }

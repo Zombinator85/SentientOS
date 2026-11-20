@@ -447,6 +447,15 @@ recommendation remains tentative, task-family-scoped retrospective evidence;
 it does not establish learning, improvement, transfer, causal benefit, or
 resource savings. `call_units_consumed` is identified as ledger-reported
 invocation cost and not host compute, energy, or cognition quality.
+The current objective intervention invokes each of its three history-exposure
+conditions once, and the governed ledger records backend entry as one call unit
+per attempt. A completed three-condition run therefore cannot demonstrate
+resource savings between conditions. If a unique correctness score selects a
+condition, that is a quality result; cost selection is demonstrated only when
+owner-reconciled call counts vary between correctness-equivalent alternatives.
+Synthetic fixtures that vary costs establish evaluator ordering only. Actual
+resource-allocation learning needs preregistered task-strategy alternatives
+with variable measured call counts and independent held-out quality scoring.
 The recommendation artifact also types its role as a historical condition
 comparison, marks the selected value as a history-exposure condition rather
 than a task strategy, and limits the claim to the exact task family. It also
