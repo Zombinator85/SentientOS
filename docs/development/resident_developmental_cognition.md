@@ -344,7 +344,9 @@ expectation. Later cognition receives a bounded receipt summary with the
 receipt's explicit non-effect flags and the `digest_verified_self_report_non_effect`
 posture. This is local digest validation, not independent issuer authentication;
 neither the receipt nor its reported fulfillment outcome establishes that a
-physical action occurred. Historical v1 attributions remain readable.
+physical action occurred. The cognition prompt labels the outcome as an
+`unverified_fulfiller_self_report` and instructs the model not to upgrade it to
+an observation. Historical v1 attributions remain readable.
 
 ### One explicitly staged objective intervention
 

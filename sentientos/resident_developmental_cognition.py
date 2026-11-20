@@ -454,6 +454,9 @@ COMPANION_HISTORY_INTERVENTION_INSTRUCTION = (
     "the typed field override it. If they conflict, state both claims and cite the record. "
     "For embodied consequence records, observer_report_field names the value recorded in "
     "independently_observed_value; its independence is only the explicit posture, not a proven fact. "
+    "A fulfillment_receipt_summary is a digest-checked fulfiller self-report. Its fulfillment_outcome "
+    "is not independently authenticated or evidence that an action or side effect occurred; preserve "
+    "the receipt binding and non-effect posture without upgrading its reported outcome to observation. "
     "For a past field-value question, use only the exact named typed field and copy its value; never "
     "substitute a neighboring renderer, prediction, or proprioception field. If a retrieved typed "
     "historical field contains the value, set disposition to answer and state it as a recorded historical "
@@ -4019,11 +4022,17 @@ def _historical_embodiment_evidence_context(candidate: Mapping[str, Any], *,
                             "source_proposal_id", "fulfillment_outcome",
                             "fulfiller_kind", "correlation_id",
                             "fulfillment_receipt_is_not_effect",
-                            "receipt_does_not_prove_side_effect")
+                            "receipt_does_not_prove_side_effect", "non_authoritative",
+                            "does_not_write_memory", "does_not_trigger_feedback",
+                            "does_not_commit_retention", "does_not_admit_work",
+                            "does_not_execute_or_route_work")
                         if ((isinstance((value := receipt.get(key)), str)
                                 and len(value) <= 256)
                             or type(value) is bool)
                     }
+                    if "fulfillment_outcome" in receipt_summary:
+                        receipt_summary["fulfillment_outcome_posture"] = (
+                            "unverified_fulfiller_self_report")
                     receipt_posture = payload.get("fulfillment_receipt_posture")
                     if isinstance(receipt_posture, str) and len(receipt_posture) <= 64:
                         receipt_summary["receipt_binding_posture"] = receipt_posture
