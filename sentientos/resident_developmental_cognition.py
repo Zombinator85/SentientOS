@@ -1720,8 +1720,8 @@ def _resource_condition_recommendation(condition_outcomes: Sequence[Mapping[str,
     condition_ids = ("history_present", "history_withheld", "history_restored")
     if (type(minimum_correct_count) is not int or type(probe_count) is not int
             or not 1 <= minimum_correct_count <= probe_count <= 16
-            or not isinstance(task_digest, str) or len(task_digest) != 71
-            or not task_digest.startswith("sha256:")
+            or not isinstance(task_digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", task_digest) is None
             or len(condition_outcomes) != len(condition_ids)):
         return {"schema_version": "sentientos.resource_strategy_recommendation:v3",
             "evaluator": evaluator, "posture": "incomparable_missing_preregistered_inputs",
@@ -2790,10 +2790,10 @@ def _task_family_history_examples(candidate: Mapping[str, Any], *,
                 or descriptor.get("task_digest_posture")
                     != "salted_private_oracle_commitment:v1"
                 or not isinstance(descriptor.get("task_digest"), str)
-                or len(descriptor["task_digest"]) != 71
-                or not descriptor["task_digest"].startswith("sha256:")
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", descriptor["task_digest"]) is None
                 or not isinstance(run_id, str) or not run_id
-                or not isinstance(run_digest, str) or not run_digest.startswith("sha256:")
+                or not isinstance(run_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", run_digest) is None
                 or source_id != "developmental-history-run:" + run_id
                 or subject.get("subject_id") != run_id
                 or source.get("kind") != "embodiment"
