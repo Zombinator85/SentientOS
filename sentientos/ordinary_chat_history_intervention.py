@@ -1333,7 +1333,7 @@ def verify_ordinary_chat_history_intervention_cohort_summary(
                 comparison.pop("order_stratified_summary", None)
                 for row in comparison["per_trial"]:
                     row.pop("condition_order", None)
-            else:
+            elif legacy_schema == "sentientos.ordinary_chat_history_cohort_summary:v3":
                 for order_row in comparison["order_stratified_summary"]:
                     order_row.pop("per_probe_summary", None)
         legacy_digest = digest_payload(legacy_semantic)
