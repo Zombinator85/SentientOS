@@ -446,7 +446,8 @@ the invocation-linked measured and reconciled rows must be unique, the owner
 projection must retain their `attempt_begun` predecessor, both predecessor
 digests and the inference effect digest must link in order, and the reconciled
 measurement must equal the measured row. Incomplete or substituted chains stay
-degraded and are withheld from verified resource evidence.
+degraded and are withheld from verified resource evidence; malformed receipt
+collections cannot abort later cognition projection.
 In cognition prompts, the three condition names are explicitly described as
 experimental history-exposure labels, not current-task directives. A surfaced
 recommendation remains tentative, task-family-scoped retrospective evidence;

@@ -3049,6 +3049,10 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
     resource_rows = [dict(item) for item in records
         if item.get("source_kind") == WorldStateSourceKind.RESOURCE_GOVERNOR.value
         and item.get("subject_kind") == "causal_resource_consumption"]
+    def resource_rows_for(payload: Mapping[str, Any], field: str) -> tuple[Any, ...]:
+        value = payload.get(field, ())
+        return tuple(value) if isinstance(value, (list, tuple)) else ()
+
     proposal_rows = [dict(item) for item in records
         if item.get("source_kind") == "embodiment"
         and item.get("subject_kind") == "embodied_strategy_proposal"]
@@ -3313,7 +3317,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                 or resource_payload.get("recovery_posture") != "reconciled_or_restored"
                 or resource_payload.get("retention_posture") != "complete"):
             continue
-        for receipt in resource_payload.get("consumption_receipts", ()):
+        for receipt in resource_rows_for(resource_payload, "consumption_receipts"):
             if (isinstance(receipt, Mapping) and isinstance(receipt.get("receipt_digest"), str)
                     and isinstance(receipt.get("observed_at"), str)):
                 receipt_event_times.setdefault(str(receipt["receipt_digest"]), set()).add(
@@ -3372,7 +3376,7 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
             resource_payload = resource.get("payload")
             if resource.get("digest") != record_digest(resource) or not isinstance(resource_payload, Mapping):
                 continue
-            for invocation in resource_payload.get("invocation_receipts", ()):
+            for invocation in resource_rows_for(resource_payload, "invocation_receipts"):
                 if (isinstance(invocation, Mapping)
                         and invocation.get("receipt_id") == proposal_resource_linkage.get("effect_receipt_id")
                         and invocation.get("receipt_digest") == proposal_resource_linkage.get("effect_receipt_digest")):
@@ -3405,11 +3409,11 @@ def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, 
                     or resource_payload.get("retention_posture") != "complete"
                     or resource_payload.get("incomplete_attempt_count") != 0):
                 findings.append("resource_ledger_projection_incomplete")
-            allocations = [item for item in resource_payload.get("allocations", ())
+            allocations = [item for item in resource_rows_for(resource_payload, "allocations")
                 if isinstance(item, Mapping) and item.get("allocation_digest") == proposal_resource_linkage.get("allocation_digest")]
             if len(allocations) != 1:
                 findings.append("resource_allocation_missing_or_ambiguous")
-            attempts = [item for item in resource_payload.get("attempts", ())
+            attempts = [item for item in resource_rows_for(resource_payload, "attempts")
                 if isinstance(item, Mapping) and item.get("attempt_id") == proposal_resource_linkage.get("attempt_id")]
             if len(attempts) != 1 or (allocations and attempts
                     and attempts[0].get("allocation_id") != allocations[0].get("allocation_id")):
