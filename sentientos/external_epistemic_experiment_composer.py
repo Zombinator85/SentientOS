@@ -18,7 +18,7 @@ from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import urlsplit
 
 from .epistemic_revision_qualification import (
-    IndependentAnswerKey, RevisionCase, _canonical, _digest, _object,
+    STANCES, IndependentAnswerKey, RevisionCase, _canonical, _digest, _object,
 )
 from .external_model_custody import (
     CustodyRegistry, CustodyValidationError, InvocationReceipt,
@@ -36,8 +36,8 @@ from .persistent_epistemic_state import (
     EpistemicCognitiveProjection, semantic_packets_for_projection,
 )
 
-COMPOSER_SCHEMA = "sentientos.external_epistemic_request:v2"
-REPORT_SCHEMA = "sentientos.external_epistemic_observation:v2"
+COMPOSER_SCHEMA = "sentientos.external_epistemic_request:v3"
+REPORT_SCHEMA = "sentientos.external_epistemic_observation:v3"
 MAX_ANSWER_BYTES = 65_536
 SUPPORTED_SIDES = frozenset({"before", "after"})
 
@@ -157,8 +157,10 @@ def prepare_external_request(*, case: RevisionCase, side: str,
         "generation_parameters": dict(generation_parameters),
         "response_contract": {
             "format": "json_object",
-            "instruction": "Return exactly one JSON object with no markdown or surrounding text.",
+            "instruction": ("Return exactly one JSON object with no markdown or surrounding text, "
+                "using exactly the declared fields."),
             "required_fields": ["conclusion", "reason_code", "evidence_ids"],
+            "exact_fields": ["conclusion", "reason_code", "evidence_ids"],
             "reason_code_vocabulary": (
                 list(case.reason_code_vocabulary) if case.reason_code_vocabulary else None
             ),
@@ -437,20 +439,25 @@ def _score_external_observation(*, case: RevisionCase, side: str,
                 answer_text, reported_model_id = selected_decoder.decode(bytes(capture.material))
                 answer = _object(answer_text)
                 citations = answer.get("evidence_ids")
+                conclusion = answer.get("conclusion")
+                reason_code = answer.get("reason_code")
                 shape_valid = (
-                    isinstance(answer.get("conclusion"), str)
-                    and isinstance(answer.get("reason_code"), str)
+                    set(answer) == {"conclusion", "reason_code", "evidence_ids"}
+                    and isinstance(conclusion, str) and conclusion in STANCES
+                    and isinstance(reason_code, str) and bool(reason_code.strip())
+                    and len(reason_code) <= 128
                     and isinstance(citations, list) and len(citations) <= 256
-                    and all(isinstance(item, str) for item in citations)
+                    and all(isinstance(item, str) and item for item in citations)
+                    and len(set(citations)) == len(citations)
                 )
                 available = {row["binding_id"] for row in packet["active_evidence_bindings"]}
                 available.update(row["binding_id"] for row in packet["removed_evidence_history"])
                 citation_values = citations if isinstance(citations, list) else []
                 answer_fields = {
                     "answer_shape_valid": shape_valid,
-                    "answer_correct": shape_valid and answer.get("conclusion") == key.conclusion,
+                    "answer_correct": shape_valid and conclusion == key.conclusion,
                     "reason_code_correct": (
-                        shape_valid and answer.get("reason_code") == key.reason_code
+                        shape_valid and reason_code == key.reason_code
                         if case.reason_code_vocabulary else None
                     ),
                     "citations_correct": shape_valid and set(key.evidence_ids) <= set(citation_values)

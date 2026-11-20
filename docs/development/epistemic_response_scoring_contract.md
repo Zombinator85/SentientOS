@@ -37,6 +37,9 @@ The v3 cohort summary records independent per-condition reason-code counts
 (`scored_correct`, `scored_incorrect`, `not_scored`, and `insufficient`)
 alongside the existing pair-level sample outcomes, so one condition's answer
 does not mask the other's reason-code result.
+The external experiment composer uses request and observation schema v3 and
+enforces the same exact three-field probe shape, stance vocabulary, bounded
+reason-code string, and unique non-empty evidence IDs as resident qualification.
 
 Ordinary cognition accepts citations to consumed packet IDs and current fact
 IDs. When a held-out key names evidence-binding IDs nested inside a delivered
