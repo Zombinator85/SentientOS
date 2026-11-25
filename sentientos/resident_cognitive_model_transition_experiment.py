@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import threading
 import time
 from contextlib import contextmanager
@@ -17,7 +18,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Iterator, Mapping, Protocol, Sequence, cast
+from typing import Any, Callable, Iterator, Mapping, Protocol, Sequence, cast
 from .resident_developmental_writeback import DevelopmentalWritebackError
 from .windows_handle_custody import WindowsHandleCustodyError, read_explicit_file
 from .local_runtime_provisioning import semantic_digest
@@ -77,6 +78,20 @@ def recovered_quiescence_token(evidence: Any) -> Mapping[str, Any] | None:
                 or any(not isinstance(request_link.get(key), str) or not request_link.get(key)
                     for key in ("request_id", "request_digest"))):
             return None
+    body = {key: evidence[key] for key in (
+        "schema_version", "generation", "no_inflight", "observation")}
+    if (body["schema_version"] != "sentientos.resident_cognition_quiescence:v1"
+            or type(body["generation"]) is not int or body["generation"] < 1
+            or body["no_inflight"] is not True
+            or not isinstance(body["observation"], Mapping)):
+        return None
+    try:
+        body_digest = digest(body)
+    except (TypeError, ValueError, UnicodeError, RecursionError):
+        return None
+    if (evidence.get("token") != "quiescence-" + body_digest[:24]
+            or evidence.get("observation_digest") != body_digest):
+        return None
     return MappingProxyType({key: evidence[key] for key in token_fields})
 
 
@@ -136,6 +151,32 @@ def history_boundary(records: Sequence[Mapping[str, Any]],
             "record_digest": record.get("record_digest")} for record in exact]
     else:
         receipts = [_plain(x) for x in writeback_receipts]
+        if (len(receipts) != len(exact)
+                or any(not isinstance(record, Mapping)
+                    or not isinstance(receipt, Mapping)
+                    for record, receipt in zip(exact, receipts))):
+            raise TransitionError("developmental_history_boundary_pairs_invalid")
+        record_ids: set[str] = set()
+        receipt_ids: set[str] = set()
+        for record, receipt in zip(exact, receipts):
+            record_id = record.get("record_id")
+            record_digest = record.get("record_digest")
+            receipt_id = receipt.get("receipt_id")
+            receipt_digest = receipt.get("receipt_digest")
+            if (not isinstance(record_id, str) or not record_id
+                    or record_id in record_ids
+                    or not isinstance(record_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest) is None
+                    or not isinstance(receipt_id, str) or not receipt_id
+                    or receipt_id in receipt_ids
+                    or not isinstance(receipt_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", receipt_digest) is None
+                    or receipt.get("record_id") != record_id
+                    or receipt.get("record_digest") != record_digest):
+                raise TransitionError(
+                    "developmental_history_boundary_receipt_binding_invalid")
+            record_ids.add(record_id)
+            receipt_ids.add(receipt_id)
     body = {"schema_version": "sentientos.developmental_history_boundary:v3", "records": exact,
             "record_ids": [x.get("record_id") for x in exact],
             "record_digests": [x.get("record_digest") for x in exact],
@@ -285,7 +326,10 @@ class ResidentCognitionQuiescenceGate:
                 self._inflight -= 1
                 self._condition.notify_all()
 
-    def quiesce(self, *, timeout_seconds: float, observation: Mapping[str, Any]) -> Mapping[str, Any]:
+    def quiesce(self, *, timeout_seconds: float, observation: Mapping[str, Any],
+                observation_resolver: Callable[[], Mapping[str, Any]] | None = None,
+                expected_observation: Mapping[str, Any] | None = None
+                ) -> Mapping[str, Any]:
         deadline = time.monotonic() + timeout_seconds
         with self._condition:
             self._quiesced = True
@@ -296,10 +340,29 @@ class ResidentCognitionQuiescenceGate:
                     self._condition.notify_all()
                     raise TransitionError("quiescence_timeout")
                 self._condition.wait(remaining)
+            try:
+                resolved_observation: Mapping[str, Any] = {}
+                if observation_resolver is not None:
+                    resolved = observation_resolver()
+                    if not isinstance(resolved, Mapping):
+                        raise TransitionError("quiescence_observation_invalid")
+                    resolved_observation = _plain(resolved)
+                if (expected_observation is not None
+                        and (observation_resolver is None
+                            or resolved_observation != _plain(expected_observation))):
+                    raise TransitionError("initial_history_boundary_mismatch")
+                combined_observation = {**_plain(observation),
+                    **dict(resolved_observation)}
+            except Exception as exc:
+                self._quiesced = False
+                self._condition.notify_all()
+                if isinstance(exc, TransitionError):
+                    raise
+                raise TransitionError("quiescence_observation_unavailable") from exc
             self._generation += 1
             body = {"schema_version": "sentientos.resident_cognition_quiescence:v1",
                     "generation": self._generation, "no_inflight": True,
-                    "observation": _plain(observation)}
+                    "observation": combined_observation}
             self._token = MappingProxyType({**body, "token": "quiescence-" + digest(body)[:24],
                                              "observation_digest": digest(body)})
             return self._token
@@ -354,11 +417,15 @@ class QuiescedDevelopmentalCognitionExperiments:
         with self._owner.gate.cycle():
             return self._owner._owner.experiments.load_run(run_id)
 
+    def load_objective_cohort_summary(self, cohort_id: str) -> Mapping[str, Any]:
+        with self._owner.gate.cycle():
+            return self._owner._owner.experiments.load_objective_cohort_summary(
+                cohort_id)
+
     def objective_task_family_evidence_binding(self, **kwargs: Any) -> Any:
         with self._owner.gate.cycle():
             return self._owner._owner.experiments.objective_task_family_evidence_binding(
                 **kwargs)
-
 
 class TransitionJournal:
     def __init__(self, path: Path):
@@ -653,7 +720,9 @@ class ResidentCognitiveModelTransitionController:
         self._state = self._reconstruct()
 
     def _completed_stage_evidence_error(self, stage: str, evidence: Mapping[str, Any],
-                                        prior_activation: Mapping[str, Any] | None) -> str | None:
+            prior_activation: Mapping[str, Any] | None,
+            prior_quiescence_observation: Mapping[str, Any] | None = None
+            ) -> str | None:
         activation_stages = {"b_activation_committed": ("successor_b", "A->B"),
                              "a_restoration_activation_committed": ("restored_a", "B->A")}
         serving_stages = {"b_serving_bound": ("successor_b", "b_serving_operation_id"),
@@ -664,6 +733,13 @@ class ResidentCognitiveModelTransitionController:
             expected = self.protocol.value.get(role)
             if not isinstance(activation, Mapping) or not isinstance(expected, Mapping):
                 return "activation_stage_evidence_missing"
+            quiesced_boundary_digest = (prior_quiescence_observation.get(
+                "boundary_digest") if isinstance(
+                    prior_quiescence_observation, Mapping) else None)
+            if (not isinstance(quiesced_boundary_digest, str)
+                    or evidence.get("pre_activation_history_boundary_digest")
+                        != quiesced_boundary_digest):
+                return "activation_history_boundary_mismatch"
             if (evidence.get("activation_transition_stage") != marker
                     or activation.get("model_loaded") is not False
                     or activation.get("serving_started") is not False
@@ -762,7 +838,42 @@ class ResidentCognitiveModelTransitionController:
             except Exception:
                 return "transition_observation_lineage_unverified"
             return None
+        if stage == "a_quiesced":
+            token = recovered_quiescence_token(evidence)
+            observation = token.get("observation") if token is not None else None
+            initial_boundary = self.protocol.value.get(
+                "initial_history_boundary")
+            if (not isinstance(observation, Mapping)
+                    or not isinstance(initial_boundary, Mapping)
+                    or not set(initial_boundary).issubset(observation)
+                    or any(observation.get(key) != value
+                        for key, value in initial_boundary.items())):
+                return "initial_history_boundary_observation_mismatch"
         return None
+
+    def _verify_pre_activation_history_boundary(self, *,
+            required_quiescence_phase: str) -> str:
+        entries = self.journal.entries()
+        quiescence_entries = [entry for entry in entries
+            if entry.get("status") == "completed"
+                and entry.get("phase") == required_quiescence_phase]
+        if len(quiescence_entries) != 1:
+            raise TransitionError("activation_quiescence_predecessor_invalid")
+        token = recovered_quiescence_token(
+            quiescence_entries[0].get("evidence"))
+        observation = token.get("observation") if token is not None else None
+        boundary = self.history_snapshot()
+        if not isinstance(observation, Mapping) or not isinstance(boundary, Mapping):
+            raise TransitionError("activation_history_boundary_unavailable")
+        boundary_digest = boundary.get("boundary_digest")
+        if (not isinstance(boundary_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", boundary_digest) is None
+                or observation.get("boundary_digest") != boundary_digest
+                or not set(boundary).issubset(observation)
+                or any(observation.get(key) != value
+                    for key, value in boundary.items())):
+            raise TransitionError("activation_history_changed_while_quiesced")
+        return boundary_digest
 
     def _reconstruct(self, journal_entries: Sequence[Mapping[str, Any]] | None = None) -> _Reconstructed:
         phase, outstanding, token = PHASES[0], None, None
@@ -781,7 +892,9 @@ class ResidentCognitiveModelTransitionController:
                 expected = PHASES[PHASES.index(phase)+1] if phase != PHASES[-1] else None
                 if entry_phase != expected or (outstanding is not None and outstanding != entry_phase):
                     raise TransitionError("journal_stage_order_invalid")
-                failure = self._completed_stage_evidence_error(entry_phase, evidence, latest_activation)
+                failure = self._completed_stage_evidence_error(entry_phase,
+                    evidence, latest_activation,
+                    token.get("observation") if isinstance(token, Mapping) else None)
                 if failure is not None:
                     return _Reconstructed(entry_phase, True, failure, entry_phase, token,
                         tuple(semantically_verified[-128:]))
@@ -944,8 +1057,15 @@ class ResidentCognitiveModelTransitionController:
         completion_published = False
         try:
             if target in {"a_quiesced", "b_quiesced"}:
-                supplied = dict(self.gate.quiesce(timeout_seconds=float(supplied.pop("timeout_seconds", 5)),
-                                                  observation={**_plain(self.history_snapshot()), **supplied}))
+                timeout_seconds = float(supplied.pop("timeout_seconds", 5))
+                initial_boundary = (self.protocol.value[
+                    "initial_history_boundary"] if current == PHASES[0]
+                    and target == "a_quiesced" else None)
+                supplied = dict(self.gate.quiesce(
+                    timeout_seconds=timeout_seconds,
+                    observation=supplied,
+                    observation_resolver=self.history_snapshot,
+                    expected_observation=initial_boundary))
             elif target in {"b_epoch_resumed", "restored_a_epoch_resumed"}:
                 if self._state.token is None or not self.gate.verifies(self._state.token):
                     raise TransitionError("resume_without_verified_live_quiescence")
@@ -958,7 +1078,10 @@ class ResidentCognitiveModelTransitionController:
                 supplied.update({"verified_session_id": session.session_id})
             elif target == "b_activation_committed":
                 if self.operations is None: raise TransitionError("transition_operations_required")
+                boundary_digest = self._verify_pre_activation_history_boundary(
+                    required_quiescence_phase="a_quiesced")
                 supplied.update(_plain(self.operations.activate_successor(stage_execution_context)))
+                supplied["pre_activation_history_boundary_digest"] = boundary_digest
             elif target == "b_serving_bound":
                 if self.operations is None: raise TransitionError("transition_operations_required")
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())
@@ -966,7 +1089,10 @@ class ResidentCognitiveModelTransitionController:
                 supplied.update(_plain(self.operations.serve_successor(activation)))
             elif target == "a_restoration_activation_committed":
                 if self.operations is None: raise TransitionError("transition_operations_required")
+                boundary_digest = self._verify_pre_activation_history_boundary(
+                    required_quiescence_phase="b_quiesced")
                 supplied.update(_plain(self.operations.activate_restored_predecessor(stage_execution_context)))
+                supplied["pre_activation_history_boundary_digest"] = boundary_digest
             elif target == "restored_a_serving_bound":
                 if self.operations is None: raise TransitionError("transition_operations_required")
                 activation = next(entry["evidence"]["activation"] for entry in reversed(self.journal.entries())

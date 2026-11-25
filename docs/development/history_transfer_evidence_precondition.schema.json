@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/history_transfer_evidence_precondition.schema.json",
+  "title": "History transfer evidence precondition",
+  "description": "A fail-closed decision packet binding the exact retained record snapshot reviewed before a history-conditioned transfer probe.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "eligible", "reason_code", "record_id",
+    "retained_record_digest", "retained_record_snapshot_binding_posture",
+    "evidence_fact_ids", "pattern_match_fact_ids", "provenance_failure_codes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.history_transfer_evidence_precondition:v3"
+    },
+    "eligible": {"type": "boolean"},
+    "reason_code": {"type": "string", "minLength": 1},
+    "record_id": {"type": ["string", "null"]},
+    "retained_record_digest": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        {"type": "null"}
+      ]
+    },
+    "retained_record_snapshot_binding_posture": {
+      "enum": ["digest_of_readiness_input", "unavailable"]
+    },
+    "evidence_fact_ids": {"$ref": "#/$defs/identities"},
+    "pattern_match_fact_ids": {"$ref": "#/$defs/identities"},
+    "provenance_failure_codes": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identities": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

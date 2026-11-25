@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_invocation_receipt_store.schema.json",
+  "title": "SentientOS condition-local invocation receipt store artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "condition",
+    "branch_id", "root_identity", "appcontainer_sid", "index_file_name",
+    "index_digest", "receipt_count",
+    "access_policy", "effective_access_verified", "peer_denial_verified",
+    "source_receipts_reverified", "authority", "artifact_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_condition_invocation_receipt_store:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "root_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["volume_serial", "file_id_hex"],
+      "properties": {
+        "volume_serial": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+        "file_id_hex": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+      }
+    },
+    "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+    "index_file_name": { "type": "string", "pattern": "^durable-learning-invocation-index-[0-9a-f]{24}\\.json$" },
+    "index_digest": { "$ref": "#/$defs/digest" },
+    "receipt_count": { "type": "integer", "minimum": 1, "maximum": 12288 },
+    "access_policy": { "const": "condition_receipt_read" },
+    "effective_access_verified": { "const": false },
+    "peer_denial_verified": { "const": false },
+    "source_receipts_reverified": { "const": true },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

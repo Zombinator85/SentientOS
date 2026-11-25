@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_worker_baseline_inventory.schema.json",
+  "title": "SentientOS durable-learning worker baseline inventory",
+  "description": "No-inference, condition-scoped baseline evidence. Completion requires the identity-pinned operation journal root to be empty at baseline, including non-JSON entries.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "history_state_digest", "history_snapshot_matches_retained_state", "history_matches_protocol_baseline", "active_empty_session_verified", "branch_roots_disjoint", "branch_root_identity_digests", "operation_journal_inventory", "operation_journal_empty_verified", "authority"],
+  "properties": {
+    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_inventory:v2", "sentientos.durable_learning_worker_baseline_inventory:v3"] },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "history_state_digest": { "type": "string" },
+    "history_snapshot_matches_retained_state": { "type": "boolean" },
+    "history_matches_protocol_baseline": { "type": "boolean" },
+    "active_empty_session_verified": { "type": "boolean" },
+    "branch_roots_disjoint": { "type": "boolean" },
+    "branch_root_identity_digests": { "type": "array", "items": { "$ref": "#/$defs/digest" }, "minItems": 3 },
+    "operation_journal_inventory": { "oneOf": [{ "$ref": "#/$defs/journalInventory" }, { "type": "null" }] },
+    "operation_journal_empty_verified": { "type": "boolean" },
+    "branch_root_access_matrix": { "$ref": "#/$defs/branchRootAccessMatrix" },
+    "branch_root_access_matrix_verified": { "type": "boolean" },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "journalInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "file_count", "directory_count", "entries_digest", "empty", "authority", "inventory_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_worker_journal_baseline_inventory:v1" },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "directory_count": { "type": "integer", "minimum": 0 },
+        "entries_digest": { "$ref": "#/$defs/digest" },
+        "empty": { "type": "boolean" },
+        "authority": { "const": false },
+        "inventory_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "directoryIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["volume_serial", "file_id_hex"],
+      "properties": {
+        "volume_serial": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+        "file_id_hex": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+      }
+    },
+    "branchRootResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["own_expected_identity", "own_observed_identity", "peer_expected_identity", "own_root_opened", "own_root_identity_matched", "own_root_is_directory", "own_root_close_succeeded", "own_root_winerror", "peer_root_open_denied", "peer_root_handle_closed", "peer_root_winerror"],
+      "properties": {
+        "own_expected_identity": { "$ref": "#/$defs/directoryIdentity" },
+        "own_observed_identity": { "oneOf": [{ "$ref": "#/$defs/directoryIdentity" }, { "type": "null" }] },
+        "peer_expected_identity": { "$ref": "#/$defs/directoryIdentity" },
+        "own_root_opened": { "type": "boolean" },
+        "own_root_identity_matched": { "type": "boolean" },
+        "own_root_is_directory": { "type": "boolean" },
+        "own_root_close_succeeded": { "type": ["boolean", "null"] },
+        "own_root_winerror": { "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "null" }] },
+        "peer_root_open_denied": { "type": "boolean" },
+        "peer_root_handle_closed": { "type": ["boolean", "null"] },
+        "peer_root_winerror": { "oneOf": [{ "type": "integer", "minimum": 0, "maximum": 4294967295 }, { "type": "null" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "own_root_opened": { "const": true } }, "required": ["own_root_opened"] },
+          "then": { "properties": { "own_root_winerror": { "type": "null" }, "own_root_close_succeeded": { "type": "boolean" } } }
+        },
+        {
+          "if": { "properties": { "own_root_opened": { "const": false } }, "required": ["own_root_opened"] },
+          "then": { "properties": { "own_root_winerror": { "type": "integer", "minimum": 0, "maximum": 4294967295 }, "own_root_close_succeeded": { "type": "null" }, "own_observed_identity": { "type": "null" }, "own_root_identity_matched": { "const": false }, "own_root_is_directory": { "const": false } } }
+        },
+        {
+          "if": { "properties": { "own_root_identity_matched": { "const": true } }, "required": ["own_root_identity_matched"] },
+          "then": { "properties": { "own_root_opened": { "const": true }, "own_root_is_directory": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "own_root_is_directory": { "const": true } }, "required": ["own_root_is_directory"] },
+          "then": { "properties": { "own_root_opened": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "peer_root_open_denied": { "const": true } }, "required": ["peer_root_open_denied"] },
+          "then": { "properties": { "peer_root_winerror": { "const": 5 }, "peer_root_handle_closed": { "type": "null" } } }
+        },
+        {
+          "if": { "properties": { "peer_root_open_denied": { "const": false } }, "required": ["peer_root_open_denied"] },
+          "then": {
+            "oneOf": [
+              { "properties": { "peer_root_winerror": { "type": "null" }, "peer_root_handle_closed": { "type": "boolean" } } },
+              { "properties": { "peer_root_winerror": { "type": "integer", "minimum": 0, "maximum": 4294967295, "not": { "const": 5 } }, "peer_root_handle_closed": { "type": "null" } } }
+            ]
+          }
+        }
+      ]
+    },
+    "branchRootAccessMatrix": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "condition", "manifest_digest", "peer_condition", "own_branch_id", "peer_branch_id", "root_results", "branch_root_access_matrix_verified", "authority", "probe_result_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.windows_appcontainer_baseline_branch_root_access:v1" },
+        "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "manifest_digest": { "$ref": "#/$defs/digest" },
+        "peer_condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "own_branch_id": { "type": "string", "minLength": 1 },
+        "peer_branch_id": { "type": "string", "minLength": 1 },
+        "root_results": {
+          "type": "object", "additionalProperties": false,
+          "required": ["state", "history", "session", "journal"],
+          "properties": {
+            "state": { "$ref": "#/$defs/branchRootResult" },
+            "history": { "$ref": "#/$defs/branchRootResult" },
+            "session": { "$ref": "#/$defs/branchRootResult" },
+            "journal": { "$ref": "#/$defs/branchRootResult" }
+          }
+        },
+        "branch_root_access_matrix_verified": { "type": "boolean" },
+        "authority": { "const": false },
+        "probe_result_digest": { "$ref": "#/$defs/digest" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "condition": { "const": "relevant_experience_available" } }, "required": ["condition"] },
+          "then": { "properties": { "peer_condition": { "const": "relevant_experience_withheld" } } }
+        },
+        {
+          "if": { "properties": { "condition": { "const": "relevant_experience_withheld" } }, "required": ["condition"] },
+          "then": { "properties": { "peer_condition": { "const": "relevant_experience_available" } } }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v3" } }, "required": ["schema_version"] },
+      "then": { "required": ["branch_root_access_matrix", "branch_root_access_matrix_verified"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v2" } }, "required": ["schema_version"] },
+      "then": { "not": { "anyOf": [ { "required": ["branch_root_access_matrix"] }, { "required": ["branch_root_access_matrix_verified"] } ] } }
+    }
+  ]
+}

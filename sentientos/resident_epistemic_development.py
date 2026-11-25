@@ -19,8 +19,11 @@ from .codex_task_authority_admission import (
 )
 from .persistent_epistemic_state import (
     EpistemicCalibrationEvent, EpistemicStateError, EvidenceBinding,
-    PersistentEpistemicStateOwner, _calibration_evidence_consistency, digest,
-    evidence_posture, make_epistemic_update_candidate, make_evidence_binding,
+    PersistentEpistemicStateOwner, _aware_instant,
+    _calibration_evidence_consistency, digest,
+    _identity, _normalize_state_record, evidence_posture,
+    FALSE_AUTHORITY, STANCES, UPDATE_REASONS,
+    make_epistemic_update_candidate, make_evidence_binding,
     calibration_review_correlation_id, BINDING_SCHEMA_V2,
 )
 from .resident_epistemic_calibration_authority import (
@@ -109,6 +112,212 @@ class EpistemicDevelopmentConfig:
     rules: tuple[EpistemicDevelopmentRule, ...]
     allowed_namespaces: tuple[str, ...]
     schema: str = CONFIG_SCHEMA
+
+
+@dataclass(frozen=True)
+class _CalibrationReviewPreparation:
+    report: Mapping[str, Any]
+    rule: EpistemicDevelopmentRule
+    calibration: Any
+    forecast: Any
+    current: Any
+    binding_by_id: Mapping[str, Any]
+    active_ids: tuple[str, ...]
+    posture: Mapping[str, Any] | None
+    stance: str | None
+    recovery: Mapping[str, Any]
+
+
+_CALIBRATION_REVIEW_PREVIEW_FIELDS = frozenset({
+    "schema", "status", "calibration_id", "calibration_digest",
+    "proposition_id", "proposition_digest", "forecast_state_digest",
+    "current_state_digest", "source_binding_ids", "source_binding_digests",
+    "active_binding_ids", "evidence_consistency", "receipt_recovery_status",
+    "authority", "truth", "runtime_admission_issued",
+    "epistemic_state_mutation_performed", "review_request",
+    "review_request_digest", "proposed_stance", "evidence_posture",
+    "proposed_update", "preview_digest",
+})
+
+
+def verify_epistemic_calibration_review_preview(value: Mapping[str, Any]) -> bool:
+    """Verify preview integrity and its internal review-request bindings only."""
+    if (not isinstance(value, Mapping)
+            or set(value) != _CALIBRATION_REVIEW_PREVIEW_FIELDS
+            or value.get("schema") !=
+                "sentientos.epistemic_calibration_review_preview:v1"
+            or value.get("status") not in (
+                "reviewable", "unresolved", "already_applied")
+            or value.get("authority") is not False
+            or value.get("truth") is not False
+            or value.get("runtime_admission_issued") is not False
+            or value.get("epistemic_state_mutation_performed") is not False
+            or not isinstance(value.get("preview_digest"), str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                value["preview_digest"]) is None):
+        return False
+    identity_patterns = {
+        "calibration_id": r"epistemic-calibration:[0-9a-f]{24}",
+        "proposition_id": r"proposition:[0-9a-f]{24}",
+        "calibration_digest": r"sha256:[0-9a-f]{64}",
+        "proposition_digest": r"sha256:[0-9a-f]{64}",
+        "forecast_state_digest": r"sha256:[0-9a-f]{64}",
+        "current_state_digest": r"sha256:[0-9a-f]{64}",
+    }
+    if (value.get("receipt_recovery_status") != "verified"
+            or any(not isinstance(value.get(field), str)
+                or re.fullmatch(pattern, value[field]) is None
+                for field, pattern in identity_patterns.items())):
+        return False
+    source_ids = value.get("source_binding_ids")
+    source_digests = value.get("source_binding_digests")
+    active_ids = value.get("active_binding_ids")
+    if (not isinstance(source_ids, list) or not source_ids
+            or len(source_ids) > MAX_ACTIVE_EVIDENCE
+            or any(not isinstance(item, str)
+                or re.fullmatch(r"epistemic-evidence:[0-9a-f]{24}", item) is None
+                for item in source_ids)
+            or len(set(source_ids)) != len(source_ids)
+            or not isinstance(source_digests, list)
+            or len(source_digests) != len(source_ids)
+            or any(not isinstance(item, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
+                for item in source_digests)
+            or not isinstance(active_ids, list)
+            or len(active_ids) > MAX_ACTIVE_EVIDENCE
+            or any(not isinstance(item, str)
+                or re.fullmatch(r"epistemic-evidence:[0-9a-f]{24}", item) is None
+                for item in active_ids)
+            or len(set(active_ids)) != len(active_ids)
+            or not set(source_ids) <= set(active_ids)):
+        return False
+    if value.get("evidence_consistency") not in (
+            "consistent_with_bound_current_evidence",
+            "unresolved_against_bound_evidence"):
+        return False
+    posture = value.get("evidence_posture")
+    posture_fields = {"posture", "dependency_unresolved",
+        "insufficient_independent_evidence", "record_count", "active_count",
+        "independent_group_count"}
+    if posture is not None:
+        if (not isinstance(posture, Mapping)
+                or set(posture) != posture_fields
+                or posture.get("posture") not in (
+                    "evidence_withdrawn", "no_evidence", "all_evidence_stale",
+                    "support_only", "contradiction_only", "mixed", "context_only")
+                or type(posture.get("dependency_unresolved")) is not bool
+                or type(posture.get("insufficient_independent_evidence")) is not bool
+                or any(type(posture.get(field)) is not int or posture[field] < 0
+                    for field in ("record_count", "active_count",
+                        "independent_group_count"))
+                or posture.get("record_count") != len(active_ids)
+                or posture.get("active_count") > posture.get("record_count")
+                or posture.get("independent_group_count") >
+                    posture.get("active_count")):
+            return False
+    semantic = {key: item for key, item in value.items()
+        if key != "preview_digest"}
+    try:
+        preview_digest_matches = digest(semantic) == value["preview_digest"]
+    except (TypeError, ValueError, UnicodeError):
+        return False
+    if not preview_digest_matches:
+        return False
+    request = value.get("review_request")
+    request_digest = value.get("review_request_digest")
+    if value["status"] == "reviewable":
+        proposed = value.get("proposed_update")
+        posture_name = (posture.get("posture")
+            if isinstance(posture, Mapping) else None)
+        expected_stance = ({"support_only": "provisionally_supported",
+            "contradiction_only": "provisionally_contradicted",
+            "mixed": "contested", "all_evidence_stale": "suspended"}.get(
+                posture_name) if isinstance(posture_name, str) else None)
+        if (not isinstance(posture, Mapping)
+                or expected_stance != value.get("proposed_stance")):
+            return False
+        request_fields = {"calibration_id", "calibration_digest",
+            "proposition_id", "proposition_digest", "forecast_state_digest",
+            "current_state_digest", "source_binding_ids",
+            "source_binding_digests", "active_binding_ids",
+            "proposed_stance", "proposed_update", "evidence_consistency",
+            "update_tick", "update_recorded_at"}
+        proposed_fields = {"stance", "evidence_binding_ids", "reason",
+            "uncertainty", "model_id", "proposer_kind", "proposer_id"}
+        if not isinstance(request, Mapping):
+            return False
+        update_tick = request.get("update_tick")
+        update_recorded_at = request.get("update_recorded_at")
+        if (type(update_tick) is not int or update_tick < 0
+                or not isinstance(update_recorded_at, str)
+                or not update_recorded_at or len(update_recorded_at) > 128
+                or update_recorded_at.endswith("-00:00")):
+            return False
+        try:
+            update_instant = datetime.fromisoformat(
+                update_recorded_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if (update_instant.tzinfo is None
+                or update_instant.utcoffset() is None):
+            return False
+        try:
+            request_digest_matches = request_digest == digest(dict(request))
+        except (TypeError, ValueError, UnicodeError):
+            return False
+        return (isinstance(request, Mapping)
+            and set(request) == request_fields
+            and request_digest_matches
+            and request.get("calibration_id") == value.get("calibration_id")
+            and request.get("calibration_digest") == value.get("calibration_digest")
+            and request.get("proposition_id") == value.get("proposition_id")
+            and request.get("proposition_digest") == value.get("proposition_digest")
+            and request.get("forecast_state_digest") == value.get("forecast_state_digest")
+            and request.get("current_state_digest") == value.get("current_state_digest")
+            and request.get("source_binding_ids") == value.get("source_binding_ids")
+            and request.get("source_binding_digests") ==
+                value.get("source_binding_digests")
+            and request.get("active_binding_ids") == value.get("active_binding_ids")
+            and request.get("proposed_stance") == value.get("proposed_stance")
+            and request.get("evidence_consistency") ==
+                value.get("evidence_consistency")
+            and type(request.get("update_tick")) is int
+            and request.get("update_tick") >= 0
+            and isinstance(request.get("update_recorded_at"), str)
+            and 1 <= len(request["update_recorded_at"]) <= 128
+            and request.get("proposed_update") == proposed
+            and isinstance(proposed, Mapping)
+            and set(proposed) == proposed_fields
+            and proposed.get("stance") == value.get("proposed_stance")
+            and proposed.get("evidence_binding_ids") ==
+                value.get("active_binding_ids")
+            and proposed.get("reason") == "calibration_outcome"
+            and proposed.get("uncertainty") == (
+                "high" if posture["dependency_unresolved"] else "medium")
+            and proposed.get("model_id") is None
+            and proposed.get("proposer_kind") == "deterministic_rule"
+            and isinstance(proposed.get("proposer_id"), str)
+            and bool(proposed.get("proposer_id"))
+            and value.get("evidence_consistency") ==
+                "consistent_with_bound_current_evidence")
+    if (value["status"] == "already_applied"
+            and value.get("evidence_consistency") !=
+                "consistent_with_bound_current_evidence"):
+        return False
+    if (value["status"] == "already_applied" and posture is not None):
+        return False
+    if (value["status"] == "unresolved"
+            and value.get("evidence_consistency") ==
+                "consistent_with_bound_current_evidence"
+            and posture is None):
+        return False
+    if (value.get("evidence_consistency") ==
+            "unresolved_against_bound_evidence"
+            and (value["status"] != "unresolved" or posture is not None)):
+        return False
+    return (request is None and request_digest is None
+        and value.get("proposed_stance") is None
+        and value.get("proposed_update") is None)
 
 
 @dataclass(frozen=True)
@@ -236,25 +445,109 @@ class ResidentEpistemicDevelopmentRuntime:
         """Return a bounded, explicitly selected, read-only evidence-to-state trace.
 
         Receipt verification is required before a state generation is described
-        as admitted. The trace is provenance, not a truth or authority judgment.
+        as admitted. Verification runs without transaction or receipt repair;
+        incomplete custody fails closed. The trace is provenance, not a truth
+        or authority judgment.
         """
         if (not isinstance(proposition_id, str) or not proposition_id
                 or isinstance(max_events, bool) or not isinstance(max_events, int)
                 or not 1 <= max_events <= 16 or not isinstance(reconstructed_at, str)
-                or not reconstructed_at or len(reconstructed_at) > 128):
+                or not reconstructed_at or len(reconstructed_at) > 128
+                or (cognitive_tick is not None
+                    and (type(cognitive_tick) is not int or cognitive_tick < 0))):
             raise EpistemicDevelopmentError("epistemic_trace_selection_invalid")
-        proposition = self.owner.proposition(proposition_id)
+        try:
+            _aware_instant(reconstructed_at)
+        except ValueError as exc:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_selection_invalid") from exc
         if not any(rule.proposition_id == proposition_id for rule in self.config.rules):
             raise EpistemicDevelopmentError("epistemic_trace_proposition_not_configured")
-        recovery = self.controller.verify_receipts()
+        collection_kinds = ("updates", "states", "propositions", "bindings",
+            "calibrations", "relations", "transactions")
+        try:
+            owner_boundary = tuple((kind, self.owner._collection_bytes(kind))
+                for kind in collection_kinds)
+        except EpistemicStateError as exc:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_owner_inventory_invalid") from exc
+        def receipt_boundary() -> tuple[tuple[str, str, str], ...]:
+            entries = []
+            for stage in ("evidence", "state"):
+                directory = self.controller.receipt_root / "receipts" / stage
+                for path in sorted(directory.glob("*.json")):
+                    raw = self.controller._read_bounded(path)
+                    if raw is None:
+                        raise EpistemicDevelopmentError(
+                            "epistemic_trace_receipt_missing")
+                    entries.append((stage, path.name,
+                        hashlib.sha256(raw).hexdigest()))
+            return tuple(entries)
+        proposition = self.owner.proposition(proposition_id)
+        recovery = self.controller.verify_receipts(repair=False)
+        if recovery.get("status") != "verified":
+            raise EpistemicDevelopmentError("epistemic_trace_receipts_unverified")
+        receipt_inventory = receipt_boundary()
+        recovery = self.controller.verify_receipts(repair=False)
         if recovery.get("status") != "verified":
             raise EpistemicDevelopmentError("epistemic_trace_receipts_unverified")
         bindings = self.owner.bindings(proposition_id)
+        binding_ids: set[str] = set()
+        for binding in bindings:
+            try:
+                expected_binding = make_evidence_binding(**{
+                    key: value for key, value in asdict(binding).items()
+                    if key not in {"binding_id", "binding_digest", "schema_version"}})
+            except (TypeError, ValueError, EpistemicStateError) as exc:
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_binding_invalid") from exc
+            if (binding != expected_binding
+                    or binding.proposition_id != proposition_id
+                    or binding.binding_id in binding_ids):
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_binding_identity_invalid")
+            binding_ids.add(binding.binding_id)
         events = self.owner.update_events(proposition_id)
         if len(events) > max_events:
             raise EpistemicDevelopmentError("epistemic_trace_event_bound_exceeded")
         states = [state for state in self.owner._read("states")
             if state.get("proposition_id") == proposition_id]
+        try:
+            normalized_states = [_normalize_state_record(item) for item in states]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_state_record_invalid") from exc
+        ordered_states = sorted(normalized_states,
+            key=lambda item: item.generation)
+        if len(events) != len(ordered_states):
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_event_state_coverage_mismatch")
+        if (any(type(event.generation) is not int
+                    or event.proposition_id != proposition_id for event in events)
+                or sorted(event.generation for event in events) !=
+                    list(range(len(events)))):
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_event_generations_invalid")
+        prior_digest = None
+        for generation, state in enumerate(ordered_states):
+            if (_identity("epistemic-state", state.payload()) !=
+                    (state.state_id, state.state_digest)
+                    or state.proposition_id != proposition_id
+                    or type(state.generation) is not int
+                    or state.generation != generation
+                    or state.predecessor_state_digest != prior_digest
+                    or state.stance not in STANCES
+                    or dict(state.authority) != FALSE_AUTHORITY):
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_state_lineage_invalid")
+            prior_digest = state.state_digest
+        for event in events:
+            if (_identity("epistemic-update", event.identity_payload()) != (
+                    event.event_id, event.event_digest)
+                    or event.reason not in UPDATE_REASONS
+                    or dict(event.authority) != FALSE_AUTHORITY):
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_event_identity_invalid")
         state_by_digest = {item["state_digest"]: item for item in states}
         receipts: list[dict[str, Any]] = []
         for stage in ("evidence", "state"):
@@ -284,27 +577,103 @@ class ResidentEpistemicDevelopmentRuntime:
             raise EpistemicDevelopmentError("epistemic_trace_receipt_link_missing")
         active = {item.binding_id: item for item in bindings
             if item.binding_id in set(self.owner.active_binding_ids(proposition_id))}
+        # Reconstruct the evidence membership at each generation from the same
+        # append-only event lineage used by the owner. This makes additions and
+        # withdrawals visible together without treating either as truth.
+        binding_by_id = {item.binding_id: item for item in bindings}
+        active_at_generation: dict[int, tuple[str, ...]] = {}
+        active_ids: set[str] = set()
+        for event in events:
+            active_ids.difference_update(event.removed_binding_ids)
+            active_ids.update(event.added_binding_ids)
+            if any(binding_id not in binding_by_id for binding_id in active_ids):
+                raise EpistemicDevelopmentError("epistemic_trace_event_binding_missing")
+            successor = state_by_digest.get(event.successor_state_digest)
+            active_bindings = [binding_by_id[binding_id]
+                for binding_id in active_ids]
+            if any(binding.withdrawn for binding in active_bindings):
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_withdrawn_evidence_active")
+            expected_support = tuple(sorted(binding_id for binding_id in active_ids
+                if binding_by_id[binding_id].evidence_relation == "supports"
+                    or binding_by_id[binding_id].reliability_posture == "supports"))
+            expected_contradiction = tuple(sorted(binding_id for binding_id in active_ids
+                if binding_by_id[binding_id].evidence_relation == "contradicts"
+                    or binding_by_id[binding_id].reliability_posture == "contradicts"))
+            active_freshness = {binding.freshness for binding in active_bindings}
+            expected_freshness = ("current" if "current" in active_freshness else
+                "stale" if "stale" in active_freshness else "unknown")
+            if (successor is None
+                    or successor.get("generation") != event.generation
+                    or successor.get("predecessor_state_digest") !=
+                        event.prior_state_digest
+                    or successor.get("last_update_event_id") != event.event_id
+                    or successor.get("evidence_set_digest") !=
+                        digest(sorted(active_ids))
+                    or tuple(successor.get("support_binding_ids", ())) !=
+                        expected_support
+                    or tuple(successor.get("contradiction_binding_ids", ())) !=
+                        expected_contradiction
+                    or successor.get("dependency_unresolved") != any(
+                        binding.dependency_kind == "unknown_dependency"
+                        for binding in active_bindings)
+                    or successor.get("freshness") != expected_freshness):
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_event_state_evidence_mismatch")
+            active_at_generation[event.generation] = tuple(sorted(active_ids))
         current = self.owner.current_state(proposition_id)
-        projection = (self.owner.cognitive_projection(max_states=1, current_tick=cognitive_tick)
-            if current is not None and cognitive_tick is not None else None)
-        trace = {"schema": "sentientos.epistemic_proposition_trace:v1",
+        latest_traced_state = max(states, key=lambda item: item["generation"]
+            ) if states else None
+        if ((current is None) != (latest_traced_state is None)
+                or (current is not None and latest_traced_state is not None
+                    and current.state_digest != latest_traced_state.get("state_digest"))
+                or active_ids != set(active)):
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_current_reconstruction_mismatch")
+        projection = None
+        if current is not None and cognitive_tick is not None:
+            current_event = next((item for item in events
+                if item.event_id == current.last_update_event_id), None)
+            if current_event is None:
+                raise EpistemicDevelopmentError(
+                    "epistemic_trace_current_event_missing")
+            if all(item.tick < cognitive_tick for item in events):
+                projection = self.owner.cognitive_projection(max_states=1,
+                    current_tick=cognitive_tick,
+                    prioritized_proposition_ids=(proposition_id,),
+                    repair_transactions=False)
+                if (projection is not None
+                        and (proposition_id not in projection.proposition_ids
+                            or current.state_digest not in projection.state_digests)):
+                    raise EpistemicDevelopmentError(
+                        "epistemic_trace_prior_projection_mismatch")
+        trace = {"schema": "sentientos.epistemic_proposition_trace:v2",
             "proposition": {"id": proposition.proposition_id,
                 "digest": proposition.proposition_digest, "subject": proposition.subject,
                 "predicate": proposition.predicate, "context_scope": dict(proposition.context_scope)},
             "evidence": [{"binding_id": item.binding_id,
                 "binding_digest": item.binding_digest, "source_run_id": item.source_artifact_id,
                 "source_digest": item.source_digest, "relation": item.evidence_relation,
+                "reliability_posture": item.reliability_posture,
                 "observation_time": item.observation_time, "freshness": item.freshness,
                 "dependency_kind": item.dependency_kind,
+                "withdrawn": item.withdrawn,
                 "active": item.binding_id in active} for item in bindings],
             "states": [{"state_id": item["state_id"], "state_digest": item["state_digest"],
                 "generation": item["generation"], "predecessor_digest": item.get("predecessor_state_digest"),
+                "last_update_event_id": item["last_update_event_id"],
                 "stance": item["stance"], "dependency_unresolved": item["dependency_unresolved"],
-                "freshness": item["freshness"]} for item in sorted(states, key=lambda x: x["generation"])],
+                "freshness": item["freshness"],
+                "evidence_set_digest": item["evidence_set_digest"],
+                "support_binding_ids": list(item["support_binding_ids"]),
+                "contradiction_binding_ids": list(item["contradiction_binding_ids"])}
+                    for item in sorted(states, key=lambda x: x["generation"])],
             "events": [{"event_id": event.event_id, "event_digest": event.event_digest,
                 "generation": event.generation, "prior_state_digest": event.prior_state_digest,
                 "successor_state_digest": event.successor_state_digest,
                 "added_binding_ids": list(event.added_binding_ids),
+                "removed_binding_ids": list(event.removed_binding_ids),
+                "active_binding_ids_after": list(active_at_generation[event.generation]),
                 "recorded_at": state_by_digest[event.successor_state_digest]["updated_at"]
                     if event.successor_state_digest in state_by_digest else None}
                 for event in events],
@@ -320,6 +689,18 @@ class ResidentEpistemicDevelopmentRuntime:
             "truth": False, "authority": False}
         if len(json.dumps(trace, sort_keys=True, separators=(",", ":"))) > 32_768:
             raise EpistemicDevelopmentError("epistemic_trace_size_bound_exceeded")
+        try:
+            final_owner_boundary = tuple((kind, self.owner._collection_bytes(kind))
+                for kind in collection_kinds)
+        except EpistemicStateError as exc:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_owner_inventory_invalid") from exc
+        if final_owner_boundary != owner_boundary:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_owner_inventory_changed")
+        if receipt_boundary() != receipt_inventory:
+            raise EpistemicDevelopmentError(
+                "epistemic_trace_receipt_inventory_changed")
         return trace
 
     @staticmethod
@@ -1121,7 +1502,9 @@ class ResidentEpistemicDevelopmentRuntime:
     def process_verified_task_family_run(self, *, experiment_store: Any,
             run_id: str, expected_run_digest: str, rule_id: str, tick: int,
             recorded_at: str, advance_state: bool = True,
-            allow_new_binding: bool = True
+            allow_new_binding: bool = True,
+            expected_cohort_id: str | None = None,
+            expected_cohort_digest: str | None = None
             ) -> EpistemicDevelopmentFeedback:
         """Admit a recovered scored run through the ordinary mutation controller.
 
@@ -1138,7 +1521,9 @@ class ResidentEpistemicDevelopmentRuntime:
             raise EpistemicDevelopmentError("task_family_processing_options_invalid")
         rule = rules[0]
         run = experiment_store.load_run(run_id)
-        descriptor = run.get("protocol", {}).get("objective_task_descriptor")
+        protocol = run.get("protocol")
+        descriptor = (protocol.get("objective_task_descriptor")
+            if isinstance(protocol, Mapping) else None)
         family = descriptor.get("task_family_id") if isinstance(descriptor, Mapping) else None
         proposition = self.owner.proposition(rule.proposition_id)
         if (not isinstance(family, str) or not family
@@ -1150,7 +1535,6 @@ class ResidentEpistemicDevelopmentRuntime:
         if "active_model_identity_digest" in proposition.context_scope:
             expected_model_digest = proposition.context_scope.get(
                 "active_model_identity_digest")
-            protocol = run.get("protocol")
             model_identity = (protocol.get("active_model_identity")
                 if isinstance(protocol, Mapping) else None)
             observed_model_digest = (protocol.get("active_model_identity_digest")
@@ -1168,9 +1552,18 @@ class ResidentEpistemicDevelopmentRuntime:
             if expected_model_digest != observed_model_digest:
                 raise EpistemicDevelopmentError(
                     "task_family_model_identity_mismatch")
-        binding = experiment_store.objective_task_family_evidence_binding(
-            run_id=run_id, expected_run_digest=expected_run_digest,
-            proposition_id=rule.proposition_id)
+        if protocol.get("schema_version") in {
+                "sentientos.developmental_history_intervention_protocol:v11",
+                "sentientos.developmental_history_intervention_protocol:v13"}:
+            binding = experiment_store.objective_task_family_evidence_binding(
+                run_id=run_id, expected_run_digest=expected_run_digest,
+                proposition_id=rule.proposition_id,
+                expected_cohort_id=expected_cohort_id,
+                expected_cohort_digest=expected_cohort_digest)
+        else:
+            binding = experiment_store.objective_task_family_evidence_binding(
+                run_id=run_id, expected_run_digest=expected_run_digest,
+                proposition_id=rule.proposition_id)
         proof = make_epistemic_evidence_source_proof(
             source_artifact_id=binding.source_artifact_id,
             source_digest=binding.source_digest, source_schema=binding.source_schema,
@@ -1215,6 +1608,95 @@ class ResidentEpistemicDevelopmentRuntime:
             "matched_fact_count": 1,
             "new_binding_count": len(evidence_receipts),
             "evidence_receipt_ids": evidence_receipts,
+        })
+
+    def process_verified_task_family_cohort(self, *, experiment_store: Any,
+            cohort_id: str, expected_cohort_digest: str, rule_id: str,
+            tick: int, recorded_at: str, advance_state: bool = True,
+            allow_new_binding: bool = True,
+            binding_budget_remaining: int | None = None
+            ) -> EpistemicDevelopmentFeedback:
+        """Admit a recovered balanced cohort through the mutation controller."""
+        rules = [rule for rule in self.config.rules if rule.rule_id == rule_id]
+        if (not self.config.enabled or len(rules) != 1
+                or rules[0].selector != {"source_kind": "embodiment",
+                    "subject_kind": "developmental_history_intervention_experiment"}):
+            raise EpistemicDevelopmentError("task_family_outcome_rule_invalid")
+        if (type(advance_state) is not bool or type(allow_new_binding) is not bool
+                or (binding_budget_remaining is not None
+                    and (type(binding_budget_remaining) is not int
+                        or binding_budget_remaining < 0))):
+            raise EpistemicDevelopmentError("task_family_processing_options_invalid")
+        remaining_budget = (self.config.max_new_bindings_per_tick
+            if binding_budget_remaining is None else binding_budget_remaining)
+        rule = rules[0]
+        cohort = experiment_store.load_objective_cohort_summary(cohort_id)
+        if cohort.get("cohort_digest") != expected_cohort_digest:
+            raise EpistemicDevelopmentError("task_family_cohort_digest_mismatch")
+        run_ids = cohort.get("run_ids")
+        run_digests = cohort.get("run_digests")
+        if (not isinstance(run_ids, list) or len(run_ids) != 6
+                or not isinstance(run_digests, list) or len(run_digests) != 6):
+            raise EpistemicDevelopmentError("task_family_cohort_run_set_invalid")
+        run = experiment_store.load_run(run_ids[0])
+        protocol = run.get("protocol")
+        descriptor = (protocol.get("objective_task_descriptor")
+            if isinstance(protocol, Mapping) else None)
+        family = descriptor.get("task_family_id") if isinstance(descriptor, Mapping) else None
+        proposition = self.owner.proposition(rule.proposition_id)
+        if (not isinstance(family, str) or not family
+                or proposition.subject != "task_family:" + family
+                or proposition.predicate != "history_effect"
+                or proposition.context_scope.get("task_family_id") != family
+                or proposition.proposition_class != "causal_hypothesis"):
+            raise EpistemicDevelopmentError("task_family_proposition_binding_invalid")
+        if "active_model_identity_digest" in proposition.context_scope:
+            expected_model_digest = proposition.context_scope.get(
+                "active_model_identity_digest")
+            model_identity = protocol.get("active_model_identity")
+            observed_model_digest = protocol.get("active_model_identity_digest")
+            if (not isinstance(expected_model_digest, str)
+                    or len(expected_model_digest) != 71
+                    or not expected_model_digest.startswith("sha256:")
+                    or any(character not in "0123456789abcdef"
+                        for character in expected_model_digest[7:])
+                    or not isinstance(model_identity, Mapping) or not model_identity
+                    or not isinstance(observed_model_digest, str)
+                    or observed_model_digest != digest(dict(model_identity))):
+                raise EpistemicDevelopmentError(
+                    "task_family_model_identity_unverified")
+            if expected_model_digest != observed_model_digest:
+                raise EpistemicDevelopmentError(
+                    "task_family_model_identity_mismatch")
+        evidence_receipts: list[str] = []
+        for run_id, run_digest in zip(run_ids, run_digests):
+            outcome = self.process_verified_task_family_run(
+                experiment_store=experiment_store, run_id=run_id,
+                expected_run_digest=run_digest, rule_id=rule_id, tick=tick,
+                recorded_at=recorded_at, advance_state=False,
+                allow_new_binding=(allow_new_binding and remaining_budget > 0),
+                expected_cohort_id=cohort_id,
+                expected_cohort_digest=expected_cohort_digest)
+            if outcome.status == "binding_limit_reached":
+                return EpistemicDevelopmentFeedback(
+                    "binding_limit_reached", cohort_id, 1, 6,
+                    len(evidence_receipts), 0, tuple(evidence_receipts),
+                    (), (), ())
+            evidence_receipts.extend(outcome.evidence_receipt_ids)
+            remaining_budget -= outcome.new_binding_count
+        if not advance_state:
+            return EpistemicDevelopmentFeedback(
+                "evidence_appended" if evidence_receipts else "already_applied",
+                cohort_id, 1, 6, len(evidence_receipts), 0,
+                tuple(evidence_receipts), (), (), ())
+        feedback = self.advance_task_family_proposition(
+            proposition_id=rule.proposition_id, rule_id=rule_id,
+            tick=tick, recorded_at=recorded_at)
+        return EpistemicDevelopmentFeedback(**{
+            **asdict(feedback), "snapshot_id": cohort_id,
+            "matched_fact_count": 6,
+            "new_binding_count": len(evidence_receipts),
+            "evidence_receipt_ids": tuple(evidence_receipts),
         })
 
     def advance_task_family_proposition(self, *, proposition_id: str,
@@ -1292,22 +1774,12 @@ class ResidentEpistemicDevelopmentRuntime:
             len(newly_active), 0, 1, (), (state_receipt.receipt_id,),
             (state_receipt.successor_state_id,), (state_receipt.generation,))
 
-    def process_calibration_event(self, *, calibration_id: str,
+    def _prepare_calibration_review(self, *, calibration_id: str,
             expected_calibration_digest: str, rule_id: str, tick: int,
-            recorded_at: str) -> EpistemicDevelopmentFeedback:
-        """Review one exact calibration, then separately admit its state update.
-
-        The calibration review definition is intentionally absent from the
-        canonical authority catalog pending operator registration. Production
-        calls therefore fail closed until that exact capability is registered
-        and supplied to both the issuer and verifier.
-        """
+            recorded_at: str) -> _CalibrationReviewPreparation:
         rules = [rule for rule in self.config.rules if rule.rule_id == rule_id]
         if not self.config.enabled or len(rules) != 1:
             raise EpistemicDevelopmentError("calibration_review_rule_invalid")
-        if self.calibration_review_verifier is None:
-            raise EpistemicDevelopmentError(
-                "calibration_review_authority_unregistered")
         rule = rules[0]
         proposition = self.owner.proposition(rule.proposition_id)
         if proposition.proposition_digest != rule.proposition_digest:
@@ -1363,21 +1835,39 @@ class ResidentEpistemicDevelopmentRuntime:
             for binding_id in calibration.source_binding_ids}
         consistency = _calibration_evidence_consistency(
             asdict(calibration), outcome_bindings)
+        base = {"schema": "sentientos.epistemic_calibration_review_preview:v1",
+            "calibration_id": calibration.calibration_id,
+            "calibration_digest": calibration.calibration_digest,
+            "proposition_id": rule.proposition_id,
+            "proposition_digest": proposition.proposition_digest,
+            "forecast_state_digest": forecast.state_digest,
+            "current_state_digest": current.state_digest,
+            "source_binding_ids": list(calibration.source_binding_ids),
+            "source_binding_digests": [binding_by_id[item].binding_digest
+                for item in calibration.source_binding_ids],
+            "active_binding_ids": list(active_ids),
+            "evidence_consistency": consistency,
+            "receipt_recovery_status": recovery.get("status"),
+            "authority": False, "truth": False,
+            "runtime_admission_issued": False,
+            "epistemic_state_mutation_performed": False,
+            "proposed_update": None}
         if consistency != "consistent_with_bound_current_evidence":
-            return EpistemicDevelopmentFeedback(
-                "calibration_unresolved", calibration.calibration_id,
-                1, 1, 0, 0, (), (), (), (),
-                recovery_status=str(recovery.get("status", "verified")))
+            return _CalibrationReviewPreparation({**base,
+                "status": "unresolved", "review_request": None,
+                "review_request_digest": None, "proposed_stance": None,
+                "evidence_posture": None}, rule, calibration, forecast,
+                current, binding_by_id, active_ids, None, None, recovery)
         correlation_id = calibration_review_correlation_id(
             calibration.calibration_id, calibration.calibration_digest)
         if any(event.reason == "calibration_outcome"
                 and event.correlation_id == correlation_id
                 for event in self.owner.update_events(rule.proposition_id)):
-            return EpistemicDevelopmentFeedback(
-                "already_applied", calibration.calibration_id, 1, 1,
-                0, 0, (), (), (), (),
-                recovery_status=str(recovery.get("status", "verified")))
-
+            return _CalibrationReviewPreparation({**base,
+                "status": "already_applied", "review_request": None,
+                "review_request_digest": None, "proposed_stance": None,
+                "evidence_posture": None}, rule, calibration, forecast,
+                current, binding_by_id, active_ids, None, None, recovery)
         active_bindings = tuple(binding_by_id[item] for item in active_ids)
         if len(active_bindings) > MAX_ACTIVE_EVIDENCE:
             raise EpistemicDevelopmentError("active_evidence_bound_exceeded")
@@ -1387,13 +1877,27 @@ class ResidentEpistemicDevelopmentRuntime:
             "mixed": "contested", "all_evidence_stale": "suspended"}.get(
                 str(posture["posture"]))
         if stance is None:
-            return EpistemicDevelopmentFeedback(
-                "calibration_unresolved", calibration.calibration_id,
-                1, 1, 0, 0, (), (), (), (),
-                recovery_status=str(recovery.get("status", "verified")))
+            return _CalibrationReviewPreparation({**base,
+                "status": "unresolved", "review_request": None,
+                "review_request_digest": None, "proposed_stance": None,
+                "evidence_posture": dict(posture)}, rule, calibration,
+                forecast, current, binding_by_id, active_ids, posture,
+                None, recovery)
+        proposed_update = {
+            "stance": stance,
+            "evidence_binding_ids": list(active_ids),
+            "reason": "calibration_outcome",
+            "uncertainty": ("high" if posture["dependency_unresolved"]
+                else "medium"),
+            "model_id": None,
+            "proposer_kind": "deterministic_rule",
+            "proposer_id": rule.rule_id,
+        }
         review_request = {
             "calibration_id": calibration.calibration_id,
             "calibration_digest": calibration.calibration_digest,
+            "proposition_id": rule.proposition_id,
+            "proposition_digest": proposition.proposition_digest,
             "forecast_state_digest": forecast.state_digest,
             "current_state_digest": current.state_digest,
             "source_binding_ids": list(calibration.source_binding_ids),
@@ -1401,9 +1905,79 @@ class ResidentEpistemicDevelopmentRuntime:
                 for item in calibration.source_binding_ids],
             "active_binding_ids": list(active_ids),
             "proposed_stance": stance,
+            "proposed_update": proposed_update,
             "evidence_consistency": consistency,
+            "update_tick": tick,
+            "update_recorded_at": recorded_at,
         }
-        configuration_digest = digest(review_request)
+        request_digest = digest(review_request)
+        return _CalibrationReviewPreparation({**base,
+            "status": "reviewable", "review_request": review_request,
+            "review_request_digest": request_digest,
+            "proposed_stance": stance,
+            "evidence_posture": dict(posture),
+            "proposed_update": proposed_update}, rule, calibration,
+            forecast, current, binding_by_id, active_ids, posture, stance,
+            recovery)
+
+    def preview_calibration_event_review(self, *, calibration_id: str,
+            expected_calibration_digest: str, rule_id: str, tick: int,
+            recorded_at: str) -> dict[str, Any]:
+        """Inspect exact calibration review inputs without issuing authority or mutating state."""
+        prepared = self._prepare_calibration_review(calibration_id=calibration_id,
+            expected_calibration_digest=expected_calibration_digest,
+            rule_id=rule_id, tick=tick, recorded_at=recorded_at)
+        report = dict(prepared.report)
+        report["preview_digest"] = digest(report)
+        if not verify_epistemic_calibration_review_preview(report):
+            raise EpistemicDevelopmentError(
+                "calibration_review_preview_integrity_failed")
+        return report
+
+    def process_calibration_event(self, *, calibration_id: str,
+            expected_calibration_digest: str, rule_id: str, tick: int,
+            recorded_at: str) -> EpistemicDevelopmentFeedback:
+        """Review one exact calibration, then separately admit its state update.
+
+        The calibration review definition is intentionally absent from the
+        canonical authority catalog pending operator registration. Production
+        calls therefore fail closed until that exact capability is registered
+        and supplied to both the issuer and verifier.
+        """
+        rules = [rule for rule in self.config.rules if rule.rule_id == rule_id]
+        if not self.config.enabled or len(rules) != 1:
+            raise EpistemicDevelopmentError("calibration_review_rule_invalid")
+        if self.calibration_review_verifier is None:
+            raise EpistemicDevelopmentError(
+                "calibration_review_authority_unregistered")
+        prepared = self._prepare_calibration_review(
+            calibration_id=calibration_id,
+            expected_calibration_digest=expected_calibration_digest,
+            rule_id=rule_id, tick=tick, recorded_at=recorded_at)
+        rule, calibration = prepared.rule, prepared.calibration
+        forecast, current = prepared.forecast, prepared.current
+        binding_by_id, active_ids = prepared.binding_by_id, prepared.active_ids
+        posture, stance, recovery = (prepared.posture, prepared.stance,
+            prepared.recovery)
+        if prepared.report["status"] == "unresolved":
+            return EpistemicDevelopmentFeedback(
+                "calibration_unresolved", calibration.calibration_id,
+                1, 1, 0, 0, (), (), (), (),
+                recovery_status=str(recovery.get("status", "verified")))
+        if prepared.report["status"] == "already_applied":
+            return EpistemicDevelopmentFeedback(
+                "already_applied", calibration.calibration_id, 1, 1,
+                0, 0, (), (), (), (),
+                recovery_status=str(recovery.get("status", "verified")))
+        if (prepared.report["status"] != "reviewable"
+                or posture is None or stance is None
+                or current is None or forecast is None):
+            raise EpistemicDevelopmentError(
+                "calibration_review_preparation_invalid")
+        correlation_id = calibration_review_correlation_id(
+            calibration.calibration_id, calibration.calibration_digest)
+        review_request = prepared.report["review_request"]
+        configuration_digest = prepared.report["review_request_digest"]
         try:
             review_admission = self.authority.issue_next(
                 admission_id_for_sequence=lambda sequence:
@@ -1433,18 +2007,21 @@ class ResidentEpistemicDevelopmentRuntime:
                 effect=effect, subject_id=calibration.calibration_id,
                 request_configuration_digest=configuration_digest)
 
+        proposed_update = prepared.report["proposed_update"]
         candidate = make_epistemic_update_candidate(
             proposition_id=rule.proposition_id,
             predecessor_state_digest=current.state_digest,
-            proposed_stance=stance, evidence_binding_ids=active_ids,
-            reason="calibration_outcome",
+            proposed_stance=proposed_update["stance"],
+            evidence_binding_ids=proposed_update["evidence_binding_ids"],
+            reason=proposed_update["reason"],
             rationale=(f"Admitted calibration review {review_admission.admission_id} "
                 f"{calibration.calibration_id} is consistent with its exact current "
                 "outcome bindings; stance derives from the complete active evidence "
                 f"posture {posture['posture']} and remains provisional."),
-            uncertainty="high" if posture["dependency_unresolved"] else "medium",
-            model_id=None, proposer_kind="deterministic_rule",
-            proposer_id=rule_id)
+            uncertainty=proposed_update["uncertainty"],
+            model_id=proposed_update["model_id"],
+            proposer_kind=proposed_update["proposer_kind"],
+            proposer_id=proposed_update["proposer_id"])
         operation = f"{tick}:{rule_id}:{calibration.calibration_id}:state"
         state_configuration = self.controller.state_configuration_digest(
             candidate=candidate, operation_id=operation)

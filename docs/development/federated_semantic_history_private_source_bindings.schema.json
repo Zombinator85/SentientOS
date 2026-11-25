@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-private-source-bindings:v1",
+  "title": "SentientOS private federated history owner bindings",
+  "description": "Local-only execution input. Contains private origin keys and config paths and must not be copied into public experiment artifacts. source_id may be omitted while freezing the first manifest; it is required at run time.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sources"],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_private_source_bindings:v1" },
+    "sources": {
+      "type": "array", "minItems": 1, "maxItems": 10000,
+      "items": { "$ref": "#/$defs/sourceBinding" }
+    }
+  },
+  "$defs": {
+    "sourceBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["origin_key", "cognition_config", "serving_config"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+        "origin_key": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "cognition_config": { "type": "string", "minLength": 1, "maxLength": 32768 },
+        "serving_config": { "type": "string", "minLength": 1, "maxLength": 32768 }
+      }
+    }
+  }
+}

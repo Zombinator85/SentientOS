@@ -5,6 +5,8 @@ publication; narrowly allowlisted mutable snapshots use atomic replacement after
 the existing destination identity is rechecked. No directory is created, and
 stale staging files are never adopted or removed. A successful result requires
 file flush, destination readback, directory flush, and terminal custody checks.
+An exact AppContainer package SID may be supplied for private ACL verification
+when a worker publishes into its own branch journal.
 """
 from __future__ import annotations
 
@@ -38,6 +40,7 @@ def publish_immutable_replay_bytes(
     path: Path, data: bytes, *, max_bytes: int, max_entries: int,
     expected_root_identity: tuple[int, bytes] | None = None,
     filename_policy: str = "peer_event",
+    permitted_appcontainer_sid: str | None = None,
     replace_existing: bool = False,
 ) -> bool:
     """Return True for one new record or False for an exact durable retry.
@@ -74,11 +77,66 @@ def publish_immutable_replay_bytes(
     cognition_artifact_match = (re.fullmatch(r"devcog-[0-9a-f]{24}\.json", path.name)
         if filename_policy in {"cognition_observation", "epistemic_probe_capture"}
         else None)
+    durable_learning_run_artifacts = (
+        r"access-probe-completion|access-probe-interruption|"
+        r"appcontainer-profile-pair|attempt|branch|"
+        r"branch-preflight(?:-v[2-6])?|competence-assessment|"
+        r"competence-authorization|evaluation|exclusion-attestation|"
+        r"outcome|probe-gate|profile-data-inventory|"
+        r"profile-inventory-baseline|profile-registry-inventory|"
+        r"registry-inventory-baseline|runtime-access-attempt|"
+        r"strategy|strategy-probe-gate|worker-baseline(?:-pair|-interruption|-setup)?|"
+        r"worker-recovery-(?:inputs|intent|run|setup)")
     experiment_artifact_match = (
-        re.fullmatch(r"devexp-protocol-[0-9a-f]{24}\.json", path.name)
+        (re.fullmatch(r"devexp-protocol-[0-9a-f]{24}\.json", path.name)
+            or re.fullmatch(
+                r"devexp-durable-learning-protocol-[0-9a-f]{24}\.json",
+                path.name))
         if filename_policy == "developmental_experiment_protocol" else
-        re.fullmatch(r"devexp-run-[0-9a-f]{24}\.json", path.name)
-        if filename_policy == "developmental_experiment_run" else None)
+        (re.fullmatch(r"devexp-run-[0-9a-f]{24}\.json", path.name)
+            or re.fullmatch(
+                r"devexp-durable-learning-(?:" +
+                durable_learning_run_artifacts + r")-[0-9a-f]{24}\.json",
+                path.name))
+        if filename_policy == "developmental_experiment_run" else
+        re.fullmatch(r"strategy-inclusion-protocol-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "strategy_inclusion_protocol" else
+        re.fullmatch(r"strategy-inclusion-score-[0-9a-f]{12}-[0-9a-f]{12}\.json", path.name)
+        if filename_policy == "strategy_inclusion_score" else
+        re.fullmatch(r"strategy-inclusion-arm-claim-[0-9a-f]{24}-(strategy_included|strategy_omitted)\.json", path.name)
+        if filename_policy == "strategy_inclusion_arm_claim" else
+        re.fullmatch(r"strategy-inclusion-arm-result-[0-9a-f]{24}-(strategy_included|strategy_omitted)\.json", path.name)
+        if filename_policy == "strategy_inclusion_arm_result" else
+        re.fullmatch(r"devexp-durable-learning-consolidation-intent-[0-9a-f]{24}\.json",
+            path.name)
+        if filename_policy == "durable_learning_consolidation_intent" else
+        re.fullmatch(r"devexp-durable-learning-consolidation-receipt-[0-9a-f]{24}\.json",
+            path.name)
+        if filename_policy == "durable_learning_consolidation_receipt" else None)
+    condition_receipt_bundle_match = (
+        re.fullmatch(r"durable-learning-condition-receipts-[0-9a-f]{24}\.json",
+            path.name)
+        if filename_policy == "durable_learning_condition_receipt_bundle"
+        else None)
+    condition_invocation_receipt_match = (
+        re.fullmatch(r"lmrec-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "durable_learning_condition_invocation_receipt"
+        else None)
+    condition_invocation_receipt_index_match = (
+        re.fullmatch(r"durable-learning-invocation-index-[0-9a-f]{24}\.json",
+            path.name)
+        if filename_policy == "durable_learning_condition_invocation_receipt_index"
+        else None)
+    condition_worker_journal_match = (
+        re.fullmatch(
+            r"durable-learning-worker-intent-[0-9a-f]{32}\.json", path.name)
+        if filename_policy == "durable_learning_condition_worker_intent" else
+        re.fullmatch(
+            r"durable-learning-worker-completion-[0-9a-f]{32}\.json", path.name)
+        if filename_policy == "durable_learning_condition_worker_completion"
+        else re.fullmatch(r"durable-learning-worker-scope\.json", path.name)
+        if filename_policy == "durable_learning_condition_worker_scope"
+        else None)
     ordinary_chat_experiment_artifact_match = (
         re.fullmatch(r"ordinary-history-protocol-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_protocol" else None)
@@ -103,6 +161,27 @@ def publish_immutable_replay_bytes(
     ordinary_chat_cohort_artifact_match = (
         re.fullmatch(r"ordinary-history-cohort-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_cohort_summary" else None)
+    developmental_objective_cohort_artifact_match = (
+        re.fullmatch(r"developmental-objective-cohort-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_objective_cohort_summary" else None)
+    developmental_history_retrieval_comparison_match = (
+        re.fullmatch(r"devexp-retrieval-comparison-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_history_retrieval_comparison" else None)
+    developmental_history_retrieval_freeze_match = (
+        re.fullmatch(r"devexp-retrieval-freeze-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_history_retrieval_corpus_freeze" else None)
+    developmental_history_retrieval_query_set_match = (
+        re.fullmatch(r"devexp-retrieval-queries-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_history_retrieval_query_set" else None)
+    developmental_history_retrieval_cohort_match = (
+        re.fullmatch(r"devexp-retrieval-cohort-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_history_retrieval_comparison_cohort" else None)
+    developmental_history_retrieval_evaluation_match = (
+        re.fullmatch(r"devexp-retrieval-evaluation-[0-9a-f]{24}\.json", path.name)
+        if filename_policy == "developmental_history_retrieval_evaluation" else None)
+    developmental_objective_schedule_artifact_match = (
+        re.fullmatch(r"developmental-objective-schedule-[0-9a-f]{24}-[0-9]{8,10}\.json", path.name)
+        if filename_policy == "developmental_objective_history_schedule" else None)
     ordinary_chat_score_artifact_match = (
         re.fullmatch(r"ordinary-history-score-[0-9a-f]{24}\.json", path.name)
         if filename_policy == "ordinary_chat_history_score" else None)
@@ -132,6 +211,10 @@ def publish_immutable_replay_bytes(
         else 1 if (content_addressed_match is not None
             or mutable_state_match or cognition_artifact_match is not None
             or experiment_artifact_match is not None
+            or condition_receipt_bundle_match is not None
+            or condition_invocation_receipt_match is not None
+            or condition_invocation_receipt_index_match is not None
+            or condition_worker_journal_match is not None
             or ordinary_chat_experiment_artifact_match is not None
             or ordinary_chat_schedule_artifact_match is not None
             or ordinary_chat_execution_artifact_match is not None
@@ -140,7 +223,14 @@ def publish_immutable_replay_bytes(
             or ordinary_chat_final_result_artifact_match is not None
             or ordinary_chat_evaluation_artifact_match is not None
             or ordinary_chat_cohort_artifact_match is not None
+            or developmental_objective_cohort_artifact_match is not None
+            or developmental_objective_schedule_artifact_match is not None
             or ordinary_chat_score_artifact_match is not None
+            or developmental_history_retrieval_comparison_match is not None
+            or developmental_history_retrieval_freeze_match is not None
+            or developmental_history_retrieval_query_set_match is not None
+            or developmental_history_retrieval_cohort_match is not None
+            or developmental_history_retrieval_evaluation_match is not None
             or objective_artifact_match is not None
             or objective_archive_match is not None
             or epistemic_artifact_match is not None) else 0)
@@ -148,14 +238,29 @@ def publish_immutable_replay_bytes(
         "resident_cognition_state", "epistemic_probe_capture"}
         else 4_194_304 if filename_policy == "longitudinal_self_model"
         else 4_194_304 if filename_policy == "runtime_admission_ledger"
+        else 2_097_152 if filename_policy ==
+            "durable_learning_condition_invocation_receipt_index"
         else 4_194_304 if filename_policy in {
             "developmental_experiment_protocol", "developmental_experiment_run",
+            "strategy_inclusion_protocol", "strategy_inclusion_score",
+            "strategy_inclusion_arm_claim", "strategy_inclusion_arm_result",
+            "durable_learning_consolidation_intent",
+            "durable_learning_consolidation_receipt",
+            "durable_learning_condition_receipt_bundle",
+            "durable_learning_condition_invocation_receipt",
             "ordinary_chat_history_protocol", "ordinary_chat_history_result",
             "ordinary_chat_history_final_result_index",
             "ordinary_chat_history_evaluation",
             "ordinary_chat_history_cohort_summary",
+            "developmental_objective_cohort_summary",
+            "developmental_objective_history_schedule",
             "ordinary_chat_history_score", "ordinary_chat_history_scoring_plan",
-            "ordinary_chat_history_schedule", "ordinary_chat_history_execution_claim"}
+            "ordinary_chat_history_schedule", "ordinary_chat_history_execution_claim",
+            "developmental_history_retrieval_comparison",
+            "developmental_history_retrieval_corpus_freeze",
+            "developmental_history_retrieval_query_set",
+            "developmental_history_retrieval_comparison_cohort",
+            "developmental_history_retrieval_evaluation"}
         else 4_194_304 if filename_policy in {
             "objective_task_plan", "objective_condition_score"}
         else 1_048_576 if filename_policy in {
@@ -165,6 +270,10 @@ def publish_immutable_replay_bytes(
             or (sequence_match is None and content_addressed_match is None
                 and cognition_artifact_match is None
                 and experiment_artifact_match is None
+                and condition_receipt_bundle_match is None
+                and condition_invocation_receipt_match is None
+                and condition_invocation_receipt_index_match is None
+                and condition_worker_journal_match is None
                 and ordinary_chat_experiment_artifact_match is None
                 and ordinary_chat_schedule_artifact_match is None
                 and ordinary_chat_execution_artifact_match is None
@@ -173,7 +282,14 @@ def publish_immutable_replay_bytes(
                 and ordinary_chat_final_result_artifact_match is None
                 and ordinary_chat_evaluation_artifact_match is None
                 and ordinary_chat_cohort_artifact_match is None
+                and developmental_objective_cohort_artifact_match is None
+                and developmental_objective_schedule_artifact_match is None
                 and ordinary_chat_score_artifact_match is None
+                and developmental_history_retrieval_comparison_match is None
+                and developmental_history_retrieval_freeze_match is None
+                and developmental_history_retrieval_query_set_match is None
+                and developmental_history_retrieval_cohort_match is None
+                and developmental_history_retrieval_evaluation_match is None
                 and objective_artifact_match is None
                 and objective_archive_match is None
                 and epistemic_artifact_match is None
@@ -184,9 +300,17 @@ def publish_immutable_replay_bytes(
             or type(data) is not bytes or not data
             or type(max_bytes) is not int or not 1 <= max_bytes <= maximum_file_bytes
             or len(data) > max_bytes
-            or type(max_entries) is not int or not 1 <= max_entries <= 8192
+            or type(max_entries) is not int or not 1 <= max_entries <= 16_384
             or (expected_root_identity is not None
-                and not _valid_file_identity(expected_root_identity))):
+                and not _valid_file_identity(expected_root_identity))
+            or (permitted_appcontainer_sid is not None
+                and (not isinstance(permitted_appcontainer_sid, str)
+                    or re.fullmatch(r"S-1-15-2-(?:[0-9]+-)*[0-9]+",
+                        permitted_appcontainer_sid) is None
+                    or filename_policy not in {
+                        "durable_learning_condition_worker_intent",
+                        "durable_learning_condition_worker_completion",
+                        "durable_learning_condition_worker_scope"}))):
         raise WindowsReplayCustodyError("windows_replay_publication_arguments_invalid")
     root = PureWindowsPath(os.path.abspath(path.parent))
     if (not root.is_absolute() or len(root.drive) != 2 or root.drive[1] != ":"
@@ -397,7 +521,8 @@ def publish_immutable_replay_bytes(
             if not metadata(handle).Directory:
                 fail("windows_replay_directory_invalid")
             if index == len(directories) - 1:
-                verify_private_handle_acl(handle)
+                verify_private_handle_acl(handle,
+                    permitted_appcontainer_sid=permitted_appcontainer_sid)
             else:
                 verify_replay_ancestor_handle_acl(handle)
 
@@ -440,7 +565,8 @@ def publish_immutable_replay_bytes(
 
     def read_back(handle: int) -> bytes:
         before, file_id = metadata(handle), identity(handle)
-        verify_private_handle_acl(handle)
+        verify_private_handle_acl(handle,
+            permitted_appcontainer_sid=permitted_appcontainer_sid)
         if before.Directory or before.NumberOfLinks != 1 or not 0 <= before.EndOfFile <= max_bytes:
             fail("windows_replay_file_unbounded_or_aliased")
         if not seek(handle, 0, None, 0):
@@ -460,7 +586,8 @@ def publish_immutable_replay_bytes(
         if (len(result) != before.EndOfFile or after.EndOfFile != before.EndOfFile
                 or after.NumberOfLinks != 1 or identity(handle) != file_id):
             fail("windows_replay_readback_changed")
-        verify_private_handle_acl(handle)
+        verify_private_handle_acl(handle,
+            permitted_appcontainer_sid=permitted_appcontainer_sid)
         return bytes(result)
 
     def durable_existing(root_handle: int) -> bool:
@@ -525,7 +652,8 @@ def publish_immutable_replay_bytes(
         staging_identity = identity(staging)
         if metadata(staging).Directory or metadata(staging).NumberOfLinks != 1:
             fail("windows_replay_staging_invalid")
-        verify_private_handle_acl(staging)
+        verify_private_handle_acl(staging,
+            permitted_appcontainer_sid=permitted_appcontainer_sid)
         offset = 0
         while offset < len(data):
             chunk = ctypes.create_string_buffer(data[offset:offset + 65_536])

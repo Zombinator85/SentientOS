@@ -1,0 +1,165 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_cohort_score_v3.schema.json",
+  "title": "SentientOS historical examples cohort score with preregistered reporting",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "cohort_digest", "analysis_plan_digest",
+    "trial_count", "complete_trial_count", "number_of_complete_trials",
+    "whether_any_trial_is_incomplete", "per_trial_correct_counts_by_arm",
+    "per_trial_accuracy_difference", "per_trial_probe_outcomes",
+    "arm_order_by_trial", "per_trial_results",
+    "cohort_mean_accuracy_difference", "analysis_unit", "inference_scope",
+    "source_score_artifact_verification", "independent_scorer_attested",
+    "durable_learning_established", "model_attention_established",
+    "general_transfer_established", "model_independence_established",
+    "learning_established", "authority", "cohort_score_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_cohort_score:v3"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "analysis_plan_digest": {"$ref": "#/$defs/digest"},
+    "trial_count": {"type": "integer", "minimum": 2},
+    "complete_trial_count": {"type": "integer", "minimum": 2},
+    "number_of_complete_trials": {"type": "integer", "minimum": 2},
+    "whether_any_trial_is_incomplete": {"const": false},
+    "per_trial_correct_counts_by_arm": {
+      "type": "array", "minItems": 2,
+      "items": {"$ref": "#/$defs/count_trial"}
+    },
+    "per_trial_accuracy_difference": {
+      "type": "array", "minItems": 2,
+      "items": {"$ref": "#/$defs/accuracy_trial"}
+    },
+    "per_trial_probe_outcomes": {
+      "type": "array", "minItems": 2,
+      "items": {"$ref": "#/$defs/probe_trial"}
+    },
+    "arm_order_by_trial": {
+      "type": "array", "minItems": 2,
+      "items": {"$ref": "#/$defs/arm_order_trial"}
+    },
+    "per_trial_results": {
+      "type": "array", "minItems": 2,
+      "items": {"$ref": "#/$defs/trial"}
+    },
+    "cohort_mean_accuracy_difference": {
+      "type": "object", "additionalProperties": false,
+      "required": ["numerator", "denominator", "decimal_rounded_6"],
+      "properties": {
+        "numerator": {"type": "integer"},
+        "denominator": {"type": "integer", "minimum": 1},
+        "decimal_rounded_6": {"type": "number", "minimum": -1, "maximum": 1}
+      }
+    },
+    "analysis_unit": {"const": "task_seed_pair_not_individual_probe"},
+    "inference_scope": {"const": "immediate_response_difference_only"},
+    "source_score_artifact_verification": {
+      "const": "reconstructed_from_private_task_plan_archived_verified_arm_receipts_and_stable_record_and_receipt_inventory:v2"
+    },
+    "independent_scorer_attested": {"type": "boolean"},
+    "durable_learning_established": {"const": false},
+    "model_attention_established": {"const": false},
+    "general_transfer_established": {"const": false},
+    "model_independence_established": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "cohort_score_digest": {"$ref": "#/$defs/digest"}
+  },
+  "allOf": [{
+    "if": {"properties": {"independent_scorer_attested": {"const": true}}, "required": ["independent_scorer_attested"]},
+    "then": {"properties": {"per_trial_results": {"items": {"required": ["independent_score_verification_digest"]}}}}
+  }],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": {"type": "integer", "minimum": 0},
+        "examples_omitted": {"type": "integer", "minimum": 0}
+      }
+    },
+    "count_trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_digest", "task_generation_seed", "correct_counts"],
+      "properties": {
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer"},
+        "correct_counts": {"$ref": "#/$defs/counts"}
+      }
+    },
+    "accuracy_trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_digest", "task_generation_seed", "accuracy_difference"],
+      "properties": {
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer"},
+        "accuracy_difference": {
+          "type": "object", "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {"numerator": {"type": "integer"}, "denominator": {"type": "integer", "minimum": 1}}
+        }
+      }
+    },
+    "probe_outcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["probe_binding_digest", "examples_included", "examples_omitted"],
+      "properties": {
+        "probe_binding_digest": {"$ref": "#/$defs/digest"},
+        "examples_included": {"enum": ["correct", "incorrect", "abstained"]},
+        "examples_omitted": {"enum": ["correct", "incorrect", "abstained"]}
+      }
+    },
+    "probe_trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_digest", "task_generation_seed", "paired_probe_outcomes"],
+      "properties": {
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer"},
+        "paired_probe_outcomes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/probe_outcome"}}
+      }
+    },
+    "arm_order_trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_digest", "task_generation_seed", "arm_order"],
+      "properties": {
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer"},
+        "arm_order": {"type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["examples_included", "examples_omitted"]}}
+      }
+    },
+    "trial": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "protocol_digest", "score_digest", "task_generation_seed", "probe_count",
+        "runtime_history_record_count", "runtime_history_record_set_digest",
+        "runtime_history_receipt_count", "runtime_history_receipt_set_digest",
+        "runtime_history_receipt_record_links_verified", "selected_history_record_receipts_verified",
+        "arm_order", "paired_probe_outcomes", "correct_counts", "per_task_accuracy_difference"
+      ],
+      "properties": {
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "score_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer"},
+        "probe_count": {"type": "integer", "minimum": 1},
+        "runtime_history_record_count": {"type": "integer", "minimum": 1},
+        "runtime_history_record_set_digest": {"$ref": "#/$defs/digest"},
+        "runtime_history_receipt_count": {"type": "integer", "minimum": 0},
+        "runtime_history_receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "runtime_history_receipt_record_links_verified": {"const": true},
+        "selected_history_record_receipts_verified": {"const": true},
+        "arm_order": {"type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": {"enum": ["examples_included", "examples_omitted"]}},
+        "paired_probe_outcomes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/probe_outcome"}},
+        "correct_counts": {"$ref": "#/$defs/counts"},
+        "per_task_accuracy_difference": {
+          "type": "object", "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {"numerator": {"type": "integer"}, "denominator": {"type": "integer", "minimum": 1}}
+        },
+        "independent_score_verification_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

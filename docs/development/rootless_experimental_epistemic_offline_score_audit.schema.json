@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/rootless_experimental_epistemic_offline_score_audit.schema.json",
+  "title": "Rootless epistemic offline score reconstruction audit",
+  "description": "Recomputes an epistemic-series score from persisted owner observations and receipts without loading or invoking a model. This does not independently validate the oracle or preregistration timing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "preregistration_digest", "answer_key_digest", "capture_index_digest", "recomputed_result", "existing_score_record_digest", "existing_score_matches_recomputed_result", "scoring_reconstructed_from_persisted_artifacts", "model_loaded", "inference_performed", "oracle_independence_verified", "preregistration_timing_verified", "causal_claim_made", "authority", "audit_digest"],
+  "properties": {
+    "schema_version": { "const": "sentientos.rootless_experimental_epistemic_offline_score_audit:v1" },
+    "run_id": { "type": "string", "pattern": "^rootless-epistemic-run-[0-9a-f]{24}$" },
+    "preregistration_digest": { "$ref": "#/$defs/digest" },
+    "answer_key_digest": { "$ref": "#/$defs/digest" },
+    "capture_index_digest": { "$ref": "#/$defs/digest" },
+    "recomputed_result": { "type": "object", "required": ["status", "report_digest", "oracle_independence_verified", "preregistration_timing_verified", "causal_claim_made", "authority"], "properties": { "status": { "enum": ["series_passed", "series_failed", "insufficient"] }, "report_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }, "oracle_independence_verified": { "const": false }, "preregistration_timing_verified": { "const": false }, "causal_claim_made": { "const": false }, "authority": { "const": false } } },
+    "existing_score_record_digest": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] },
+    "existing_score_matches_recomputed_result": { "type": ["boolean", "null"] },
+    "scoring_reconstructed_from_persisted_artifacts": { "const": true },
+    "model_loaded": { "const": false },
+    "inference_performed": { "const": false },
+    "oracle_independence_verified": { "const": false },
+    "preregistration_timing_verified": { "const": false },
+    "causal_claim_made": { "const": false },
+    "authority": { "const": false },
+    "audit_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

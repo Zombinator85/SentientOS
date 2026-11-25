@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS blinded semantic history adjudication packet",
+  "description": "Blinded v8 reviewer packet. It intentionally excludes preregistered strata, source record IDs, source-unit digests, and retrieval selections. Runtime validation additionally verifies canonical packet, cohort, corpus-manifest, procedure, and question digests; exact record ordering; unique query identities; and balanced strata from the private cohort.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cohort_id",
+    "cohort_digest",
+    "history_state_digest",
+    "corpus_manifest_digest",
+    "target_model_identity",
+    "target_model_identity_digest",
+    "corpus_record_refs",
+    "queries",
+    "adjudication_procedure",
+    "condition_selections_included",
+    "generative_model_invoked",
+    "authority",
+    "packet_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.developmental_history_retrieval_adjudication_packet:v8"
+    },
+    "cohort_id": {
+      "type": "string",
+      "pattern": "^devexp-retrieval-cohort-[0-9a-f]{24}$"
+    },
+    "cohort_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_state_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "corpus_manifest_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "target_model_identity": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "target_model_identity_digest": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/digest"}
+      ]
+    },
+    "corpus_record_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {"$ref": "#/$defs/recordRef"}
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "items": {"$ref": "#/$defs/query"}
+    },
+    "adjudication_procedure": {
+      "$ref": "#/$defs/procedure"
+    },
+    "condition_selections_included": {"const": false},
+    "generative_model_invoked": {"const": false},
+    "authority": {"const": false},
+    "packet_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "recordRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_id", "record_digest"],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "record_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_digest", "question"],
+      "properties": {
+        "question_digest": {"$ref": "#/$defs/digest"},
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "procedure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "rubric_id",
+        "instructions",
+        "labels",
+        "historical_only",
+        "current_truth",
+        "authority",
+        "procedure_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.developmental_history_retrieval_adjudication_procedure:v5"
+        },
+        "rubric_id": {"const": "eligible_historical_relevance_and_scope:v5"},
+        "instructions": {
+          "type": "array",
+          "minItems": 10,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relevant", "inapplicable", "neither"],
+          "properties": {
+            "relevant": {"type": "string", "minLength": 1},
+            "inapplicable": {"type": "string", "minLength": 1},
+            "neither": {"type": "string", "minLength": 1}
+          }
+        },
+        "historical_only": {"const": true},
+        "current_truth": {"const": false},
+        "authority": {"const": false},
+        "procedure_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

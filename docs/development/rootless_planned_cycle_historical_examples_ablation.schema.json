@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Planned Cycle Historical Examples Ablation",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": [
+    "schema_version", "status", "inference_performed",
+    "learning_established", "model_attention_established", "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_planned_cycle_historical_examples_ablation:v2"
+    },
+    "status": {
+      "enum": ["historical_examples_not_present", "paired_prompt_reconstruction_verified"]
+    },
+    "inference_performed": {"const": false},
+    "learning_established": {"const": false},
+    "model_attention_established": {"const": false},
+    "authority": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "paired_prompt_reconstruction_verified"}}},
+      "then": {
+        "required": [
+          "intervention", "changed_context_fields", "baseline_prompt_digest",
+          "ablated_prompt_digest", "baseline_prompt_chars", "ablated_prompt_chars",
+          "selected_record_ids", "selected_record_digests",
+          "history_source_records_unchanged", "history_source_record_ids_digest",
+          "history_source_record_digests_digest", "withheld_example_count",
+          "withheld_example_digest", "heldout_transfer_probe_count",
+          "heldout_transfer_probe_digest", "historical_probe_overlap_input_count",
+          "historical_probe_overlap_example_count", "historical_probe_overlap_input_digest",
+          "historical_probe_overlap_measurement_complete", "heldout_transfer_probe_set_disjoint",
+          "retained_per_record_candidate_strategy_count",
+          "per_record_candidate_strategies_unchanged", "accumulated_strategy_unchanged",
+          "exact_cycle_prompt_reconstructed", "runtime_condition_created"
+        ],
+        "properties": {
+          "intervention": {"const": "remove_raw_examples_arrays_from_selected_history_packets"},
+          "changed_context_fields": {"const": ["developmental_history"]},
+          "baseline_prompt_digest": {"$ref": "#/$defs/digest"},
+          "ablated_prompt_digest": {"$ref": "#/$defs/digest"},
+          "baseline_prompt_chars": {"type": "integer", "minimum": 0},
+          "ablated_prompt_chars": {"type": "integer", "minimum": 0},
+          "selected_record_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "selected_record_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+          "history_source_records_unchanged": {"const": true},
+          "history_source_record_ids_digest": {"$ref": "#/$defs/digest"},
+          "history_source_record_digests_digest": {"$ref": "#/$defs/digest"},
+          "withheld_example_count": {"type": "integer", "minimum": 1},
+          "withheld_example_digest": {"$ref": "#/$defs/digest"},
+          "heldout_transfer_probe_count": {"type": "integer", "minimum": 1},
+          "heldout_transfer_probe_digest": {"$ref": "#/$defs/digest"},
+          "historical_probe_overlap_input_count": {"type": "integer", "minimum": 0},
+          "historical_probe_overlap_example_count": {"type": "integer", "minimum": 0},
+          "historical_probe_overlap_input_digest": {"$ref": "#/$defs/digest"},
+          "historical_probe_overlap_measurement_complete": {"const": true},
+          "heldout_transfer_probe_set_disjoint": {"type": "boolean"},
+          "retained_per_record_candidate_strategy_count": {"type": "integer", "minimum": 0},
+          "per_record_candidate_strategies_unchanged": {"const": true},
+          "accumulated_strategy_unchanged": {"const": true},
+          "exact_cycle_prompt_reconstructed": {"const": false},
+          "runtime_condition_created": {"const": false}
+        }
+      },
+      "else": {
+        "properties": {
+          "schema_version": true,
+          "status": true,
+          "inference_performed": true,
+          "learning_established": true,
+          "model_attention_established": true,
+          "authority": true
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {"const": "paired_prompt_reconstruction_verified"},
+          "historical_probe_overlap_input_count": {"const": 0},
+          "historical_probe_overlap_example_count": {"const": 0}
+        },
+        "required": ["status", "historical_probe_overlap_input_count", "historical_probe_overlap_example_count"]
+      },
+      "then": {"properties": {"heldout_transfer_probe_set_disjoint": {"const": true}}},
+      "else": {
+        "if": {"properties": {"status": {"const": "paired_prompt_reconstruction_verified"}}, "required": ["status"]},
+        "then": {"properties": {"heldout_transfer_probe_set_disjoint": {"const": false}}}
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

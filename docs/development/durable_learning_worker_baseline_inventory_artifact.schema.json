@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_worker_baseline_inventory_artifact.schema.json",
+  "title": "SentientOS durable-learning worker baseline inventory artifact",
+  "description": "Immutable protocol- and worker-bound record of a condition baseline preflight. A completed baseline is evidence of the observed branch snapshot only; it does not attest process or filesystem isolation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "branch_preflight_id", "branch_preflight_digest", "profile_pair_artifact_id", "profile_pair_artifact_digest", "condition", "appcontainer_sid", "worker_rpc_request_id", "worker_rpc_response_result_digest", "expected_baseline_inventory_digest", "worker_process_id", "worker_process_creation_time_100ns", "process_start_nonce", "response_status", "baseline_inventory", "baseline_ready", "retention_contrast_eligible", "authority", "artifact_digest", "artifact_id"],
+  "properties": {
+    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_inventory_artifact:v1", "sentientos.durable_learning_worker_baseline_inventory_artifact:v2"] },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "branch_preflight_id": { "type": "string", "pattern": "^devexp-durable-learning-branch-preflight-(?:v[2-6]-)?[0-9a-f]{24}$" },
+    "branch_preflight_digest": { "$ref": "#/$defs/digest" },
+    "profile_pair_artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-appcontainer-profile-pair-[0-9a-f]{24}$" },
+    "profile_pair_artifact_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+    "worker_rpc_request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "worker_rpc_response_result_digest": { "$ref": "#/$defs/digest" },
+    "expected_baseline_inventory_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+    "worker_process_id": { "type": "integer", "minimum": 1 },
+    "worker_process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+    "process_start_nonce": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "response_status": { "enum": ["completed", "rejected"] },
+    "worker_exit_code": { "type": "integer", "const": 0 },
+    "worker_process_exit_observed": { "type": "boolean", "const": true },
+    "baseline_inventory": { "$ref": "durable_learning_worker_baseline_inventory.schema.json" },
+    "baseline_ready": { "type": "boolean" },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-baseline-[0-9a-f]{24}$" }
+  },
+  "$defs": { "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory_artifact:v2" } }, "required": ["schema_version"] },
+      "then": { "required": ["worker_exit_code", "worker_process_exit_observed"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory_artifact:v1" } }, "required": ["schema_version"] },
+      "then": { "not": { "anyOf": [ { "required": ["worker_exit_code"] }, { "required": ["worker_process_exit_observed"] } ] } }
+    },
+    {
+      "if": { "properties": { "baseline_inventory": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v3" } }, "required": ["schema_version"] } }, "required": ["baseline_inventory"] },
+      "then": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory_artifact:v2" } } }
+    },
+    {
+      "if": { "properties": { "baseline_ready": { "const": true } }, "required": ["baseline_ready"] },
+      "then": {
+        "properties": {
+          "response_status": { "const": "completed" },
+          "baseline_inventory": {
+            "properties": {
+              "history_snapshot_matches_retained_state": { "const": true },
+              "history_matches_protocol_baseline": { "const": true },
+              "active_empty_session_verified": { "const": true },
+              "branch_roots_disjoint": { "const": true },
+              "operation_journal_empty_verified": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

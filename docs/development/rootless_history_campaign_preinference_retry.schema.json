@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pre-inference GPU Headroom Campaign Retry Binding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "source_campaign_id", "source_plan_digest",
+    "source_failure_artifact_sha256", "source_failure_cycle_id",
+    "source_failure_code", "source_failure_stage", "gpu_memory_total_mib",
+    "gpu_memory_free_mib", "gpu_utilization_percent",
+    "source_provenance_digest", "retry_campaign_id", "retry_plan_digest",
+    "retry_cycle_ids", "task_seeds_preserved", "backend_seeds_preserved",
+    "initial_history_boundary_digest", "model_identity_recipe_digest",
+    "inference_performed_for_source_failure", "learning_established",
+    "authority", "retry_record_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.rootless_history_preinference_gpu_retry:v1" },
+    "source_campaign_id": { "type": "string", "minLength": 1 },
+    "source_plan_digest": { "$ref": "#/$defs/digest" },
+    "source_failure_artifact_sha256": { "$ref": "#/$defs/digest" },
+    "source_failure_cycle_id": { "type": "string", "minLength": 1 },
+    "source_failure_code": { "const": "gpu_memory_headroom_insufficient" },
+    "source_failure_stage": { "const": "model_and_runtime_preflight" },
+    "gpu_memory_total_mib": { "type": "integer", "minimum": 1 },
+    "gpu_memory_free_mib": { "type": "integer", "minimum": 0 },
+    "gpu_utilization_percent": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "source_provenance_digest": { "$ref": "#/$defs/digest" },
+    "retry_campaign_id": { "type": "string", "minLength": 1 },
+    "retry_plan_digest": { "$ref": "#/$defs/digest" },
+    "retry_cycle_ids": {
+      "type": "array", "minItems": 2, "maxItems": 32,
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "task_seeds_preserved": {
+      "type": "array", "minItems": 2, "maxItems": 32,
+      "items": { "type": "integer", "minimum": 1, "maximum": 4294967295 }
+    },
+    "backend_seeds_preserved": {
+      "type": "array", "minItems": 2, "maxItems": 32,
+      "items": { "type": "integer", "minimum": 0, "maximum": 2147483647 }
+    },
+    "initial_history_boundary_digest": { "$ref": "#/$defs/digest" },
+    "model_identity_recipe_digest": { "$ref": "#/$defs/digest" },
+    "inference_performed_for_source_failure": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "retry_record_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

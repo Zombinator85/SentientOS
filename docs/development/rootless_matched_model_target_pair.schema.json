@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless matched model target pair",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "comparison_status",
+    "equivalence_checks",
+    "limits",
+    "members",
+    "shared",
+    "pair_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_matched_model_target_pair:v2"
+    },
+    "comparison_status": { "const": "matched_preflight_verified" },
+    "equivalence_checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "distinct_target_active_identities",
+        "distinct_target_artifacts",
+        "hermes_sources_share_hermes_artifact",
+        "qwen_sources_from_different_artifact",
+        "same_backend_seeds",
+        "same_cycle0_transfer_probes",
+        "same_history_boundary",
+        "same_implementation_pin",
+        "same_selected_history_records",
+        "same_task_family",
+        "same_task_generation_seeds"
+      ],
+      "properties": {
+        "distinct_target_active_identities": { "const": true },
+        "distinct_target_artifacts": { "const": true },
+        "hermes_sources_share_hermes_artifact": { "const": true },
+        "qwen_sources_from_different_artifact": { "const": true },
+        "same_backend_seeds": { "const": true },
+        "same_cycle0_transfer_probes": { "const": true },
+        "same_history_boundary": { "const": true },
+        "same_implementation_pin": { "const": true },
+        "same_selected_history_records": { "const": true },
+        "same_task_family": { "const": true },
+        "same_task_generation_seeds": { "const": true }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "cycle1_preflight_posture",
+        "inference_performed",
+        "learning_established",
+        "transfer_established"
+      ],
+      "properties": {
+        "authority": { "const": false },
+        "cycle1_preflight_posture": {
+          "const": "rebuild_after_cycle0_history_changes"
+        },
+        "inference_performed": { "const": false },
+        "learning_established": { "const": false },
+        "transfer_established": { "const": false }
+      }
+    },
+    "members": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_model_artifact_target",
+        "different_model_artifact_target"
+      ],
+      "properties": {
+        "same_model_artifact_target": { "$ref": "#/$defs/member" },
+        "different_model_artifact_target": { "$ref": "#/$defs/member" }
+      }
+    },
+    "shared": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "heldout_probe_set",
+        "implementation_digest",
+        "implementation_source_count",
+        "initial_history_boundary_digest",
+        "ordered_backend_seeds",
+        "ordered_task_generation_seeds",
+        "task_family_id"
+      ],
+      "properties": {
+        "heldout_probe_set": { "$ref": "#/$defs/probes" },
+        "implementation_digest": { "$ref": "#/$defs/hexDigest" },
+        "implementation_source_count": { "type": "integer", "minimum": 1 },
+        "initial_history_boundary_digest": { "$ref": "#/$defs/hexDigest" },
+        "ordered_backend_seeds": {
+          "type": "array", "minItems": 2, "maxItems": 32,
+          "items": { "type": "integer", "minimum": 0 }
+        },
+        "ordered_task_generation_seeds": {
+          "type": "array", "minItems": 2, "maxItems": 32,
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "task_family_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "pair_digest": { "$ref": "#/$defs/prefixedDigest" }
+  },
+  "$defs": {
+    "hexDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prefixedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "probes": {
+      "type": "array", "minItems": 12, "maxItems": 12,
+      "items": { "type": "integer", "minimum": 0 },
+      "uniqueItems": true
+    },
+    "fileRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/hexDigest" }
+      }
+    },
+    "member": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "campaign_id", "cycle0_transfer_probe_inputs", "cycle_id",
+        "model_artifact_digest", "model_name",
+        "owner_preflight_verifier_status", "owner_report_digest",
+        "owner_report_file", "plan_digest", "plan_file",
+        "plan_verifier_status", "selected_history_record_ids",
+        "target_model_identity_digest"
+      ],
+      "properties": {
+        "campaign_id": { "type": "string", "minLength": 1 },
+        "cycle0_transfer_probe_inputs": { "$ref": "#/$defs/probes" },
+        "cycle_id": { "type": "string", "minLength": 1 },
+        "model_artifact_digest": { "$ref": "#/$defs/hexDigest" },
+        "model_name": { "type": "string", "minLength": 1 },
+        "owner_preflight_verifier_status": { "const": "verified" },
+        "owner_report_digest": { "$ref": "#/$defs/prefixedDigest" },
+        "owner_report_file": { "$ref": "#/$defs/fileRef" },
+        "plan_digest": { "$ref": "#/$defs/hexDigest" },
+        "plan_file": { "$ref": "#/$defs/fileRef" },
+        "plan_verifier_status": { "const": "verified" },
+        "selected_history_record_ids": {
+          "type": "array", "minItems": 1,
+          "items": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" },
+          "uniqueItems": true
+        },
+        "target_model_identity_digest": { "$ref": "#/$defs/hexDigest" }
+      }
+    }
+  }
+}

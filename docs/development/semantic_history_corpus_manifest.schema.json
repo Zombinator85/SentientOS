@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:semantic-history-corpus-manifest:v1",
+  "title": "SentientOS semantic history corpus manifest",
+  "description": "Canonical corpus inventory embedded in retrieval experiment artifacts. Runtime validation additionally enforces sorted and unique record IDs and recomputes corpus_manifest_digest over the semantic fields.",
+  "oneOf": [
+    {
+      "allOf": [
+        { "$ref": "#/$defs/manifest" },
+        {
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.developmental_history_corpus_manifest:v1",
+              "description": "Legacy artifact. Preserve its original history_state_digest interpretation; do not reinterpret it as the durable writeback inventory digest introduced by v2."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "allOf": [
+        { "$ref": "#/$defs/manifest" },
+        {
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.developmental_history_corpus_manifest:v2",
+              "description": "history_state_digest binds the durable writeback inventory, including completed record and receipt identities and digests. records lists the eligible corpus subset."
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "$defs": {
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "history_state_digest",
+        "records",
+        "corpus_manifest_digest"
+      ],
+      "properties": {
+        "schema_version": { "type": "string" },
+        "history_state_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["record_id", "record_digest"],
+            "properties": {
+              "record_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "record_digest": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "corpus_manifest_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

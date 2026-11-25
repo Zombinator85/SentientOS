@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Planned Cycle Source-to-Target Model Identity Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "present", "target_active_model_identity_digest",
+    "target_model_artifact_identity", "source_count", "visible_source_count",
+    "omitted_source_count", "relation_counts", "artifact_relation_counts",
+    "source_relations_digest", "all_sources_bound_to_different_active_identity",
+    "all_source_artifacts_differ_from_target"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_planned_cycle_model_identity_audit:v1"
+    },
+    "present": {"type": "boolean"},
+    "target_active_model_identity_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "target_model_artifact_identity": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_count": {"type": ["integer", "null"], "minimum": 0},
+    "visible_source_count": {"type": "integer", "minimum": 0},
+    "omitted_source_count": {"type": ["integer", "null"], "minimum": 0},
+    "relation_counts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/relation_count"}
+    },
+    "artifact_relation_counts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifact_relation_count"}
+    },
+    "source_relations_digest": {
+      "type": ["string", "null"],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "all_sources_bound_to_different_active_identity": {
+      "type": ["boolean", "null"]
+    },
+    "all_source_artifacts_differ_from_target": {
+      "type": ["boolean", "null"]
+    }
+  },
+  "$defs": {
+    "relation_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "source_count"],
+      "properties": {
+        "relation": {
+          "enum": [
+            "same_active_model_identity", "different_active_model_identity",
+            "model_identity_unbound"
+          ]
+        },
+        "source_count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "artifact_relation_count": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relation", "source_count"],
+      "properties": {
+        "relation": {
+          "enum": [
+            "same_model_artifact_identity", "different_model_artifact_identity",
+            "source_model_artifact_identity_unbound"
+          ]
+        },
+        "source_count": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

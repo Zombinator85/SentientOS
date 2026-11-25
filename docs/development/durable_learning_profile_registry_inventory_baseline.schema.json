@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_profile_registry_inventory_baseline.schema.json",
+  "title": "SentientOS paired AppContainer registry inventory baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "branch_preflight_id",
+    "branch_preflight_digest", "profile_pair_artifact_id",
+    "profile_pair_artifact_digest", "condition_inventories",
+    "registry_state_accounted", "profile_state_accounted",
+    "retention_contrast_eligible", "authority", "artifact_digest", "artifact_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_profile_registry_inventory_baseline:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "branch_preflight_id": { "type": "string", "pattern": "^devexp-durable-learning-branch-preflight-(?:v[2-6]-)?[0-9a-f]{24}$" },
+    "branch_preflight_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "profile_pair_artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-appcontainer-profile-pair-[0-9a-f]{24}$" },
+    "profile_pair_artifact_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "condition_inventories": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/inventoryReference" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/inventoryReference" }
+      }
+    },
+    "registry_state_accounted": { "const": false },
+    "profile_state_accounted": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-registry-inventory-baseline-[0-9a-f]{24}$" }
+  },
+  "$defs": {
+    "inventoryReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-profile-registry-inventory-[0-9a-f]{24}$" },
+        "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

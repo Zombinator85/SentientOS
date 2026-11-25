@@ -1,0 +1,376 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Campaign Novel Acquisition and Transfer Probe Preflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cycle_id",
+    "seed",
+    "task_family_id",
+    "history_task_family_ids",
+    "prior_history_boundary_digest",
+    "projected_record_ids",
+    "projected_record_set_digest",
+    "acquisition_probe_inputs",
+    "transfer_probe_inputs",
+    "historical_probe_overlap",
+    "acquisition_historical_probe_overlap",
+    "novel_acquisition_qualified",
+    "held_out_transfer_qualified",
+    "inference_performed",
+    "learning_claimed",
+    "authority_granted",
+    "preflight_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_campaign_transfer_probe_preflight:v3"
+    },
+    "cycle_id": {
+      "type": "string",
+      "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "task_family_id": {
+      "const": "rootless_integer_affine_transfer_novel_range_v8"
+    },
+    "history_task_family_ids": {
+      "const": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7",
+        "rootless_integer_affine_transfer_novel_range_v8"
+      ]
+    },
+    "prior_history_boundary_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "projected_record_ids": {
+      "type": "array",
+      "maxItems": 50000,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^devrec-[0-9a-f]{24}$"
+      }
+    },
+    "projected_record_set_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "acquisition_probe_inputs": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 1001,
+        "maximum": 10000
+      }
+    },
+    "transfer_probe_inputs": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "integer",
+        "minimum": 10001,
+        "maximum": 1000000
+      }
+    },
+    "historical_probe_overlap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_probe_input_count",
+        "task_probe_input_digest",
+        "historical_probe_overlap_input_count",
+        "historical_probe_overlap_input_digest",
+        "historical_probe_overlap_example_count",
+        "historical_probe_overlap_measurement_complete",
+        "historical_probe_overlap_posture",
+        "historical_probe_overlap_scope"
+      ],
+      "properties": {
+        "task_probe_input_count": {
+          "const": 3
+        },
+        "task_probe_input_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "historical_probe_overlap_input_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "historical_probe_overlap_input_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "historical_probe_overlap_example_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_probe_overlap_measurement_complete": {
+          "type": "boolean"
+        },
+        "historical_probe_overlap_posture": {
+          "enum": [
+            "historical_probe_inputs_incomplete",
+            "exact_historical_probe_overlap_present",
+            "no_exact_historical_probe_overlap"
+          ]
+        },
+        "historical_probe_overlap_scope": {
+          "const": "selected_score_bound_correct_incorrect_and_abstained_examples"
+        }
+      }
+    },
+    "held_out_transfer_qualified": {
+      "type": "boolean"
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "learning_claimed": {
+      "const": false
+    },
+    "authority_granted": {
+      "const": false
+    },
+    "preflight_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "acquisition_historical_probe_overlap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_probe_input_count",
+        "task_probe_input_digest",
+        "historical_probe_overlap_input_count",
+        "historical_probe_overlap_input_digest",
+        "historical_probe_overlap_example_count",
+        "historical_probe_overlap_measurement_complete",
+        "historical_probe_overlap_posture",
+        "historical_probe_overlap_scope"
+      ],
+      "properties": {
+        "task_probe_input_count": {
+          "const": 3
+        },
+        "task_probe_input_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "historical_probe_overlap_input_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "historical_probe_overlap_input_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "historical_probe_overlap_example_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "historical_probe_overlap_measurement_complete": {
+          "type": "boolean"
+        },
+        "historical_probe_overlap_posture": {
+          "enum": [
+            "historical_probe_inputs_incomplete",
+            "exact_historical_probe_overlap_present",
+            "no_exact_historical_probe_overlap"
+          ]
+        },
+        "historical_probe_overlap_scope": {
+          "const": "selected_score_bound_correct_incorrect_and_abstained_examples"
+        }
+      }
+    },
+    "novel_acquisition_qualified": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_measurement_complete": {
+                "const": false
+              }
+            }
+          }
+        },
+        "required": [
+          "historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "held_out_transfer_qualified": {
+            "const": false
+          },
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_posture": {
+                "const": "historical_probe_inputs_incomplete"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_measurement_complete": {
+                "const": true
+              },
+              "historical_probe_overlap_input_count": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "held_out_transfer_qualified": {
+            "const": false
+          },
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_posture": {
+                "const": "exact_historical_probe_overlap_present"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_measurement_complete": {
+                "const": true
+              },
+              "historical_probe_overlap_input_count": {
+                "const": 0
+              }
+            }
+          }
+        },
+        "required": [
+          "historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "held_out_transfer_qualified": {
+            "const": true
+          },
+          "historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_posture": {
+                "const": "no_exact_historical_probe_overlap"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "acquisition_historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_measurement_complete": {
+                "const": true
+              },
+              "historical_probe_overlap_input_count": {
+                "const": 0
+              }
+            }
+          }
+        },
+        "required": [
+          "acquisition_historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "novel_acquisition_qualified": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "acquisition_historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_measurement_complete": {
+                "const": false
+              }
+            }
+          }
+        },
+        "required": [
+          "acquisition_historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "novel_acquisition_qualified": {
+            "const": false
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "acquisition_historical_probe_overlap": {
+            "properties": {
+              "historical_probe_overlap_input_count": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "required": [
+          "acquisition_historical_probe_overlap"
+        ]
+      },
+      "then": {
+        "properties": {
+          "novel_acquisition_qualified": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

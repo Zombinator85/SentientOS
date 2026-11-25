@@ -347,22 +347,27 @@ class ResidentEpistemicStateMutationController:
         if not published:
             raise EpistemicMutationError("mutation_intent_replay_blocked")
 
-    def _recover_state_receipts(self) -> None:
+    def _recover_state_receipts(self, *, repair: bool = True) -> None:
         pending_evidence_intents = 0
         pending_state_intents = 0
         validated_mutation_state_digests: set[str] = set()
         # lstat distinguishes a truly absent root from a dangling symlink.
-        # Windows reads intents and receipts through bounded private handles;
-        # it may reconstruct a receipt only after verifying its exact intent,
-        # admission, and committed state. It never replays a mutation.
+        # Windows reads intents and receipts through bounded private handles.
+        # Repair mode may reconstruct exact receipts after verifying their
+        # intent, admission, and committed state; neither mode replays mutations.
         try:
             root_stat = self.intent_root.lstat()
         except FileNotFoundError:
+            owner_counts = self.owner.verify(repair_transactions=repair)
             if self.owner._published_mutation_bound_state_digests:
                 raise EpistemicMutationError("mutation_lineage_intent_root_missing")
-            self._recovery_status = {"status": "verified", "pending_evidence_intent_count": 0,
+            pending_transactions = int(
+                owner_counts.get("incomplete_admission_bound_transactions", 0))
+            self._recovery_status = {"status": ("incomplete"
+                    if pending_transactions else "verified"),
+                "pending_evidence_intent_count": 0,
                 "pending_state_intent_count": 0,
-                "pending_transaction_count": self.owner._incomplete_admission_bound_transactions,
+                "pending_transaction_count": pending_transactions,
                 "recovered_receipt_count": 0}
             self.owner._accept_mutation_lineage_verification(())
             self._verified_mutation_bound_state_digests = set()
@@ -372,7 +377,7 @@ class ResidentEpistemicStateMutationController:
         if (os.name != "nt"
                 and (stat.S_ISLNK(root_stat.st_mode) or not stat.S_ISDIR(root_stat.st_mode))):
             raise EpistemicMutationError("mutation_intent_root_invalid")
-        owner_counts = self.owner.verify()
+        owner_counts = self.owner.verify(repair_transactions=repair)
         try:
             entries: Sequence[tuple[str, bytes | None]]
             if os.name == "nt":
@@ -574,6 +579,7 @@ class ResidentEpistemicStateMutationController:
         # A receipt is recoverable custody only when a verified durable intent
         # independently derives its exact bytes. Reject orphaned or substituted
         # receipt files before repairing any missing receipt.
+        present_receipts: dict[str, set[str]] = {"evidence": set(), "state": set()}
         for receipt_stage in ("evidence", "state"):
             directory = self.receipt_root / "receipts" / receipt_stage
             receipt_entries: Sequence[tuple[str, bytes | None]]
@@ -608,8 +614,9 @@ class ResidentEpistemicStateMutationController:
             for name, raw in receipt_entries:
                 if raw is None or expected_receipts[receipt_stage].get(name) != raw:
                     raise EpistemicMutationError("mutation_receipt_without_verified_intent")
+                present_receipts[receipt_stage].add(name)
 
-        for receipt in recovered_receipts:
+        for receipt in recovered_receipts if repair else ():
             if type(receipt) is EvidenceBindingMutationReceipt:
                 receipt_stage = "evidence"
             elif type(receipt) is EpistemicStateMutationReceipt:
@@ -623,7 +630,11 @@ class ResidentEpistemicStateMutationController:
         self._verified_mutation_bound_state_digests = set(validated_mutation_state_digests)
         self.owner._accept_mutation_lineage_verification(
             tuple(sorted(validated_mutation_state_digests)))
+        missing_receipt_count = sum(
+            len(expected_receipts[stage] - present_receipts[stage])
+            for stage in ("evidence", "state"))
         self._recovery_status = {"status": ("incomplete" if pending_evidence_intents or pending_state_intents
+                or (not repair and missing_receipt_count)
                 or owner_counts.get("incomplete_admission_bound_transactions", 0) else "verified"),
             "pending_evidence_intent_count": pending_evidence_intents,
             "pending_state_intent_count": pending_state_intents,
@@ -634,8 +645,11 @@ class ResidentEpistemicStateMutationController:
     def recovery_status(self) -> Mapping[str, Any]:
         return dict(self._recovery_status)
 
-    def verify_receipts(self) -> Mapping[str, Any]:
-        self._recover_state_receipts()
+    def verify_receipts(self, *, repair: bool = True) -> Mapping[str, Any]:
+        """Verify receipt custody, optionally recovering missing immutable receipts."""
+        if type(repair) is not bool:
+            raise EpistemicMutationError("mutation_receipt_verification_mode_invalid")
+        self._recover_state_receipts(repair=repair)
         for stage, cls in (("evidence", EvidenceBindingMutationReceipt), ("state", EpistemicStateMutationReceipt)):
             directory = self.receipt_root / "receipts" / stage
             entries: Sequence[tuple[str, bytes | None]]

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-comparison:v1",
+  "title": "SentientOS federated semantic history comparison",
+  "description": "Ordered lexical/semantic record selections bound to each frozen query and source record digest. Construction does not prove the declared implementation or model actually produced the selections.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "query_set_id", "query_set_digest",
+    "federated_manifest_digest", "lexical_policy_id", "semantic_policy_id",
+    "retrieval_implementation_digest", "semantic_embedder_identity_digest",
+    "query_results", "authority", "learning_established",
+    "gate_qualification", "comparison_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_comparison:v1" },
+    "query_set_id": { "type": "string", "pattern": "^federated-queryset-[0-9a-f]{24}$" },
+    "query_set_digest": { "$ref": "#/$defs/digest" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "lexical_policy_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "semantic_policy_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "retrieval_implementation_digest": { "$ref": "#/$defs/digest" },
+    "semantic_embedder_identity_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+    "query_results": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["question_digest", "lexical_selected_refs", "semantic_selected_refs", "semantic_fallback_to_lexical"],
+        "properties": {
+          "question_digest": { "$ref": "#/$defs/digest" },
+          "lexical_selected_refs": { "$ref": "#/$defs/selection" },
+          "semantic_selected_refs": { "$ref": "#/$defs/selection" },
+          "semantic_fallback_to_lexical": { "type": "boolean" }
+        }
+      }
+    },
+    "authority": { "const": false },
+    "learning_established": { "const": false },
+    "gate_qualification": { "const": "not_evaluated" },
+    "comparison_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "selection": {
+      "type": "array", "maxItems": 16,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_id", "record_id", "record_digest"],
+        "properties": {
+          "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+          "record_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "record_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    }
+  }
+}

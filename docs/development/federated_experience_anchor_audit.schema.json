@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-experience-anchor-audit:v3",
+  "title": "SentientOS federated developmental experience-anchor audit",
+  "description": "Read-only record-to-event anchor inventory for an immutable federated history freeze. Distinct recorded anchors do not establish statistically independent experiences, Phase A eligibility, learning, or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "corpus_freeze_id", "corpus_freeze_digest",
+    "corpus_manifest_digest", "source_snapshot_count", "source_snapshot_digest",
+    "corpus_record_count", "anchored_record_count",
+    "unanchored_record_count", "unanchored_record_ids",
+    "experience_anchor_kind_counts", "distinct_experience_anchor_count",
+    "duplicate_anchor_group_count", "duplicate_anchor_record_groups",
+    "minimum_distinct_source_experiences", "distinct_experience_shortfall",
+    "records", "atomic_snapshot", "inference_performed",
+    "independence_established", "phase_a_eligibility_established",
+    "learning_established", "authority", "audit_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_experience_anchor_audit:v3" },
+    "corpus_freeze_id": { "type": "string", "pattern": "^devexp-retrieval-freeze-[0-9a-f]{24}$" },
+    "corpus_freeze_digest": { "$ref": "#/$defs/prefixedDigest" },
+    "corpus_manifest_digest": { "$ref": "#/$defs/rawDigest" },
+    "source_snapshot_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "source_snapshot_digest": { "$ref": "#/$defs/prefixedDigest" },
+    "corpus_record_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "anchored_record_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "unanchored_record_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "unanchored_record_ids": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } },
+    "experience_anchor_kind_counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["developmental_experiment_run", "embodied_consequence_event"],
+      "properties": {
+        "developmental_experiment_run": { "type": "integer", "minimum": 0 },
+        "embodied_consequence_event": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "distinct_experience_anchor_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "duplicate_anchor_group_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "duplicate_anchor_record_groups": {
+      "type": "array", "maxItems": 100000,
+      "items": { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "$ref": "#/$defs/recordId" } }
+    },
+    "minimum_distinct_source_experiences": { "type": "integer", "minimum": 1 },
+    "distinct_experience_shortfall": { "type": "integer", "minimum": 0 },
+    "records": {
+      "type": "array", "maxItems": 100000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["record_id", "record_digest", "experience_anchor", "experience_unit_digest", "source_root_ids"],
+        "properties": {
+          "record_id": { "$ref": "#/$defs/recordId" },
+          "record_digest": { "$ref": "#/$defs/prefixedDigest" },
+          "experience_unit_digest": { "$ref": "#/$defs/rawDigest" },
+          "source_root_ids": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/rawDigest" } },
+          "experience_anchor": {
+            "oneOf": [
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["anchor_kind", "anchor_id"],
+                "properties": {
+                  "anchor_kind": { "const": "developmental_experiment_run" },
+                  "anchor_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+                }
+              },
+              {
+                "type": "object", "additionalProperties": false,
+                "required": ["anchor_kind", "anchor_id", "related_expectation_id"],
+                "properties": {
+                  "anchor_kind": { "const": "embodied_consequence_event" },
+                  "anchor_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "related_expectation_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "atomic_snapshot": { "const": false },
+    "inference_performed": { "const": false },
+    "independence_established": { "const": false },
+    "phase_a_eligibility_established": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "audit_digest": { "$ref": "#/$defs/prefixedDigest" }
+  },
+  "$defs": {
+    "rawDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prefixedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "recordId": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" }
+  }
+}

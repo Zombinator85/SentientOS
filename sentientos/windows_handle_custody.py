@@ -7,10 +7,13 @@ an existing private root and binds that child to the current user's ownership.
 from __future__ import annotations
 
 import os
+import hashlib
+import json
+import re
 import stat
 import struct
 from pathlib import Path
-from typing import Literal, NoReturn, overload
+from typing import Any, Literal, NoReturn, overload
 
 
 class WindowsHandleCustodyError(ValueError):
@@ -33,16 +36,19 @@ def _safe_child_name(name: object) -> bool:
         return False
 
 
-def verify_private_handle_acl(handle: int) -> None:
+def verify_private_handle_acl(handle: int, *,
+        permitted_appcontainer_sid: str | None = None) -> None:
     """Require current-user ownership and deny broad data readers or writers.
 
     The check is performed against the same handle used by the bounded reader.
-    Only the current user, LocalSystem, and local Administrators may receive
-    data-read or data-write rights. Unsupported or conditional ACE forms fail
-    closed. Write grants matter because they let an untrusted principal replace
-    a locally pinned trust root even when the reader itself is race-safe.
+    By default, only the current user, LocalSystem, and local Administrators
+    may receive data-read or data-write rights. Callers may additionally name
+    one exact AppContainer package SID; its grants are bounded to explicit file
+    and directory data rights and may not change the DACL or ownership.
+    Unsupported or conditional ACE forms fail closed.
     """
-    _verify_handle_acl(handle, require_private=True)
+    _verify_handle_acl(handle, require_private=True,
+        permitted_appcontainer_sid=permitted_appcontainer_sid)
 
 
 def verify_replay_ancestor_handle_acl(handle: int) -> None:
@@ -56,7 +62,8 @@ def verify_replay_ancestor_handle_acl(handle: int) -> None:
     _verify_handle_acl(handle, require_private=False)
 
 
-def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
+def _verify_handle_acl(handle: int, *, require_private: bool,
+        permitted_appcontainer_sid: str | None = None) -> None:
     if os.name != "nt" or type(handle) is not int or handle <= 0:
         raise WindowsHandleCustodyError("private_acl_handle_invalid")
     import ctypes
@@ -115,6 +122,7 @@ def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
 
     token = wintypes.HANDLE()
     known_sids: list[ctypes.c_void_p] = []
+    appcontainer_sid: ctypes.c_void_p | None = None
     try:
         needed = wintypes.DWORD()
         if not open_token(get_process(), 0x0008, ctypes.byref(token)):
@@ -143,6 +151,19 @@ def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
                 raise WindowsHandleCustodyError("private_acl_trusted_sid_unavailable")
             known_sids.append(sid)
             trusted.append(sid)
+        if permitted_appcontainer_sid is not None:
+            if (not require_private
+                    or re.fullmatch(r"S-1-15-2-(?:[0-9]+-)*[0-9]+",
+                        permitted_appcontainer_sid) is None):
+                raise WindowsHandleCustodyError(
+                    "private_acl_appcontainer_sid_invalid")
+            appcontainer_sid = ctypes.c_void_p()
+            if (not convert_sid(permitted_appcontainer_sid,
+                    ctypes.byref(appcontainer_sid)) or not appcontainer_sid.value):
+                raise WindowsHandleCustodyError(
+                    "private_acl_appcontainer_sid_invalid")
+            known_sids.append(appcontainer_sid)
+            trusted.append(appcontainer_sid)
         if require_private:
             if not equal_sid(owner, current_user):
                 raise WindowsHandleCustodyError("private_acl_owner_mismatch")
@@ -167,6 +188,7 @@ def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
         if not require_private:
             read_mask = 0
             write_mask = 0x10000000 | 0x40 | 0x10000 | 0x40000 | 0x80000 | 0x01000000
+        appcontainer_allowed_mask = 0x001301FF
         for index in range(info.AceCount):
             ace = ctypes.c_void_p()
             if not get_ace(dacl, index, ctypes.byref(ace)) or not ace.value:
@@ -183,11 +205,17 @@ def _verify_handle_acl(handle: int, *, require_private: bool) -> None:
             if ace_type != 0:  # conditional/object grants need a richer evaluator
                 raise WindowsHandleCustodyError("private_acl_ace_form_unsupported")
             mask = struct.unpack_from("<I", ctypes.string_at(ace, 8), 4)[0]
-            if not (mask & (read_mask | write_mask)):
-                continue
             sid_ptr = ctypes.c_void_p(ace.value + 8)
             if (not is_valid_sid(sid_ptr) or sid_length(sid_ptr) > ace_size - 8):
                 raise WindowsHandleCustodyError("private_acl_ace_sid_invalid")
+            is_permitted_appcontainer = (appcontainer_sid is not None
+                and equal_sid(sid_ptr, appcontainer_sid))
+            if (is_permitted_appcontainer
+                    and mask & ~appcontainer_allowed_mask):
+                raise WindowsHandleCustodyError(
+                    "private_acl_appcontainer_rights_exceeded")
+            if not (mask & (read_mask | write_mask)):
+                continue
             if not any(equal_sid(sid_ptr, trusted_sid) for trusted_sid in trusted):
                 if mask & read_mask:
                     raise WindowsHandleCustodyError("private_acl_broad_read_grant")
@@ -278,7 +306,8 @@ def read_explicit_file(path: Path, *, max_bytes: int,
             os.close(parent_descriptor)
 
 
-def verify_explicit_directory(path: Path, *, require_private_acl: bool = False) -> None:
+def verify_explicit_directory(path: Path, *, require_private_acl: bool = False,
+        permitted_appcontainer_sid: str | None = None) -> None:
     """Verify one configured Windows directory through held, reparse-safe handles."""
     if type(require_private_acl) is not bool:
         raise WindowsHandleCustodyError("explicit_directory_acl_flag_invalid")
@@ -287,7 +316,8 @@ def verify_explicit_directory(path: Path, *, require_private_acl: bool = False) 
     # An empty explicit selection opens and validates the directory chain but
     # reads no children and does not grant discovery over its contents.
     read_regular_files(Path(path), max_entries=1, max_file_bytes=1,
-        max_total_bytes=1, selected_names=(), require_private_acl=require_private_acl)
+        max_total_bytes=1, selected_names=(), require_private_acl=require_private_acl,
+        permitted_appcontainer_sid=permitted_appcontainer_sid)
 
 
 @overload
@@ -295,8 +325,12 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
                        selected_names: tuple[str, ...] | None = None,
                        require_private_acl: bool = False,
+                       verify_replay_ancestor_acls: bool = False,
+                       permitted_appcontainer_sid: str | None = None,
                        expected_root_identity: tuple[int, bytes] | None = None,
-                       return_root_identity: Literal[False] = False
+                       return_root_identity: Literal[False] = False,
+                       directory_identities: list[tuple[str, tuple[int, bytes]]] | None = None,
+                       file_identities: list[tuple[str, tuple[int, bytes], int]] | None = None
                        ) -> list[tuple[str, bytes]]: ...
 
 
@@ -305,8 +339,12 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
                        selected_names: tuple[str, ...] | None = None,
                        require_private_acl: bool = False,
+                       verify_replay_ancestor_acls: bool = False,
+                       permitted_appcontainer_sid: str | None = None,
                        expected_root_identity: tuple[int, bytes] | None = None,
-                       return_root_identity: Literal[True]
+                       return_root_identity: Literal[True],
+                       directory_identities: list[tuple[str, tuple[int, bytes]]] | None = None,
+                       file_identities: list[tuple[str, tuple[int, bytes], int]] | None = None
                        ) -> tuple[list[tuple[str, bytes]], tuple[int, bytes]]: ...
 
 
@@ -314,8 +352,12 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                        max_total_bytes: int, suffix: str = ".json",
                        selected_names: tuple[str, ...] | None = None,
                        require_private_acl: bool = False,
+                       verify_replay_ancestor_acls: bool = False,
+                       permitted_appcontainer_sid: str | None = None,
                        expected_root_identity: tuple[int, bytes] | None = None,
-                       return_root_identity: bool = False
+                       return_root_identity: bool = False,
+                       directory_identities: list[tuple[str, tuple[int, bytes]]] | None = None,
+                       file_identities: list[tuple[str, tuple[int, bytes], int]] | None = None
                        ) -> list[tuple[str, bytes]] | tuple[list[tuple[str, bytes]], tuple[int, bytes]]:
     """Read bounded regular files through bound Windows handles.
 
@@ -325,9 +367,10 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     relative to the held directory handle.  Read-only sharing deliberately
     denies concurrent write/delete opens. All selected file handles remain held
     through terminal identity, metadata, and optional private-ACL checks; an
-    earlier input cannot be replaced while a later input is read. Unsupported
-    filesystems/APIs fail closed. This code is syntax-checked on non-Windows hosts, not runtime
-    verified there.
+    earlier input cannot be replaced while a later input is read. Optional
+    ancestor-ACL checks permit shared reads but reject untrusted replacement
+    rights. Unsupported filesystems/APIs fail closed. This code is syntax-
+    checked on non-Windows hosts, not runtime verified there.
     """
     invalid_names = selected_names is not None and (
         not isinstance(selected_names, tuple) or len(selected_names) > max_entries
@@ -339,7 +382,16 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             or type(max_total_bytes) is not int or max_total_bytes < 1
             or not isinstance(suffix, str) or "/" in suffix or "\\" in suffix
             or type(require_private_acl) is not bool
+            or type(verify_replay_ancestor_acls) is not bool
+            or (require_private_acl and verify_replay_ancestor_acls)
+            or (permitted_appcontainer_sid is not None and
+                (not require_private_acl or not isinstance(permitted_appcontainer_sid, str)
+                 or re.fullmatch(r"S-1-15-2-(?:[0-9]+-)*[0-9]+", permitted_appcontainer_sid) is None))
             or type(return_root_identity) is not bool
+            or (directory_identities is not None and (
+                type(directory_identities) is not list or suffix != ""
+                or selected_names is not None))
+            or (file_identities is not None and type(file_identities) is not list)
             or (expected_root_identity is not None and not _valid_file_identity(expected_root_identity))
             or invalid_names):
         raise WindowsHandleCustodyError("windows_custody_read_limits_invalid")
@@ -414,6 +466,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     STATUS_OBJECT_NAME_NOT_FOUND = 0xC0000034
     STATUS_OBJECT_PATH_NOT_FOUND = 0xC000003A
     FILE_ATTRIBUTE_REPARSE_POINT = 0x400
+    FILE_ATTRIBUTE_DIRECTORY = 0x10
 
     def fail(code: str, cause: BaseException | None = None) -> NoReturn:
         error = WindowsHandleCustodyError(code)
@@ -432,7 +485,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         handle = wintypes.HANDLE()
         iosb = IO_STATUS_BLOCK()
         access = FILE_READ_ATTRIBUTES | SYNCHRONIZE | (FILE_LIST_DIRECTORY if directory else 0x1)
-        if require_private_acl:
+        if require_private_acl or verify_replay_ancestor_acls:
             access |= 0x00020000  # READ_CONTROL for same-handle DACL inspection
         options = (FILE_DIRECTORY_FILE if directory else FILE_NON_DIRECTORY_FILE) | FILE_OPEN_REPARSE_POINT | FILE_SYNCHRONOUS_IO_NONALERT
         status = nt_create(ctypes.byref(handle), access, ctypes.byref(attrs), ctypes.byref(iosb), None,
@@ -476,7 +529,7 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
     opened_handles: list[int] = []
     try:
         volume_access = FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES | SYNCHRONIZE
-        if require_private_acl:
+        if require_private_acl or verify_replay_ancestor_acls:
             volume_access |= 0x00020000
         current_raw = create_file(volume_root, volume_access,
             FILE_SHARE_READ, None, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, None)
@@ -486,6 +539,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         attrs, standard = attrs_and_standard(current)
         if not standard.Directory:
             fail("cognition_observation_windows_root_not_directory")
+        if verify_replay_ancestor_acls:
+            verify_replay_ancestor_handle_acl(current)
         for component in path.parts[1:]:
             if not _safe_child_name(component):
                 fail("cognition_observation_windows_root_component_invalid")
@@ -494,6 +549,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             attrs, standard = attrs_and_standard(child)
             if not standard.Directory:
                 fail("cognition_observation_windows_root_not_directory")
+            if verify_replay_ancestor_acls:
+                verify_replay_ancestor_handle_acl(child)
             current = child
 
         root_handle = current
@@ -501,7 +558,8 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         if expected_root_identity is not None and root_identity != expected_root_identity:
             fail("windows_custody_root_identity_mismatch")
         if require_private_acl:
-            verify_private_handle_acl(root_handle)
+            verify_private_handle_acl(root_handle,
+                permitted_appcontainer_sid=permitted_appcontainer_sid)
         entries: list[tuple[str, int]] = []
         observed_entries = 0
         if selected_names is not None:
@@ -538,7 +596,10 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
                     # enumeration independently instead of rejecting those roots.
                     if observed_entries > 8192:
                         fail("cognition_observation_retention_limit_exceeded")
-                    if name not in {".", ".."} and name.endswith(suffix):
+                    if (name not in {".", ".."}
+                            and (name.endswith(suffix)
+                                or (directory_identities is not None
+                                    and attrs_value & FILE_ATTRIBUTE_DIRECTORY))):
                         if attrs_value & FILE_ATTRIBUTE_REPARSE_POINT:
                             fail("cognition_observation_windows_reparse_point")
                         entries.append((name, attrs_value))
@@ -556,20 +617,38 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
         total = 0
         seen_names: set[str] = set()
         retained_files: list[tuple[int, tuple[int, bytes], int]] = []
-        for name, _directory_attrs in sorted(entries):
+        retained_directories: list[tuple[int, tuple[int, bytes]]] = []
+        for name, directory_attrs in sorted(entries):
             if not _safe_child_name(name):
                 fail("windows_custody_child_name_invalid")
             folded_name = name.casefold()
             if folded_name in seen_names:
                 fail("windows_custody_child_name_ambiguous")
             seen_names.add(folded_name)
-            handle = nt_open(root_handle, name, directory=False)
+            is_directory = bool(directory_attrs & FILE_ATTRIBUTE_DIRECTORY)
+            if is_directory:
+                if directory_identities is None:
+                    fail("cognition_observation_not_regular")
+                handle = nt_open(root_handle, name, directory=True)
+                opened_handles.append(handle)
+                before_id = file_id(handle)
+                attrs, standard = attrs_and_standard(handle)
+                if not standard.Directory or attrs & FILE_ATTRIBUTE_REPARSE_POINT:
+                    fail("windows_custody_directory_invalid")
+                if require_private_acl:
+                    verify_private_handle_acl(handle,
+                        permitted_appcontainer_sid=permitted_appcontainer_sid)
+                directory_identities.append((name, before_id))
+                retained_directories.append((handle, before_id))
+                continue
             # Keep every input's read-only sharing contract until the entire
             # bounded read is complete, including terminal metadata checks.
+            handle = nt_open(root_handle, name, directory=False)
             opened_handles.append(handle)
             before_id = file_id(handle)
             if require_private_acl:
-                verify_private_handle_acl(handle)
+                verify_private_handle_acl(handle,
+                    permitted_appcontainer_sid=permitted_appcontainer_sid)
             attrs, standard = attrs_and_standard(handle)
             if standard.Directory or standard.EndOfFile < 0 or standard.EndOfFile > max_file_bytes:
                 fail("cognition_observation_not_regular")
@@ -596,18 +675,30 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             if total > max_total_bytes:
                 fail("cognition_observation_retention_limit_exceeded")
             result.append((name, bytes(data)))
+            if file_identities is not None:
+                file_identities.append((name, before_id, size))
             retained_files.append((handle, before_id, size))
         if file_id(root_handle) != root_identity:
             fail("cognition_observation_windows_root_identity_changed")
         if require_private_acl:
-            verify_private_handle_acl(root_handle)
+            verify_private_handle_acl(root_handle,
+                permitted_appcontainer_sid=permitted_appcontainer_sid)
+        for retained, identity in retained_directories:
+            attrs, standard = attrs_and_standard(retained)
+            if (not standard.Directory or attrs & FILE_ATTRIBUTE_REPARSE_POINT
+                    or file_id(retained) != identity):
+                fail("windows_custody_directory_changed")
+            if require_private_acl:
+                verify_private_handle_acl(retained,
+                    permitted_appcontainer_sid=permitted_appcontainer_sid)
         for retained, identity, size in retained_files:
             _, standard = attrs_and_standard(retained)
             if (standard.Directory or standard.NumberOfLinks != 1
                     or int(standard.EndOfFile) != size or file_id(retained) != identity):
                 fail("cognition_observation_windows_file_changed")
             if require_private_acl:
-                verify_private_handle_acl(retained)
+                verify_private_handle_acl(retained,
+                    permitted_appcontainer_sid=permitted_appcontainer_sid)
         if return_root_identity:
             return result, root_identity
         return result
@@ -627,18 +718,242 @@ def read_regular_files(root: Path, *, max_entries: int, max_file_bytes: int,
             raise close_error
 
 
+def inventory_regular_tree(root: Path, *,
+        expected_root_identity: tuple[int, bytes] | None = None,
+        max_depth: int = 16, max_entries: int = 4096,
+        max_file_bytes: int = 4_194_304,
+        max_total_bytes: int = 16_777_216) -> dict[str, object]:
+    """Return a bounded, reparse-safe content and identity inventory.
+
+    Each directory is reopened through the handle-relative custody reader and
+    must match the identity observed in its parent. Callers must establish a
+    quiescent state boundary; this function does not prove that writers have
+    stopped or that separate directory walks form an atomic snapshot.
+    """
+    if (not isinstance(root, Path) or not root.is_absolute()
+            or (expected_root_identity is not None
+                and not _valid_file_identity(expected_root_identity))
+            or type(max_depth) is not int or not 0 <= max_depth <= 32
+            or type(max_entries) is not int or not 1 <= max_entries <= 8192
+            or type(max_file_bytes) is not int or not 1 <= max_file_bytes <= 16_777_216
+            or type(max_total_bytes) is not int or not 1 <= max_total_bytes <= 67_108_864):
+        raise WindowsHandleCustodyError("windows_custody_tree_limits_invalid")
+    pending: list[tuple[Path, str, tuple[int, bytes] | None, int]] = [
+        (root, "", expected_root_identity, 0)]
+    files: list[dict[str, object]] = []
+    directories: list[dict[str, object]] = []
+    seen_paths: set[str] = set()
+    seen_directory_ids: set[tuple[int, bytes]] = set()
+    total_bytes = 0
+    root_identity: tuple[int, bytes] | None = None
+    while pending:
+        directory, prefix, expected_identity, depth = pending.pop()
+        child_directories: list[tuple[str, tuple[int, bytes]]] = []
+        child_files: list[tuple[str, tuple[int, bytes], int]] = []
+        contents, directory_identity = read_regular_files(directory,
+            max_entries=max_entries, max_file_bytes=max_file_bytes,
+            max_total_bytes=max_total_bytes, suffix="",
+            expected_root_identity=expected_identity,
+            return_root_identity=True, directory_identities=child_directories,
+            file_identities=child_files)
+        if not prefix:
+            root_identity = directory_identity
+            seen_directory_ids.add(directory_identity)
+        file_identity_by_name = {name: (identity, size)
+            for name, identity, size in child_files}
+        for name, data in contents:
+            relative = f"{prefix}/{name}" if prefix else name
+            folded = relative.casefold()
+            if folded in seen_paths:
+                raise WindowsHandleCustodyError("windows_custody_tree_path_duplicate")
+            seen_paths.add(folded)
+            total_bytes += len(data)
+            if total_bytes > max_total_bytes or len(files) + len(directories) >= max_entries:
+                raise WindowsHandleCustodyError("windows_custody_tree_over_bound")
+            file_identity = file_identity_by_name.get(name)
+            if file_identity is None or file_identity[1] != len(data):
+                raise WindowsHandleCustodyError("windows_custody_tree_file_identity_missing")
+            identity = file_identity[0]
+            files.append({"relative_path": relative,
+                "volume_serial": identity[0], "file_id_hex": identity[1].hex(),
+                "size_bytes": len(data),
+                "content_sha256": hashlib.sha256(data).hexdigest()})
+        for name, identity in sorted(child_directories, reverse=True):
+            relative = f"{prefix}/{name}" if prefix else name
+            folded = relative.casefold()
+            if (folded in seen_paths or identity in seen_directory_ids
+                    or len(files) + len(directories) >= max_entries):
+                raise WindowsHandleCustodyError("windows_custody_tree_directory_duplicate")
+            seen_paths.add(folded)
+            seen_directory_ids.add(identity)
+            directories.append({"relative_path": relative,
+                "volume_serial": identity[0], "file_id_hex": identity[1].hex()})
+            if depth >= max_depth:
+                raise WindowsHandleCustodyError("windows_custody_tree_depth_exceeded")
+            pending.append((directory / name, relative, identity, depth + 1))
+    if root_identity is None:
+        raise WindowsHandleCustodyError("windows_custody_tree_root_missing")
+    files.sort(key=lambda row: str(row["relative_path"]).casefold())
+    directories.sort(key=lambda row: str(row["relative_path"]).casefold())
+    semantic = {"schema_version": "sentientos.windows_custody_regular_tree:v1",
+        "root_volume_serial": root_identity[0],
+        "root_file_id_hex": root_identity[1].hex(),
+        "file_count": len(files), "directory_count": len(directories),
+        "total_bytes": total_bytes, "files": files, "directories": directories,
+        "writer_quiescence_verified": False,
+        "snapshot_atomicity_verified": False,
+        "alternate_data_streams_verified": False,
+        "security_metadata_verified": False,
+        "authority": False}
+    digest_input = json.dumps(semantic, ensure_ascii=False, allow_nan=False,
+        sort_keys=True, separators=(",", ":")).encode("utf-8", errors="strict")
+    artifact = {**semantic,
+        "inventory_digest": hashlib.sha256(digest_input).hexdigest()}
+    return verify_regular_tree_inventory(artifact,
+        expected_root_identity=root_identity)
+
+
+def verify_regular_tree_inventory(value: object, *,
+        expected_root_identity: tuple[int, bytes] | None = None
+        ) -> dict[str, object]:
+    """Verify a detached regular-tree inventory and its closed digest shape."""
+    fields = {"schema_version", "root_volume_serial", "root_file_id_hex",
+        "file_count", "directory_count", "total_bytes", "files",
+        "directories", "writer_quiescence_verified",
+        "snapshot_atomicity_verified", "alternate_data_streams_verified",
+        "security_metadata_verified", "authority", "inventory_digest"}
+    if type(value) is not dict or set(value) != fields:
+        raise WindowsHandleCustodyError("windows_custody_tree_artifact_invalid")
+    root_id_hex = value.get("root_file_id_hex")
+    root_volume = value.get("root_volume_serial")
+    root_identity = None
+    if (type(root_volume) is int and 0 <= root_volume <= 0xFFFFFFFFFFFFFFFF
+            and isinstance(root_id_hex, str)
+            and re.fullmatch(r"[0-9a-f]{32}", root_id_hex)):
+        root_identity = (root_volume, bytes.fromhex(root_id_hex))
+    if (value.get("schema_version") != "sentientos.windows_custody_regular_tree:v1"
+            or root_identity is None
+            or (expected_root_identity is not None
+                and (not _valid_file_identity(expected_root_identity)
+                    or root_identity != expected_root_identity))
+            or type(value.get("file_count")) is not int
+            or type(value.get("directory_count")) is not int
+            or type(value.get("total_bytes")) is not int
+            or value["file_count"] < 0 or value["directory_count"] < 0
+            or value["file_count"] + value["directory_count"] > 8192
+            or not 0 <= value["total_bytes"] <= 67_108_864
+            or not isinstance(value.get("files"), list)
+            or not isinstance(value.get("directories"), list)
+            or value.get("writer_quiescence_verified") is not False
+            or value.get("snapshot_atomicity_verified") is not False
+            or value.get("alternate_data_streams_verified") is not False
+            or value.get("security_metadata_verified") is not False
+            or value.get("authority") is not False
+            or not isinstance(value.get("inventory_digest"), str)
+            or re.fullmatch(r"[0-9a-f]{64}", value["inventory_digest"]) is None
+            or len(value["files"]) != value["file_count"]
+            or len(value["directories"]) != value["directory_count"]):
+        raise WindowsHandleCustodyError("windows_custody_tree_artifact_invalid")
+    directory_paths: set[str] = set()
+    file_paths: set[str] = set()
+    directory_ids: set[tuple[int, str]] = {(root_volume, root_id_hex)}
+    file_ids: set[tuple[int, str]] = set()
+    def checked_path(item: Any) -> tuple[str, list[str], tuple[int, str]]:
+        if (not isinstance(item, dict)
+                or not isinstance(item.get("relative_path"), str)):
+            raise WindowsHandleCustodyError("windows_custody_tree_entry_invalid")
+        path = item["relative_path"]
+        parts = path.split("/")
+        if (not path or len(parts) > 33
+                or any(not _safe_child_name(part) for part in parts)):
+            raise WindowsHandleCustodyError("windows_custody_tree_entry_path_invalid")
+        volume = item.get("volume_serial")
+        file_id_hex = item.get("file_id_hex")
+        if (type(volume) is not int or not 0 <= volume <= 0xFFFFFFFFFFFFFFFF
+                or not isinstance(file_id_hex, str)
+                or re.fullmatch(r"[0-9a-f]{32}", file_id_hex) is None):
+            raise WindowsHandleCustodyError("windows_custody_tree_entry_identity_invalid")
+        return path, parts, (volume, file_id_hex)
+    for row in value["directories"]:
+        if not isinstance(row, dict) or set(row) != {"relative_path", "volume_serial", "file_id_hex"}:
+            raise WindowsHandleCustodyError("windows_custody_tree_directory_invalid")
+        path, parts, identity = checked_path(row)
+        folded = path.casefold()
+        parent = "/".join(parts[:-1]).casefold()
+        if (folded in directory_paths or folded in file_paths
+                or (len(parts) > 1 and parent not in directory_paths)
+                or identity in directory_ids):
+            raise WindowsHandleCustodyError("windows_custody_tree_directory_topology_invalid")
+        directory_paths.add(folded)
+        directory_ids.add(identity)
+    total = 0
+    for row in value["files"]:
+        if not isinstance(row, dict) or set(row) != {"relative_path", "volume_serial", "file_id_hex", "size_bytes", "content_sha256"}:
+            raise WindowsHandleCustodyError("windows_custody_tree_file_invalid")
+        path, parts, identity = checked_path(row)
+        size = row.get("size_bytes")
+        digest = row.get("content_sha256")
+        folded = path.casefold()
+        parent = "/".join(parts[:-1]).casefold()
+        if (type(size) is not int or not 0 <= size <= 16_777_216
+                or not isinstance(digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", digest) is None
+                or folded in file_paths or folded in directory_paths
+                or (len(parts) > 1 and parent not in directory_paths)
+                or identity in file_ids or identity in directory_ids):
+            raise WindowsHandleCustodyError("windows_custody_tree_file_topology_invalid")
+        file_paths.add(folded)
+        file_ids.add(identity)
+        total += size
+    if total != value["total_bytes"]:
+        raise WindowsHandleCustodyError("windows_custody_tree_byte_count_mismatch")
+    for rows in (value["files"], value["directories"]):
+        paths = [str(row["relative_path"]).casefold() for row in rows]
+        if paths != sorted(paths):
+            raise WindowsHandleCustodyError("windows_custody_tree_order_invalid")
+    semantic = {key: item for key, item in value.items()
+        if key != "inventory_digest"}
+    try:
+        canonical = json.dumps(semantic, ensure_ascii=False, allow_nan=False,
+            sort_keys=True, separators=(",", ":")).encode("utf-8", errors="strict")
+    except (TypeError, ValueError, UnicodeEncodeError, RecursionError) as exc:
+        raise WindowsHandleCustodyError("windows_custody_tree_artifact_invalid") from exc
+    if hashlib.sha256(canonical).hexdigest() != value["inventory_digest"]:
+        raise WindowsHandleCustodyError("windows_custody_tree_digest_mismatch")
+    return value
+
+
 def _valid_file_identity(value: object) -> bool:
     return (isinstance(value, tuple) and len(value) == 2
             and type(value[0]) is int and 0 <= value[0] <= 2**64 - 1
             and type(value[1]) is bytes and len(value[1]) == 16)
 
 
-def observe_private_directory_identity(root: Path) -> tuple[int, bytes]:
+def observe_private_directory_identity(root: Path, *,
+        permitted_appcontainer_sid: str | None = None) -> tuple[int, bytes]:
     """Return a reparse-safe identity for an existing private Windows directory."""
     result = read_regular_files(
         root, max_entries=1, max_file_bytes=1, max_total_bytes=1,
-        selected_names=(), require_private_acl=True, return_root_identity=True,
+        selected_names=(), require_private_acl=True,
+        permitted_appcontainer_sid=permitted_appcontainer_sid,
+        return_root_identity=True,
     )
+    if not isinstance(result, tuple) or len(result) != 2 or result[0]:
+        raise WindowsHandleCustodyError("windows_custody_root_identity_unavailable")
+    return result[1]
+
+
+def observe_directory_identity(root: Path) -> tuple[int, bytes]:
+    """Return a reparse-safe directory identity after stable-ancestor checks.
+
+    This mode permits ordinary read grants, as needed for immutable runtime
+    trees, while rejecting untrusted ancestor replacement/write rights. It is
+    not a private-state ACL check and must not be used for branch state.
+    """
+    result = read_regular_files(root, max_entries=1, max_file_bytes=1,
+        max_total_bytes=1, selected_names=(),
+        verify_replay_ancestor_acls=True,
+        return_root_identity=True)
     if not isinstance(result, tuple) or len(result) != 2 or result[0]:
         raise WindowsHandleCustodyError("windows_custody_root_identity_unavailable")
     return result[1]

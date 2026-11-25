@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/windows_appcontainer_profile_pair.schema.json",
+  "title": "SentientOS Windows AppContainer condition profile pair",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "condition_profiles",
+    "profile_sid_bindings_distinct", "profile_data_roots_distinct",
+    "profile_data_is_branch_state", "profile_state_accounted",
+    "registry_state_accounted", "profile_pair_digest",
+    "retention_contrast_eligible", "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.windows_appcontainer_profile_pair:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "condition_profiles": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/profileIdentity" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/profileIdentity" }
+      }
+    },
+    "profile_sid_bindings_distinct": { "const": true },
+    "profile_data_roots_distinct": { "const": true },
+    "profile_data_is_branch_state": { "const": false },
+    "profile_state_accounted": { "const": false },
+    "registry_state_accounted": { "const": false },
+    "profile_pair_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "profileIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["profile_name", "appcontainer_sid", "profile_local_data_path", "profile_local_data_root_identity"],
+      "properties": {
+        "profile_name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+        "profile_local_data_path": { "type": "string", "minLength": 3 },
+        "profile_local_data_root_identity": {
+          "type": "object", "additionalProperties": false,
+          "required": ["volume_serial", "file_id_hex"],
+          "properties": {
+            "volume_serial": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+            "file_id_hex": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        }
+      }
+    }
+  }
+}

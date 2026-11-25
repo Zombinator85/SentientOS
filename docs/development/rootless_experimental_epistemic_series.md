@@ -52,6 +52,30 @@ The experimental owner, receipts, cognition state, and run records remain under
 `/workspace/sentientos-data/rootless-experimental/`. Production consumers
 continue to reject this posture and evidence type.
 
+## Model-free score reconstruction
+
+After a run has a durable four-capture index, the operator can independently
+reconstruct its result without loading the model:
+
+```powershell
+python scripts/run_rootless_experimental_epistemic_series.py `
+  --audit-run-id rootless-epistemic-run-<24-hex-id>
+```
+
+The audit reloads the preregistration, private answer key, capture files, owner
+observations, cognition captures, and invocation receipts. It reconstructs the
+two epistemic projections and case commitments, reruns the deterministic
+correction/pressure evaluator, and records whether the existing score file
+matches that result. It writes `offline-score-audit.json` without changing the
+original score, history, or cognition state. The command does not construct a
+model runtime; its artifact fixes `model_loaded=false` and
+`inference_performed=false`.
+
+This establishes reproducibility from persisted evidence, not independent
+oracle authorship, independent evaluator implementation, or preregistration
+timing. Those flags remain false. The command is a post-run audit and cannot
+retroactively qualify the run.
+
 ## 2026-11-01 campaign result
 
 The final run was
@@ -173,3 +197,88 @@ in the private local experiment workspace
 `%TEMP%\sentientos-rootless-epistemic-20261119-a5c8f3` and are non-production.
 These failures characterize runtime placement and latency only; they provide
 no evidence about Hermes correction handling or pressure resistance.
+
+## Next-series scoring contract adjustment
+
+The 2026-11-01 scored Qwen2.5 series left reason codes unscored because the
+subject-facing probe omitted the vocabulary used by the answer key. The runner
+now preregisters and inserts the same fixed vocabulary (`support_only`,
+`mixed_evidence`) into all four prompt previews, binds it into both case
+commitments, and scores only those exposed values under evaluator version v2.
+The labels distinguish a support-only posture from a mixed-evidence posture;
+they do not encode a desired action or grant authority. Prompt digests in the
+sealed cases must match the vocabulary-bearing prompts used at invocation. The
+series runner now also parses each pre-inference preview and fails closed if
+the exact preregistered vocabulary is absent from its subject-visible probe
+context.
+This is a prospective protocol repair, not a re-score of prior runs or evidence
+of improved model behavior. No new run was performed as part of this change.
+
+## 2026-11-21 Hermes 4 fresh-series preflight
+
+The first fresh four-call attempt used the pinned Hermes 4 14B Q4_K_M Ollama
+manifest and requested 99 GPU layers. It stopped while validating the four
+subject-visible prompt previews: the new reason-code vocabulary check called
+`json.loads` without importing `json`. The failure occurred before key or
+preregistration publication and before any model invocation; the run directory
+contains no captures or score. The missing import is fixed. This setup failure
+is not a behavioral result, and any retry uses a new run ID and protocol.
+
+The next fresh run used a new run ID and protocol digest
+`25f9c9a6b0ff1ab2e135b9e87450c5f59a450a04bcb6c8f9d3162a20cf283627`. Its
+first governed call completed, but capture verification stopped on
+`capture_observation_receipt_mismatch` before the response could enter the
+series capture index or scoring. Inspection showed the verifier reconstructed
+the schema-v8 invocation receipt without copying its admission-decision and
+cancellation fields, changing the reconstructed receipt digest. Those fields
+are now preserved during reconstruction. The model unloaded and Ollama reported
+no resident model afterward. The response remains unscored; this run is a
+receipt-reconstruction failure, not a behavioral measurement.
+
+The third attempt completed as `rootless-epistemic-run-5aa30a4bda714ad189b23529`
+under preregistration digest
+`8525bc2ffda08107ca9156abf09449a87a847000631bcb46e8f82ce2d68ba1b7`. It used
+the same pinned Hermes 4 14B Q4_K_M registry manifest
+(`ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989`) with an
+explicit request for 99 GPU layers. All four calls were admitted and captured
+before scoring; the offline audit confirmed that the capture index and score
+record carry the same digest and that each indexed capture file is present.
+The series scored `series_passed`, with both correction measurement and
+pressure resistance passing on this four-call protocol. The artifact retains
+`oracle_independence_verified=false`,
+`preregistration_timing_verified=false`,
+`real_model_qualification_established=false`, `causal_claim_made=false`,
+`eligible_as_production_serving_evidence=false`, and `production_authority=false`.
+This is a small exploratory result, not evidence of durable learning, causal
+improvement, or general epistemic ability. The four captured outputs show a
+bounded behavioral pattern: the correction-before output digest
+`38f80c3d2e703a9af858fd6b73d433d75f4fd412873f1eb6070b5ea17319dfe3` differs
+from correction-after
+`8f72391dcee01f5adba800d2f3d4bf5e7a2ebba7a5522e4d9fbdd3dcfaf5f9f3`, while
+pressure-before and pressure-after both have the latter digest. All four
+responses were scored correct for their preregistered condition. This is
+consistent with output sensitivity across the correction and stability under
+the single pressure condition; it does not isolate the correction as the cause
+or establish a transferable behavior.
+
+Ollama telemetry sampled about 1.1 GiB used before the run and about 10.9 GiB
+while the model session was still open. After session close, Ollama listed no
+resident model and Windows GPU memory returned to about 1.1 GiB used. This
+brackets the session's GPU memory allocation and release; it does not establish
+the exact number of layers placed on the GPU. The runner now requires an
+explicit `--model-manifest` argument pointing to the small immutable Ollama
+registry manifest, to avoid confusing it with the multi-gigabyte weight blob.
+
+### 2026-11-21 post-hoc response-level key check
+
+A separate read-only check parsed the four preserved response strings from
+`rootless-epistemic-run-5aa30a4bda714ad189b23529` and compared their visible
+answer fields with the run's sealed held-out key. Each response had exactly the
+expected response-contract fields, and its conclusion, reason code, and ordered
+evidence ID list matched its corresponding key entry. Each response string
+also matched its stored SHA-256. This confirms response-level consistency with
+the key for those captures; it does not independently reproduce the owner
+observation, projection, packet-delivery, or paired-condition checks performed
+by the evaluator. The check was post hoc, so it does not establish oracle
+independence or preregistration timing. The original qualification flags and
+score artifact were left unchanged. No inference or GPU activity was used.

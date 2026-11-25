@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_preflight_verification.schema.json",
+  "title": "SentientOS resident historical examples preflight verification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "preflight_report_digest", "protocol_digest",
+    "private_task_plan_digest", "objective_request_bindings_digest",
+    "source_history_reconstructed", "owner_prompt_pair_reconstructed",
+    "journal_protocol_verified", "resident_owner_protocol_gate_verified",
+    "model_loaded", "model_invoked",
+    "learning_established", "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.resident_historical_examples_preflight_verification:v7" },
+    "preflight_report_digest": { "$ref": "#/$defs/digest" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "private_task_plan_digest": { "$ref": "#/$defs/digest" },
+    "objective_request_bindings_digest": { "$ref": "#/$defs/digest" },
+    "source_history_reconstructed": { "const": true },
+    "owner_prompt_pair_reconstructed": { "const": true },
+    "journal_protocol_verified": { "const": true },
+    "resident_owner_protocol_gate_verified": { "const": true },
+    "model_loaded": { "const": false },
+    "model_invoked": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

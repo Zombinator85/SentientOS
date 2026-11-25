@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_cohort_analysis_plan_v2.schema.json",
+  "title": "SentientOS historical examples paired cohort analysis plan with required independent rescoring",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cohort_digest",
+    "trial_count",
+    "unique_probe_input_count",
+    "analysis_timing",
+    "analysis_unit",
+    "primary_outcome",
+    "required_reporting",
+    "incomplete_trial_policy",
+    "inferential_statistics",
+    "pooled_probe_counts_posture",
+    "scoring_posture",
+    "claim_limits",
+    "outcomes_observed",
+    "model_loaded",
+    "model_invoked",
+    "learning_established",
+    "authority",
+    "analysis_plan_digest",
+    "independent_scorer_implementation_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.historical_examples_pair_cohort_analysis_plan:v2"
+    },
+    "cohort_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "trial_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "unique_probe_input_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "analysis_timing": {
+      "const": "after_cohort_freeze_before_any_model_inference"
+    },
+    "analysis_unit": {
+      "const": "task_seed_pair_not_individual_probe"
+    },
+    "primary_outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "condition_difference",
+        "per_task_formula",
+        "cohort_summary",
+        "requires_all_frozen_pairs_complete"
+      ],
+      "properties": {
+        "name": {
+          "const": "per_task_accuracy_difference"
+        },
+        "condition_difference": {
+          "const": "examples_included_minus_examples_omitted"
+        },
+        "per_task_formula": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cohort_summary": {
+          "const": "unweighted arithmetic mean of per_task_accuracy_difference"
+        },
+        "requires_all_frozen_pairs_complete": {
+          "const": true
+        }
+      }
+    },
+    "required_reporting": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "incomplete_trial_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cohort_mean_reportable",
+        "replace_trial",
+        "retry_ambiguous_invocation",
+        "exclude_incomplete_trial_and_recompute_mean"
+      ],
+      "properties": {
+        "cohort_mean_reportable": {
+          "const": false
+        },
+        "replace_trial": {
+          "const": false
+        },
+        "retry_ambiguous_invocation": {
+          "const": false
+        },
+        "exclude_incomplete_trial_and_recompute_mean": {
+          "const": false
+        }
+      }
+    },
+    "inferential_statistics": {
+      "const": "none; report descriptive results only"
+    },
+    "pooled_probe_counts_posture": {
+      "const": "supplementary_descriptive_only; probes_are_nested_within_task"
+    },
+    "scoring_posture": {
+      "const": "independent_raw_receipt_rescore_required; separate_scorer_process_not_attested"
+    },
+    "claim_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "immediate_response_difference_only",
+        "durable_learning_established",
+        "model_attention_established",
+        "general_transfer_established",
+        "model_independence_established",
+        "authority"
+      ],
+      "properties": {
+        "immediate_response_difference_only": {
+          "const": true
+        },
+        "durable_learning_established": {
+          "const": false
+        },
+        "model_attention_established": {
+          "const": false
+        },
+        "general_transfer_established": {
+          "const": false
+        },
+        "model_independence_established": {
+          "const": false
+        },
+        "authority": {
+          "const": false
+        }
+      }
+    },
+    "outcomes_observed": {
+      "const": false
+    },
+    "model_loaded": {
+      "const": false
+    },
+    "model_invoked": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "analysis_plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "independent_scorer_implementation_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

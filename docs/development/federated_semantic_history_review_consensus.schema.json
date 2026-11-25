@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-review-consensus:v1",
+  "title": "SentientOS federated semantic history review consensus",
+  "description": "Blindly adjudicated exhaustive reviewer labels with initial exact agreement retained. Distinct reviewer digests do not prove independent human review.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "query_set_id", "query_set_digest",
+    "federated_manifest_digest", "review_pair_digests", "reviewer_digests",
+    "reviewer_submission_digests", "adjudicator_digest", "blind_consensus_confirmed",
+    "reviewer_independence_established", "pair_count",
+    "initial_exact_agreement_count", "initial_exact_agreement_rate",
+    "initial_record_label_agreement_count", "initial_record_label_agreement_rate",
+    "initial_disagreement_count", "agreement_by_question", "annotations",
+    "authority", "consensus_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_review_consensus:v1" },
+    "query_set_id": { "type": "string", "pattern": "^federated-queryset-[0-9a-f]{24}$" },
+    "query_set_digest": { "$ref": "#/$defs/digest" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "review_pair_digests": { "type": "array", "minItems": 1, "maxItems": 25000, "items": { "$ref": "#/$defs/digest" } },
+    "reviewer_digests": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+    "reviewer_submission_digests": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/digest" } },
+    "adjudicator_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "blind_consensus_confirmed": { "const": true },
+    "reviewer_independence_established": { "const": false },
+    "pair_count": { "type": "integer", "minimum": 1, "maximum": 25000 },
+    "initial_exact_agreement_count": { "type": "integer", "minimum": 0, "maximum": 25000 },
+    "initial_exact_agreement_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "initial_record_label_agreement_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "initial_record_label_agreement_count": { "type": "integer", "minimum": 0, "maximum": 25000 },
+    "initial_disagreement_count": { "type": "integer", "minimum": 0, "maximum": 25000 },
+    "agreement_by_question": {
+      "type": "object", "minProperties": 60, "maxProperties": 255,
+      "propertyNames": { "$ref": "#/$defs/digest" },
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false,
+        "required": ["pair_count", "exact_agreement_count", "exact_agreement_rate", "all_labels_exactly_agreed"],
+        "properties": {
+          "pair_count": { "type": "integer", "minimum": 1 },
+          "exact_agreement_count": { "type": "integer", "minimum": 0 },
+          "exact_agreement_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+          "all_labels_exactly_agreed": { "type": "boolean" }
+        }
+      }
+    },
+    "annotations": {
+      "type": "array", "minItems": 1, "maxItems": 25000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["question_digest", "record_ref_id", "record_digest", "label"],
+        "properties": {
+          "question_digest": { "$ref": "#/$defs/digest" },
+          "record_ref_id": { "type": "string", "pattern": "^frec-[0-9a-f]{24}$" },
+          "record_digest": { "$ref": "#/$defs/digest" },
+          "label": { "enum": ["relevant", "inapplicable", "neither"] }
+        }
+      }
+    },
+    "authority": { "const": false },
+    "consensus_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

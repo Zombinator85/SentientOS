@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Developmental history task score lineage failure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "failed_checks"],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.developmental_history_task_score_lineage_failure:v1"
+    },
+    "failed_checks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 7,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "lineage_field_shape_invalid",
+          "score_schema_unsupported",
+          "evaluator_unrecognized",
+          "task_digest_mismatch",
+          "output_digest_mismatch",
+          "lineage_digest_format_invalid",
+          "output_digest_format_invalid"
+        ]
+      }
+    }
+  }
+}

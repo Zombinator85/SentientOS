@@ -1,0 +1,189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS semantic history retrieval review submission",
+  "description": "Input accepted by seal-annotations. New v8 packet templates omit preregistered strata and source bindings from reviewer and consensus rows; the command binds those fields from the private cohort and query set after review. Legacy optional fields remain accepted. The command checks distinct reviewers and exhaustive manifest-ordered labels.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "adjudication_packet_digest",
+    "adjudication_procedure_digest",
+    "annotations",
+    "independent_reviewers",
+    "blind_consensus"
+  ],
+  "properties": {
+    "adjudication_packet_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "adjudication_procedure_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "annotations": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "items": {
+        "$ref": "#/$defs/consensusRow"
+      }
+    },
+    "independent_reviewers": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/reviewerEnvelope"
+      }
+    },
+    "blind_consensus": {
+      "const": true
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "label": {
+      "enum": [
+        "relevant",
+        "inapplicable",
+        "neither"
+      ]
+    },
+    "recordLabel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "record_digest",
+        "label"
+      ],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "record_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "label": {
+          "$ref": "#/$defs/label"
+        }
+      }
+    },
+    "reviewerRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_digest",
+        "reviewed_corpus_manifest_digest",
+        "record_labels"
+      ],
+      "properties": {
+        "question_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "stratum": {
+          "$ref": "#/$defs/stratum"
+        },
+        "reviewed_corpus_manifest_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "record_labels": {
+          "$ref": "#/$defs/recordLabels"
+        }
+      }
+    },
+    "consensusRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_digest",
+        "reviewed_corpus_manifest_digest",
+        "record_labels"
+      ],
+      "properties": {
+        "question_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "stratum": {
+          "$ref": "#/$defs/stratum"
+        },
+        "reviewed_corpus_manifest_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "source_experience_digest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/digest"
+            },
+            {
+              "type": "null",
+              "description": "Optional legacy source-experience binding. New v8 review inputs omit source bindings; the sealer attaches bindings from the private query set after consensus."
+            }
+          ]
+        },
+        "record_labels": {
+          "$ref": "#/$defs/recordLabels"
+        }
+      }
+    },
+    "stratum": {
+      "enum": [
+        "paraphrased_experience",
+        "lexical_distractor",
+        "no_applicable_history"
+      ]
+    },
+    "recordLabels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/recordLabel"
+      }
+    },
+    "reviewerSubmission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewer_digest",
+        "annotations"
+      ],
+      "properties": {
+        "reviewer_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "annotations": {
+          "type": "array",
+          "minItems": 60,
+          "maxItems": 255,
+          "items": {
+            "$ref": "#/$defs/reviewerRow"
+          }
+        }
+      }
+    },
+    "reviewerEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adjudication_packet_digest",
+        "adjudication_procedure_digest",
+        "submission"
+      ],
+      "properties": {
+        "adjudication_packet_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "adjudication_procedure_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "submission": {
+          "$ref": "#/$defs/reviewerSubmission"
+        }
+      }
+    }
+  }
+}

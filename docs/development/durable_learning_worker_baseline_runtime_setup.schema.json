@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_worker_baseline_runtime_setup.schema.json",
+  "title": "SentientOS durable-learning worker baseline runtime setup",
+  "description": "Immutable protocol-bound record of the runtime and per-condition read-only ACL setup, pinned before worker launch. Setup evidence does not prove effective access or isolation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest",
+    "profile_pair_artifact_id", "profile_pair_artifact_digest",
+    "manifest_digest_by_condition", "runtime_access_setup",
+    "baseline_read_access_setup", "all_requested_grants_applied",
+    "effective_access_verified", "peer_denial_verified",
+    "filesystem_isolation_verified", "retention_contrast_eligible",
+    "authority", "setup_digest", "artifact_digest", "artifact_id"
+  ],
+  "properties": {
+    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_runtime_setup:v1", "sentientos.durable_learning_worker_baseline_runtime_setup:v2"] },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "profile_pair_artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-appcontainer-profile-pair-[0-9a-f]{24}$" },
+    "profile_pair_artifact_digest": { "$ref": "#/$defs/digest" },
+    "manifest_digest_by_condition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/digest" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "runtime_access_setup": { "type": "object" },
+    "baseline_read_access_setup": { "type": "object" },
+    "baseline_runtime_manifests": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "durable_learning_worker_baseline_runtime_manifest.schema.json" },
+        "relevant_experience_withheld": { "$ref": "durable_learning_worker_baseline_runtime_manifest.schema.json" }
+      }
+    },
+    "all_requested_grants_applied": { "type": "boolean" },
+    "effective_access_verified": { "const": false },
+    "peer_denial_verified": { "const": false },
+    "filesystem_isolation_verified": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "setup_digest": { "$ref": "#/$defs/digest" },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-baseline-setup-[0-9a-f]{24}$" }
+  },
+  "$defs": { "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" } },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_setup:v2" } }, "required": ["schema_version"] },
+      "then": { "required": ["baseline_runtime_manifests"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_setup:v1" } }, "required": ["schema_version"] },
+      "then": { "not": { "required": ["baseline_runtime_manifests"] } }
+    }
+  ]
+}

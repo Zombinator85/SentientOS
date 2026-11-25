@@ -322,6 +322,107 @@ class ResidentCognitiveInvocationReceiptReader:
         return verify_persisted_resident_invocation_receipt(self._installation_view,
             receipt_id, receipt_digest, **kwargs)
 
+    def find_persisted_invocation_receipt_candidates(self,
+            predicate: Callable[[Mapping[str, Any]], bool], *,
+            max_entries: int = 256) -> tuple[Mapping[str, Any], ...]:
+        """Enumerate bounded historical receipts and verify their serving custody.
+
+        The predicate is applied only after each receipt has been re-read from
+        installation custody and validated against its linked serving session.
+        This reader cannot load, unload, or invoke a model.
+        """
+        from .governed_local_model_invocation import (
+            MAX_INVOCATION_RECEIPTS, validate_receipt)
+        if (not callable(predicate) or isinstance(max_entries, bool)
+                or not isinstance(max_entries, int) or max_entries < 1
+                or max_entries > MAX_INVOCATION_RECEIPTS):
+            raise ResidentCognitiveModelServingError(
+                "historical_invocation_candidate_scan_invalid")
+        relative = (
+            "local-model/resident-cognitive-serving/inference/receipts")
+        try:
+            names = tuple(sorted(self._installation_view.list_regular_names(
+                relative, max_entries=max_entries)))
+        except Exception as exc:
+            raise ResidentCognitiveModelServingError(
+                "historical_invocation_candidate_scan_unavailable") from exc
+        verified: list[Mapping[str, Any]] = []
+        for name in names:
+            if (not isinstance(name, str) or not name.endswith(".json")
+                    or len(name) != len("lmrec-") + 24 + len(".json")
+                    or not name.startswith("lmrec-")
+                    or any(character not in "0123456789abcdef"
+                        for character in name[5:-5])):
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_name_invalid")
+            receipt_id = name[:-5]
+            try:
+                raw = self._installation_view.read_regular_bounded(
+                    f"{relative}/{name}", max_bytes=1_048_576)
+                payload = json.loads(raw.decode("utf-8"))
+            except Exception as exc:
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_malformed") from exc
+            if (not isinstance(payload, dict)
+                    or json.dumps(payload, sort_keys=True, indent=2).encode(
+                    "utf-8") + b"\n" != raw
+                    or payload.get("receipt_id") != receipt_id
+                    or validate_receipt(payload)[0] is not True):
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_invalid")
+            request = payload.get("request")
+            linkage = request.get("linkage") if isinstance(request, Mapping) else None
+            serving = (linkage.get("resident_cognitive_serving")
+                if isinstance(linkage, Mapping) else None)
+            identity = request.get("active_model_identity") if isinstance(
+                request, Mapping) else None
+            if (not isinstance(request, Mapping)
+                    or not isinstance(serving, Mapping)
+                    or not isinstance(identity, Mapping)):
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_binding_missing")
+            session_receipt_id = serving.get("session_receipt_id")
+            session_receipt_digest = serving.get(
+                "session_receipt_semantic_digest")
+            if ((session_receipt_id is None) != (session_receipt_digest is None)
+                    or (session_receipt_id is not None and (
+                        not isinstance(session_receipt_id, str)
+                        or not isinstance(session_receipt_digest, str)) )):
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_session_reference_invalid")
+            try:
+                receipt = verify_persisted_resident_invocation_receipt(
+                    self._installation_view, receipt_id,
+                    str(payload.get("receipt_digest")),
+                    expected_request_id=str(request.get("request_id")),
+                    expected_request_digest=str(request.get("request_digest")),
+                    expected_session_id=str(serving.get("session_id")),
+                    expected_session_binding={
+                        "model_serving_admission_ref": serving.get(
+                            "model_serving_admission_ref"),
+                        "activation_state_semantic_digest": serving.get(
+                            "activation_state_semantic_digest")},
+                    expected_active_model_identity=identity,
+                    expected_session_receipt_id=session_receipt_id,
+                    expected_session_receipt_digest=session_receipt_digest)
+            except ResidentCognitiveModelServingError:
+                raise
+            except Exception as exc:
+                raise ResidentCognitiveModelServingError(
+                    "historical_invocation_candidate_verification_failed") from exc
+            if predicate(receipt):
+                verified.append(receipt)
+        try:
+            final_names = tuple(sorted(self._installation_view.list_regular_names(
+                relative, max_entries=max_entries)))
+        except Exception as exc:
+            raise ResidentCognitiveModelServingError(
+                "historical_invocation_candidate_scan_unavailable") from exc
+        if final_names != names:
+            raise ResidentCognitiveModelServingError(
+                "historical_invocation_candidate_set_changed_during_scan")
+        return tuple(verified)
+
 
 class ResidentCognitiveModelServingController:
     """Owns at most one exact-runtime model and never exposes that model publicly."""

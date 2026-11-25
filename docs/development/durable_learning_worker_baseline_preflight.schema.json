@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_worker_baseline_preflight.schema.json",
+  "title": "SentientOS paired worker baseline preflight result",
+  "description": "Supervisor summary of the two condition-bound no-inference worker baseline artifacts. The summary alone does not establish isolation or developmental learning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "condition_artifacts", "paired_artifact", "worker_exchanges", "baseline_ready_by_condition", "paired_baseline_ready", "inference_started", "scoring_started", "developmental_writeback_started", "retention_contrast_eligible", "authority"],
+  "properties": {
+    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_preflight:v1", "sentientos.durable_learning_worker_baseline_preflight:v2"] },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "condition_artifacts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "durable_learning_worker_baseline_inventory_artifact.schema.json" },
+        "relevant_experience_withheld": { "$ref": "durable_learning_worker_baseline_inventory_artifact.schema.json" }
+      }
+    },
+    "paired_artifact": { "$ref": "durable_learning_worker_baseline_inventory_pair.schema.json" },
+    "baseline_runtime_setup": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-baseline-setup-[0-9a-f]{24}$" },
+        "artifact_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "worker_exchanges": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/exchange" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/exchange" }
+      }
+    },
+    "baseline_ready_by_condition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "type": "boolean" },
+        "relevant_experience_withheld": { "type": "boolean" }
+      }
+    },
+    "paired_baseline_ready": { "type": "boolean" },
+    "inference_started": { "const": false },
+    "scoring_started": { "const": false },
+    "developmental_writeback_started": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "exchange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "request_id", "condition", "operation", "response_status", "response_result_digest", "peer_process_id", "peer_process_creation_time_100ns", "request_response_bound", "process_start_nonce_matched", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority", "response_result"],
+      "properties": {
+        "schema_version": { "const": "sentientos.windows_appcontainer_pipe_rpc_exchange:v1" },
+        "request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "operation": { "const": "inspect_baseline" },
+        "response_status": { "enum": ["completed", "rejected"] },
+        "response_result_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "peer_process_id": { "type": "integer", "minimum": 1 },
+        "peer_process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+        "request_response_bound": { "const": true },
+        "process_start_nonce_matched": { "const": true },
+        "process_isolation_verified": { "const": false },
+        "filesystem_isolation_verified": { "const": false },
+        "retention_contrast_eligible": { "const": false },
+        "authority": { "const": false },
+        "response_result": { "$ref": "durable_learning_worker_baseline_inventory.schema.json" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_preflight:v2" } }, "required": ["schema_version"] },
+      "then": { "required": ["baseline_runtime_setup"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_preflight:v1" } }, "required": ["schema_version"] },
+      "then": { "not": { "required": ["baseline_runtime_setup"] } }
+    }
+  ]
+}

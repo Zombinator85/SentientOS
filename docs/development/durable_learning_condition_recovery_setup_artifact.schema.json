@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_recovery_setup_artifact.schema.json",
+  "title": "Durable learning condition recovery setup artifact",
+  "description": "Pins runtime and per-condition recovery ACL setup before a worker launch. ACL grants are not effective-access or isolation evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest",
+    "recovery_inputs_artifact", "profile_pair_artifact",
+    "runtime_access_setup", "recovery_access_setup",
+    "all_requested_grants_applied", "effective_access_verified",
+    "peer_denial_verified", "filesystem_isolation_verified",
+    "retention_contrast_eligible", "authority", "setup_digest",
+    "artifact_digest", "artifact_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_condition_recovery_setup:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "recovery_inputs_artifact": { "$ref": "#/$defs/artifactRef" },
+    "profile_pair_artifact": { "$ref": "#/$defs/artifactRef" },
+    "runtime_access_setup": { "type": "object" },
+    "recovery_access_setup": { "type": "object" },
+    "all_requested_grants_applied": { "type": "boolean" },
+    "effective_access_verified": { "const": false },
+    "peer_denial_verified": { "const": false },
+    "filesystem_isolation_verified": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "setup_digest": { "$ref": "#/$defs/digest" },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-worker-recovery-setup-[0-9a-f]{24}$"
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifactRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "artifact_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

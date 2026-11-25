@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_cohort_score_v2.schema.json",
+  "title": "SentientOS historical examples cohort score with independent rescoring",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cohort_digest",
+    "analysis_plan_digest",
+    "trial_count",
+    "complete_trial_count",
+    "per_trial_results",
+    "cohort_mean_accuracy_difference",
+    "analysis_unit",
+    "inference_scope",
+    "source_score_artifact_verification",
+    "independent_scorer_attested",
+    "durable_learning_established",
+    "model_attention_established",
+    "general_transfer_established",
+    "model_independence_established",
+    "learning_established",
+    "authority",
+    "cohort_score_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.historical_examples_pair_cohort_score:v2"
+    },
+    "cohort_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "analysis_plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "trial_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "complete_trial_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "per_trial_results": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/trial"
+      }
+    },
+    "cohort_mean_accuracy_difference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "numerator",
+        "denominator",
+        "decimal_rounded_6"
+      ],
+      "properties": {
+        "numerator": {
+          "type": "integer"
+        },
+        "denominator": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "decimal_rounded_6": {
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        }
+      }
+    },
+    "analysis_unit": {
+      "const": "task_seed_pair_not_individual_probe"
+    },
+    "inference_scope": {
+      "const": "immediate_response_difference_only"
+    },
+    "source_score_artifact_verification": {
+      "const": "reconstructed_from_private_task_plan_archived_verified_arm_receipts_and_stable_record_and_receipt_inventory:v2"
+    },
+    "independent_scorer_attested": {
+      "const": true
+    },
+    "durable_learning_established": {
+      "const": false
+    },
+    "model_attention_established": {
+      "const": false
+    },
+    "general_transfer_established": {
+      "const": false
+    },
+    "model_independence_established": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "cohort_score_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "properties": {
+        "examples_included": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "examples_omitted": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "trial": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_digest",
+        "score_digest",
+        "task_generation_seed",
+        "probe_count",
+        "runtime_history_record_count",
+        "runtime_history_record_set_digest",
+        "runtime_history_receipt_count",
+        "runtime_history_receipt_set_digest",
+        "runtime_history_receipt_record_links_verified",
+        "selected_history_record_receipts_verified",
+        "correct_counts",
+        "per_task_accuracy_difference",
+        "independent_score_verification_digest"
+      ],
+      "properties": {
+        "protocol_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "score_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "task_generation_seed": {
+          "type": "integer"
+        },
+        "probe_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "runtime_history_record_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "runtime_history_record_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "runtime_history_receipt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runtime_history_receipt_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "runtime_history_receipt_record_links_verified": {
+          "const": true
+        },
+        "selected_history_record_receipts_verified": {
+          "const": true
+        },
+        "correct_counts": {
+          "$ref": "#/$defs/counts"
+        },
+        "per_task_accuracy_difference": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "numerator",
+            "denominator"
+          ],
+          "properties": {
+            "numerator": {
+              "type": "integer"
+            },
+            "denominator": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "independent_score_verification_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  }
+}

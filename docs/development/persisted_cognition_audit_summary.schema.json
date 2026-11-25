@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/persisted_cognition_audit_summary.schema.json",
+  "title": "Persisted cognition audit summary v7",
+  "description": "Combines digest-verified per-cycle cognition audits with a separately scoped history-transfer gate audit. It makes no pooled learning claim.",
+  "type": "object",
+  "required": [
+    "schema_version", "current_retrospective_audit_schema_version",
+    "source_root", "cycle_count", "incomplete_run_count",
+    "pooled_learning_claim", "history_transfer_gate_audit", "cycles",
+    "incomplete_runs"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.persisted_cognition_audit_summary:v7"
+    },
+    "current_retrospective_audit_schema_version": {"const": 17},
+    "source_root": {"type": "string", "minLength": 1},
+    "cycle_count": {"type": "integer", "minimum": 0},
+    "incomplete_run_count": {"type": "integer", "minimum": 0},
+    "pooled_learning_claim": {"const": false},
+    "history_transfer_gate_audit": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/historyTransferGateAudit"}
+      ]
+    },
+    "cycles": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/cycleSummary"}
+    },
+    "incomplete_runs": {
+      "type": "array",
+      "items": {"type": "object", "additionalProperties": true}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "historyTransferGateAudit": {
+      "type": "object",
+      "required": [
+        "source_path", "report_sha256", "schema_version", "artifact_count",
+        "valid_artifact_count", "artifact_error_count",
+        "source_binding_valid_pattern_fact_count",
+        "verified_source_pattern_fact_count",
+        "retrospective_verified_source_fact_count",
+        "runtime_snapshot_bound_pattern_match_count",
+        "observer_key_custody_unverified_record_count",
+        "source_provenance_failure_code_counts", "transfer_status_counts",
+        "objective_transfer_status_counts", "inference_performed",
+        "learning_claim_made", "internal_rollups_recomputed"
+      ],
+      "properties": {
+        "source_path": {"type": "string", "minLength": 1},
+        "report_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "schema_version": {
+          "const": "sentientos.history_transfer_precondition_audit:v5"
+        },
+        "artifact_count": {"type": "integer", "minimum": 0},
+        "valid_artifact_count": {"type": "integer", "minimum": 0},
+        "artifact_error_count": {"type": "integer", "minimum": 0},
+        "source_binding_valid_pattern_fact_count": {
+          "type": "integer", "minimum": 0
+        },
+        "verified_source_pattern_fact_count": {
+          "type": "integer", "minimum": 0
+        },
+        "retrospective_verified_source_fact_count": {
+          "type": "integer", "minimum": 0
+        },
+        "runtime_snapshot_bound_pattern_match_count": {
+          "type": "integer", "minimum": 0
+        },
+        "observer_key_custody_unverified_record_count": {
+          "type": "integer", "minimum": 0
+        },
+        "source_provenance_failure_code_counts": {"$ref": "#/$defs/countMap"},
+        "transfer_status_counts": {"$ref": "#/$defs/countMap"},
+        "objective_transfer_status_counts": {"$ref": "#/$defs/countMap"},
+        "inference_performed": {"const": false},
+        "learning_claim_made": {"const": false},
+        "internal_rollups_recomputed": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "cycleSummary": {
+      "type": "object",
+      "required": [
+        "cycle_id", "audit_schema_version", "audit_schema_posture",
+        "audit_digest_verified", "cycle_status", "transfer_status",
+        "transfer_result_present", "model_attention_established",
+        "prompt_delivery_assessed", "learning_claim_made",
+        "performance_improvement_established"
+      ],
+      "properties": {
+        "cycle_id": {"type": "string", "minLength": 1},
+        "audit_schema_version": {"type": "integer", "minimum": 1},
+        "audit_schema_posture": {
+          "enum": ["current", "older_than_current", "newer_than_summarizer"]
+        },
+        "audit_digest_verified": {"type": "boolean"},
+        "cycle_status": {"type": ["string", "null"]},
+        "task_family_id": {"type": ["string", "null"]},
+        "transfer_status": {"type": ["string", "null"]},
+        "transfer_result_present": {"type": ["boolean", "null"]},
+        "withheld_baseline_correct_count": {"type": ["integer", "null"], "minimum": 0},
+        "required_baseline_correct_count": {"type": ["integer", "null"], "minimum": 0},
+        "model_attention_established": {"type": ["boolean", "null"]},
+        "prompt_delivery_assessed": {"type": ["boolean", "null"]},
+        "learning_claim_made": {"const": false},
+        "performance_improvement_established": {"const": false}
+      },
+      "additionalProperties": true
+    }
+  }
+}

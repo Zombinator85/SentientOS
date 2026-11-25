@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/observation_authentication_receipt_summary.schema.json",
+  "title": "Verified observer receipt summary in developmental history",
+  "description": "Bounded projection created only after the source embodied consequence attribution passes verify_consequence_attribution. The summary preserves receipt identity and ingress-authentication flags without retaining the full signed envelope or renderer receipt. It is provenance context, not proof of a physical effect.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "summary_schema_version", "source_receipt_schema_version",
+    "observation_id", "observation_digest", "observer_source_id",
+    "session_id", "generation_id", "sequence", "message_id",
+    "signed_envelope_digest", "transport_authenticated_at_ingress",
+    "signature_reverified_on_load", "source_distinct_from_renderer",
+    "receipt_binding_posture"
+  ],
+  "properties": {
+    "summary_schema_version": {
+      "const": "sentientos.observation_authentication_receipt_summary:v2"
+    },
+    "source_receipt_schema_version": {
+      "enum": [
+        "sentientos.authenticated_observer_ingress_receipt:v1",
+        "sentientos.authenticated_observer_ingress_receipt:v2"
+      ]
+    },
+    "observation_id": { "type": "string", "minLength": 1 },
+    "observation_digest": { "$ref": "#/$defs/sha256" },
+    "observer_source_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "generation_id": { "type": "string", "minLength": 1 },
+    "sequence": { "type": "integer", "minimum": 1 },
+    "message_id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "signed_envelope_digest": { "$ref": "#/$defs/sha256" },
+    "transport_authenticated_at_ingress": { "const": true },
+    "signature_reverified_on_load": { "const": false },
+    "source_distinct_from_renderer": { "const": true },
+    "observer_fixture_posture": {
+      "const": "same_process_synthetic_fixture"
+    },
+    "receipt_binding_posture": {
+      "const": "verified_by_embodied_consequence_attribution_verifier"
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

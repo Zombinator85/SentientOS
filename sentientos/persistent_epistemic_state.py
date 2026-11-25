@@ -1706,8 +1706,8 @@ class PersistentEpistemicStateOwner:
             if directory_fd is not None:
                 os.close(directory_fd)
 
-    def _recover_transactions(self) -> int:
-        """Recover storage-only pairs and count admitted pairs still awaiting owner validation."""
+    def _recover_transactions(self, *, repair: bool = True) -> int:
+        """Validate transactions and optionally publish storage-only state/event pairs."""
         incomplete_admission_bound = 0
         published_mutation_bound_state_digests: set[str] = set()
         prepared: list[tuple[EpistemicState, EpistemicUpdateEvent]] = []
@@ -1832,8 +1832,20 @@ class PersistentEpistemicStateOwner:
                     raise EpistemicStateError("epistemic_transaction_record_conflict")
                 published_mutation_bound_state_digests.add(state.state_digest)
                 continue
-            _write_new(state_path, asdict(state))
-            _write_new(event_path, asdict(event))
+            if repair:
+                _write_new(state_path, asdict(state))
+                _write_new(event_path, asdict(event))
+            else:
+                try:
+                    existing_state = _read_record_bytes(state_path)
+                    existing_event = _read_record_bytes(event_path)
+                except FileNotFoundError as exc:
+                    raise EpistemicStateError(
+                        "epistemic_transaction_recovery_required") from exc
+                if (existing_state != canonical_bytes(asdict(state)) + b"\n"
+                        or existing_event != canonical_bytes(asdict(event)) + b"\n"):
+                    raise EpistemicStateError(
+                        "epistemic_transaction_record_conflict")
         self._published_mutation_bound_state_digests = published_mutation_bound_state_digests
         self._verified_mutation_bound_state_digests.intersection_update(
             published_mutation_bound_state_digests)
@@ -2089,9 +2101,14 @@ class PersistentEpistemicStateOwner:
                              prioritized_state_ids: Sequence[str] = (),
                              relevance_query: str | None = None,
                              semantic_model_id: str | None = None,
-                             semantic_model_revision: str | None = None
+                             semantic_model_revision: str | None = None,
+                             repair_transactions: bool = True
                              ) -> EpistemicCognitiveProjection | None:
-        """Capture a verified, bounded prior projection without changing custody.
+        """Capture a verified, bounded prior projection.
+
+        Set ``repair_transactions=False`` when the caller requires a read-only
+        audit; the default permits storage-only transaction repair during
+        verification.
 
         The update files visible in the first inventory are the chronology boundary:
         only their paired states are eligible.  A second inventory makes concurrent
@@ -2105,6 +2122,8 @@ class PersistentEpistemicStateOwner:
         if current_tick is not None and (not isinstance(current_tick, int)
                 or isinstance(current_tick, bool) or current_tick < 0):
             raise EpistemicStateError("epistemic_projection_tick_invalid")
+        if type(repair_transactions) is not bool:
+            raise EpistemicStateError("epistemic_verification_mode_invalid")
         if (not isinstance(prioritized_proposition_ids, Sequence)
                 or isinstance(prioritized_proposition_ids, (str, bytes))
                 or len(prioritized_proposition_ids) > MAX_COGNITIVE_PROJECTION_PRIORITIES
@@ -2125,7 +2144,7 @@ class PersistentEpistemicStateOwner:
             raise EpistemicStateError("epistemic_projection_query_invalid")
         requested_priorities = tuple(prioritized_proposition_ids)
         requested_state_priorities = tuple(prioritized_state_ids)
-        self.verify()
+        self.verify(repair_transactions=repair_transactions)
         if (self._published_mutation_bound_state_digests
                 - self._verified_mutation_bound_state_digests):
             raise EpistemicStateError("epistemic_mutation_lineage_unverified")
@@ -2762,8 +2781,12 @@ class PersistentEpistemicStateOwner:
         cid,dg=_identity("epistemic-calibration",raw.payload()); value=replace(raw,calibration_id=cid,calibration_digest=dg)
         _write_new(self._record_path("calibrations", f"{cid}.json"), asdict(value)); return value
 
-    def verify(self) -> Mapping[str,int]:
-        incomplete_admission_bound = self._recover_transactions()
+    def verify(self, *, repair_transactions: bool = True) -> Mapping[str,int]:
+        """Verify owner records; disable transaction repair for read-only audits."""
+        if type(repair_transactions) is not bool:
+            raise EpistemicStateError("epistemic_verification_mode_invalid")
+        incomplete_admission_bound = self._recover_transactions(
+            repair=repair_transactions)
         propositions={}
         for raw in self._read("propositions"):
             proposition_value=EpistemicProposition(**raw); expected_proposition=make_proposition(**{k:v for k,v in raw.items() if k not in {"proposition_id","proposition_digest","schema_version"}})

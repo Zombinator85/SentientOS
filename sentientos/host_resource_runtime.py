@@ -2984,6 +2984,171 @@ def resource_consumption_world_state_records(*, ledger: GovernedLocalModelResour
     return output
 
 
+RESOURCE_STRATEGY_OWNER_LEDGER_SNAPSHOT_SCHEMA = (
+    "sentientos.resource_strategy_comparison_owner_ledger_snapshot:v1")
+
+
+def resource_strategy_owner_ledger_snapshot(*,
+        ledger: GovernedLocalModelResourceLedger) -> dict[str, Any]:
+    """Export one bounded, validated resource-ledger image for campaign custody.
+
+    This is read-only. It allows a later campaign loader to reconstruct the
+    full ledger digest and invariants instead of trusting a digest-only claim.
+    """
+    snapshot = ledger.observation_snapshot()
+    allocations = tuple(snapshot["allocations"])
+    attempts = tuple(snapshot["attempts"])
+    receipts = tuple(snapshot["receipts"])
+    if (any(not isinstance(row, Mapping) for row in (*allocations, *attempts, *receipts))
+            or any(not isinstance(row.get("allocation_id"), str) for row in allocations)
+            or any(not isinstance(row.get("attempt_id"), str) for row in attempts)):
+        raise ValueError("resource_owner_snapshot_shape_invalid")
+    allocation_map = {str(row["allocation_id"]): dict(row) for row in allocations}
+    attempt_map = {str(row["attempt_id"]): {
+        key: value for key, value in row.items() if key != "attempt_id"}
+        for row in attempts}
+    if len(allocation_map) != len(allocations) or len(attempt_map) != len(attempts):
+        raise ValueError("resource_owner_snapshot_identity_duplicated")
+    return {"schema_version": RESOURCE_STRATEGY_OWNER_LEDGER_SNAPSHOT_SCHEMA,
+        "ledger_schema": snapshot["schema"],
+        "ledger_digest": snapshot["ledger_digest"],
+        "allocations": allocation_map, "attempts": attempt_map,
+        "receipts": [dict(row) for row in receipts]}
+
+
+def exact_resource_invocation_scope_world_state_record(*,
+        ledger: GovernedLocalModelResourceLedger,
+        invocation_receipts: Sequence[Mapping[str, Any]],
+        selected_invocation_receipt_ids: Sequence[str],
+        observed_at: str | None = None) -> dict[str, Any]:
+    """Project exact selected invocation chains from the owner ledger.
+
+    Unlike the bounded recent-tail projection above, this read-only view is
+    scoped to explicitly selected invocation receipt IDs and retains every
+    ledger row for those attempts. The full ledger digest remains attached as
+    context; unrelated ledger rows do not affect this scope's completeness.
+    """
+    if (len(selected_invocation_receipt_ids) < 1
+            or len(selected_invocation_receipt_ids) > 16
+            or len(invocation_receipts) > 256
+            or any(not isinstance(value, str) or not value or len(value) > 256
+                   for value in selected_invocation_receipt_ids)
+            or len(set(selected_invocation_receipt_ids)) != len(selected_invocation_receipt_ids)):
+        raise ValueError("resource_exact_scope_selection_invalid")
+    from sentientos.governed_local_model_invocation import validate_receipt
+    for invocation in invocation_receipts:
+        if not isinstance(invocation, Mapping):
+            raise ValueError("resource_exact_scope_invocation_invalid")
+        try:
+            valid, _findings = validate_receipt(invocation)
+        except (KeyError, TypeError, ValueError, OverflowError):
+            valid = False
+        if not valid:
+            raise ValueError("resource_exact_scope_invocation_invalid")
+    by_id = {str(item.get("receipt_id")): item for item in invocation_receipts
+             if isinstance(item, Mapping) and isinstance(item.get("receipt_id"), str)}
+    if len(by_id) != len(invocation_receipts) or not set(selected_invocation_receipt_ids) <= set(by_id):
+        raise ValueError("resource_exact_scope_invocation_missing_or_duplicated")
+    snapshot = ledger.observation_snapshot()
+    raw_allocations = tuple(snapshot["allocations"])
+    raw_attempts = tuple(snapshot["attempts"])
+    raw_receipts = tuple(snapshot["receipts"])
+    if any(not isinstance(row, Mapping) for row in (*raw_allocations, *raw_attempts, *raw_receipts)):
+        raise ValueError("resource_exact_scope_ledger_shape_invalid")
+    allocations = {str(row.get("allocation_digest")): row for row in raw_allocations}
+    attempts = {str(row.get("attempt_id")): row for row in raw_attempts}
+    selected = [by_id[key] for key in selected_invocation_receipt_ids]
+    selected_attempt_ids: set[str] = set()
+    findings: list[str] = []
+    chains: list[dict[str, Any]] = []
+    for invocation in selected:
+        attempt_id = invocation.get("resource_attempt_id")
+        allocation_digest = invocation.get("resource_allocation_digest")
+        effect_digest = invocation.get("receipt_digest")
+        if not all(isinstance(value, str) and value for value in (attempt_id, allocation_digest, effect_digest)):
+            findings.append(f"invocation_linkage_missing:{invocation.get('receipt_id')}")
+            continue
+        if attempt_id in selected_attempt_ids:
+            findings.append(f"attempt_reused:{attempt_id}")
+            continue
+        selected_attempt_ids.add(attempt_id)
+        allocation = allocations.get(allocation_digest)
+        attempt = attempts.get(attempt_id)
+        linked = [dict(row) for row in raw_receipts if row.get("attempt_id") == attempt_id]
+        try:
+            from sentientos.governed_local_model_resource_allocation import (
+                GovernedLocalModelResourceConsumptionReceipt)
+            for row in linked:
+                GovernedLocalModelResourceConsumptionReceipt.from_mapping(row)
+        except (KeyError, TypeError, ValueError):
+            findings.append(f"attempt_receipt_digest_invalid:{attempt_id}")
+        states = [row.get("state") for row in linked]
+        linked.sort(key=lambda row: {"attempt_begun": 0,
+            "measured_completed": 1, "reconciled": 2}.get(row.get("state"), 3))
+        if allocation is None or attempt is None:
+            findings.append(f"allocation_or_attempt_missing:{attempt_id}")
+        if (attempt is not None and allocation is not None
+                and attempt.get("allocation_id") != allocation.get("allocation_id")):
+            findings.append(f"attempt_allocation_mismatch:{attempt_id}")
+        measured = [row for row in linked if row.get("state") == "measured_completed"]
+        reconciled = [row for row in linked if row.get("state") == "reconciled"]
+        if (len(linked) != 3 or states.count("attempt_begun") != 1
+                or len(measured) != 1 or len(reconciled) != 1
+                or attempt is None or attempt.get("status") != "begun"):
+            findings.append(f"attempt_chain_incomplete:{attempt_id}")
+        elif (reconciled[0].get("effect_receipt_digest") != effect_digest
+                or measured[0].get("resource_specific_measurement") !=
+                    reconciled[0].get("resource_specific_measurement")):
+            findings.append(f"attempt_effect_or_measurement_mismatch:{attempt_id}")
+        if len(linked) == 3:
+            begun, measured_row, reconciled_row = linked
+            measurement = measured_row.get("resource_specific_measurement")
+            if (begun.get("previous_receipt_digest") is not None
+                    or begun.get("effect_receipt_digest") is not None
+                    or measured_row.get("previous_receipt_digest") != begun.get("receipt_digest")
+                    or measured_row.get("effect_receipt_digest") is not None
+                    or reconciled_row.get("previous_receipt_digest") != measured_row.get("receipt_digest")
+                    or not isinstance(measurement, Mapping)
+                    or measurement.get("generation_attempted") is not True
+                    or measurement.get("call_units_consumed") != 1
+                    or any(row.get("allocation_digest") != allocation_digest
+                        or row.get("principal_binding_digest") != begun.get(
+                            "principal_binding_digest") for row in linked)):
+                findings.append(f"attempt_chain_digest_or_cost_mismatch:{attempt_id}")
+        reported = invocation.get("resource_consumption_receipt_digests")
+        actual = {row.get("receipt_digest") for row in linked
+                  if row.get("state") != "attempt_begun"}
+        if not isinstance(reported, (list, tuple)) or set(reported) != actual or len(reported) != len(actual):
+            findings.append(f"attempt_receipt_set_mismatch:{attempt_id}")
+        chains.append({"invocation_receipt_id": invocation.get("receipt_id"),
+            "invocation_receipt_digest": effect_digest,
+            "allocation_digest": allocation_digest, "attempt_id": attempt_id,
+            "allocation": dict(allocation) if allocation is not None else None,
+            "attempt": dict(attempt) if attempt is not None else None,
+            "consumption_receipts": linked,
+            "measured_call_units": (measured[0].get("resource_specific_measurement", {}).get("call_units_consumed")
+                if measured and isinstance(measured[0].get("resource_specific_measurement"), Mapping) else None)})
+    findings = sorted(set(findings))
+    complete = not findings and len(chains) == len(selected)
+    payload = {"selection_scope": "exact_invocation_attempts",
+        "selected_invocation_receipt_ids": list(selected_invocation_receipt_ids),
+        "ledger_schema": snapshot["schema"], "ledger_digest": snapshot["ledger_digest"],
+        "chains": chains, "lineage_posture": "verified" if complete else "degraded",
+        "lineage_findings": findings, "retention_posture": "complete",
+        "recovery_posture": "reconciled_or_restored" if complete else "incomplete_attempts_present",
+        "observed_at": observed_at}
+    record = {"source_kind": WorldStateSourceKind.RESOURCE_GOVERNOR.value,
+        "source_id": "governed_local_model_resource_consumption",
+        "schema_version": RESOURCE_CONSUMPTION_WORLD_STATE_SCHEMA,
+        "subject_kind": "causal_resource_consumption",
+        "subject_id": str(snapshot["ledger_digest"]), "stage": "observation",
+        "disposition": "recorded" if complete else "degraded",
+        "evidence_strength": "receipt_bound" if complete else "incomplete",
+        "effect_claimed": False, "effect_proven": False, "observed_at": None,
+        "retrieved_at": observed_at, "payload": payload}
+    return {**record, "digest": record_digest(record)}
+
+
 def resource_invocation_proposal_lineage_records(records: Sequence[Mapping[str, Any]],
         *, max_records: int = 16, include_model_replacement: bool = True) -> list[dict[str, Any]]:
     """Join selected strategy/model inference records to projected resource custody.

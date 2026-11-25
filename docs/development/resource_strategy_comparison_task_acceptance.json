@@ -1,0 +1,95 @@
+{
+  "schema_version": "sentientos.task_acceptance:v1",
+  "task_id": "preregistered-resource-strategy-comparison",
+  "status": "construction",
+  "authority": {
+    "resource_measurements": "owner-reconciled per-invocation ledger receipts only",
+    "quality": "independent scorer bound to the frozen held-out task descriptor",
+    "recommendation": "historical evidence only; no current-task authority",
+    "missing_or_ambiguous_evidence": "incomparable; no recommendation"
+  },
+  "cognition_exposure_contract": {
+    "campaign_loading": "explicit preregistered objective plans only",
+    "non_objective_cognition": "when history is enabled, record non_objective_cognition_call per configured ID without opening artifacts; when history is absent, record a no-history posture without opening artifacts",
+    "prompt_treatment": "eligible campaign projections only; retrieval status, unavailable IDs, and budget diagnostics remain upstream evidence",
+    "history_withheld": "do not open campaigns or include campaign projection or retrieval status in the prompt",
+    "prompt_binding": "canonical projection inclusion is checked before inference and the exact request prompt digest is revalidated on restart",
+    "transfer_eligibility": "exact model identity, same declared task family, different task digest, and disjoint probe inputs"
+  },
+  "scoring_attestation_gate": {
+    "status": "implemented_in_construction_evaluator_unverified_by_tests",
+    "available_foundation": "objective task plans are reconstructible and _verify_objective_score rechecks score semantics when the exact private plan and output digest are supplied",
+    "integration_gap": "build_resource_strategy_trial_outcome now checks scheduled invocation receipts and constructs v5 score-and-attestation pairs from exact retained output and owner evidence, but no inference runner calls it; behavioral test coverage is absent, the receipt is unkeyed, and v4 historical bundles remain unprojectable",
+    "required_binding": [
+      "comparison protocol digest",
+      "frozen task plan digest",
+      "final invocation receipt and output digest",
+      "exact bounded output text verified against the invocation digest",
+      "versioned scorer identity",
+      "score object digest and exact probe coverage"
+    ],
+    "restart_requirement": "restart verifies retained output against the invocation digest, independently recomputes score semantics from the private task plan, and reconstructs the exact attestation from durable task and invocation evidence",
+    "learning_claim_allowed_before_gate": false
+  },
+  "invocation_authority_gate": {
+    "purpose": "resource_strategy_comparison_experiment",
+    "review_status": "not_performed",
+    "runner_permitted": false,
+    "required_posture": "separately reviewed non-production local-model inference purpose with bounded calls and no tool, memory, host, repository, or external-action authority",
+    "review_evidence_required": [
+      "exact invocation purpose registration diff and authority-map digest",
+      "bounded maximum calls per trial and total campaign, with generation-token ceiling; protocol enforces input <= 8000 chars, output <= 4000 chars, <= 512 new tokens, <= 120 seconds, and one call per correlation",
+      "proof that request linkage binds the preregistered protocol, trial, strategy, and call index",
+      "proof that model serving receives no tools, developmental memory, host access, repository access, or external-action capabilities",
+      "proof that score plans and scorer outcomes are excluded from prompts and strategy history projections",
+      "resource-owner reconciliation and failure behavior for denied, cancelled, timed-out, or incomplete calls",
+      "reviewer identity, reviewed source revision, decision, and any conditions recorded as a digest-bound artifact"
+    ],
+    "registration_effect": "none_until_review_is_recorded_and_authority_maps_are_explicitly_updated"
+  },
+  "exact_nodes": [
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_campaign_requires_write_once_preregistration_before_receipts",
+      "expected": "The campaign cannot be published without a separately persisted exact protocol custody record; all invocation receipt timestamps must be timezone-aware and no earlier than the preregistration timestamp. The report labels this wall-clock ordering as untrusted local time."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_preregistered_protocol_binds_task_model_and_distinct_strategies",
+      "expected": "A persisted protocol binds one frozen task, exact ordered probe inputs, model identity, model ID, authority-map digest, invocation budget, generation configuration, and two or more explicit strategy descriptors with per-trial invocation bounds. Its trial count is balanced across cyclic strategy positions, each trial has a digest-bound order, and history-condition labels cannot satisfy strategy identity."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_each_invocation_has_one_exact_reconciled_resource_chain",
+      "expected": "Every admitted invocation receipt binds its exact trial index and digest, resource attempt ID, allocation digest, and measured/reconciled receipt digests; each call has a unique correlation ID across the full campaign and joins to exactly one attempt_begun, measured, reconciled chain with matching predecessor and effect digests. Missing, duplicate, extra, substituted, reused-correlation, or cross-trial rows become incomparable."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_owner_projection_verifies_exact_selected_attempt_scope",
+      "expected": "The resource owner exports one bounded full-ledger image that passes the ledger's read-only digest and invariant validator. Every exact-scope trial projection binds that image's digest; the evaluator compares projected allocations, attempts, and receipt chains to the reconstructed image and rejects altered digests, omitted rows, unrelated invocation scope, incomplete chains, and non-recorded owner disposition."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_variable_call_totals_rank_only_correctness_equivalent_strategies",
+        "expected": "Every trial score is recomputed by the versioned private-plan scorer and has a durable receipt binding protocol digest, frozen task-plan digest, final invocation receipt and output digest, score digest, and exact ordered probe coverage. Restart reconstruction reruns scoring and reproduces each receipt before report acceptance. A strategy is eligible only if it meets the quality threshold on every trial; ranking then uses total correct probes and total terminal reconciled call units across the full campaign."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_restart_reconstruction_rejects_tampered_trial_or_report",
+      "expected": "The campaign's single full-ledger image passes the resource ledger's read-only digest and invariant validator after restart, all owner projections match that reconstructed image, and rerunning the evaluator reproduces the exact report; any digest or semantic mismatch fails closed."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_negative_and_incomparable_outcomes_are_preserved",
+      "expected": "No strategy meeting the quality requirement, unresolved ties, unknown cost, and incomplete evidence remain explicit outcomes without a recommendation."
+    },
+    {
+      "node_id": "tests/test_resource_strategy_comparison.py::test_history_condition_artifacts_are_not_strategy_outcomes",
+      "expected": "Existing history_present, history_withheld, and history_restored records cannot be reinterpreted or admitted as task-strategy comparison outcomes."
+    }
+  ],
+  "non_claims": [
+    "one comparison demonstrates durable learning",
+    "call_units measure CPU, GPU, energy, or whole-host resource use",
+    "a historical recommendation has current-task authority",
+    "same-model strategy results transfer across model replacement",
+    "same-family recommendations with a different task digest establish transfer",
+    "reusing a campaign's source task digest is a held-out performance result",
+    "different task digests with overlapping probe inputs establish held-out evidence",
+    "retaining a prompt projection proves that it changed the next decision",
+    "resource expenditure prescribes goals, personality, or policy"
+  ]
+}

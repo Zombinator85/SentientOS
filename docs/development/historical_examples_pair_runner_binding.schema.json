@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_runner_binding.schema.json",
+  "title": "SentientOS historical examples pair runner binding",
+  "description": "Digest-bound claim that one runner was launched for one preregistered pair under verified history and resource gates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_plan_digest", "cohort_digest", "analysis_plan_digest", "trial_index", "protocol_digest", "runner_cycle_id", "target_model_identity_digest", "runtime_bundle_digest", "source_boundary_digest", "preregistration_digest", "source_history_seed_evidence_digest", "resource_guard_evidence_digest", "source_history_seed_verified", "resource_gate_passed", "authority", "runner_binding_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_runner_binding:v1"},
+    "execution_plan_digest": {"$ref": "#/$defs/digest"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "analysis_plan_digest": {"$ref": "#/$defs/digest"},
+    "trial_index": {"type": "integer", "minimum": 0, "maximum": 31},
+    "protocol_digest": {"$ref": "#/$defs/digest"},
+    "runner_cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+    "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+    "runtime_bundle_digest": {"$ref": "#/$defs/digest"},
+    "source_boundary_digest": {"$ref": "#/$defs/digest"},
+    "preregistration_digest": {"$ref": "#/$defs/digest"},
+    "source_history_seed_evidence_digest": {"$ref": "#/$defs/digest"},
+    "resource_guard_evidence_digest": {"$ref": "#/$defs/digest"},
+    "source_history_seed_verified": {"const": true},
+    "resource_gate_passed": {"const": true},
+    "authority": {"const": false},
+    "runner_binding_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-retrieval-score:v3",
+  "title": "SentientOS federated semantic history retrieval score",
+  "description": "Query-level retrieval score over federated history and blind consensus labels, requiring unique typed event anchors for query source records. Qualification remains conditional because reviewer and statistical source independence are unverified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "query_set_id", "query_set_digest",
+    "federated_manifest_digest", "comparison_digest", "consensus_digest",
+    "experience_anchor_audit_digest", "experience_anchor_verification_digest",
+    "source_snapshot_count", "source_snapshot_digest",
+    "distinct_source_experience_event_count",
+    "evaluation_protocol", "evaluation_protocol_digest",
+    "reviewer_independence_established", "source_experience_independence_verified",
+    "per_query", "by_stratum", "reviewer_agreement_by_stratum",
+    "protocol_criteria", "protocol_criteria_passed", "gate_qualification",
+    "confidence_level", "confidence_interval_sampling_unit",
+    "confidence_interval_posture",
+    "learning_established", "authority", "score_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_retrieval_score:v3" },
+    "query_set_id": { "type": "string", "pattern": "^federated-queryset-[0-9a-f]{24}$" },
+    "query_set_digest": { "$ref": "#/$defs/digest" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "comparison_digest": { "$ref": "#/$defs/digest" },
+    "consensus_digest": { "$ref": "#/$defs/digest" },
+    "experience_anchor_audit_digest": { "$ref": "#/$defs/digest" },
+    "experience_anchor_verification_digest": { "$ref": "#/$defs/digest" },
+    "source_snapshot_count": { "type": "integer", "minimum": 1 },
+    "source_snapshot_digest": { "$ref": "#/$defs/digest" },
+    "distinct_source_experience_event_count": { "type": "integer", "minimum": 60, "maximum": 255 },
+    "evaluation_protocol": { "type": "object", "additionalProperties": true },
+    "evaluation_protocol_digest": { "$ref": "#/$defs/digest" },
+    "reviewer_independence_established": { "const": false },
+    "source_experience_independence_verified": { "const": false },
+    "per_query": { "type": "array", "minItems": 60, "maxItems": 255, "items": { "$ref": "#/$defs/queryScore" } },
+    "by_stratum": {
+      "type": "object", "additionalProperties": false,
+      "required": ["paraphrased_experience", "lexical_distractor", "no_applicable_history"],
+      "properties": {
+        "paraphrased_experience": { "$ref": "#/$defs/stratumScore" },
+        "lexical_distractor": { "$ref": "#/$defs/stratumScore" },
+        "no_applicable_history": { "$ref": "#/$defs/stratumScore" }
+      }
+    },
+    "reviewer_agreement_by_stratum": {
+      "type": "object", "additionalProperties": false,
+      "required": ["paraphrased_experience", "lexical_distractor", "no_applicable_history"],
+      "properties": {
+        "paraphrased_experience": { "$ref": "#/$defs/nullableNumber" },
+        "lexical_distractor": { "$ref": "#/$defs/nullableNumber" },
+        "no_applicable_history": { "$ref": "#/$defs/nullableNumber" }
+      }
+    },
+    "protocol_criteria": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimum_query_count_per_stratum_met", "stratum_label_expectations_met", "source_experience_bindings_relevant", "source_experience_event_anchors_unique", "independent_reviewer_agreement_threshold_met", "maximum_semantic_fallback_queries_met", "paraphrase_common_k_recall_gain_met", "full_selection_recall_gain_met", "false_inclusion_intervals_met", "nonrelevant_selection_criteria_met"],
+      "properties": {
+        "minimum_query_count_per_stratum_met": { "type": "boolean" },
+        "stratum_label_expectations_met": { "type": "boolean" },
+        "source_experience_bindings_relevant": { "type": "boolean" },
+        "source_experience_event_anchors_unique": { "const": true },
+        "independent_reviewer_agreement_threshold_met": { "type": "boolean" },
+        "maximum_semantic_fallback_queries_met": { "type": "boolean" },
+        "paraphrase_common_k_recall_gain_met": { "type": "boolean" },
+        "full_selection_recall_gain_met": { "type": "boolean" },
+        "false_inclusion_intervals_met": { "type": "boolean" },
+        "nonrelevant_selection_criteria_met": { "type": "boolean" }
+      }
+    },
+    "protocol_criteria_passed": { "type": "boolean" },
+    "gate_qualification": { "enum": ["not_qualified_unverified_reviewer_and_source_independence", "not_qualified_criteria_not_met"] },
+    "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+    "confidence_interval_sampling_unit": { "const": "query_row" },
+    "confidence_interval_posture": { "const": "conditional_on_unverified_source_and_reviewer_independence" },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "score_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "nullableNumber": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+    "nullableInterval": { "oneOf": [{ "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } }, { "type": "null" }] },
+    "queryScore": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "question_digest", "stratum", "source_experience_unit_digest",
+        "source_experience_event_anchor_digest",
+        "initial_all_record_label_agreement",
+        "source_experience_record_relevance_status", "stratum_label_expectations_met",
+        "relevant_record_count", "inapplicable_record_count",
+        "selected_record_ref_ids_lexical", "selected_record_ref_ids_semantic",
+        "same_selected_records", "same_selected_order", "semantic_fallback_to_lexical",
+        "recall_lexical", "reciprocal_rank_lexical", "common_k_recall_lexical",
+        "inapplicable_selected_lexical", "nonrelevant_selected_lexical", "selected_count_lexical",
+        "recall_semantic", "reciprocal_rank_semantic", "common_k_recall_semantic",
+        "inapplicable_selected_semantic", "nonrelevant_selected_semantic", "selected_count_semantic"
+      ],
+      "properties": {
+        "question_digest": { "$ref": "#/$defs/digest" },
+        "stratum": { "enum": ["paraphrased_experience", "lexical_distractor", "no_applicable_history"] },
+        "source_experience_unit_digest": { "$ref": "#/$defs/digest" },
+        "source_experience_event_anchor_digest": { "$ref": "#/$defs/digest" },
+        "initial_all_record_label_agreement": { "type": "boolean" },
+        "source_experience_record_relevance_status": { "enum": ["not_applicable", "verified_relevant", "not_verified"] },
+        "stratum_label_expectations_met": { "type": "boolean" },
+        "relevant_record_count": { "type": "integer", "minimum": 0 },
+        "inapplicable_record_count": { "type": "integer", "minimum": 0 },
+        "selected_record_ref_ids_lexical": { "type": "array", "maxItems": 16, "items": { "type": "string", "pattern": "^frec-[0-9a-f]{24}$" } },
+        "selected_record_ref_ids_semantic": { "type": "array", "maxItems": 16, "items": { "type": "string", "pattern": "^frec-[0-9a-f]{24}$" } },
+        "same_selected_records": { "type": "boolean" },
+        "same_selected_order": { "type": "boolean" },
+        "semantic_fallback_to_lexical": { "type": "boolean" },
+        "recall_lexical": { "$ref": "#/$defs/nullableNumber" },
+        "reciprocal_rank_lexical": { "$ref": "#/$defs/nullableNumber" },
+        "common_k_recall_lexical": { "$ref": "#/$defs/nullableNumber" },
+        "inapplicable_selected_lexical": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "nonrelevant_selected_lexical": { "type": "boolean" },
+        "selected_count_lexical": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "recall_semantic": { "$ref": "#/$defs/nullableNumber" },
+        "reciprocal_rank_semantic": { "$ref": "#/$defs/nullableNumber" },
+        "common_k_recall_semantic": { "$ref": "#/$defs/nullableNumber" },
+        "inapplicable_selected_semantic": { "oneOf": [{ "type": "boolean" }, { "type": "null" }] },
+        "nonrelevant_selected_semantic": { "type": "boolean" },
+        "selected_count_semantic": { "type": "integer", "minimum": 0, "maximum": 16 }
+      }
+    },
+    "stratumScore": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "query_count", "lexical_recall_mean", "semantic_recall_mean",
+        "lexical_common_k_recall_mean", "semantic_common_k_recall_mean",
+        "lexical_reciprocal_rank_mean", "semantic_reciprocal_rank_mean",
+        "lexical_inapplicable_selection_rate", "semantic_inapplicable_selection_rate",
+        "lexical_nonrelevant_selection_rate", "semantic_nonrelevant_selection_rate",
+        "semantic_fallback_count", "source_experience_relevance_verified_count",
+        "stratum_label_expectations_met_count", "recall_semantic_minus_lexical_mean",
+        "initial_all_record_label_agreement_rate",
+        "reciprocal_rank_semantic_minus_lexical_mean",
+        "inapplicable_selection_rate_semantic_minus_lexical_mean",
+        "nonrelevant_selection_rate_semantic_minus_lexical_mean",
+        "common_k_recall_semantic_minus_lexical_mean", "paired_95_percent_ci"
+      ],
+      "properties": {
+        "query_count": { "type": "integer", "minimum": 20 },
+        "lexical_recall_mean": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_recall_mean": { "$ref": "#/$defs/nullableNumber" },
+        "lexical_common_k_recall_mean": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_common_k_recall_mean": { "$ref": "#/$defs/nullableNumber" },
+        "lexical_reciprocal_rank_mean": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_reciprocal_rank_mean": { "$ref": "#/$defs/nullableNumber" },
+        "lexical_inapplicable_selection_rate": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_inapplicable_selection_rate": { "$ref": "#/$defs/nullableNumber" },
+        "lexical_nonrelevant_selection_rate": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_nonrelevant_selection_rate": { "$ref": "#/$defs/nullableNumber" },
+        "semantic_fallback_count": { "type": "integer", "minimum": 0 },
+        "source_experience_relevance_verified_count": { "type": "integer", "minimum": 0 },
+        "stratum_label_expectations_met_count": { "type": "integer", "minimum": 0 },
+        "initial_all_record_label_agreement_rate": { "$ref": "#/$defs/nullableNumber" },
+        "recall_semantic_minus_lexical_mean": { "$ref": "#/$defs/nullableNumber" },
+        "reciprocal_rank_semantic_minus_lexical_mean": { "$ref": "#/$defs/nullableNumber" },
+        "inapplicable_selection_rate_semantic_minus_lexical_mean": { "$ref": "#/$defs/nullableNumber" },
+        "nonrelevant_selection_rate_semantic_minus_lexical_mean": { "$ref": "#/$defs/nullableNumber" },
+        "common_k_recall_semantic_minus_lexical_mean": { "$ref": "#/$defs/nullableNumber" },
+        "paired_95_percent_ci": {
+          "type": "object", "additionalProperties": false,
+          "required": ["recall", "common_k_recall", "reciprocal_rank", "inapplicable_selection_rate", "nonrelevant_selection_rate"],
+          "properties": {
+            "recall": { "$ref": "#/$defs/nullableInterval" },
+            "common_k_recall": { "$ref": "#/$defs/nullableInterval" },
+            "reciprocal_rank": { "$ref": "#/$defs/nullableInterval" },
+            "inapplicable_selection_rate": { "$ref": "#/$defs/nullableInterval" },
+            "nonrelevant_selection_rate": { "$ref": "#/$defs/nullableInterval" }
+          }
+        }
+      }
+    }
+  }
+}

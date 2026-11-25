@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-archive-source-binding:v2",
+  "title": "SentientOS federated archive source binding v2",
+  "description": "Binds source-qualified records to an explicit immutable snapshot inventory. Replay verifies each frozen snapshot row is still present and ignores later appended snapshots.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "federated_manifest_digest",
+    "experience_anchor_audit_digest", "experience_anchor_verification_digest",
+    "source_snapshot_count", "source_snapshot_digest", "source_snapshots",
+    "sources", "model_invoked", "learning_established", "authority",
+    "binding_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_archive_source_binding:v2" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "experience_anchor_audit_digest": { "$ref": "#/$defs/digest" },
+    "experience_anchor_verification_digest": { "$ref": "#/$defs/digest" },
+    "source_snapshot_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "source_snapshot_digest": { "$ref": "#/$defs/digest" },
+    "source_snapshots": {
+      "type": "array", "minItems": 1, "maxItems": 100000,
+      "items": { "$ref": "#/$defs/snapshot" }
+    },
+    "sources": {
+      "type": "array", "minItems": 2, "maxItems": 10000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_id", "source_root_id", "record_count", "record_inventory_digest", "source_snapshot_count", "source_snapshot_digest"],
+        "properties": {
+          "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+          "source_root_id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "record_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+          "record_inventory_digest": { "$ref": "#/$defs/digest" },
+          "source_snapshot_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+          "source_snapshot_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "model_invoked": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "binding_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "snapshot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_root_id", "cycle_id", "composition_state_sha256", "runtime_admission_ledger_sha256", "record_inventory_digest", "receipt_inventory_digest"],
+      "properties": {
+        "source_root_id": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "cycle_id": { "type": "string", "pattern": "^rootless-cognition-cycle-[a-zA-Z0-9-]+$" },
+        "composition_state_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "runtime_admission_ledger_sha256": { "anyOf": [{ "type": "string", "pattern": "^[0-9a-f]{64}$" }, { "type": "null" }] },
+        "record_inventory_digest": { "$ref": "#/$defs/digest" },
+        "receipt_inventory_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

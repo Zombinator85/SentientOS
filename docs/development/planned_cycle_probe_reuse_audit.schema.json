@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Planned Cycle Probe Reuse Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "cycle_id",
+    "plan_digest",
+    "task_generation_seed",
+    "task_family_id",
+    "transfer_probe_inputs",
+    "source_preflight",
+    "recomputed_history_boundary",
+    "selected_prompt_records",
+    "aggregate_overlap_inputs",
+    "held_out_transfer_qualified",
+    "classification",
+    "inference_performed",
+    "learning_established",
+    "authority",
+    "limitations",
+    "audit_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.planned_cycle_probe_reuse_audit:v1"
+    },
+    "campaign_id": {"type": "string", "minLength": 1, "maxLength": 96},
+    "cycle_id": {"type": "string", "minLength": 1, "maxLength": 96},
+    "plan_digest": {"type": "string", "minLength": 1, "maxLength": 128},
+    "task_generation_seed": {"type": "integer", "minimum": 1},
+    "task_family_id": {"type": "string", "minLength": 1, "maxLength": 96},
+    "transfer_probe_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {"type": "integer"}
+    },
+    "source_preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "file_sha256",
+        "audit_digest",
+        "plan_digest",
+        "prior_history_boundary_digest",
+        "binder_selected_record_ids",
+        "binder_selected_record_digests"
+      ],
+      "properties": {
+        "artifact": {"type": "string", "minLength": 1, "maxLength": 256},
+        "file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "audit_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+        "plan_digest": {"type": "string", "minLength": 1, "maxLength": 128},
+        "prior_history_boundary_digest": {
+          "type": "string", "pattern": "^[0-9a-f]{64}$"
+        },
+        "binder_selected_record_ids": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1, "maxLength": 128}
+        },
+        "binder_selected_record_digests": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "recomputed_history_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "boundary_digest",
+        "file_count",
+        "atomic_snapshot",
+        "selected_record_files_match_boundary"
+      ],
+      "properties": {
+        "boundary_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "file_count": {"type": "integer", "minimum": 0, "maximum": 50000},
+        "atomic_snapshot": {"const": false},
+        "selected_record_files_match_boundary": {"const": true}
+      }
+    },
+    "selected_prompt_records": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "record_digest",
+          "record_file_sha256",
+          "projected_experience_count",
+          "available_probe_inputs",
+          "overlap_inputs",
+          "overlap_count"
+        ],
+        "properties": {
+          "record_id": {"type": "string", "minLength": 1, "maxLength": 128},
+          "record_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "record_file_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "projected_experience_count": {"type": "integer", "minimum": 0, "maximum": 16},
+          "available_probe_inputs": {
+            "type": "array", "uniqueItems": true,
+            "items": {"type": "integer"}
+          },
+          "overlap_inputs": {
+            "type": "array", "uniqueItems": true,
+            "items": {"type": "integer"}
+          },
+          "overlap_count": {"type": "integer", "minimum": 0, "maximum": 16}
+        }
+      }
+    },
+    "aggregate_overlap_inputs": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "integer"}
+    },
+    "held_out_transfer_qualified": {"type": "boolean"},
+    "classification": {
+      "enum": [
+        "held_out_transfer_candidate",
+        "reused_input_recall_not_held_out_transfer"
+      ]
+    },
+    "inference_performed": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "limitations": {
+      "type": "array", "minItems": 1, "maxItems": 16,
+      "items": {"type": "string", "minLength": 1, "maxLength": 512}
+    },
+    "audit_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

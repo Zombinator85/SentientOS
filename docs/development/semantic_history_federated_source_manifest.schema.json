@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:semantic-history-federated-source-manifest:v1",
+  "title": "SentientOS federated semantic history source manifest",
+  "description": "Provenance inventory for a read-only union of independently verified history stores. This is not accepted by the single-owner retrieval runner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "sources", "federated_manifest_digest", "authority"],
+  "properties": {
+    "schema_version": { "const": "sentientos.semantic_history_federated_source_manifest:v1" },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "federated_manifest_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "history_state_digest", "corpus_manifest_digest", "records"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+        "history_state_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "corpus_manifest_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "records": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["record_id", "record_digest"],
+            "properties": {
+              "record_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "record_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -3070,7 +3070,205 @@ class RuntimeMaintenanceSurfaces:
                         by_run: dict[str, list[WorldStateFact]] = {}
                         for fact in task_family_facts:
                             by_run.setdefault(fact.subject.subject_id, []).append(fact)
+                        cohort_groups: dict[tuple[Any, ...], list[tuple[str, str]]] = {}
+                        cohort_protocols: dict[str, Mapping[str, Any]] = {}
+                        for candidate_id, candidate_digest in selected.items():
+                            candidate_facts = by_run.get(candidate_id, [])
+                            if (len(candidate_facts) != 1
+                                    or candidate_id in conflicting_run_ids):
+                                continue
+                            source_fact = candidate_facts[0]
+                            source_payload = source_fact.payload
+                            if (source_fact.source.source_id !=
+                                    "developmental-history-run:" + candidate_id
+                                    or source_payload.get("run_id") != candidate_id
+                                    or source_payload.get("run_digest") != candidate_digest
+                                    or source_payload.get("current_truth") is not False
+                                    or source_payload.get("authority") is not False
+                                    or source_payload.get("learning_established") is not False):
+                                continue
+                            try:
+                                candidate_run = experiment_store.load_run(candidate_id)
+                                candidate_protocol = candidate_run.get("protocol")
+                                candidate_conditions = candidate_run.get("conditions")
+                                descriptor = (candidate_protocol.get(
+                                    "objective_task_descriptor")
+                                    if isinstance(candidate_protocol, Mapping) else None)
+                                trial_index = (candidate_protocol.get(
+                                    "condition_order_trial_index")
+                                    if isinstance(candidate_protocol, Mapping) else None)
+                                if (candidate_run.get("run_digest") != candidate_digest
+                                        or not isinstance(candidate_protocol, Mapping)
+                                        or candidate_protocol.get("schema_version") !=
+                                            "sentientos.developmental_history_intervention_protocol:v11"
+                                        or type(trial_index) is not int or trial_index < 0
+                                        or not isinstance(descriptor, Mapping)
+                                        or descriptor.get("family_posture") !=
+                                            "operator_declared_protocol_bound"
+                                        or source_payload.get("objective_task_family")
+                                            != descriptor.get("task_family_id")
+                                        or not isinstance(candidate_conditions, list)
+                                        or len(candidate_conditions) != 3):
+                                    continue
+                                event_times = [datetime.fromisoformat(
+                                    item["observed_at"].replace("Z", "+00:00"))
+                                    for item in candidate_conditions]
+                                if (any(value.tzinfo is None or value.utcoffset() is None
+                                        or item["observed_at"].endswith("-00:00")
+                                        for value, item in zip(event_times, candidate_conditions))
+                                        or max(event_times) > instant):
+                                    continue
+                                family = descriptor.get("task_family_id")
+                                matching_rules = tuple(rule for rule in task_family_rules
+                                    if (self._epistemic_state_owner is not None
+                                        and self._epistemic_state_owner.proposition(
+                                            rule.proposition_id).context_scope.get(
+                                                "task_family_id") == family))
+                                if len(matching_rules) != 1:
+                                    continue
+                                matched_rule = matching_rules[0]
+                                if (matched_rule.proposition_id in updated_propositions_this_tick
+                                        or len(updated_propositions_this_tick) >= getattr(
+                                            runtime_config, "max_updated_propositions_per_tick", 16)):
+                                    continue
+                                descriptor_key = (candidate_protocol.get("model_id"),
+                                    candidate_protocol.get("model_artifact_digest"),
+                                    candidate_protocol.get("active_model_identity_digest"),
+                                    candidate_protocol.get("authority_map_digest"),
+                                    candidate_protocol.get("instruction_template_digest"),
+                                    candidate_protocol.get("history_selection_digest"),
+                                    candidate_protocol.get("history_available_records_digest"),
+                                    candidate_protocol.get("objective_task_digest"), family,
+                                    descriptor.get("task_digest"),
+                                    candidate_protocol.get("current_projection_digest"),
+                                    _transition_context_digest(dict(
+                                        candidate_protocol.get("generation_posture", {}))),
+                                    _transition_context_digest(dict(
+                                        candidate_protocol.get("inference_budget", {}))),
+                                    candidate_protocol.get("self_model_projection_digest"),
+                                    candidate_protocol.get("epistemic_projection_digest"),
+                                    trial_index // 6)
+                                if (any(value is None for value in descriptor_key[:11])
+                                        or not isinstance(candidate_protocol.get(
+                                            "generation_posture"), Mapping)
+                                        or not isinstance(candidate_protocol.get(
+                                            "inference_budget"), Mapping)):
+                                    continue
+                                cohort_groups.setdefault(descriptor_key, []).append(
+                                    (candidate_id, candidate_digest))
+                                cohort_protocols[candidate_id] = candidate_protocol
+                            except (AttributeError, KeyError, TypeError, ValueError):
+                                continue
+                        cohort_handled_ids: set[str] = set()
+                        for group_key in sorted(cohort_groups, key=repr):
+                            group = cohort_groups[group_key]
+                            if len(group) != 6:
+                                continue
+                            group.sort(key=lambda item: cohort_protocols[item[0]][
+                                "condition_order_trial_index"] % 6)
+                            try:
+                                cohort_id = experiment_store.persist_objective_cohort_summary(
+                                    [item[0] for item in group])
+                                cohort = experiment_store.load_objective_cohort_summary(
+                                    cohort_id)
+                            except (AttributeError, TypeError, ValueError):
+                                continue
+                            first_run = experiment_store.load_run(group[0][0])
+                            first_descriptor = first_run["protocol"][
+                                "objective_task_descriptor"]
+                            family = first_descriptor["task_family_id"]
+                            matching_rules = tuple(rule for rule in task_family_rules
+                                if self._epistemic_state_owner.proposition(
+                                    rule.proposition_id).context_scope.get(
+                                        "task_family_id") == family)
+                            if len(matching_rules) != 1:
+                                continue
+                            matched_rule = matching_rules[0]
+                            existing_binding_ids = {binding.binding_id for binding in
+                                self._epistemic_state_owner.bindings(
+                                    matched_rule.proposition_id)}
+                            try:
+                                needed_bindings = sum(
+                                    experiment_store.objective_task_family_evidence_binding(
+                                        run_id=member_id, expected_run_digest=member_digest,
+                                        proposition_id=matched_rule.proposition_id,
+                                        expected_cohort_id=cohort_id,
+                                        expected_cohort_digest=cohort["cohort_digest"]).binding_id
+                                        not in existing_binding_ids
+                                    for member_id, member_digest in group)
+                            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                                cohort_handled_ids.update(item[0] for item in group)
+                                task_family_binding_deferred_propositions.add(
+                                    matched_rule.proposition_id)
+                                task_family_new_bindings = max(task_family_new_bindings,
+                                    getattr(runtime_config,
+                                        "max_new_bindings_per_tick", 64))
+                                outcome_rows.append({"cohort_id": cohort_id,
+                                    "cohort_digest": cohort["cohort_digest"],
+                                    "run_ids": [item[0] for item in group],
+                                    "run_digests": [item[1] for item in group],
+                                    "cohort_schedule_block": cohort["schedule_block"],
+                                    "status": "unresolved",
+                                    "reason": "cohort_member_evidence_binding_invalid",
+                                    "error_class": type(exc).__name__,
+                                    "authority": False, "current_truth": False})
+                                continue
+                            max_bindings = getattr(runtime_config,
+                                "max_new_bindings_per_tick", 64)
+                            remaining_bindings = max(0, max_bindings
+                                - task_family_new_bindings)
+                            if needed_bindings > remaining_bindings:
+                                continue
+                            try:
+                                outcome = runtime.process_verified_task_family_cohort(
+                                    experiment_store=experiment_store, cohort_id=cohort_id,
+                                    expected_cohort_digest=cohort["cohort_digest"],
+                                    rule_id=matched_rule.rule_id, tick=tick,
+                                    recorded_at=instant.isoformat(), advance_state=False,
+                                    allow_new_binding=True,
+                                    binding_budget_remaining=remaining_bindings)
+                            except (AttributeError, KeyError, TypeError, ValueError) as exc:
+                                cohort_handled_ids.update(item[0] for item in group)
+                                task_family_binding_deferred_propositions.add(
+                                    matched_rule.proposition_id)
+                                task_family_new_bindings = max(task_family_new_bindings,
+                                    getattr(runtime_config,
+                                        "max_new_bindings_per_tick", 64))
+                                outcome_rows.append({"cohort_id": cohort_id,
+                                    "cohort_digest": cohort["cohort_digest"],
+                                    "run_ids": [item[0] for item in group],
+                                    "run_digests": [item[1] for item in group],
+                                    "cohort_schedule_block": cohort["schedule_block"],
+                                    "status": "unresolved",
+                                    "reason": "cohort_member_admission_failed",
+                                    "error_class": type(exc).__name__,
+                                    "retry_posture": "next_maintenance_tick",
+                                    "authority": False, "current_truth": False})
+                                continue
+                            task_family_new_bindings += outcome.new_binding_count
+                            cohort_handled_ids.update(item[0] for item in group)
+                            cohort_row = {**asdict(outcome),
+                                "cohort_id": cohort_id,
+                                "cohort_digest": cohort["cohort_digest"],
+                                "run_ids": [item[0] for item in group],
+                                "run_digests": [item[1] for item in group],
+                                "cohort_schedule_block": cohort["schedule_block"]}
+                            if outcome.status == "binding_limit_reached":
+                                task_family_binding_deferred_propositions.add(
+                                    matched_rule.proposition_id)
+                                cohort_row.update({"status": "unresolved",
+                                    "reason": "task_family_binding_limit_reached",
+                                    "retry_posture": "next_maintenance_tick",
+                                    "authority": False, "current_truth": False})
+                            else:
+                                task_family_state_updates.setdefault((
+                                    matched_rule.proposition_id,
+                                    matched_rule.rule_id), []).append(
+                                        len(outcome_rows))
+                            outcome_rows.append(cohort_row)
                         for run_id, run_digest in selected.items():
+                            if run_id in cohort_handled_ids:
+                                continue
                             matching_facts = by_run.get(run_id, [])
                             fact = matching_facts[0] if len(matching_facts) == 1 else None
                             payload = fact.payload if fact is not None else {}
@@ -3096,6 +3294,19 @@ class RuntimeMaintenanceSurfaces:
                                     "current_truth": False})
                                 continue
                             run = experiment_store.load_run(run_id)
+                            protocol = run.get("protocol")
+                            if (isinstance(protocol, Mapping)
+                                    and protocol.get("schema_version") ==
+                                        "sentientos.developmental_history_intervention_protocol:v11"):
+                                outcome_rows.append({"run_id": run_id,
+                                    "run_digest": run_digest, "status": "unresolved",
+                                    "reason": "scheduled_run_requires_complete_balanced_cohort",
+                                    "cohort_schedule_block": (
+                                        protocol.get("condition_order_trial_index", 0) // 6
+                                        if type(protocol.get("condition_order_trial_index")) is int
+                                        else None),
+                                    "authority": False, "current_truth": False})
+                                continue
                             conditions = run.get("conditions")
                             if not isinstance(conditions, list) or not conditions:
                                 outcome_rows.append({"run_id": run_id,

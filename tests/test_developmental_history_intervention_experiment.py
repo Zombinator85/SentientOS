@@ -517,7 +517,7 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
             "cognition_receipt_output_binding_verified": True,
             "disposition": "answer",
             "response": response,
-            "response_digest": "digest-" + response,
+            "response_digest": digest_payload({"text": response}),
             "output_digest": "output-" + response,
             "retrieved_record_ids": ["devrec-expected"] if cited else [],
             "history_record_ids": cited,
@@ -654,7 +654,8 @@ def test_history_transfer_requires_exact_expected_record_and_restored_decision()
 
     null_result = [dict(item) for item in conditions]
     null_result[0]["response"] = null_result[1]["response"] = "REACH"
-    null_result[0]["response_digest"] = null_result[1]["response_digest"] = "digest-REACH"
+    null_result[0]["response_digest"] = null_result[1]["response_digest"] = (
+        digest_payload({"text": "REACH"}))
     null_result[0]["output_digest"] = null_result[1]["output_digest"] = "output-REACH"
     unchanged = qualify_history_transfer_decision(
         conditions=null_result, expected_history_record_id="devrec-expected",

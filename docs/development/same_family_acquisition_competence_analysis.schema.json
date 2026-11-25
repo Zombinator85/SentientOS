@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.dev/schemas/same_family_acquisition_competence_analysis.schema.json",
+  "title": "Same-family acquisition competence analysis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "analysis_timing",
+    "campaign_id",
+    "campaign_plan_digest",
+    "task_family_id",
+    "registered_overlap_source_families",
+    "measurement_scope",
+    "cross_range_transfer_evaluated",
+    "minimum_replicated_cycles",
+    "status",
+    "cross_cycle_probe_overlap_count",
+    "replication_input_sets_disjoint",
+    "cycles",
+    "plan_verification",
+    "chain_verification",
+    "learning_established",
+    "causal_claim_made",
+    "performance_improvement_established",
+    "authority_granted"
+  ],
+  "properties": {
+    "schema_version": {"const": "sentientos.same_family_acquisition_competence_analysis:v1"},
+    "analysis_timing": {"const": "posthoc_same_family_acquisition_analysis"},
+    "campaign_id": {"type": "string", "minLength": 1},
+    "campaign_plan_digest": {"$ref": "#/$defs/sha256"},
+    "task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"},
+    "registered_overlap_source_families": {
+      "const": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7"
+      ]
+    },
+    "measurement_scope": {"const": "wide_range_acquisition_same_family_history"},
+    "cross_range_transfer_evaluated": {"const": false},
+    "minimum_replicated_cycles": {"const": 2},
+    "status": {
+      "enum": [
+        "replicated_same_family_acquisition_competence_pattern",
+        "same_family_acquisition_competence_not_demonstrated",
+        "replication_not_independent_due_probe_overlap"
+      ]
+    },
+    "cross_cycle_probe_overlap_count": {"type": "integer", "minimum": 0},
+    "replication_input_sets_disjoint": {"type": "boolean"},
+    "cycles": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/cycle"}
+    },
+    "plan_verification": {"type": "object"},
+    "chain_verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "append_only_history_chain_verified",
+        "seed_boundary_chain_verified",
+        "all_planned_cycles_completed"
+      ],
+      "properties": {
+        "append_only_history_chain_verified": {"const": true},
+        "seed_boundary_chain_verified": {"const": true},
+        "all_planned_cycles_completed": {"const": true}
+      }
+    },
+    "learning_established": {"const": false},
+    "causal_claim_made": {"const": false},
+    "performance_improvement_established": {"const": false},
+    "authority_granted": {"const": false}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "cycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cycle_id",
+        "measurement_scope",
+        "acquisition_projection_task_family_id",
+        "cross_range_transfer_status",
+        "cross_range_transfer_evaluated",
+        "task_probe_input_digest",
+        "acquisition_output_run_id",
+        "acquisition_output_score_binding_verified",
+        "prior_history_projectable_source_run_count",
+        "prior_history_correct_example_count",
+        "prior_history_source_run_id",
+        "probe_count",
+        "competence_threshold",
+        "correct_counts",
+        "condition_score_digests",
+        "cross_cycle_probe_overlap_count",
+        "restored_correctness_matches_present",
+        "classification"
+      ],
+      "properties": {
+        "cycle_id": {"type": "string", "minLength": 1},
+        "task_probe_input_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "acquisition_output_run_id": {"type": "string", "minLength": 1},
+        "acquisition_output_score_binding_verified": {"const": true},
+        "prior_history_projectable_source_run_count": {"type": "integer", "minimum": 0},
+        "prior_history_correct_example_count": {"type": "integer", "minimum": 0},
+        "prior_history_source_run_id": {"type": "string", "minLength": 1},
+        "probe_count": {"type": "integer", "minimum": 1},
+        "competence_threshold": {"type": "integer", "minimum": 1},
+        "correct_counts": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "integer", "minimum": 0},
+            {"type": "integer", "minimum": 0},
+            {"type": "integer", "minimum": 0}
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "condition_score_digests": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "cross_cycle_probe_overlap_count": {"type": "integer", "minimum": 0},
+        "restored_correctness_matches_present": {"type": "boolean"},
+        "measurement_scope": {"const": "wide_range_acquisition_same_family_history"},
+        "acquisition_projection_task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"},
+        "cross_range_transfer_status": {"type": "string", "minLength": 1},
+        "cross_range_transfer_evaluated": {"const": false},
+        "classification": {
+          "enum": [
+            "same_family_acquisition_competence_pattern",
+            "same_family_withheld_baseline_competence_also_demonstrated",
+            "same_family_acquisition_competence_not_demonstrated",
+            "same_family_restoration_did_not_match_present_correctness"
+          ]
+        }
+      }
+    }
+  }
+}

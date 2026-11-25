@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/historical_examples_cpu_preflight_report_v9.schema.json",
+  "title": "SentientOS resident historical examples CPU preflight report v9",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "arm_order_policy",
+    "arm_order_seed",
+    "cycle_root_id",
+    "source_receipt_id",
+    "source_receipt_digest",
+    "source_model_identity_digest",
+    "source_identity_posture",
+    "plan_binding",
+    "task_generation_seed",
+    "task_family_id",
+    "task_digest",
+    "history_prompt_identity_policy",
+    "history_prompt_identity_bindings_by_arm",
+    "snapshot_id",
+    "snapshot_digest",
+    "held_out_probe_overlap_audit",
+    "owner_prompt_pair_preview_digest",
+    "generation_config_digest",
+    "answer_key_digest",
+    "private_task_plan_digest",
+    "protocol_digest",
+    "historical_examples_protocol",
+    "objective_request_bindings_by_arm",
+    "objective_request_bindings_digest",
+    "protocol_persisted",
+    "source_history_mutated",
+    "model_loaded",
+    "model_invoked",
+    "learning_established",
+    "authority",
+    "task_commitment_key_file_sha256",
+    "task_commitment_nonce_pair_digest",
+    "task_factory_source_sha256",
+    "preflight_source_sha256",
+    "inference_performed",
+    "runtime_condition_created",
+    "resident_cognition_source_sha256",
+    "model_identity_backend_seed"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.resident_historical_examples_cpu_preflight:v9"
+    },
+    "arm_order_policy": {
+      "const": "independent_os_random_seed_v1"
+    },
+    "arm_order_seed": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "cycle_root_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "source_receipt_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_receipt_digest": {
+      "$ref": "#/$defs/hexDigest"
+    },
+    "source_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "source_identity_posture": {
+      "enum": [
+        "reconstructed_from_verified_historical_receipt",
+        "reconstructed_from_verified_campaign_plan"
+      ]
+    },
+    "plan_binding": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "campaign_id",
+            "plan_digest",
+            "cycle_id",
+            "cycle_index",
+            "planned_model_identity_digest",
+            "authority_map_digest",
+            "model_id",
+            "model_artifact_digest",
+            "identity_recipe_evidence",
+            "effective_backend_seed",
+            "backend_seed_overrode_campaign_cycle_seed"
+          ],
+          "properties": {
+            "campaign_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "plan_digest": {
+              "$ref": "#/$defs/hexDigest"
+            },
+            "cycle_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "cycle_index": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "planned_model_identity_digest": {
+              "$ref": "#/$defs/hexDigest"
+            },
+            "authority_map_digest": {
+              "$ref": "#/$defs/hexDigest"
+            },
+            "model_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "model_artifact_digest": {
+              "$ref": "#/$defs/hexDigest"
+            },
+            "identity_recipe_evidence": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "model_identity_recipe_digest",
+                "manifest_sha256",
+                "identity_count",
+                "identity_digests_verified",
+                "inference_performed",
+                "implementation_pin_posture",
+                "pinned_identity_implementation_sha256",
+                "replay_identity_implementation_sha256"
+              ],
+              "properties": {
+                "model_identity_recipe_digest": {
+                  "$ref": "#/$defs/hexDigest"
+                },
+                "manifest_sha256": {
+                  "$ref": "#/$defs/hexDigest"
+                },
+                "identity_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "identity_digests_verified": {
+                  "const": true
+                },
+                "inference_performed": {
+                  "const": false
+                },
+                "implementation_pin_posture": {
+                  "enum": [
+                    "all_identity_source_pins_match",
+                    "campaign_source_pin_mismatch_replayed_against_current_identity_outputs"
+                  ]
+                },
+                "pinned_identity_implementation_sha256": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sentientos/local_model.py",
+                    "sentientos/rootless_experimental_local_model.py",
+                    "sentientos/rootless_experimental_ollama_epistemic_session.py",
+                    "work/rootless_history_boundary_campaign.py"
+                  ],
+                  "properties": {
+                    "sentientos/local_model.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "sentientos/rootless_experimental_local_model.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "sentientos/rootless_experimental_ollama_epistemic_session.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "work/rootless_history_boundary_campaign.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    }
+                  }
+                },
+                "replay_identity_implementation_sha256": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "sentientos/local_model.py",
+                    "sentientos/rootless_experimental_local_model.py",
+                    "sentientos/rootless_experimental_ollama_epistemic_session.py",
+                    "work/rootless_history_boundary_campaign.py"
+                  ],
+                  "properties": {
+                    "sentientos/local_model.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "sentientos/rootless_experimental_local_model.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "sentientos/rootless_experimental_ollama_epistemic_session.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    },
+                    "work/rootless_history_boundary_campaign.py": {
+                      "$ref": "#/$defs/hexDigest"
+                    }
+                  }
+                }
+              }
+            },
+            "effective_backend_seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            },
+            "backend_seed_overrode_campaign_cycle_seed": {
+              "const": true
+            }
+          }
+        }
+      ]
+    },
+    "task_generation_seed": {
+      "type": "integer"
+    },
+    "task_family_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 96
+    },
+    "task_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_prompt_identity_policy": {
+      "const": "matched_cross_model_identity_omitted:v1"
+    },
+    "history_prompt_identity_bindings_by_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "properties": {
+        "examples_included": {
+          "$ref": "history_prompt_identity_binding_v1.schema.json"
+        },
+        "examples_omitted": {
+          "$ref": "history_prompt_identity_binding_v1.schema.json"
+        }
+      }
+    },
+    "held_out_probe_overlap_audit": {
+      "$ref": "#/$defs/probeOverlapAudit"
+    },
+    "snapshot_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "snapshot_digest": {
+      "$ref": "#/$defs/hexDigest"
+    },
+    "owner_prompt_pair_preview_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "generation_config_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "answer_key_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "private_task_plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "protocol_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "historical_examples_protocol": {
+      "$ref": "https://sentientos.invalid/schemas/historical_examples_intervention_protocol.schema.json"
+    },
+    "objective_request_bindings_by_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "properties": {
+        "examples_included": {
+          "$ref": "#/$defs/objectiveRequestBinding"
+        },
+        "examples_omitted": {
+          "$ref": "#/$defs/objectiveRequestBinding"
+        }
+      }
+    },
+    "objective_request_bindings_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "protocol_persisted": {
+      "const": true
+    },
+    "source_history_mutated": {
+      "const": false
+    },
+    "model_loaded": {
+      "const": false
+    },
+    "model_invoked": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "task_commitment_key_file_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_commitment_nonce_pair_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_factory_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "preflight_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "runtime_condition_created": {
+      "const": false
+    },
+    "resident_cognition_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_record_allowlist_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_record_allowlist_file_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "model_identity_backend_seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hexDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "objectiveRequestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "request_digest"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "request_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "probeOverlapAudit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "scope",
+        "history_record_count",
+        "history_probe_input_occurrence_count",
+        "history_probe_input_set_digest",
+        "task_probe_count",
+        "task_probe_input_digest",
+        "overlapping_probe_input_count",
+        "overlapping_probe_input_digest",
+        "measurement_complete",
+        "no_exact_overlap_detected",
+        "inference_performed",
+        "learning_established",
+        "authority"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.historical_examples_probe_history_overlap_audit:v1"
+        },
+        "scope": {
+          "const": "all_recursive_input_and_probe_fields_in_all_history_records"
+        },
+        "history_record_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "history_probe_input_occurrence_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "history_probe_input_set_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "task_probe_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "task_probe_input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "overlapping_probe_input_count": {
+          "const": 0
+        },
+        "overlapping_probe_input_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "measurement_complete": {
+          "const": true
+        },
+        "no_exact_overlap_detected": {
+          "const": true
+        },
+        "inference_performed": {
+          "const": false
+        },
+        "learning_established": {
+          "const": false
+        },
+        "authority": {
+          "const": false
+        }
+      }
+    }
+  }
+}

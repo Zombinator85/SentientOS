@@ -27,7 +27,15 @@ from .developmental_history_intervention_experiment import (
 
 LEGACY_PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v1"
 PREVIOUS_PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v2"
-PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v3"
+SCHEDULED_PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v3"
+PREVIOUS_GATE_PROTOCOL_SCHEMA = (
+    "sentientos.ordinary_chat_history_intervention_protocol:v4")
+PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA = (
+    "sentientos.ordinary_chat_history_intervention_protocol:v5")
+PROTOCOL_SCHEMA = "sentientos.ordinary_chat_history_intervention_protocol:v6"
+SCHEDULED_PROTOCOL_SCHEMAS = frozenset({SCHEDULED_PROTOCOL_SCHEMA,
+    PREVIOUS_GATE_PROTOCOL_SCHEMA, PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA,
+    PROTOCOL_SCHEMA})
 PROTOCOL_ID_PREFIX = "ordinary-history-protocol-"
 RESULT_SCHEMA = "sentientos.ordinary_chat_history_intervention_result:v2"
 RESULT_ID_PREFIX = "ordinary-history-result-"
@@ -47,7 +55,11 @@ SCORE_PLAN_SCHEMA = "sentientos.ordinary_chat_history_objective_scoring_plan:v1"
 SCORE_PLAN_ID_PREFIX = "ordinary-history-score-plan-"
 LEGACY_SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v1"
 SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v2"
+SEEDED_SCHEDULE_SCHEMA = "sentientos.ordinary_chat_history_intervention_schedule:v3"
 SCHEDULE_ID_PREFIX = "ordinary-history-schedule-"
+RANDOMIZATION_SEED_SCHEMA = (
+    "sentientos.ordinary_chat_history_randomization_seed:v1")
+RANDOMIZATION_SEED_ID_PREFIX = "ordinary-history-randomization-"
 EXECUTION_SCHEMA = "sentientos.ordinary_chat_history_execution_claim:v1"
 EXECUTION_ID_PREFIX = "ordinary-history-execution-"
 FINAL_RESULT_SCHEMA = "sentientos.ordinary_chat_history_final_result_index:v1"
@@ -65,6 +77,59 @@ _SESSION_ID = re.compile(r"[a-z0-9][a-z0-9-]{7,63}")
 _TURN_ID = re.compile(r"turn-[0-9a-f]{24}")
 _RUN_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}")
 _BLIND_SAMPLE_ID = re.compile(r"blind-sample-[0-9a-f]{32}")
+_RETRIEVAL_GATE_BINDING_FIELDS = {
+    "evaluation_artifact_id", "evaluation_artifact_digest",
+    "evaluation_digest", "cohort_id", "cohort_digest", "query_set_id",
+    "query_set_digest", "heldout_question_digest",
+    "target_model_identity_digest", "binding_digest"}
+_QUALIFIED_RETRIEVAL_GATE_BINDING_FIELDS = (
+    _RETRIEVAL_GATE_BINDING_FIELDS | {"gate_status",
+        "gate_qualification_posture"})
+
+
+def _verify_retrieval_gate_binding_shape(value: Any, *,
+        allow_legacy: bool = False) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("ordinary_chat_history_retrieval_gate_binding_invalid")
+    fields = set(value)
+    legacy = fields == _RETRIEVAL_GATE_BINDING_FIELDS
+    if fields != _QUALIFIED_RETRIEVAL_GATE_BINDING_FIELDS and not (
+            allow_legacy and legacy):
+        raise ValueError("ordinary_chat_history_retrieval_gate_binding_invalid")
+    semantic = {key: item for key, item in value.items()
+        if key != "binding_digest"}
+    digest_fields = ("evaluation_digest", "heldout_question_digest",
+        "target_model_identity_digest")
+    if (not isinstance(value.get("evaluation_artifact_id"), str)
+            or re.fullmatch(r"devexp-retrieval-evaluation-[0-9a-f]{24}",
+                value["evaluation_artifact_id"]) is None
+            or not isinstance(value.get("cohort_id"), str)
+            or re.fullmatch(r"devexp-retrieval-cohort-[0-9a-f]{24}",
+                value["cohort_id"]) is None
+            or not isinstance(value.get("query_set_id"), str)
+            or re.fullmatch(r"devexp-retrieval-queries-[0-9a-f]{24}",
+                value["query_set_id"]) is None
+            or any(not isinstance(value.get(key), str)
+                or _HEX_DIGEST.fullmatch(value[key]) is None
+                for key in digest_fields)
+            or any(not isinstance(value.get(key), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", value[key]) is None
+                for key in ("evaluation_artifact_digest", "cohort_digest",
+                    "query_set_digest"))
+            or (not legacy and (
+                (value.get("gate_status") == "retrieval_gate_passed"
+                    and value.get("gate_qualification_posture") !=
+                        "plain_gate_pass")
+                or (value.get("gate_status") ==
+                        "retrieval_gate_passed_conditional_on_unverified_source_independence"
+                    and value.get("gate_qualification_posture") !=
+                        "conditional_on_unverified_source_experience_independence")
+                or value.get("gate_status") not in {
+                    "retrieval_gate_passed",
+                    "retrieval_gate_passed_conditional_on_unverified_source_independence"}))
+            or value.get("binding_digest") != digest_payload(semantic)):
+        raise ValueError("ordinary_chat_history_retrieval_gate_binding_invalid")
+    return dict(value)
 
 
 def _schedule_key(session_id: str, task_commitment_digest: str, *,
@@ -79,7 +144,9 @@ def _schedule_key(session_id: str, task_commitment_digest: str, *,
 def _schedule_cohort_digest(*, session_id: str, task_commitment_digest: str,
         serving_model_identity_digest: str, generation_config_digest: str,
         scoring_plan_digest: str, scorer_identity_digest: str,
-        prompt_verification: Mapping[str, Any]) -> str:
+        prompt_verification: Mapping[str, Any],
+        retrieval_gate_binding_digest: str | None = None,
+        protocol_schema: str | None = None) -> str:
     fields = ("matched_non_history_prompt_digest",
         "developmental_history_prompt_block_digest",
         "history_present_selection_digest", "history_restored_selection_digest")
@@ -95,7 +162,46 @@ def _schedule_cohort_digest(*, session_id: str, task_commitment_digest: str,
         "scoring_plan_digest": scoring_plan_digest,
         "scorer_identity_digest": scorer_identity_digest,
         **{key: prompt_verification[key] for key in fields}}
+    if retrieval_gate_binding_digest is not None:
+        if _HEX_DIGEST.fullmatch(retrieval_gate_binding_digest) is None:
+            raise ValueError("ordinary_chat_history_schedule_cohort_gate_binding_invalid")
+        semantic["retrieval_gate_binding_digest"] = retrieval_gate_binding_digest
+    if protocol_schema is not None:
+        if protocol_schema not in SCHEDULED_PROTOCOL_SCHEMAS:
+            raise ValueError("ordinary_chat_history_schedule_cohort_schema_invalid")
+        semantic["protocol_schema"] = protocol_schema
     return digest_payload(semantic)
+
+
+def _randomized_schedule_cohort_digest(*, base_cohort_digest: str,
+        randomization_seed_digest: str) -> str:
+    if (not isinstance(base_cohort_digest, str)
+            or _HEX_DIGEST.fullmatch(base_cohort_digest) is None
+            or not isinstance(randomization_seed_digest, str)
+            or _HEX_DIGEST.fullmatch(randomization_seed_digest) is None):
+        raise ValueError("ordinary_chat_history_randomization_seed_invalid")
+    return digest_payload({
+        "schema_version": "sentientos.ordinary_chat_history_schedule_cohort:v2",
+        "base_schedule_cohort_digest": base_cohort_digest,
+        "randomization_seed_digest": randomization_seed_digest})
+
+
+def _verify_randomization_seed_artifact(value: object, *,
+        base_cohort_digest: str) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise ValueError("ordinary_chat_history_randomization_seed_invalid")
+    semantic = {key: item for key, item in value.items()
+        if key != "seed_artifact_digest"}
+    if (set(value) != {"schema_version", "base_schedule_cohort_digest",
+            "randomization_seed_digest", "authority", "seed_artifact_digest"}
+            or value.get("schema_version") != RANDOMIZATION_SEED_SCHEMA
+            or value.get("base_schedule_cohort_digest") != base_cohort_digest
+            or not isinstance(value.get("randomization_seed_digest"), str)
+            or _HEX_DIGEST.fullmatch(value["randomization_seed_digest"]) is None
+            or value.get("authority") is not False
+            or value.get("seed_artifact_digest") != digest_payload(semantic)):
+        raise ValueError("ordinary_chat_history_randomization_seed_invalid")
+    return dict(value)
 
 
 def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
@@ -104,19 +210,21 @@ def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
             or not isinstance(protocol.get("session_id"), str)
             or not isinstance(protocol.get("task_commitment_digest"), str)):
         raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
-    is_current = protocol.get("schema_version") == PROTOCOL_SCHEMA
-    if is_current and (not isinstance(protocol.get("schedule_cohort_digest"), str)
+    is_scheduled = protocol.get("schema_version") in SCHEDULED_PROTOCOL_SCHEMAS
+    if is_scheduled and (not isinstance(protocol.get("schedule_cohort_digest"), str)
             or _HEX_DIGEST.fullmatch(protocol["schedule_cohort_digest"]) is None):
         raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
-    if protocol.get("schema_version") not in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+    if protocol.get("schema_version") not in {PREVIOUS_PROTOCOL_SCHEMA,
+            *SCHEDULED_PROTOCOL_SCHEMAS}:
         raise ValueError("ordinary_chat_history_schedule_protocol_invalid")
-    cohort_digest = (protocol.get("schedule_cohort_digest") if is_current else None)
+    cohort_digest = (protocol.get("schedule_cohort_digest") if is_scheduled else None)
+    is_seeded = protocol.get("schema_version") == PROTOCOL_SCHEMA
     schedule_id = (SCHEDULE_ID_PREFIX
         + _schedule_key(protocol["session_id"], protocol["task_commitment_digest"],
             cohort_digest=cohort_digest)
         + f"-{trial_index:08d}")
-    semantic = {"schema_version": SCHEDULE_SCHEMA if is_current
-            else LEGACY_SCHEDULE_SCHEMA,
+    semantic = {"schema_version": SEEDED_SCHEDULE_SCHEMA if is_seeded else
+            SCHEDULE_SCHEMA if is_scheduled else LEGACY_SCHEDULE_SCHEMA,
         "schedule_id": schedule_id,
         "session_id": protocol["session_id"],
         "task_commitment_digest": protocol["task_commitment_digest"],
@@ -125,8 +233,13 @@ def _build_schedule_claim(protocol: Mapping[str, Any]) -> dict[str, Any]:
         "protocol_digest": protocol["protocol_digest"],
         "condition_order": list(protocol["condition_order"]),
         "authority": False}
-    if is_current:
+    if is_scheduled:
         semantic["schedule_cohort_digest"] = cohort_digest
+    if is_seeded:
+        semantic["condition_order_policy"] = protocol[
+            "condition_order_policy"]
+        semantic["condition_order_seed_digest"] = protocol[
+            "condition_order_seed_digest"]
     digest = digest_payload(semantic)
     return {**semantic, "schedule_digest": digest}
 
@@ -137,35 +250,53 @@ def _verify_schedule_claim(claim: Mapping[str, Any], *,
         "task_commitment_digest", "trial_index", "protocol_id",
         "protocol_digest", "condition_order", "authority", "schedule_digest"}
     current_fields = legacy_fields | {"schedule_cohort_digest"}
+    seeded_fields = current_fields | {"condition_order_policy",
+        "condition_order_seed_digest"}
     schema = claim.get("schema_version") if isinstance(claim, Mapping) else None
     expected = (legacy_fields if schema == LEGACY_SCHEDULE_SCHEMA else
-        current_fields if schema == SCHEDULE_SCHEMA else set())
+        current_fields if schema == SCHEDULE_SCHEMA else
+        seeded_fields if schema == SEEDED_SCHEDULE_SCHEMA else set())
     if not isinstance(claim, Mapping) or set(claim) != expected:
         raise ValueError("ordinary_chat_history_schedule_claim_invalid")
     semantic = {key: value for key, value in claim.items()
         if key != "schedule_digest"}
     trial_index = claim.get("trial_index")
-    allowed_orders = {tuple(ordinary_chat_history_condition_order(trial_index,
-        policy="balanced_six_permutations:v1"))}
+    if schema == SEEDED_SCHEDULE_SCHEMA:
+        seeded_order = ordinary_chat_history_condition_order(trial_index,
+            policy=claim.get("condition_order_policy"),
+            randomization_seed_digest=claim.get(
+                "condition_order_seed_digest"))
+        allowed_orders = {tuple(seeded_order)}
+    else:
+        allowed_orders = {tuple(ordinary_chat_history_condition_order(trial_index,
+            policy="balanced_six_permutations:v1"))}
     if schema == LEGACY_SCHEDULE_SCHEMA:
         allowed_orders.add(tuple(ordinary_chat_history_condition_order(trial_index,
             policy="alternating_present_withheld_first:v1")))
-    if (schema not in {LEGACY_SCHEDULE_SCHEMA, SCHEDULE_SCHEMA}
+    if (schema not in {LEGACY_SCHEDULE_SCHEMA, SCHEDULE_SCHEMA,
+            SEEDED_SCHEDULE_SCHEMA}
             or type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
             or claim.get("authority") is not False
             or not isinstance(claim.get("session_id"), str)
             or not isinstance(claim.get("task_commitment_digest"), str)
             or not isinstance(claim.get("protocol_id"), str)
             or not isinstance(claim.get("protocol_digest"), str)
-            or (schema == SCHEDULE_SCHEMA and (
+            or (schema in {SCHEDULE_SCHEMA, SEEDED_SCHEDULE_SCHEMA} and (
                 not isinstance(claim.get("schedule_cohort_digest"), str)
                 or _HEX_DIGEST.fullmatch(claim["schedule_cohort_digest"]) is None))
+            or (schema == SEEDED_SCHEDULE_SCHEMA and (
+                claim.get("condition_order_policy") !=
+                    "seeded_balanced_six_permutations:v1"
+                or not isinstance(claim.get("condition_order_seed_digest"), str)
+                or _HEX_DIGEST.fullmatch(
+                    claim["condition_order_seed_digest"]) is None))
             or not isinstance(claim.get("condition_order"), list)
             or tuple(claim["condition_order"]) not in allowed_orders
             or claim.get("schedule_id") != (SCHEDULE_ID_PREFIX
                 + _schedule_key(claim["session_id"], claim["task_commitment_digest"],
                     cohort_digest=(claim.get("schedule_cohort_digest")
-                        if schema == SCHEDULE_SCHEMA else None))
+                        if schema in {SCHEDULE_SCHEMA, SEEDED_SCHEDULE_SCHEMA}
+                        else None))
                 + f"-{trial_index:08d}")
             or claim.get("schedule_digest") != digest_payload(semantic)):
         raise ValueError("ordinary_chat_history_schedule_claim_invalid")
@@ -322,7 +453,7 @@ def build_ordinary_chat_history_score_artifact(*, protocol: Mapping[str, Any],
         score_payload: Mapping[str, Any]) -> dict[str, Any]:
     if (not isinstance(protocol, Mapping)
             or protocol.get("schema_version") not in {
-                PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}
+                PREVIOUS_PROTOCOL_SCHEMA, *SCHEDULED_PROTOCOL_SCHEMAS}
             or not isinstance(protocol.get("protocol_id"), str)
             or not isinstance(protocol.get("protocol_digest"), str)
             or not isinstance(protocol.get("scoring_plan_digest"), str)
@@ -550,7 +681,7 @@ def build_ordinary_chat_history_intervention_result(*,
     verified = verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
     if protocol.get("schema_version") not in {
-            PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+            PREVIOUS_PROTOCOL_SCHEMA, *SCHEDULED_PROTOCOL_SCHEMAS}:
         raise ValueError("ordinary_chat_history_result_requires_current_protocol")
     if not isinstance(conditions, Mapping) or set(conditions) != set(CONDITIONS):
         raise ValueError("ordinary_chat_history_result_conditions_invalid")
@@ -680,7 +811,7 @@ def build_ordinary_chat_history_intervention_evaluation(*,
     checked = verify_ordinary_chat_history_intervention_result(result,
         protocol=protocol, prompt_bundle=prompt_bundle,
         score_artifacts=score_artifacts, scoring_plan=scoring_plan)
-    if (protocol.get("schema_version") != PROTOCOL_SCHEMA
+    if (protocol.get("schema_version") not in SCHEDULED_PROTOCOL_SCHEMAS
             or checked["score_artifact_bindings_verified"] is not True
             or checked["score_semantics_verified"] is not True):
         raise ValueError("ordinary_chat_history_evaluation_scores_unverified")
@@ -854,10 +985,26 @@ def verify_ordinary_chat_history_intervention_evaluation(
         scoring_plan=scoring_plan, score_artifacts=score_artifacts)
     if dict(evaluation) != rebuilt:
         raise ValueError("ordinary_chat_history_evaluation_digest_mismatch")
+    gate_binding = protocol.get("retrieval_gate_binding")
+    if gate_binding is not None:
+        gate_binding = _verify_retrieval_gate_binding_shape(gate_binding,
+            allow_legacy=(protocol.get("schema_version") ==
+                PREVIOUS_GATE_PROTOCOL_SCHEMA))
+        retrieval_gate_qualification = {
+            "binding_digest": gate_binding["binding_digest"],
+            "gate_status": gate_binding.get("gate_status",
+                "retrieval_gate_passed"),
+            "gate_qualification_posture": gate_binding.get(
+                "gate_qualification_posture", "plain_gate_pass"),
+            "qualification_bound_by_protocol_digest":
+                protocol.get("protocol_digest")}
+    else:
+        retrieval_gate_qualification = None
     return {"schema_version": "sentientos.ordinary_chat_history_evaluation_verification:v1",
         "evaluation_id": evaluation["evaluation_id"],
         "evaluation_digest": evaluation["evaluation_digest"],
         "result_id": result["result_id"], "score_semantics_verified": True,
+        "retrieval_gate_qualification": retrieval_gate_qualification,
         "effect_established": False, "improvement_established": False,
         "learning_established": False, "authority": False}
 
@@ -987,12 +1134,21 @@ def build_ordinary_chat_history_intervention_cohort_summary(
                     != EVALUATION_ID_PREFIX + digest[:24]):
             raise ValueError("ordinary_chat_history_cohort_evaluation_digest_invalid")
         trial_index = evaluation.get("trial_index")
+        order_policy = evaluation.get("condition_order_policy")
+        order_seed_digest = evaluation.get("schedule_cohort_digest")
+        try:
+            expected_order = ordinary_chat_history_condition_order(
+                trial_index, policy=order_policy,
+                randomization_seed_digest=(order_seed_digest
+                    if order_policy == "seeded_balanced_six_permutations:v1"
+                    else None))
+        except ValueError:
+            expected_order = None
         if (type(trial_index) is not int or not 0 <= trial_index < MAX_SCHEDULED_TRIALS
                 or trial_index in seen_indices
-                or evaluation.get("condition_order_policy")
-                    != "balanced_six_permutations:v1"
-                or evaluation.get("condition_order")
-                    != ordinary_chat_history_condition_order(trial_index)
+                or order_policy not in {"balanced_six_permutations:v1",
+                    "seeded_balanced_six_permutations:v1"}
+                or evaluation.get("condition_order") != expected_order
                 or not isinstance(evaluation.get("condition_metrics"), Mapping)
                 or set(evaluation["condition_metrics"]) != set(CONDITIONS)
                 or not isinstance(evaluation.get("planned_comparisons"), Mapping)
@@ -1393,7 +1549,7 @@ def execute_ordinary_chat_history_intervention(*, protocol: Mapping[str, Any],
         raise ValueError("ordinary_chat_history_runner_owner_required")
     protocol_check = verify_ordinary_chat_history_intervention_protocol(
         protocol, prompt_bundle=prompt_bundle)
-    if protocol.get("schema_version") != PROTOCOL_SCHEMA:
+    if protocol.get("schema_version") not in SCHEDULED_PROTOCOL_SCHEMAS:
         raise ValueError("ordinary_chat_history_runner_requires_current_protocol")
     persisted_protocol = store.load_protocol(protocol["protocol_id"],
         prompt_bundle=prompt_bundle, require_schedule=True)
@@ -1583,6 +1739,27 @@ class OrdinaryChatHistoryChatInferenceAdapter:
             user_turn_id=str(protocol.get("source_user_turn_id")))
         if not isinstance(verified, Mapping):
             raise ValueError("ordinary_chat_history_chat_receipt_verification_failed")
+        protocol_id = protocol.get("protocol_id")
+        protocol_digest = protocol.get("protocol_digest")
+        session_id = protocol.get("session_id")
+        user_turn_id = protocol.get("source_user_turn_id")
+        caller_linkage = verified.get("caller_linkage")
+        if (verified.get("receipt_id") != receipt_id
+                or verified.get("receipt_digest") != receipt_digest
+                or verified.get("prompt_digest") != expected_prompt_digest
+                or verified.get("output_digest") != expected_output_digest
+                or not isinstance(caller_linkage, Mapping)
+                or caller_linkage.get("session_id") != session_id
+                or caller_linkage.get("user_turn_id") != user_turn_id):
+            raise ValueError("ordinary_chat_history_chat_receipt_binding_invalid")
+        expected_linkage = {**self._caller_linkage,
+            "session_id": session_id, "user_turn_id": user_turn_id,
+            INTERVENTION_LINKAGE_KEY: {"protocol_id": protocol_id,
+                "protocol_digest": protocol_digest, "condition": condition}}
+        request_linkage = verified.get("request_linkage")
+        if (not isinstance(request_linkage, Mapping)
+                or request_linkage.get("caller_context") != expected_linkage):
+            raise ValueError("ordinary_chat_history_chat_condition_linkage_invalid")
         identity = verified.get("loaded_model_identity")
         if not isinstance(identity, Mapping) or not identity:
             raise ValueError("ordinary_chat_history_chat_identity_unavailable")
@@ -1591,6 +1768,8 @@ class OrdinaryChatHistoryChatInferenceAdapter:
             "receipt_digest": verified.get("receipt_digest"),
             "prompt_digest": verified.get("prompt_digest"),
             "output_digest": verified.get("output_digest"),
+            "event_time": verified.get("observed_at"),
+            "event_time_posture": verified.get("event_time_posture"),
             "serving_model_identity_digest": digest_payload(dict(identity)),
             "generation_config_digest": verified.get("generation_config_digest"),
             "status": verified.get("status"),
@@ -1682,13 +1861,21 @@ def verify_ordinary_chat_history_intervention_protocol(
         "protocol_digest",
     }
     schema = protocol.get("schema_version") if isinstance(protocol, Mapping) else None
-    if schema in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+    if schema in {PREVIOUS_PROTOCOL_SCHEMA, *SCHEDULED_PROTOCOL_SCHEMAS}:
         expected_fields.add("scorer_identity_digest")
-    if schema == PROTOCOL_SCHEMA:
+    if schema in SCHEDULED_PROTOCOL_SCHEMAS:
         expected_fields.add("schedule_cohort_digest")
+    if schema == PROTOCOL_SCHEMA:
+        expected_fields.update({"condition_order_policy",
+            "condition_order_seed_digest",
+            "condition_order_randomization_seed_digest",
+            "condition_order_randomization_seed_artifact_digest"})
+    if schema in {PREVIOUS_GATE_PROTOCOL_SCHEMA,
+            PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+        expected_fields.add("retrieval_gate_binding")
     if (not isinstance(protocol, Mapping) or set(protocol) != expected_fields
             or schema not in {LEGACY_PROTOCOL_SCHEMA, PREVIOUS_PROTOCOL_SCHEMA,
-                PROTOCOL_SCHEMA}
+                *SCHEDULED_PROTOCOL_SCHEMAS}
             or not isinstance(protocol.get("run_id"), str)
             or _RUN_ID.fullmatch(protocol["run_id"]) is None
             or not isinstance(protocol.get("session_id"), str)
@@ -1704,7 +1891,7 @@ def verify_ordinary_chat_history_intervention_protocol(
         if not isinstance(protocol.get(key), str) or _HEX_DIGEST.fullmatch(
                 protocol[key]) is None:
             raise ValueError("ordinary_chat_history_protocol_digest_invalid")
-    if schema in {PREVIOUS_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+    if schema in {PREVIOUS_PROTOCOL_SCHEMA, *SCHEDULED_PROTOCOL_SCHEMAS}:
         scorer_digest = protocol.get("scorer_identity_digest")
         if (not isinstance(scorer_digest, str)
                 or _HEX_DIGEST.fullmatch(scorer_digest) is None
@@ -1715,9 +1902,34 @@ def verify_ordinary_chat_history_intervention_protocol(
             or protocol.get("serving_model_identity_digest")
                 != digest_payload(dict(identity))):
         raise ValueError("ordinary_chat_history_protocol_model_identity_invalid")
-    if schema == PROTOCOL_SCHEMA:
-        if bundle_verification.get("condition_order_policy") != (
-                "balanced_six_permutations:v1"):
+    retrieval_gate_binding = None
+    if schema in {PREVIOUS_GATE_PROTOCOL_SCHEMA,
+            PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+        raw_binding = protocol.get("retrieval_gate_binding")
+        if raw_binding is not None:
+            retrieval_gate_binding = _verify_retrieval_gate_binding_shape(
+                raw_binding, allow_legacy=(
+                    schema == PREVIOUS_GATE_PROTOCOL_SCHEMA))
+    if schema in SCHEDULED_PROTOCOL_SCHEMAS:
+        expected_policy = ("seeded_balanced_six_permutations:v1"
+            if schema == PROTOCOL_SCHEMA else
+            "balanced_six_permutations:v1")
+        if (bundle_verification.get("condition_order_policy") !=
+                expected_policy
+                or (schema == PROTOCOL_SCHEMA and (
+                    protocol.get("condition_order_policy") != expected_policy
+                    or protocol.get("condition_order_seed_digest") !=
+                        protocol.get("schedule_cohort_digest")
+                    or not isinstance(protocol.get(
+                        "condition_order_randomization_seed_digest"), str)
+                    or _HEX_DIGEST.fullmatch(protocol[
+                        "condition_order_randomization_seed_digest"]) is None
+                    or not isinstance(protocol.get(
+                        "condition_order_randomization_seed_artifact_digest"), str)
+                    or _HEX_DIGEST.fullmatch(protocol[
+                        "condition_order_randomization_seed_artifact_digest"]) is None
+                    or bundle_verification.get("condition_order_seed_digest") !=
+                        protocol.get("condition_order_seed_digest")))):
             raise ValueError("ordinary_chat_history_protocol_schedule_policy_invalid")
         expected_cohort_digest = _schedule_cohort_digest(
             session_id=protocol["session_id"],
@@ -1726,13 +1938,25 @@ def verify_ordinary_chat_history_intervention_protocol(
             generation_config_digest=protocol["generation_config_digest"],
             scoring_plan_digest=protocol["scoring_plan_digest"],
             scorer_identity_digest=protocol["scorer_identity_digest"],
-            prompt_verification=prompt_bundle["verification"])
+            prompt_verification=prompt_bundle["verification"],
+            retrieval_gate_binding_digest=(None if retrieval_gate_binding is None
+                else retrieval_gate_binding["binding_digest"]),
+            protocol_schema=(schema if schema in {
+                PREVIOUS_GATE_PROTOCOL_SCHEMA,
+                PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA} else None))
+        if schema == PROTOCOL_SCHEMA:
+            expected_cohort_digest = _randomized_schedule_cohort_digest(
+                base_cohort_digest=expected_cohort_digest,
+                randomization_seed_digest=protocol[
+                    "condition_order_randomization_seed_digest"])
         if protocol.get("schedule_cohort_digest") != expected_cohort_digest:
             raise ValueError("ordinary_chat_history_protocol_schedule_cohort_mismatch")
     trial_index = protocol.get("trial_index")
     try:
         order = ordinary_chat_history_condition_order(trial_index,
-            policy=bundle_verification.get("condition_order_policy"))
+            policy=bundle_verification.get("condition_order_policy"),
+            randomization_seed_digest=bundle_verification.get(
+                "condition_order_seed_digest"))
     except ValueError:
         order = None
     prompt_digests = protocol.get("condition_prompt_digests")
@@ -1769,6 +1993,7 @@ def verify_ordinary_chat_history_intervention_protocol(
         "protocol_digest": digest,
         "prompt_bundle_digest": protocol["prompt_bundle_digest"],
         "prompt_bundle_verified": True,
+        "retrieval_gate_bound": retrieval_gate_binding is not None,
         "condition_order": list(order or ()),
         "authority": False,
         "effect_established": False,
@@ -1781,7 +2006,10 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
         source_assistant_turn_id: str, source_assistant_response_digest: str,
         serving_model_identity: Mapping[str, Any], generation_config_digest: str,
         task_commitment_digest: str, scoring_plan_digest: str,
-        scorer_identity_digest: str, schedule_cohort_digest: str) -> dict[str, Any]:
+        scorer_identity_digest: str, schedule_cohort_digest: str,
+        randomization_seed_digest: str,
+        randomization_seed_artifact_digest: str,
+        retrieval_gate_binding: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Freeze exact prompts, serving identity, and independent scoring plan."""
     if not isinstance(prompt_bundle, Mapping):
         raise ValueError("ordinary_chat_history_protocol_prompt_bundle_invalid")
@@ -1806,6 +2034,14 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
             dict(serving_model_identity)),
         "generation_config_digest": generation_config_digest,
         "schedule_cohort_digest": schedule_cohort_digest,
+        "condition_order_randomization_seed_digest":
+            randomization_seed_digest,
+        "condition_order_randomization_seed_artifact_digest":
+            randomization_seed_artifact_digest,
+        "condition_order_policy": verified_bundle[
+            "verification"]["condition_order_policy"],
+        "condition_order_seed_digest": verified_bundle[
+            "verification"].get("condition_order_seed_digest"),
         "prompt_bundle_digest": verified_bundle["prompt_bundle_digest"],
         "condition_order": list(verified_bundle["condition_order"]),
         "condition_prompt_digests": dict(
@@ -1814,6 +2050,8 @@ def build_ordinary_chat_history_intervention_protocol(*, prompt_bundle: Mapping[
         "task_commitment_digest": task_commitment_digest,
         "scoring_plan_digest": scoring_plan_digest,
         "scorer_identity_digest": scorer_identity_digest,
+        "retrieval_gate_binding": (None if retrieval_gate_binding is None else
+            _verify_retrieval_gate_binding_shape(retrieval_gate_binding)),
         "scoring_blinding_posture": "condition_blinded_independent_score:v1",
         "planned_comparisons": list(PLANNED_COMPARISONS),
         "non_claims": list(NON_CLAIMS),
@@ -1836,6 +2074,80 @@ class OrdinaryChatHistoryInterventionStore:
     def __init__(self, state_root: Path) -> None:
         self._store = DevelopmentalExperimentStore(Path(state_root))
 
+    def _build_retrieval_gate_binding(self, *, evaluation_artifact_id: str,
+            scoring_plan: Mapping[str, Any],
+            serving_model_identity: Mapping[str, Any]) -> dict[str, Any]:
+        artifact = self._store.load_retrieval_comparison_evaluation(
+            evaluation_artifact_id)
+        evaluation = artifact["evaluation"]
+        cohort = self._store.load_retrieval_comparison_cohort(
+            artifact["cohort_id"])
+        query_set = self._store.load_retrieval_query_set(cohort["query_set_id"])
+        descriptor = scoring_plan.get("task_descriptor")
+        question = descriptor.get("question") if isinstance(descriptor, Mapping) else None
+        gate = evaluation.get("gate")
+        gate_status = gate.get("status") if isinstance(gate, Mapping) else None
+        gate_is_eligible = (gate_status == "retrieval_gate_passed"
+            or (gate_status ==
+                "retrieval_gate_passed_conditional_on_unverified_source_independence"
+                and gate.get("qualification_posture") ==
+                    "conditional_on_unverified_source_experience_independence"))
+        if (not gate_is_eligible
+                or evaluation.get("learning_established") is not False
+                or evaluation.get("effect_established") is not False
+                or artifact.get("artifact_id") != evaluation_artifact_id
+                or cohort.get("cohort_id") != artifact.get("cohort_id")
+                or evaluation.get("cohort_digest") != cohort.get("cohort_digest")
+                or query_set.get("query_set_id") != cohort.get("query_set_id")
+                or query_set.get("query_set_digest") != cohort.get("query_set_digest")
+                or query_set.get("target_model_identity_digest") is None
+                or query_set.get("target_model_identity_digest") !=
+                    digest_payload(dict(serving_model_identity))
+                or not isinstance(question, str) or not question.strip()):
+            raise ValueError("ordinary_chat_history_retrieval_gate_not_eligible")
+        heldout_question_digest = digest_payload({"question": question})
+        if heldout_question_digest in query_set.get("question_digests", []):
+            raise ValueError("ordinary_chat_history_response_task_not_held_out")
+        qualification_posture = ("plain_gate_pass" if gate_status ==
+            "retrieval_gate_passed" else
+            "conditional_on_unverified_source_experience_independence")
+        semantic = {"evaluation_artifact_id": evaluation_artifact_id,
+            "evaluation_artifact_digest": artifact["artifact_digest"],
+            "evaluation_digest": evaluation["evaluation_digest"],
+            "gate_status": gate_status,
+            "gate_qualification_posture": qualification_posture,
+            "cohort_id": cohort["cohort_id"],
+            "cohort_digest": cohort["cohort_digest"],
+            "query_set_id": query_set["query_set_id"],
+            "query_set_digest": query_set["query_set_digest"],
+            "heldout_question_digest": heldout_question_digest,
+            "target_model_identity_digest": query_set[
+                "target_model_identity_digest"]}
+        return _verify_retrieval_gate_binding_shape({**semantic,
+            "binding_digest": digest_payload(semantic)})
+
+    def _verify_retrieval_gate_binding(self, *, protocol: Mapping[str, Any],
+            scoring_plan: Mapping[str, Any]) -> None:
+        binding = protocol.get("retrieval_gate_binding")
+        if binding is None:
+            return
+        schema = protocol.get("schema_version")
+        if schema not in {PREVIOUS_GATE_PROTOCOL_SCHEMA,
+                PREVIOUS_SCHEDULE_PROTOCOL_SCHEMA, PROTOCOL_SCHEMA}:
+            raise ValueError("ordinary_chat_history_retrieval_gate_binding_protocol_invalid")
+        expected = self._build_retrieval_gate_binding(
+            evaluation_artifact_id=binding["evaluation_artifact_id"],
+            scoring_plan=scoring_plan,
+            serving_model_identity=protocol["serving_model_identity"])
+        if schema == PREVIOUS_GATE_PROTOCOL_SCHEMA:
+            legacy_semantic = {key: value for key, value in expected.items()
+                if key not in {"gate_status", "gate_qualification_posture",
+                    "binding_digest"}}
+            expected = {**legacy_semantic,
+                "binding_digest": digest_payload(legacy_semantic)}
+        if expected != dict(binding):
+            raise ValueError("ordinary_chat_history_retrieval_gate_binding_mismatch")
+
     def prepare_intervention(self, *, context_arguments: Mapping[str, Any],
             history_present: Mapping[str, Any] | None,
             history_withheld: Mapping[str, Any] | None,
@@ -1844,8 +2156,9 @@ class OrdinaryChatHistoryInterventionStore:
             source_user_turn_id: str, source_assistant_turn_id: str,
             source_assistant_response_digest: str,
             serving_model_identity: Mapping[str, Any],
-            generation_config_digest: str) -> dict[str, Any]:
-        """Build and persist one complete preregistration without inference."""
+            generation_config_digest: str,
+            retrieval_evaluation_artifact_id: str | None = None) -> dict[str, Any]:
+        """Build a no-inference preregistration, optionally gated by Phase A."""
         if not isinstance(context_arguments, Mapping):
             raise ValueError("ordinary_chat_history_preparation_context_invalid")
         scoring_plan = build_ordinary_chat_history_objective_scoring_plan(task)
@@ -1861,24 +2174,39 @@ class OrdinaryChatHistoryInterventionStore:
         if not isinstance(serving_model_identity, Mapping) or not serving_model_identity:
             raise ValueError("ordinary_chat_history_protocol_model_identity_invalid")
         model_identity_digest = digest_payload(dict(serving_model_identity))
-        schedule_cohort_digest = _schedule_cohort_digest(
+        retrieval_gate_binding = (None if retrieval_evaluation_artifact_id is None
+            else self._build_retrieval_gate_binding(
+                evaluation_artifact_id=retrieval_evaluation_artifact_id,
+                scoring_plan=scoring_plan,
+                serving_model_identity=serving_model_identity))
+        base_schedule_cohort_digest = _schedule_cohort_digest(
             session_id=session_id,
             task_commitment_digest=scoring_plan["task_commitment_digest"],
             serving_model_identity_digest=model_identity_digest,
             generation_config_digest=generation_config_digest,
             scoring_plan_digest=scoring_plan["scoring_plan_digest"],
             scorer_identity_digest=scoring_plan["scorer_identity_digest"],
-            prompt_verification=initial_prompt_bundle["verification"])
+            prompt_verification=initial_prompt_bundle["verification"],
+            retrieval_gate_binding_digest=(None if retrieval_gate_binding is None
+                else retrieval_gate_binding["binding_digest"]),
+            protocol_schema=PROTOCOL_SCHEMA)
+        seed_artifact = self._load_or_create_randomization_seed(
+            base_schedule_cohort_digest)
+        randomization_seed_digest = seed_artifact[
+            "randomization_seed_digest"]
+        schedule_cohort_digest = _randomized_schedule_cohort_digest(
+            base_cohort_digest=base_schedule_cohort_digest,
+            randomization_seed_digest=randomization_seed_digest)
         trial_index = self.next_trial_index(session_id=session_id,
             task_commitment_digest=scoring_plan["task_commitment_digest"],
             schedule_cohort_digest=schedule_cohort_digest)
-        prompt_bundle = (initial_prompt_bundle if trial_index == 0 else
-            build_ordinary_chat_history_intervention_prompts(
-                context_arguments=context_arguments,
-                history_present=history_present,
-                history_withheld=history_withheld,
-                history_restored=history_restored,
-                trial_index=trial_index))
+        prompt_bundle = build_ordinary_chat_history_intervention_prompts(
+            context_arguments=context_arguments,
+            history_present=history_present,
+            history_withheld=history_withheld,
+            history_restored=history_restored,
+            trial_index=trial_index,
+            condition_order_seed_digest=schedule_cohort_digest)
         verify_ordinary_chat_history_objective_scoring_plan(
             scoring_plan, prompt_bundle=prompt_bundle)
         protocol = build_ordinary_chat_history_intervention_protocol(
@@ -1891,7 +2219,11 @@ class OrdinaryChatHistoryInterventionStore:
             task_commitment_digest=scoring_plan["task_commitment_digest"],
             scoring_plan_digest=scoring_plan["scoring_plan_digest"],
             scorer_identity_digest=scoring_plan["scorer_identity_digest"],
-            schedule_cohort_digest=schedule_cohort_digest)
+            schedule_cohort_digest=schedule_cohort_digest,
+            randomization_seed_digest=randomization_seed_digest,
+            randomization_seed_artifact_digest=seed_artifact[
+                "seed_artifact_digest"],
+            retrieval_gate_binding=retrieval_gate_binding)
         protocol_id = self.persist_protocol(protocol,
             prompt_bundle=prompt_bundle, scoring_plan=scoring_plan)
         reloaded = self.load_protocol(protocol_id, prompt_bundle=prompt_bundle,
@@ -1902,6 +2234,77 @@ class OrdinaryChatHistoryInterventionStore:
             "scoring_plan": persisted_plan,
             "schedule_claim": self.load_schedule_claim(protocol=reloaded),
             "inference_started": False, "authority": False}
+
+    def _randomization_seed_path(self, base_cohort_digest: str) -> Path:
+        if (not isinstance(base_cohort_digest, str)
+                or _HEX_DIGEST.fullmatch(base_cohort_digest) is None):
+            raise ValueError("ordinary_chat_history_randomization_seed_invalid")
+        return self._store.protocols / (
+            f"{RANDOMIZATION_SEED_ID_PREFIX}{base_cohort_digest}.json")
+
+    def _load_or_create_randomization_seed(self,
+            base_cohort_digest: str) -> dict[str, Any]:
+        path = self._randomization_seed_path(base_cohort_digest)
+        try:
+            value = self._store._read_json(path)
+        except FileNotFoundError:
+            semantic = {"schema_version": RANDOMIZATION_SEED_SCHEMA,
+                "base_schedule_cohort_digest": base_cohort_digest,
+                "randomization_seed_digest": secrets.token_hex(32),
+                "authority": False}
+            candidate = {**semantic,
+                "seed_artifact_digest": digest_payload(semantic)}
+            try:
+                self._store._write_immutable(path, candidate)
+            except ValueError as exc:
+                if str(exc) != "artifact_identity_collision":
+                    raise
+            try:
+                value = self._store._read_json(path)
+            except FileNotFoundError as exc:
+                raise ValueError(
+                    "ordinary_chat_history_randomization_seed_missing") from exc
+        return _verify_randomization_seed_artifact(value,
+            base_cohort_digest=base_cohort_digest)
+
+    def _verify_randomization_seed_binding(self, *, protocol: Mapping[str, Any],
+            prompt_bundle: Mapping[str, Any]) -> None:
+        """Reload the immutable seed and bind it to the frozen protocol."""
+        if protocol.get("schema_version") != PROTOCOL_SCHEMA:
+            return
+        verification = prompt_bundle.get("verification")
+        binding = protocol.get("retrieval_gate_binding")
+        base_digest = _schedule_cohort_digest(
+            session_id=protocol["session_id"],
+            task_commitment_digest=protocol["task_commitment_digest"],
+            serving_model_identity_digest=protocol[
+                "serving_model_identity_digest"],
+            generation_config_digest=protocol["generation_config_digest"],
+            scoring_plan_digest=protocol["scoring_plan_digest"],
+            scorer_identity_digest=protocol["scorer_identity_digest"],
+            prompt_verification=verification,
+            retrieval_gate_binding_digest=(None if binding is None else
+                binding["binding_digest"]),
+            protocol_schema=PROTOCOL_SCHEMA)
+        try:
+            artifact_value = self._store._read_json(
+                self._randomization_seed_path(base_digest))
+        except FileNotFoundError as exc:
+            raise ValueError(
+                "ordinary_chat_history_randomization_seed_missing") from exc
+        artifact = _verify_randomization_seed_artifact(artifact_value,
+            base_cohort_digest=base_digest)
+        if (artifact["randomization_seed_digest"] != protocol.get(
+                    "condition_order_randomization_seed_digest")
+                or artifact["seed_artifact_digest"] != protocol.get(
+                    "condition_order_randomization_seed_artifact_digest")
+                or _randomized_schedule_cohort_digest(
+                    base_cohort_digest=base_digest,
+                    randomization_seed_digest=artifact[
+                        "randomization_seed_digest"])
+                    != protocol.get("schedule_cohort_digest")):
+            raise ValueError(
+                "ordinary_chat_history_randomization_seed_binding_mismatch")
 
     def _schedule_path(self, session_id: str, task_commitment_digest: str,
             trial_index: int, *, schedule_cohort_digest: str | None = None) -> Path:
@@ -2012,6 +2415,7 @@ class OrdinaryChatHistoryInterventionStore:
                     or prior.get("trial_index") != trial_index
                     or prior.get("condition_order") != claim.get("condition_order")):
                 raise ValueError("ordinary_chat_history_schedule_protocol_binding_invalid")
+            _verify_schedule_claim(claim, protocol=prior)
         raise ValueError("ordinary_chat_history_schedule_trial_limit_reached")
 
     def next_trial_index(self, *, session_id: str,
@@ -2102,11 +2506,15 @@ class OrdinaryChatHistoryInterventionStore:
             scoring_plan: Mapping[str, Any] | None = None) -> str:
         verified = verify_ordinary_chat_history_intervention_protocol(
             protocol, prompt_bundle=prompt_bundle)
-        if protocol.get("schema_version") == PROTOCOL_SCHEMA:
+        self._verify_randomization_seed_binding(protocol=protocol,
+            prompt_bundle=prompt_bundle)
+        if protocol.get("schema_version") in SCHEDULED_PROTOCOL_SCHEMAS:
             if scoring_plan is None:
                 raise ValueError("ordinary_chat_history_preregistered_scoring_plan_required")
             self.persist_scoring_plan(scoring_plan, protocol=protocol,
                 prompt_bundle=prompt_bundle)
+            self._verify_retrieval_gate_binding(protocol=protocol,
+                scoring_plan=scoring_plan)
         protocol_id = verified["protocol_id"]
         normalized = json.loads(json.dumps(dict(protocol), sort_keys=True))
         path = self._store.protocols / f"{protocol_id}.json"
@@ -2116,7 +2524,7 @@ class OrdinaryChatHistoryInterventionStore:
             reloaded, prompt_bundle=prompt_bundle)
         if reloaded != normalized:
             raise ValueError("ordinary_chat_history_protocol_persistence_mismatch")
-        if protocol.get("schema_version") == PROTOCOL_SCHEMA:
+        if protocol.get("schema_version") in SCHEDULED_PROTOCOL_SCHEMAS:
             self._persist_schedule_claim(protocol)
         return protocol_id
 
@@ -2136,8 +2544,15 @@ class OrdinaryChatHistoryInterventionStore:
             raise ValueError("ordinary_chat_history_protocol_missing") from exc
         result = verify_ordinary_chat_history_intervention_protocol(
             protocol, prompt_bundle=prompt_bundle)
+        self._verify_randomization_seed_binding(protocol=protocol,
+            prompt_bundle=prompt_bundle)
         if result["protocol_id"] != protocol_id:
             raise ValueError("ordinary_chat_history_protocol_identity_mismatch")
+        if protocol.get("schema_version") in SCHEDULED_PROTOCOL_SCHEMAS:
+            scoring_plan = self.load_scoring_plan(protocol=protocol,
+                prompt_bundle=prompt_bundle)
+            self._verify_retrieval_gate_binding(protocol=protocol,
+                scoring_plan=scoring_plan)
         if require_schedule:
             self.load_schedule_claim(protocol=protocol)
         return protocol

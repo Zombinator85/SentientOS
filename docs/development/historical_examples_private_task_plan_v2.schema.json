@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/historical_examples_private_task_plan_v2.schema.json",
+  "title": "SentientOS historical examples private task plan v2",
+  "description": "Private answer-bearing task custody with a persisted history prompt identity policy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_digest",
+    "task_specification",
+    "task_commitment_nonce",
+    "history_prompt_identity_policy",
+    "authority",
+    "task_plan_digest",
+    "journal_record_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.historical_examples_private_task_plan:v2"
+    },
+    "task_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_specification": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "task_commitment_nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "history_prompt_identity_policy": {
+      "const": "matched_cross_model_identity_omitted:v1"
+    },
+    "authority": {
+      "const": false
+    },
+    "task_plan_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "journal_record_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

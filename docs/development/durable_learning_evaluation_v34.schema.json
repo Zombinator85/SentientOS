@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_evaluation_v34.schema.json",
+  "title": "Durable-learning evaluation v34 envelope with V11 authorization lineage",
+  "description": "Validates the immutable v34 evaluation envelope and V11 competence assessment and delayed-attempt authorization references. The bounded descriptive metrics inside the report remain governed by their recomputation verifier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "outcome_refs",
+    "report", "claims_posture", "authority", "evaluation_id",
+    "evaluation_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_evaluation:v34"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "outcome_refs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/outcomeRef" }
+    },
+    "report": { "$ref": "#/$defs/reportV34" },
+    "claims_posture": {
+      "const": "bounded_fixture_comparison_no_durable_learning_claim"
+    },
+    "authority": { "const": false },
+    "evaluation_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-evaluation-[0-9a-f]{24}$"
+    },
+    "evaluation_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "outcomeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome_id", "outcome_digest"],
+      "properties": {
+        "outcome_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-outcome-[0-9a-f]{24}$"
+        },
+        "outcome_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "reportV34": {
+      "type": "object",
+      "required": [
+        "schema_version", "protocol_id", "outcome_count",
+        "withheld_acquisition_competence_assessment",
+        "withheld_acquisition_competence_authorization_refs",
+        "durable_learning_established", "authority"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.durable_learning_outcome_set_verification:v34"
+        },
+        "protocol_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+        },
+        "outcome_count": { "type": "integer", "minimum": 1 },
+        "withheld_acquisition_competence_assessment": {
+          "$ref": "durable_learning_competence_assessment.schema.json"
+        },
+        "withheld_acquisition_competence_authorization_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/competenceAuthorizationRef" }
+        },
+        "durable_learning_established": { "const": false },
+        "authority": { "const": false }
+      },
+      "additionalProperties": true
+    },
+    "competenceAuthorizationRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorization_id", "authorization_digest", "assessment_id",
+        "assessment_digest", "attempt_id", "attempt_digest"
+      ],
+      "properties": {
+        "authorization_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-competence-authorization-[0-9a-f]{24}$"
+        },
+        "authorization_digest": { "$ref": "#/$defs/digest" },
+        "assessment_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-competence-assessment-[0-9a-f]{24}$"
+        },
+        "assessment_digest": { "$ref": "#/$defs/digest" },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-attempt-[0-9a-f]{24}$"
+        },
+        "attempt_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

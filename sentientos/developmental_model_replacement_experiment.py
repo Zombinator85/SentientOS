@@ -6,25 +6,35 @@ governed endpoints; the experiment never changes either endpoint or any memory.
 from __future__ import annotations
 
 import json
+import hashlib
+import hmac
 import os
+import random
 import secrets
 import stat
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Mapping, Protocol, Sequence, cast
 
 from .local_model_authority import digest_payload
 from .persistent_epistemic_state import validate_cognitive_projection
+from .developmental_model_replacement_conditions import (
+    CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDERS)
 from .windows_handle_custody import WindowsHandleCustodyError, read_regular_files
 
 PURPOSE = "resident_developmental_model_replacement_experiment"
 CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
+CONTEXT_SCHEMA_V2 = "sentientos.developmental_model_replacement_context:v2"
 CONTEXT_BINDING_SCHEMA = "sentientos.developmental_model_replacement_context_binding:v1"
+CONTEXT_BINDING_SCHEMA_V2 = "sentientos.developmental_model_replacement_context_binding:v2"
 PROVENANCE_SCHEMA = "sentientos.model_development_provenance:v1"
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_protocol:v1"
-RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v1"
-CONDITION_START_SCHEMA = "sentientos.developmental_model_replacement_condition_start:v1"
+RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v2"
+LEGACY_CONDITION_START_SCHEMA = "sentientos.developmental_model_replacement_condition_start:v1"
+POSITION_CONDITION_START_SCHEMA = "sentientos.developmental_model_replacement_condition_start:v2"
+CONDITION_START_SCHEMA = "sentientos.developmental_model_replacement_condition_start:v3"
 CONDITION_RESULT_SCHEMA = "sentientos.developmental_model_replacement_condition_result:v1"
 MAX_PROVENANCE_ARTIFACT_BYTES = 262_144
 MAX_PROVENANCE_CLAIMS = 128
@@ -33,13 +43,27 @@ MAX_CONTEXT_ARTIFACT_BYTES = 2_097_152
 MAX_RUN_ARTIFACT_BYTES = 4_194_304
 MAX_CONDITION_ARTIFACT_BYTES = 1_048_576
 MAX_WORLD_STATE_PROJECTION_RECORDS = 48
-CONDITION_ORDER = (
-    "model_a_history_present", "model_a_history_withheld",
-    "model_b_history_present", "model_b_history_withheld",
-    "model_a_history_restored",
-)
 FAMILY_TASK_SCHEMA_V3 = "sentientos.affine_prediction_task_family_suite:v3"
 FAMILY_TASK_SCHEMA_V4 = "sentientos.affine_prediction_task_family_suite:v4"
+FAMILY_TASK_SCHEMA_V5 = "sentientos.affine_prediction_task_family_suite:v5"
+FAMILY_TASK_SCHEMA_V6 = "sentientos.affine_prediction_task_family_suite:v6"
+ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY = (
+    "rootless_integer_affine_transfer_low_range_v6")
+ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY = (
+    "rootless_integer_affine_transfer_wide_range_v7")
+ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY = (
+    "rootless_integer_affine_transfer_novel_range_v8")
+FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS = MappingProxyType({
+    ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY: (2, 1),
+    ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY: (2, 1),
+    ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY: (2, 1),
+})
+FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES = MappingProxyType({
+    ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY: ((2, 5), (6, 9)),
+    ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY: ((2, 9), (10, 1000)),
+    ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY: (
+        (1001, 10000), (10001, 1000000)),
+})
 
 
 def _prior_cognition_bindings(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -319,6 +343,63 @@ def _is_sha256_digest(value: Any, *, allow_unprefixed: bool = False) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
+def _history_projection_refs_match(record_ids: Any, record_digests: Any,
+        projection: Any) -> bool:
+    """Bind each frozen history payload row to its selected record reference."""
+    if (not isinstance(record_ids, (list, tuple))
+            or not isinstance(record_digests, (list, tuple))
+            or not isinstance(projection, (list, tuple))
+            or len(record_ids) != len(record_digests)
+            or len(record_ids) != len(projection)
+            or len(record_ids) > 64):
+        return False
+    return all(isinstance(row, Mapping)
+        and row.get("record_id") == record_id
+        and row.get("record_digest") == record_digest
+        and all(key not in row or row.get(key) is False for key in (
+            "current_truth", "authority", "policy", "goal",
+            "grants_authority", "effect_authority",
+            "canonical_explicit_user_retention"))
+        and ("historical_only" not in row
+            or row.get("historical_only") is True)
+        and ("epistemic_posture" not in row
+            or row.get("epistemic_posture") ==
+                "historical_interpretation_not_current_truth")
+        for record_id, record_digest, row in zip(
+            record_ids, record_digests, projection))
+
+
+def _current_projection_refs_match(fact_ids: Any, projection: Any) -> bool:
+    """Bind selected current fact IDs to the exact facts in the frozen payload."""
+    if (not isinstance(fact_ids, (list, tuple))
+            or not isinstance(projection, Mapping)
+            or len(fact_ids) > 64
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in fact_ids)
+            or len(set(fact_ids)) != len(fact_ids)):
+        return False
+    facts = projection.get("facts")
+    if (not isinstance(facts, (list, tuple)) or len(facts) != len(fact_ids)
+            or len(fact_ids) > 64):
+        return False
+    projected_ids: list[str] = []
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            return False
+        fact_id = fact.get("fact_id")
+        alternate_id = fact.get("id")
+        if (fact_id is not None and alternate_id is not None
+                and fact_id != alternate_id):
+            return False
+        selected_id = fact_id if fact_id is not None else alternate_id
+        if (not isinstance(selected_id, str) or not selected_id
+                or len(selected_id) > 256):
+            return False
+        projected_ids.append(selected_id)
+    return (len(set(projected_ids)) == len(projected_ids)
+        and set(projected_ids) == set(fact_ids))
+
+
 def _identity_payload(identity: "CognitiveModelIdentity") -> dict[str, Any]:
     value = asdict(identity)
     value.pop("identity_digest", None)
@@ -477,14 +558,22 @@ class FrozenCausalContext:
     inference_budget: Mapping[str, Any]
     generation_posture: Mapping[str, Any]
     repository_generation_identity: str | None
-    schema_version: str = CONTEXT_SCHEMA
+    schema_version: str = CONTEXT_SCHEMA_V2
 
     @classmethod
     def create(cls, **kwargs: Any) -> "FrozenCausalContext":
         raw = cls("", "", **kwargs)
         payload = asdict(raw); payload.pop("context_id"); payload.pop("context_digest")
         digest = _digest(payload)
-        return replace(raw, context_id="model-replacement-context-" + digest[7:31], context_digest=digest)
+        context = replace(raw, context_digest=digest)
+        if context.schema_version == CONTEXT_SCHEMA:
+            context_id_digest = digest
+        elif context.schema_version == CONTEXT_SCHEMA_V2:
+            context_id_digest = _digest(context._binding_semantic())
+        else:
+            raise DevelopmentalModelReplacementError("causal_context_schema_invalid")
+        return replace(context, context_id="model-replacement-context-"
+            + context_id_digest[7:31])
 
     @classmethod
     def create_from_admitted_history(cls, *, writeback: Any,
@@ -546,7 +635,12 @@ class FrozenCausalContext:
     def verify(self) -> None:
         payload = asdict(self); payload.pop("context_id"); payload.pop("context_digest")
         digest = _digest(payload)
-        if self.context_digest != digest or self.context_id != "model-replacement-context-" + digest[7:31]:
+        context_id_digest = (digest if self.schema_version == CONTEXT_SCHEMA else
+            _digest(self._binding_semantic())
+            if self.schema_version == CONTEXT_SCHEMA_V2 else None)
+        if (self.context_digest != digest or context_id_digest is None
+                or self.context_id != "model-replacement-context-"
+                    + context_id_digest[7:31]):
             raise DevelopmentalModelReplacementError("causal_context_digest_mismatch")
         if (self.repository_generation_identity is not None
                 and (not isinstance(self.repository_generation_identity, str)
@@ -555,12 +649,20 @@ class FrozenCausalContext:
             raise DevelopmentalModelReplacementError("repository_generation_identity_invalid")
         if self.projected_content_digest != _digest(dict(self.current_projection_payload)):
             raise DevelopmentalModelReplacementError("current_projection_content_mismatch")
-        if (len(self.current_fact_ids) > 64 or len(set(self.current_fact_ids)) != len(self.current_fact_ids)
+        if (len(self.current_fact_ids) > 64
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in self.current_fact_ids)
+                or len(set(self.current_fact_ids)) != len(self.current_fact_ids)
+                or not _current_projection_refs_match(self.current_fact_ids,
+                    self.current_projection_payload)
                 or len(self.history_record_ids) > 64
                 or len(self.history_record_ids) != len(self.history_record_digests)
-                or len(self.history_record_ids) != len(self.history_projection_payload)
-                or any(not isinstance(item, str) or not item for item in self.history_record_ids)
-                or any(not isinstance(item, str) or not item.startswith("sha256:")
+                or not _history_projection_refs_match(self.history_record_ids,
+                    self.history_record_digests, self.history_projection_payload)
+                or any(not isinstance(item, str) or not item or len(item) > 256
+                    for item in self.history_record_ids)
+                or len(set(self.history_record_ids)) != len(self.history_record_ids)
+                or any(not _is_sha256_digest(item)
                     for item in self.history_record_digests)):
             raise DevelopmentalModelReplacementError("causal_context_evidence_bounds_invalid")
         history = {"record_ids": list(self.history_record_ids),
@@ -573,11 +675,13 @@ class FrozenCausalContext:
             raise DevelopmentalModelReplacementError("temperature_zero_required")
         _prior_cognition_bindings(self.current_projection_payload)
 
-    def identity_manifest(self) -> dict[str, Any]:
-        self.verify()
-        semantic = {"schema_version": CONTEXT_BINDING_SCHEMA,
-            "context_id": self.context_id, "context_digest": self.context_digest,
-            "snapshot_id": self.snapshot_id, "snapshot_digest": self.snapshot_digest,
+    def _binding_semantic(self) -> dict[str, Any]:
+        return {"schema_version": (CONTEXT_BINDING_SCHEMA_V2
+                if self.schema_version == CONTEXT_SCHEMA_V2 else
+                CONTEXT_BINDING_SCHEMA),
+            "context_digest": self.context_digest,
+            "snapshot_id": self.snapshot_id,
+            "snapshot_digest": self.snapshot_digest,
             "current_projection_id": self.current_projection_id,
             "current_projection_digest": self.current_projection_digest,
             "current_fact_ids": list(self.current_fact_ids),
@@ -589,8 +693,13 @@ class FrozenCausalContext:
             "inference_budget": dict(self.inference_budget),
             "generation_posture": dict(self.generation_posture),
             "repository_generation_identity": self.repository_generation_identity,
-            "prior_cognition_bindings": _prior_cognition_bindings(self.current_projection_payload),
+            "prior_cognition_bindings": _prior_cognition_bindings(
+                self.current_projection_payload),
             "authority": False}
+
+    def identity_manifest(self) -> dict[str, Any]:
+        self.verify()
+        semantic = {**self._binding_semantic(), "context_id": self.context_id}
         return {**semantic, "context_manifest_digest": _digest(semantic)}
 
 
@@ -940,7 +1049,9 @@ class ModelReplacementArtifactStore:
             history_digests = value.get("history_record_digests")
             current_fact_ids = value.get("current_fact_ids")
             prior_bindings = value.get("prior_cognition_bindings")
-            if (value.get("schema_version") != CONTEXT_BINDING_SCHEMA
+            binding_schema = value.get("schema_version")
+            if (binding_schema not in {CONTEXT_BINDING_SCHEMA,
+                    CONTEXT_BINDING_SCHEMA_V2}
                     or manifest_digest != _digest(semantic)
                     or value.get("context_id") != context_id
                     or value.get("context_digest") != context_digest
@@ -962,15 +1073,17 @@ class ModelReplacementArtifactStore:
                     or value.get("generation_posture", {}).get("temperature") != 0
                     or not isinstance(history_ids, list) or not isinstance(history_digests, list)
                     or len(history_ids) != len(history_digests) or len(history_ids) > 64
+                    or any(not isinstance(item, str) or not item or len(item) > 256
+                        for item in history_ids)
                     or len(set(history_ids)) != len(history_ids)
-                    or any(not isinstance(item, str) or not item for item in history_ids)
                     or any(not isinstance(item, str) or len(item) != 71 or not item.startswith("sha256:")
                         or any(character not in "0123456789abcdef" for character in item[7:])
                         for item in history_digests)
                     or value.get("history_record_set_digest") != _digest({
                         "record_ids": history_ids, "record_digests": history_digests})
                     or not isinstance(current_fact_ids, list) or len(current_fact_ids) > 64
-                    or any(not isinstance(item, str) or not item for item in current_fact_ids)
+                    or any(not isinstance(item, str) or not item or len(item) > 256
+                        for item in current_fact_ids)
                     or len(set(current_fact_ids)) != len(current_fact_ids)
                     or not isinstance(prior_bindings, Mapping)
                     or prior_bindings.get("prior_cognitive_context_posture") not in {
@@ -978,11 +1091,20 @@ class ModelReplacementArtifactStore:
                         "verified_prior_self_and_epistemic_projections"}):
                 raise DevelopmentalModelReplacementError("context_artifact_invalid")
             _validate_prior_binding_manifest(prior_bindings)
+            if binding_schema == CONTEXT_BINDING_SCHEMA_V2:
+                binding_semantic = {key: item for key, item in value.items()
+                    if key not in {"context_id", "context_manifest_digest"}}
+                if context_id != "model-replacement-context-" + _digest(
+                        binding_semantic)[7:31]:
+                    raise DevelopmentalModelReplacementError(
+                        "context_manifest_identity_mismatch")
         except DevelopmentalModelReplacementError:
             raise
         except (KeyError, TypeError, ValueError) as exc:
             raise DevelopmentalModelReplacementError("context_artifact_invalid") from exc
-        if context_id != "model-replacement-context-" + context_digest[7:31]:
+        if (binding_schema == CONTEXT_BINDING_SCHEMA
+                and context_id != "model-replacement-context-"
+                    + context_digest[7:31]):
             raise DevelopmentalModelReplacementError("context_artifact_identity_mismatch")
         return value
 
@@ -1036,13 +1158,74 @@ class ModelReplacementArtifactStore:
 
     def begin_condition(self, *, protocol_id: str, protocol_digest: str,
                         trial_id: str, condition: str, input_digest: str,
-                        correlation_id: str) -> tuple[bool, dict[str, Any]]:
+                        correlation_id: str,
+                        execution_order: Sequence[str] = CONDITION_ORDER,
+                        execution_position: int | None = None,
+                        previous_condition_start_digest: str | None = None) -> tuple[bool, dict[str, Any]]:
+        try:
+            execution_order = tuple(execution_order)
+        except TypeError as exc:
+            raise DevelopmentalModelReplacementError(
+                "condition_execution_order_invalid") from exc
+        protocol_prefix = "model-replacement-protocol-"
+        if (not isinstance(protocol_id, str) or len(protocol_id) != len(protocol_prefix) + 24
+                or not protocol_id.startswith(protocol_prefix)
+                or any(character not in "0123456789abcdef" for character in protocol_id[len(protocol_prefix):])
+                or not isinstance(protocol_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", protocol_digest) is None
+                or not isinstance(trial_id, str) or not trial_id
+                or len(trial_id) > MAX_TRIAL_ID_LENGTH
+                or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+                    for character in trial_id)
+                or not isinstance(input_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", input_digest) is None
+                or type(condition) is not str or condition not in CONDITION_ORDER
+                or correlation_id != f"{protocol_id}:{trial_id}:{condition}"):
+            raise DevelopmentalModelReplacementError("condition_execution_order_invalid")
+        if execution_position is None:
+            execution_position = execution_order.index(condition) + 1 if condition in execution_order else 0
+        if (execution_order not in COUNTERBALANCED_CONDITION_ORDERS
+                or type(execution_position) is not int or not 1 <= execution_position <= len(execution_order)
+                or execution_order[execution_position - 1] != condition
+                or (execution_position == 1 and previous_condition_start_digest is not None)
+                or (execution_position > 1 and (not isinstance(previous_condition_start_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}", previous_condition_start_digest) is None))):
+            raise DevelopmentalModelReplacementError("condition_execution_order_invalid")
+        if execution_position > 1:
+            predecessor_id = self.condition_artifact_id(protocol_id=protocol_id,
+                trial_id=trial_id, condition=execution_order[execution_position - 2])
+            predecessor_path = self.condition_starts / f"{predecessor_id}.json"
+            predecessor = self._read_artifact_json(predecessor_path,
+                maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
+                missing_code="condition_predecessor_start_missing",
+                invalid_code="condition_predecessor_start_invalid")
+            if (predecessor.get("condition_start_digest") != previous_condition_start_digest
+                    or predecessor.get("protocol_id") != protocol_id
+                    or predecessor.get("protocol_digest") != protocol_digest
+                    or predecessor.get("trial_id") != trial_id
+                    or predecessor.get("condition_id") != predecessor_id):
+                raise DevelopmentalModelReplacementError("condition_predecessor_binding_invalid")
+            prior_start, prior_terminal = self.read_condition(condition_id=predecessor_id,
+                expected_input_digest=str(predecessor.get("input_digest") or ""))
+            prior_order = tuple(prior_start.get("execution_order", CONDITION_ORDER))
+            prior_position = (prior_start.get("execution_position",
+                CONDITION_ORDER.index(prior_start.get("condition")) + 1
+                if prior_start.get("condition") in CONDITION_ORDER else 0)
+                if prior_start else 0)
+            if (prior_start is None or prior_start.get("protocol_digest") != protocol_digest
+                    or (prior_start.get("schema_version") != LEGACY_CONDITION_START_SCHEMA
+                        and (prior_order != execution_order
+                            or prior_position != execution_position - 1))
+                    or prior_terminal is None or prior_terminal.get("status") != "completed"):
+                raise DevelopmentalModelReplacementError("condition_predecessor_not_completed")
         condition_id = self.condition_artifact_id(protocol_id=protocol_id,
             trial_id=trial_id, condition=condition)
         semantic = {"schema_version": CONDITION_START_SCHEMA,
             "condition_id": condition_id, "protocol_id": protocol_id,
             "protocol_digest": protocol_digest, "trial_id": trial_id,
             "condition": condition, "input_digest": input_digest,
+            "execution_order": list(execution_order), "execution_position": execution_position,
+            "previous_condition_start_digest": previous_condition_start_digest,
             "correlation_id": correlation_id, "authority": False}
         record = {**semantic, "condition_start_digest": _digest(semantic)}
         created = self._write(self.condition_starts / f"{condition_id}.json", record)
@@ -1111,12 +1294,66 @@ class ModelReplacementArtifactStore:
         start_semantic = {key: item for key, item in start.items() if key != "condition_start_digest"}
         expected_id = self.condition_artifact_id(protocol_id=str(start.get("protocol_id") or ""),
             trial_id=str(start.get("trial_id") or ""), condition=str(start.get("condition") or ""))
-        if (start.get("schema_version") != CONDITION_START_SCHEMA
+        start_schema = start.get("schema_version")
+        legacy = start_schema == LEGACY_CONDITION_START_SCHEMA
+        position_only = start_schema == POSITION_CONDITION_START_SCHEMA
+        expected_keys = {"schema_version", "condition_id", "protocol_id", "protocol_digest",
+            "trial_id", "condition", "input_digest", "correlation_id", "authority"}
+        if not legacy:
+            expected_keys.update({"execution_order", "execution_position"})
+            if not position_only:
+                expected_keys.add("previous_condition_start_digest")
+        order = tuple(start.get("execution_order", CONDITION_ORDER))
+        position = start.get("execution_position", CONDITION_ORDER.index(start.get("condition")) + 1
+            if start.get("condition") in CONDITION_ORDER else 0)
+        if (start_schema not in {LEGACY_CONDITION_START_SCHEMA,
+                    POSITION_CONDITION_START_SCHEMA, CONDITION_START_SCHEMA}
+                or set(start) != expected_keys | {"condition_start_digest"}
+                or (legacy and start.get("condition") not in CONDITION_ORDER)
+                or (not legacy and (order not in COUNTERBALANCED_CONDITION_ORDERS
+                    or type(position) is not int or not 1 <= position <= len(order)
+                    or order[position - 1] != start.get("condition")))
                 or start.get("condition_id") != condition_id or expected_id != condition_id
                 or start.get("input_digest") != expected_input_digest or start.get("authority") is not False
                 or start.get("condition_start_digest") != _digest(start_semantic)
                 or start.get("correlation_id") != f"{start['protocol_id']}:{start['trial_id']}:{start['condition']}" ):
             raise DevelopmentalModelReplacementError("condition_start_digest_or_context_invalid")
+        if start_schema == CONDITION_START_SCHEMA:
+            previous_digest = start.get("previous_condition_start_digest")
+            if position == 1:
+                if previous_digest is not None:
+                    raise DevelopmentalModelReplacementError("condition_start_chain_invalid")
+            else:
+                if (not isinstance(previous_digest, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", previous_digest) is None):
+                    raise DevelopmentalModelReplacementError("condition_start_chain_invalid")
+                predecessor_condition = order[position - 2]
+                predecessor_id = self.condition_artifact_id(
+                    protocol_id=str(start["protocol_id"]), trial_id=str(start["trial_id"]),
+                    condition=predecessor_condition)
+                predecessor_path = self.condition_starts / f"{predecessor_id}.json"
+                predecessor_record = self._read_artifact_json(predecessor_path,
+                    maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
+                    missing_code="condition_predecessor_start_missing",
+                    invalid_code="condition_predecessor_start_invalid")
+                if predecessor_record.get("condition_start_digest") != previous_digest:
+                    raise DevelopmentalModelReplacementError("condition_start_chain_invalid")
+                prior_start, prior_terminal = self.read_condition(
+                    condition_id=predecessor_id,
+                    expected_input_digest=str(predecessor_record.get("input_digest") or ""))
+                prior_order = tuple(prior_start.get("execution_order", CONDITION_ORDER)) if prior_start else ()
+                prior_position = (prior_start.get("execution_position",
+                    CONDITION_ORDER.index(predecessor_condition) + 1
+                    if predecessor_condition in CONDITION_ORDER else 0) if prior_start else 0)
+                prior_schedule_matches = (prior_start is not None
+                    and (prior_start.get("schema_version") == LEGACY_CONDITION_START_SCHEMA
+                        or (prior_order == order and prior_position == position - 1)))
+                if (prior_start is None or prior_start.get("protocol_id") != start.get("protocol_id")
+                        or prior_start.get("protocol_digest") != start.get("protocol_digest")
+                        or prior_start.get("trial_id") != start.get("trial_id")
+                        or not prior_schedule_matches
+                        or prior_terminal is None or prior_terminal.get("status") != "completed"):
+                    raise DevelopmentalModelReplacementError("condition_start_chain_invalid")
         result_path = self.condition_results / f"{condition_id}.json"
         try:
             result = self._read_artifact_json(result_path, maximum_bytes=MAX_CONDITION_ARTIFACT_BYTES,
@@ -1172,7 +1409,8 @@ class ModelReplacementArtifactStore:
             else:
                 raise ValueError("objective_plan_schema_invalid")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4,
+                    FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}:
                 probes = specification["probe_inputs"]
                 if not isinstance(probes, list) or not probes:
                     raise ValueError("objective_probe_suite_invalid")
@@ -1181,7 +1419,12 @@ class ModelReplacementArtifactStore:
                     specification.get("requires_task_family_history", False),
                     **({"commitment_nonce": nonce} if nonce is not None else {}),
                     family_contract_version=(3 if specification.get("schema_version")
-                        == FAMILY_TASK_SCHEMA_V3 else 4))
+                        == FAMILY_TASK_SCHEMA_V3 else 4 if specification.get(
+                            "schema_version") == FAMILY_TASK_SCHEMA_V4 else
+                        6 if specification.get("schema_version") ==
+                            FAMILY_TASK_SCHEMA_V6 else 5),
+                    history_task_family_ids=tuple(specification.get(
+                        "history_task_family_ids", ())))
             else:
                 task = (ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     specification["probe_input"], commitment_nonce=nonce) if isinstance(nonce, str)
@@ -1209,14 +1452,20 @@ class ModelReplacementArtifactStore:
             if plan.get("schema_version") != "sentientos.objective_task_plan:v2" or not isinstance(nonce, str):
                 raise ValueError("objective_task_commitment_nonce_missing")
             if specification.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4,
+                    FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}:
                 probes = specification["probe_inputs"]
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     probes[0], tuple(probes[1:]), specification.get("task_family_id"),
                     specification.get("requires_task_family_history", False),
                     commitment_nonce=nonce,
                     family_contract_version=(3 if specification.get("schema_version")
-                        == FAMILY_TASK_SCHEMA_V3 else 4))
+                        == FAMILY_TASK_SCHEMA_V3 else 4 if specification.get(
+                        "schema_version") == FAMILY_TASK_SCHEMA_V4 else
+                        6 if specification.get("schema_version") ==
+                            FAMILY_TASK_SCHEMA_V6 else 5),
+                    history_task_family_ids=tuple(specification.get(
+                        "history_task_family_ids", ())))
             else:
                 task = ObjectivePredictionTask(specification["multiplier"], specification["offset"],
                     specification["probe_input"], commitment_nonce=nonce)
@@ -1268,9 +1517,12 @@ class ModelReplacementArtifactStore:
             trial_id = value.get("trial_id")
             observations = value.get("observations")
             completion = value.get("experiment_completion_posture")
+            execution_order = value.get("condition_execution_order", list(CONDITION_ORDER))
             if (not isinstance(protocol, Mapping) or not isinstance(trial_id, str)
                     or not isinstance(condition_statuses, list) or not 1 <= len(condition_statuses) <= len(CONDITION_ORDER)
                     or not isinstance(observations, list) or len(observations) > len(CONDITION_ORDER)
+                    or not isinstance(execution_order, list)
+                    or tuple(execution_order) not in COUNTERBALANCED_CONDITION_ORDERS
                     or not isinstance(completion, str)
                     or completion not in {"completed", "incomplete", "contradictory"}):
                 raise DevelopmentalModelReplacementError("trial_condition_lineage_incomplete")
@@ -1288,7 +1540,13 @@ class ModelReplacementArtifactStore:
                 raise DevelopmentalModelReplacementError("trial_context_lineage_posture_invalid")
             completed_observations: list[Mapping[str, Any]] = []
             saw_terminal_status = False
-            for index, (condition, status) in enumerate(zip(CONDITION_ORDER, condition_statuses)):
+            all_condition_starts_chain_order = True
+            has_position_only_start = False
+            has_unattested_legacy_start = False
+            previous_condition_start_digest: str | None = None
+            observation_by_condition = {str(item.get("condition_id")): item
+                for item in observations if isinstance(item, Mapping)}
+            for index, (condition, status) in enumerate(zip(execution_order, condition_statuses)):
                 if not isinstance(status, Mapping):
                     raise DevelopmentalModelReplacementError("trial_condition_lineage_invalid")
                 condition_id = self.condition_artifact_id(protocol_id=protocol_id,
@@ -1302,13 +1560,34 @@ class ModelReplacementArtifactStore:
                     raise DevelopmentalModelReplacementError("trial_condition_lineage_invalid")
                 start, terminal = self.read_condition(condition_id=condition_id,
                     expected_input_digest=status["condition_input_digest"])
-                if (start is None or status.get("condition_start_digest") != start.get("condition_start_digest")):
+                start_order = tuple(start.get("execution_order", CONDITION_ORDER)) if start else ()
+                start_position = start.get("execution_position", CONDITION_ORDER.index(condition) + 1
+                    if condition in CONDITION_ORDER else 0) if start else 0
+                if (start is None or status.get("condition_start_digest") != start.get("condition_start_digest")
+                        or (start.get("schema_version") in {
+                                POSITION_CONDITION_START_SCHEMA, CONDITION_START_SCHEMA}
+                            and (start_order != tuple(execution_order) or start_position != index + 1))):
                     raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
+                claimed_witness = status.get("condition_start_witness")
+                if claimed_witness is not None and claimed_witness != start:
+                    raise DevelopmentalModelReplacementError("trial_condition_start_witness_conflict")
+                condition_statuses[index] = {**dict(status),
+                    "condition_start_witness": dict(start)}
+                if start.get("schema_version") == CONDITION_START_SCHEMA:
+                    if start.get("previous_condition_start_digest") != previous_condition_start_digest:
+                        raise DevelopmentalModelReplacementError("trial_condition_start_chain_conflict")
+                else:
+                    all_condition_starts_chain_order = False
+                    if start.get("schema_version") == POSITION_CONDITION_START_SCHEMA:
+                        has_position_only_start = True
+                    else:
+                        has_unattested_legacy_start = True
+                previous_condition_start_digest = str(start["condition_start_digest"])
                 if status_value == "completed":
                     if (terminal is None or terminal.get("status") != "completed"
                             or status.get("condition_result_digest") != terminal.get("condition_result_digest")
                             or len(completed_observations) >= len(observations)
-                            or terminal.get("observation") != observations[len(completed_observations)]):
+                            or terminal.get("observation") != observation_by_condition.get(condition)):
                         raise DevelopmentalModelReplacementError("trial_condition_lineage_conflict")
                     if prior_bindings is not None and frozen_context is not None:
                         if any(key in terminal["observation"] for key in prior_bindings):
@@ -1378,10 +1657,22 @@ class ModelReplacementArtifactStore:
                 score = observation.get("objective_task_score")
                 _verify_objective_score(plan, score, observation.get("output_digest"),
                     output_truncated=observation.get("output_truncated", False))
-            if (evaluation != _objective_evaluation(plan, value["observations"])
+            current_evaluation = _objective_evaluation(plan, value["observations"])
+            prior_probe_evaluation = dict(current_evaluation)
+            prior_probe_evaluation.pop("matched_common_answer_brier_comparisons", None)
+            if (evaluation != current_evaluation
+                    and evaluation != prior_probe_evaluation
                     and evaluation != _objective_evaluation_legacy(
                         plan, value["observations"])):
                 raise DevelopmentalModelReplacementError("objective_evaluation_binding_invalid")
+        if condition_statuses is not None:
+            value["condition_order_evidence_posture"] = (
+                "condition_start_chain_digest_verified" if all_condition_starts_chain_order
+                else "legacy_condition_start_order_unattested" if has_unattested_legacy_start
+                else "condition_start_position_digests_verified_without_chain" if has_position_only_start
+                else "legacy_condition_start_order_unattested")
+        else:
+            value["condition_order_evidence_posture"] = "legacy_run_without_condition_journal"
         return value
 
     def world_state_records(self, *, run_refs: Sequence[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -1434,7 +1725,10 @@ class ModelReplacementArtifactStore:
                 protocol.model_b_identity)
             raw_observations = run.get("observations")
             completion = run.get("experiment_completion_posture", "completed")
+            execution_order = run.get("condition_execution_order", list(CONDITION_ORDER))
             if (not isinstance(raw_observations, list)
+                    or not isinstance(execution_order, list)
+                    or tuple(execution_order) not in COUNTERBALANCED_CONDITION_ORDERS
                     or completion not in {"completed", "incomplete", "contradictory"}
                     or (completion == "completed" and len(raw_observations) != len(CONDITION_ORDER))
                     or (completion != "completed" and len(raw_observations) >= len(CONDITION_ORDER))):
@@ -1446,9 +1740,19 @@ class ModelReplacementArtifactStore:
                 protocol.model_a_provenance_digest, protocol.model_b_provenance_digest,
                 protocol.model_b_provenance_digest, protocol.model_a_provenance_digest)
             expected_history = (True, False, True, False, True)
+            completed_conditions = [str(row.get("condition")) for row in run.get("condition_statuses", ())
+                if isinstance(row, Mapping) and row.get("status") == "completed"]
+            if completion == "completed":
+                observations_by_condition = {str(item.get("condition_id")): item
+                    for item in raw_observations if isinstance(item, Mapping)}
+            else:
+                observations_by_condition = dict(zip(completed_conditions, raw_observations))
             for expected_condition, expected_model, expected_provenance_digest, with_history, raw in zip(
                     CONDITION_ORDER, expected_models, expected_provenance_digests,
-                    expected_history, raw_observations):
+                    expected_history, [observations_by_condition.get(condition)
+                        for condition in CONDITION_ORDER]):
+                if raw is None:
+                    continue
                 if not isinstance(raw, Mapping):
                     raise DevelopmentalModelReplacementError("run_projection_observation_invalid")
                 semantic = {key: value for key, value in raw.items()
@@ -1472,11 +1776,24 @@ class ModelReplacementArtifactStore:
                         or raw.get("causal_context_digest") != protocol.causal_context_digest
                         or raw.get("model_identity_digest") != expected_model.identity_digest
                         or raw.get("model_provenance_manifest_digest") != expected_provenance_digest
+                        or (projection_context is not None and (
+                            raw.get("current_projection_id") !=
+                                projection_context["current_projection_id"]
+                            or raw.get("current_projection_digest") !=
+                                projection_context["current_projection_digest"]))
                         or not isinstance(history_ids, list) or not isinstance(history_digests, list)
                         or len(history_ids) != len(history_digests)
+                        or len(history_ids) > 64
+                        or any(not isinstance(item, str) or not item or len(item) > 256
+                            for item in history_ids)
+                        or len(set(history_ids)) != len(history_ids)
+                        or any(not _is_sha256_digest(item) for item in history_digests)
                         or (not with_history and (history_ids or history_digests))
-                        or (with_history and any(not isinstance(item, str) or not item
-                            for item in (*history_ids, *history_digests)))
+                        or (projection_context is not None and (
+                            history_ids != (projection_context[
+                                "history_record_ids"] if with_history else [])
+                            or history_digests != (projection_context[
+                                "history_record_digests"] if with_history else [])))
                         or raw.get("history_withheld") is not (not with_history)
                         or not all(isinstance(raw.get(key), str) and raw.get(key) for key in (
                             "current_projection_id", "current_projection_digest"))
@@ -1567,7 +1884,8 @@ class ModelReplacementArtifactStore:
                         and first_signature.get("schema_version") in {
                             "sentientos.objective_task_score:v3",
                             "sentientos.objective_task_score:v4",
-                            "sentientos.objective_task_score:v5"}
+                            "sentientos.objective_task_score:v5",
+                            "sentientos.objective_task_score:v6"}
                         and valid_score_digest(first_signature.get("plan_digest"))
                         and valid_score_digest(first_signature.get("task_digest"))
                         and first_signature.get("evaluator") ==
@@ -1588,10 +1906,17 @@ class ModelReplacementArtifactStore:
             continuity_assessment = {
                 "schema_version": "sentientos.model_replacement_continuity_assessment:v1",
                 "history_identity": {
-                    "posture": ("frozen_context_record_set_bound" if projection_context is not None
-                        else "historical_context_identity_unavailable"),
+                    "posture": ("frozen_context_record_set_bound"
+                        if projection_context is not None
+                            and projection_context.get("schema_version") ==
+                                CONTEXT_BINDING_SCHEMA_V2 else
+                        "legacy_context_manifest_identity_unbound"
+                        if projection_context is not None else
+                        "historical_context_identity_unavailable"),
                     "record_set_digest": (projection_context.get("history_record_set_digest")
-                        if projection_context is not None else None),
+                        if projection_context is not None
+                            and projection_context.get("schema_version") ==
+                                CONTEXT_BINDING_SCHEMA_V2 else None),
                     "cross_process_continuity": "not_established_by_this_run_artifact",
                 },
                 "input_delivery": {
@@ -1639,6 +1964,11 @@ class ModelReplacementArtifactStore:
                 "classification": classification,
                 "continuity_assessment": continuity_assessment,
                 "experiment_completion_posture": run.get("experiment_completion_posture", "completed"),
+                "condition_execution_order": run.get(
+                    "condition_execution_order", list(CONDITION_ORDER)),
+                "condition_order_evidence_posture": run.get(
+                    "condition_order_evidence_posture",
+                    "legacy_run_without_condition_journal"),
                 "condition_statuses": run.get("condition_statuses"),
                 "condition_lineage_posture": ("verified_durable_condition_journal"
                     if run.get("condition_statuses") is not None else "legacy_run_without_condition_journal"),
@@ -1688,6 +2018,8 @@ class ObjectivePredictionTask:
     requires_task_family_history: bool = False
     commitment_nonce: str = field(default_factory=lambda: secrets.token_hex(32), repr=False)
     family_contract_version: int = field(default=4, repr=False)
+    history_task_family_ids: tuple[str, ...] = ()
+    history_prompt_identity_policy: str | None = field(default=None, repr=False)
 
     def specification(self) -> dict[str, Any]:
         if any(type(value) is not int or abs(value) > 1_000_000
@@ -1701,6 +2033,26 @@ class ObjectivePredictionTask:
                     for character in self.task_family_id)
                 or not self.additional_probe_inputs):
             raise DevelopmentalModelReplacementError("objective_task_family_invalid")
+        fixed_mapping = (FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS.get(
+            self.task_family_id) if isinstance(self.task_family_id, str) else None)
+        if (fixed_mapping is not None
+                and (self.multiplier, self.offset) != fixed_mapping):
+            raise DevelopmentalModelReplacementError(
+                "objective_task_family_mapping_contract_mismatch")
+        fixed_probe_range = (FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES.get(
+            self.task_family_id) if isinstance(self.task_family_id, str) else None)
+        role_probe_range = (fixed_probe_range[
+            1 if self.requires_task_family_history is True else 0]
+            if fixed_probe_range is not None else None)
+        if (fixed_probe_range is not None
+                and isinstance(self.additional_probe_inputs, tuple)
+                and all(type(value) is int
+                    for value in self.additional_probe_inputs)
+                and any(value < role_probe_range[0]
+                    or value > role_probe_range[1]
+                    for value in (self.probe_input, *self.additional_probe_inputs))):
+            raise DevelopmentalModelReplacementError(
+                "objective_task_family_probe_role_contract_mismatch")
         if (not isinstance(self.additional_probe_inputs, tuple)
                 or len(self.additional_probe_inputs) > 15
                 or any(type(value) is not int or abs(value) > 1_000_000
@@ -1712,8 +2064,32 @@ class ObjectivePredictionTask:
                 self.requires_task_family_history and self.task_family_id is None):
             raise DevelopmentalModelReplacementError("objective_task_family_requirement_invalid")
         if (type(self.family_contract_version) is not int
-                or self.family_contract_version not in {3, 4}):
+                or self.family_contract_version not in {3, 4, 5, 6}):
             raise DevelopmentalModelReplacementError("objective_task_family_contract_invalid")
+        if (type(self.history_task_family_ids) is not tuple
+                or len(self.history_task_family_ids) > 4
+                or any(not isinstance(item, str) or item not in
+                    FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
+                    for item in self.history_task_family_ids)
+                or len(set(self.history_task_family_ids)) !=
+                    len(self.history_task_family_ids)
+                or (self.family_contract_version == 6 and (
+                    not self.requires_task_family_history
+                    or self.task_family_id not in self.history_task_family_ids
+                    or any(FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[item] !=
+                        fixed_mapping for item in self.history_task_family_ids)))
+                or (self.family_contract_version != 6
+                    and self.history_task_family_ids)):
+            raise DevelopmentalModelReplacementError(
+                "objective_task_history_family_relation_invalid")
+        if (self.history_prompt_identity_policy is not None
+                and (self.history_prompt_identity_policy !=
+                    "matched_cross_model_identity_omitted:v1"
+                    or not self.requires_task_family_history
+                    or self.family_contract_version != 6
+                    or self.task_family_id is None)):
+            raise DevelopmentalModelReplacementError(
+                "objective_task_history_prompt_identity_policy_invalid")
         if (not isinstance(self.commitment_nonce, str) or len(self.commitment_nonce) != 64
                 or any(character not in "0123456789abcdef" for character in self.commitment_nonce)):
             raise DevelopmentalModelReplacementError("objective_task_commitment_nonce_invalid")
@@ -1723,13 +2099,20 @@ class ObjectivePredictionTask:
             "probe_input": self.probe_input,
             "oracle_scope": "deterministic_fixture_not_physical_measurement"}
         if self.task_family_id is not None:
-            return {"schema_version": (FAMILY_TASK_SCHEMA_V3
-                    if self.family_contract_version == 3 else FAMILY_TASK_SCHEMA_V4),
+            family_schema = {3: FAMILY_TASK_SCHEMA_V3,
+                4: FAMILY_TASK_SCHEMA_V4, 5: FAMILY_TASK_SCHEMA_V5,
+                6: FAMILY_TASK_SCHEMA_V6}[
+                    self.family_contract_version]
+            specification = {"schema_version": family_schema,
                 "multiplier": self.multiplier, "offset": self.offset,
                 "probe_inputs": [self.probe_input, *self.additional_probe_inputs],
                 "task_family_id": self.task_family_id,
                 "requires_task_family_history": self.requires_task_family_history,
                 "oracle_scope": "deterministic_fixture_not_physical_measurement"}
+            if self.family_contract_version == 6:
+                specification["history_task_family_ids"] = list(
+                    self.history_task_family_ids)
+            return specification
         return {"schema_version": "sentientos.affine_prediction_task_suite:v2",
             "multiplier": self.multiplier, "offset": self.offset,
             "probe_inputs": [self.probe_input, *self.additional_probe_inputs],
@@ -1750,7 +2133,21 @@ class ObjectivePredictionTask:
                     "This family shares one fixed integer affine mapping: "
                     "output = m * input + b. ")
                 if self.requires_task_family_history:
-                    if self.family_contract_version == 3:
+                    if self.family_contract_version == 6:
+                        registered = ", ".join(self.history_task_family_ids)
+                        question = (
+                            "The target family uses a fixed integer affine mapping: "
+                            "output = m * input + b. Parameters are hidden. Use only "
+                            "evaluator-scored history from these preregistered source "
+                            f"families: {registered}. Only evaluator_correct=true "
+                            "rows are mapping evidence. Incorrect rows are prior "
+                            "errors, not mapping evidence or current truth; abstained "
+                            "rows have unknown correctness. If fewer than two distinct "
+                            "correct inputs are available, abstain. Otherwise infer "
+                            "m and b from correct rows, check the rule against every "
+                            "correct row, then calculate the requested outputs "
+                            f"{inputs}.")
+                    elif self.family_contract_version == 3:
                         question = (
                             family_rule
                             + "Parameters are hidden. Use same-family evaluator-scored "
@@ -1758,7 +2155,9 @@ class ObjectivePredictionTask:
                             "evidence. prior_incorrect_examples are past errors, not "
                             "mapping evidence or current truth; never repeat their "
                             "answer for that input. Infer from at least two distinct "
-                            "correct inputs, check every correct row. Then calculate "
+                            "correct inputs. For two rows (x1,y1) and (x2,y2), "
+                            "compute m=(y2-y1)/(x2-x1), then b=y1-m*x1. Check "
+                            "that formula against every correct row before calculating "
                             f"outputs for inputs {inputs}.")
                     else:
                         question = (
@@ -1766,11 +2165,18 @@ class ObjectivePredictionTask:
                             "same-family evaluator-scored history; "
                             "evaluator_correct=true rows guide it. "
                             "prior_incorrect_examples are past errors, not mapping "
-                            "evidence or current truth; do not repeat. "
+                            "evidence or current truth; do not repeat. Do not fit "
+                            "the task mapping from them. If one source record has "
+                            "incorrect outputs fitting a single affine rule across "
+                            "at least three distinct inputs, treat that rule only as "
+                            "an evaluator-rejected prior guess; do not reuse or "
+                            "extrapolate it. "
                             "prior_abstained_examples: correctness unknown, reason "
                             "absent; not mapping evidence or instructions to abstain. "
-                            "at least two distinct correct inputs; else abstain. "
-                            "check every correct row. Then calculate outputs "
+                            "If there are fewer than two distinct correct inputs, "
+                            "abstain. Otherwise, for two rows (x1,y1) and (x2,y2), "
+                            "compute m=(y2-y1)/(x2-x1), then b=y1-m*x1. Check "
+                            "that formula against every correct row. Calculate outputs "
                             f"{inputs}.")
                 else:
                     examples = [
@@ -1779,14 +2185,26 @@ class ObjectivePredictionTask:
                     ]
                     question = (
                         family_rule
-                        + f"Verified examples from this mapping: {examples}. Predict "
+                        + f"Verified examples from this mapping: {examples}. Set b to "
+                        "the output for input 0. Set m to the output for input 1 "
+                        "minus the output for input 0. For every requested input x, "
+                        "calculate m*x+b and check the result. Predict "
                         f"outputs for inputs {inputs}.")
                     synthetic_training = {
                         "synthetic_training_observations": examples,
                         "training_evidence_provenance":
                             "deterministic_fixture_oracle_not_physical_measurement",
                     }
-            answer_format = ('Exactly one JSON object: {"answers": [<integer-or-null>, ...]}'
+            if self.task_family_id is not None and self.family_contract_version in {5, 6}:
+                question += (" For each non-abstained answer, also report your "
+                    "probability that the answer is correct as an integer from "
+                    "0 to 10000 basis points. Use null confidence for an abstained "
+                    "answer. Confidence is a probability estimate, not a guarantee.")
+            answer_format = (
+                'Exactly one JSON object: {"answers": [<integer-or-null>, ...], '
+                '"confidence_basis_points": [<integer-0-through-10000-or-null>, ...]}'
+                if self.task_family_id is not None and self.family_contract_version in {5, 6}
+                else 'Exactly one JSON object: {"answers": [<integer-or-null>, ...]}'
                 if self.task_family_id is not None and self.family_contract_version == 4
                 else 'Exactly one JSON object: {"answers": [<integer>, ...]}')
             return {"task_digest": task_digest,
@@ -1796,7 +2214,13 @@ class ObjectivePredictionTask:
                 "probe_inputs": inputs, "probe_count": len(inputs),
                 **({"task_family_id": self.task_family_id,
                     "family_posture": "operator_declared_protocol_bound",
-                    "requires_task_family_history": self.requires_task_family_history}
+                    "requires_task_family_history": self.requires_task_family_history,
+                    **({"history_task_family_ids": list(
+                        self.history_task_family_ids)}
+                        if self.family_contract_version == 6 else {}),
+                    **({"history_prompt_identity_policy":
+                        self.history_prompt_identity_policy}
+                        if self.history_prompt_identity_policy is not None else {})}
                     if self.task_family_id is not None else {}),
                 **synthetic_training}
         return {"task_digest": task_digest,
@@ -1822,18 +2246,125 @@ class ObjectivePredictionTask:
             "answer_format": 'Exactly one JSON object: {"answer": <integer>}'}
 
 
+def derive_rootless_task_commitment_nonces(master_key: str, *, seed: int,
+        task_family_id: str) -> tuple[str, str]:
+    """Derive role-separated private nonces shared by matched target plans.
+
+    Keep ``master_key`` in scoring custody. Domain separation makes the
+    acquisition and transfer commitments distinct and makes each seed/family
+    use a different nonce pair without placing the key in public plans.
+    """
+    if (not isinstance(master_key, str) or len(master_key) != 64
+            or any(character not in "0123456789abcdef" for character in master_key)
+            or type(seed) is not int or not 0 < seed <= 2**32 - 1
+            or not isinstance(task_family_id, str)
+            or task_family_id not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS):
+        raise DevelopmentalModelReplacementError(
+            "objective_task_commitment_key_binding_invalid")
+    key = bytes.fromhex(master_key)
+    nonces = []
+    for role in ("acquisition", "transfer"):
+        message = ("sentientos.rootless_task_commitment_nonce:v1\0"
+            + task_family_id + "\0" + str(seed) + "\0" + role).encode("utf-8")
+        nonces.append(hmac.new(key, message, hashlib.sha256).hexdigest())
+    return nonces[0], nonces[1]
+
+
+def rootless_integer_affine_transfer_task_pair(seed: int, *,
+        task_family_id: str = ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY,
+        history_task_family_ids: tuple[str, ...] | None = None,
+        transfer_probe_count: int = 3,
+        commitment_nonces: tuple[str, str] | None = None
+        ) -> tuple[ObjectivePredictionTask, ObjectivePredictionTask]:
+    """Build one fixed-mapping acquisition/transfer pair for a registered family.
+
+    The default preserves v6 seed replay exactly. The v7 family separates
+    acquisition inputs (2–9) from an extrapolation range (10–1000). The v8
+    family uses an acquisition range above v7 (1001–10000) and a separate
+    transfer range (10001–1000000), keeping its novelty-focused probes
+    distinct from prior v6/v7 inputs while still requiring a history audit.
+    Matched target preflights may provide a private acquisition/transfer nonce
+    pair so independently constructed plans commit to the same task. Leave it
+    unset for ordinary plans, which continue to receive fresh nonces.
+    """
+    if type(seed) is not int or not 0 < seed <= 2**32 - 1:
+        raise DevelopmentalModelReplacementError(
+            "objective_task_generation_seed_invalid")
+    if type(transfer_probe_count) is not int or not 1 <= transfer_probe_count <= 16:
+        raise DevelopmentalModelReplacementError(
+            "objective_transfer_probe_count_invalid")
+    if (commitment_nonces is not None and (
+            type(commitment_nonces) is not tuple or len(commitment_nonces) != 2
+            or any(not isinstance(nonce, str) or len(nonce) != 64
+                or any(character not in "0123456789abcdef"
+                    for character in nonce)
+                for nonce in commitment_nonces))):
+        raise DevelopmentalModelReplacementError(
+            "objective_task_commitment_nonce_pair_invalid")
+    family = task_family_id
+    if (family not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
+            or family not in FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES):
+        raise DevelopmentalModelReplacementError(
+            "objective_task_family_generation_contract_missing")
+    generator = random.Random(seed)
+    acquisition_range, transfer_range = (
+        FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[family])
+    registered_history_families = (history_task_family_ids
+        if history_task_family_ids is not None else
+        (family,)
+        if family == ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY else
+        (ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY, family)
+        if family == ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY else
+        (ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY,
+            ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY, family)
+        if family == ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY
+        else ())
+    acquisition_inputs = tuple(sorted(generator.sample(
+        range(acquisition_range[0], acquisition_range[1] + 1), 3)))
+    transfer_inputs = tuple(sorted(generator.sample(
+        range(transfer_range[0], transfer_range[1] + 1),
+        transfer_probe_count)))
+    multiplier, offset = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[family]
+    nonce_kwargs = ({} if commitment_nonces is None else {
+        "commitment_nonce": commitment_nonces[0]})
+    acquisition = ObjectivePredictionTask(multiplier=multiplier, offset=offset,
+        probe_input=acquisition_inputs[0],
+        additional_probe_inputs=acquisition_inputs[1:], task_family_id=family,
+        # When the paired transfer requires calibrated selective scoring, use
+        # the same confidence-bearing output contract during acquisition.
+        # Otherwise the model-generation profiles differ only because one
+        # episode asks for confidence, making the progression incomparable.
+        family_contract_version=5 if registered_history_families else 4,
+        **nonce_kwargs)
+    transfer = ObjectivePredictionTask(multiplier=multiplier, offset=offset,
+        probe_input=transfer_inputs[0],
+        additional_probe_inputs=transfer_inputs[1:], task_family_id=family,
+        requires_task_family_history=True,
+        family_contract_version=6 if registered_history_families else 4,
+        history_task_family_ids=tuple(registered_history_families),
+        **({} if commitment_nonces is None else {
+            "commitment_nonce": commitment_nonces[1]}))
+    return acquisition, transfer
+
+
 def _objective_plan(task: ObjectivePredictionTask, protocol: ModelReplacementProtocol) -> dict[str, Any]:
     suite = task.specification().get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
-    selective_family_suite = task.specification().get("schema_version") == FAMILY_TASK_SCHEMA_V4
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+        FAMILY_TASK_SCHEMA_V6}
+    selective_family_suite = task.specification().get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
+    calibrated_family_suite = task.specification().get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
     semantic = {"schema_version": "sentientos.objective_task_plan:v2",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
         "task": task.specification(), "task_commitment_nonce": task.commitment_nonce,
         "task_descriptor": task.public_descriptor(),
         "condition_order": list(CONDITION_ORDER),
-        "rubric": ("selective_integer_answer_suite_v1" if selective_family_suite else
+        "rubric": ("calibrated_selective_integer_answer_suite_v1"
+            if calibrated_family_suite else
+            "selective_integer_answer_suite_v1" if selective_family_suite else
             "exact_integer_answer_suite_v2" if suite else "exact_integer_answer_v1"),
         "authority": False}
     public_semantic = {key: value for key, value in semantic.items()
@@ -1846,8 +2377,9 @@ def _legacy_objective_plan(task: ObjectivePredictionTask,
     """Rebuild the original oracle-bearing v1 plan only for historical custody."""
     suite = task.specification().get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
-    selective_family_suite = task.specification().get("schema_version") == FAMILY_TASK_SCHEMA_V4
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5}
+    selective_family_suite = task.specification().get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5}
     semantic = {"schema_version": "sentientos.objective_task_plan:v1",
         "protocol_id": protocol.protocol_id, "protocol_digest": protocol.protocol_digest,
         "causal_context_digest": protocol.causal_context_digest,
@@ -1863,8 +2395,12 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                      *, output_truncated: bool = False) -> dict[str, Any]:
     task = plan["task"]
     is_suite = task.get("schema_version") in {"sentientos.affine_prediction_task_suite:v2",
-        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
-    selective_family_suite = task.get("schema_version") == FAMILY_TASK_SCHEMA_V4
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+        FAMILY_TASK_SCHEMA_V6}
+    selective_family_suite = task.get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
+    calibrated_family_suite = task.get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
     if is_suite:
         probes = task.get("probe_inputs")
         if (not isinstance(probes, list) or not 2 <= len(probes) <= 16
@@ -1876,6 +2412,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         expected = task["multiplier"] * task["probe_input"] + task["offset"]
     status, answer, correct = "output_unavailable", None, None
     correct_count: int | None = None
+    confidence: list[Any] | None = None
     if type(output_truncated) is not bool:
         raise DevelopmentalModelReplacementError("objective_output_truncation_invalid")
     if output_truncated:
@@ -1883,11 +2420,16 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
             raise DevelopmentalModelReplacementError("objective_output_digest_missing")
         status = "output_truncated"
     elif output is not None:
-        if not isinstance(output, str) or len(output.encode("utf-8")) > (1024 if is_suite else 256):
+        if not isinstance(output, str):
             raise DevelopmentalModelReplacementError("objective_output_size_or_type_invalid")
         digest = _digest({"output": output})
         if output_digest not in {digest, digest[7:]}:
             raise DevelopmentalModelReplacementError("objective_output_digest_mismatch")
+        if len(output.encode("utf-8")) > (1024 if is_suite else 256):
+            # The receipt binds the complete live response even when it exceeds
+            # the parser's retention/scoring bound. Preserve the negative
+            # evidence classification without retaining or parsing the bytes.
+            status, correct = "invalid_answer", False
         def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             result: dict[str, Any] = {}
             for key, value in pairs:
@@ -1896,9 +2438,13 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                 result[key] = value
             return result
         try:
+            if status == "invalid_answer":
+                raise ValueError("answer_size_invalid")
             parsed = json.loads(output, object_pairs_hook=unique_object)
             expected_key = "answers" if is_suite else "answer"
-            if not isinstance(parsed, dict) or set(parsed) != {expected_key}:
+            expected_output_fields = ({expected_key, "confidence_basis_points"}
+                if calibrated_family_suite else {expected_key})
+            if not isinstance(parsed, dict) or set(parsed) != expected_output_fields:
                 raise ValueError("answer_shape_invalid")
             answer = parsed[expected_key]
             if is_suite:
@@ -1908,6 +2454,16 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
                     raise ValueError("answer_shape_invalid")
             elif type(answer) is not int:
                 raise ValueError("answer_shape_invalid")
+            confidence = (parsed["confidence_basis_points"]
+                if calibrated_family_suite else None)
+            if calibrated_family_suite:
+                if (not isinstance(confidence, list)
+                        or len(confidence) != len(expected)
+                        or any((actual is None and value is not None)
+                            or (actual is not None and (type(value) is not int
+                                or not 0 <= value <= 10_000))
+                            for actual, value in zip(answer, confidence))):
+                    raise ValueError("confidence_shape_invalid")
             correct = answer == expected
             status = "correct" if correct else "incorrect"
             if is_suite:
@@ -1922,7 +2478,7 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         # the negative classification and its receipt-bound digest, never bytes.
         answer = None
     family_suite = task.get("schema_version") in {FAMILY_TASK_SCHEMA_V3,
-        FAMILY_TASK_SCHEMA_V4}
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
     if selective_family_suite and isinstance(answer, list) and any(
             item is None for item in answer):
         # A selective result contains evaluator-unknown probes. Keep those
@@ -1948,19 +2504,36 @@ def _objective_score(plan: Mapping[str, Any], output: object, output_digest: obj
         if status in {"output_unavailable", "output_truncated"}:
             semantic["correct_count"] = None
     if selective_family_suite:
-        semantic["schema_version"] = "sentientos.objective_task_score:v5"
+        semantic["schema_version"] = ("sentientos.objective_task_score:v6"
+            if calibrated_family_suite else "sentientos.objective_task_score:v5")
         semantic["answered_count"] = (sum(type(item) is int for item in answer)
             if isinstance(answer, list) and status in {"correct", "incorrect", "selective"} else None)
         semantic["abstained_count"] = (len(answer) - semantic["answered_count"]
             if isinstance(answer, list) and semantic["answered_count"] is not None else None)
+    if calibrated_family_suite:
+        semantic["confidence_basis_points"] = confidence if status in {
+            "correct", "incorrect", "selective"} else None
+        calibration_pairs = ([(value, actual == target)
+            for value, actual, target in zip(confidence or [], answer or [], expected)
+            if type(value) is int and type(actual) is int]
+            if status in {"correct", "incorrect", "selective"} else [])
+        semantic["brier_squared_error_sum_basis_points_squared"] = sum(
+            (value - (10_000 if is_correct else 0)) ** 2
+            for value, is_correct in calibration_pairs)
+        semantic["brier_scored_answer_count"] = len(calibration_pairs)
     if family_suite:
         answer_values = answer if isinstance(answer, list) else []
         probes = task.get("probe_inputs", [])
+        confidence_values = confidence if calibrated_family_suite and isinstance(
+            confidence, list) else [None] * len(answer_values)
         semantic["probe_results"] = ([{"probe_input": probe,
             "observed_answer": actual,
             "correct": (actual == target if type(actual) is int else None),
+            **({"confidence_basis_points": confidence_value}
+                if calibrated_family_suite else {}),
             **({"abstained": True} if selective_family_suite and actual is None else {})}
-            for probe, actual, target in zip(probes, answer_values, expected)]
+            for probe, actual, target, confidence_value in zip(probes,
+                answer_values, expected, confidence_values)]
             if status in {"correct", "incorrect", "selective"} else [])
     return {**semantic, "score_digest": _digest(semantic)}
 
@@ -1990,7 +2563,8 @@ def _objective_score_legacy(plan: Mapping[str, Any], output: object,
     if current.get("status") == "invalid_answer" and isinstance(output, str):
         is_suite = plan.get("task", {}).get("schema_version") in {
             "sentientos.affine_prediction_task_suite:v2",
-            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4,
+            FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
         expected_key = "answers" if is_suite else "answer"
         def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
             parsed: dict[str, Any] = {}
@@ -2034,19 +2608,29 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         "score_digest"}
     is_suite = plan.get("task", {}).get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+        FAMILY_TASK_SCHEMA_V6}
     if is_suite:
         expected_fields |= {"probe_count", "correct_count"}
     family_schema = plan.get("task", {}).get("schema_version")
-    family_suite = family_schema in {FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
-    selective_family_suite = family_schema == FAMILY_TASK_SCHEMA_V4
+    family_suite = family_schema in {FAMILY_TASK_SCHEMA_V3,
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
+    selective_family_suite = family_schema in {FAMILY_TASK_SCHEMA_V4,
+        FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
+    calibrated_family_suite = family_schema in {
+        FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
     if family_suite:
         expected_fields.add("probe_results")
     if selective_family_suite:
         expected_fields |= {"answered_count", "abstained_count"}
-    expected_score_schemas = ({"sentientos.objective_task_score:v4",
-            "sentientos.objective_task_score:v5"}
-        if selective_family_suite else
+    if calibrated_family_suite:
+        expected_fields |= {"confidence_basis_points",
+            "brier_squared_error_sum_basis_points_squared",
+            "brier_scored_answer_count"}
+    expected_score_schemas = ({"sentientos.objective_task_score:v6"}
+        if calibrated_family_suite else
+        {"sentientos.objective_task_score:v4",
+            "sentientos.objective_task_score:v5"} if selective_family_suite else
         {"sentientos.objective_task_score:v3"} if family_suite else
         {"sentientos.objective_task_score:v2"})
     score_schema = value.get("schema_version")
@@ -2067,7 +2651,11 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
         if output_truncated or value.get("output_digest") != expected_output_digest:
             raise DevelopmentalModelReplacementError("objective_score_output_digest_mismatch")
         answer_key = "answers" if is_suite else "answer"
-        canonical_output = json.dumps({answer_key: value.get("answer")},
+        canonical = {answer_key: value.get("answer")}
+        if calibrated_family_suite:
+            canonical["confidence_basis_points"] = value.get(
+                "confidence_basis_points")
+        canonical_output = json.dumps(canonical,
             sort_keys=True, separators=(",", ":"))
         try:
             # Recompute semantic correctness from normalized JSON, while keeping
@@ -2093,7 +2681,15 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
                 or not isinstance(expected_output_digest, str)
                 or value.get("output_retention_posture") != "live_bytes_invalid_answer_not_retained"
                 or value.get("answer") is not None or value.get("correct") is not False
-                or (is_suite and value.get("correct_count") != 0)):
+                or (is_suite and value.get("correct_count") != 0)
+                or (selective_family_suite and (
+                    value.get("answered_count") is not None
+                    or value.get("abstained_count") is not None))
+                or (calibrated_family_suite and (
+                    value.get("confidence_basis_points") is not None
+                    or value.get("brier_squared_error_sum_basis_points_squared") != 0
+                    or value.get("brier_scored_answer_count") != 0
+                    or value.get("probe_results") != []))):
             raise DevelopmentalModelReplacementError("objective_score_invalid_output_binding")
     elif status == "output_unavailable":
         if output_truncated:
@@ -2109,7 +2705,15 @@ def _verify_objective_score(plan: Mapping[str, Any], score: object,
                 or not isinstance(expected_output_digest, str)
                 or value.get("output_retention_posture") != "output_bytes_truncated_before_scoring"
                 or value.get("answer") is not None or value.get("correct") is not None
-                or (is_suite and value.get("correct_count") is not None)):
+                or (is_suite and value.get("correct_count") is not None)
+                or (selective_family_suite and (
+                    value.get("answered_count") is not None
+                    or value.get("abstained_count") is not None))
+                or (calibrated_family_suite and (
+                    value.get("confidence_basis_points") is not None
+                    or value.get("brier_squared_error_sum_basis_points_squared") != 0
+                    or value.get("brier_scored_answer_count") != 0
+                    or value.get("probe_results") != []))):
             raise DevelopmentalModelReplacementError("objective_score_truncated_output_binding_invalid")
     else:
         raise DevelopmentalModelReplacementError("objective_score_status_invalid")
@@ -2123,11 +2727,17 @@ def _objective_evaluation_legacy(plan: Mapping[str, Any],
     complete = len(scores) == 5 and all(type(value) is bool for value in correctness)
     family_suite = plan["task"].get("schema_version") in {
         "sentientos.affine_prediction_task_suite:v2",
-        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}
-    selective_task = plan["task"].get("schema_version") == FAMILY_TASK_SCHEMA_V4
+        FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+        FAMILY_TASK_SCHEMA_V6}
+    selective_task = plan["task"].get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
+    calibrated_task = plan["task"].get("schema_version") in {
+        FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}
     probe_count = len(plan["task"].get("probe_inputs", ())) if family_suite else 0
     selective_scoreable = (selective_task and len(scores) == 5 and probe_count > 0
-        and all(score.get("schema_version") == "sentientos.objective_task_score:v5"
+        and all(score.get("schema_version") in {
+                "sentientos.objective_task_score:v5",
+                "sentientos.objective_task_score:v6"}
             and score.get("status") in {"correct", "incorrect", "selective"}
             and type(score.get("correct_count")) is int
             and type(score.get("answered_count")) is int
@@ -2184,6 +2794,26 @@ def _objective_evaluation_legacy(plan: Mapping[str, Any],
             "selective_metrics_posture": (
                 "per_probe_abstention_scored_separately_from_correctness"),
         })
+    if calibrated_task:
+        calibration_sums = [score.get(
+            "brier_squared_error_sum_basis_points_squared") for score in scores]
+        calibration_counts = [score.get("brier_scored_answer_count")
+            for score in scores]
+        calibration_complete = (len(scores) == 5 and all(
+            score.get("schema_version") == "sentientos.objective_task_score:v6"
+            for score in scores) and all(type(value) is int and value >= 0
+                for value in calibration_sums + calibration_counts))
+        evaluation.update({
+            "condition_brier_squared_error_sums_basis_points_squared": (
+                calibration_sums if calibration_complete else None),
+            "condition_brier_scored_answer_counts": (
+                calibration_counts if calibration_complete else None),
+            "condition_brier_scores": ([
+                (calibration_sums[index] / (calibration_counts[index] * 100_000_000)
+                    if calibration_counts[index] else None)
+                for index in range(5)] if calibration_complete else None),
+            "confidence_score_posture":
+                "brier_proper_score_on_answered_probes_not_a_calibration_diagnostic"})
     return evaluation
 
 
@@ -2194,7 +2824,8 @@ def _objective_evaluation(plan: Mapping[str, Any],
     task = plan.get("task")
     if (not isinstance(task, Mapping) or task.get("schema_version") not in {
             "sentientos.affine_prediction_task_suite:v2",
-            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}):
+            FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+            FAMILY_TASK_SCHEMA_V6}):
         return evaluation
     probes = task.get("probe_inputs")
     if (not isinstance(probes, list) or not probes
@@ -2244,7 +2875,9 @@ def _objective_evaluation(plan: Mapping[str, Any],
             else:
                 outcomes[condition] = None
                 continue
-            if actual is None and task.get("schema_version") == FAMILY_TASK_SCHEMA_V4:
+            if actual is None and task.get("schema_version") in {
+                    FAMILY_TASK_SCHEMA_V4, FAMILY_TASK_SCHEMA_V5,
+                    FAMILY_TASK_SCHEMA_V6}:
                 outcomes[condition] = "abstained"
             elif type(actual) is int:
                 outcomes[condition] = ("correct" if actual == multiplier * probe + offset
@@ -2275,6 +2908,49 @@ def _objective_evaluation(plan: Mapping[str, Any],
     evaluation["restoration_probe_outcomes_stable"] = (
         matching["model_a_restoration"] == len(probes)
         if comparable["model_a_restoration"] == len(probes) else None)
+    if task.get("schema_version") in {FAMILY_TASK_SCHEMA_V5,
+            FAMILY_TASK_SCHEMA_V6}:
+        paired_brier_specs = {
+            "model_a_history_effect": (0, 1),
+            "model_b_history_effect": (2, 3),
+            "model_difference_with_history": (0, 2),
+            "model_difference_without_history": (1, 3),
+            "model_a_restoration": (0, 4),
+        }
+        paired_brier: dict[str, dict[str, Any]] = {}
+        for name, (left_index, right_index) in paired_brier_specs.items():
+            sides: list[dict[int, tuple[int, bool]]] = []
+            for score in (scores[left_index], scores[right_index]):
+                rows = score.get("probe_results") if isinstance(score, Mapping) else None
+                by_probe = {row.get("probe_input"): (
+                    row.get("confidence_basis_points"), row.get("correct"))
+                    for row in rows if isinstance(row, Mapping)
+                    and type(row.get("probe_input")) is int} if isinstance(rows, list) else {}
+                sides.append(by_probe)
+            matched = [(sides[0][probe], sides[1][probe]) for probe in probes
+                if probe in sides[0] and probe in sides[1]
+                and all(type(confidence) is int and 0 <= confidence <= 10_000
+                    and type(correct) is bool for confidence, correct in
+                    (sides[0][probe], sides[1][probe]))]
+            left_sum = sum((confidence - (10_000 if correct else 0)) ** 2
+                for (confidence, correct), _ in matched)
+            right_sum = sum((confidence - (10_000 if correct else 0)) ** 2
+                for _, (confidence, correct) in matched)
+            count = len(matched)
+            paired_brier[name] = {
+                "left_condition": conditions[left_index],
+                "right_condition": conditions[right_index],
+                "probe_count": len(probes), "matched_scored_probe_count": count,
+                "matched_probe_coverage": count / len(probes),
+                "left_brier_squared_error_sum_basis_points_squared": left_sum,
+                "right_brier_squared_error_sum_basis_points_squared": right_sum,
+                "left_minus_right_brier_score": (
+                    (left_sum - right_sum) / (count * 100_000_000)
+                    if count else None),
+            }
+        evaluation["matched_common_answer_brier_comparisons"] = {
+            "posture": "paired_answered_probe_comparison_not_a_calibration_diagnostic",
+            "comparisons": paired_brier}
     return evaluation
 
 
@@ -2320,19 +2996,20 @@ class DevelopmentalModelReplacementExperiment:
                 == "sentientos.objective_task_plan:v2" else None)
             if isinstance(probes, list):
                 family_contract_version = (3 if specification.get("schema_version")
-                    == FAMILY_TASK_SCHEMA_V3 else 4)
-                objective_task = (ObjectivePredictionTask(specification["multiplier"],
+                    == FAMILY_TASK_SCHEMA_V3 else 4 if specification.get(
+                        "schema_version") == FAMILY_TASK_SCHEMA_V4 else
+                        6 if specification.get("schema_version") ==
+                            FAMILY_TASK_SCHEMA_V6 else 5)
+                task_arguments = (specification["multiplier"],
                     specification["offset"], probes[0], tuple(probes[1:]),
                     specification.get("task_family_id"),
-                    specification.get("requires_task_family_history", False),
-                    commitment_nonce=commitment_nonce,
-                    family_contract_version=family_contract_version)
-                    if isinstance(commitment_nonce, str) else
-                    ObjectivePredictionTask(specification["multiplier"],
-                        specification["offset"], probes[0], tuple(probes[1:]),
-                        specification.get("task_family_id"),
-                        specification.get("requires_task_family_history", False),
-                        family_contract_version=family_contract_version))
+                    specification.get("requires_task_family_history", False))
+                objective_task = ObjectivePredictionTask(*task_arguments,
+                    **({"commitment_nonce": commitment_nonce}
+                        if isinstance(commitment_nonce, str) else {}),
+                    family_contract_version=family_contract_version,
+                    history_task_family_ids=tuple(specification.get(
+                        "history_task_family_ids", ())))
             else:
                 objective_task = (ObjectivePredictionTask(specification["multiplier"],
                     specification["offset"], specification["probe_input"],
@@ -2389,7 +3066,8 @@ class DevelopmentalModelReplacementExperiment:
             "prompt_digest": _digest({"prompt": self._prompt(with_history)}),
             "correlation_id": correlation})
 
-    def inspect_trial_custody(self, *, trial_id: str) -> dict[str, Any]:
+    def inspect_trial_custody(self, *, trial_id: str,
+                              condition_execution_order: Sequence[str] = CONDITION_ORDER) -> dict[str, Any]:
         """Read bounded condition journals without consulting endpoints or replaying inference."""
         if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
                 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
@@ -2397,8 +3075,17 @@ class DevelopmentalModelReplacementExperiment:
             raise DevelopmentalModelReplacementError("trial_id_invalid")
         self.context.verify()
         self.protocol.verify()
+        try:
+            execution_order = tuple(condition_execution_order)
+        except TypeError as exc:
+            raise DevelopmentalModelReplacementError(
+                "condition_execution_order_invalid") from exc
+        if execution_order not in COUNTERBALANCED_CONDITION_ORDERS:
+            raise DevelopmentalModelReplacementError("condition_execution_order_invalid")
         rows: list[dict[str, Any]] = []
-        for condition, _endpoint, expected, provenance_digest, with_history in self._condition_plan():
+        plan_by_condition = {row[0]: row for row in self._condition_plan()}
+        for position, condition in enumerate(execution_order, start=1):
+            _, _endpoint, expected, provenance_digest, with_history = plan_by_condition[condition]
             input_digest = self._condition_input_digest(trial_id=trial_id,
                 condition=condition, expected=expected,
                 provenance_digest=provenance_digest, with_history=with_history)
@@ -2407,8 +3094,20 @@ class DevelopmentalModelReplacementExperiment:
                 condition=condition)
             start, terminal = self.store.read_condition(condition_id=condition_id,
                 expected_input_digest=input_digest)
+            if (start is not None and start.get("schema_version") in {
+                    POSITION_CONDITION_START_SCHEMA, CONDITION_START_SCHEMA}
+                    and (tuple(start.get("execution_order", ())) != execution_order
+                        or start.get("execution_position") != position)):
+                raise DevelopmentalModelReplacementError("condition_execution_order_evidence_invalid")
             row: dict[str, Any] = {"condition": condition,
-                "condition_id": condition_id, "condition_input_digest": input_digest}
+                "condition_id": condition_id, "condition_input_digest": input_digest,
+                "condition_order_evidence_posture": (
+                    "start_digest_chain_binds_order_and_position"
+                    if start is not None and start.get("schema_version") == CONDITION_START_SCHEMA
+                    else "start_digest_binds_position_without_predecessor_chain"
+                    if start is not None and start.get("schema_version") == POSITION_CONDITION_START_SCHEMA
+                    else "legacy_start_does_not_attest_execution_order"
+                    if start is not None else "condition_not_started")}
             if start is None:
                 row["status"] = "not_started"
             elif terminal is None:
@@ -2624,14 +3323,35 @@ class DevelopmentalModelReplacementExperiment:
                     expected=expected)
         return dict(value)
 
+    def _bind_condition_start_witnesses(self,
+            condition_statuses: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+        bound: list[dict[str, Any]] = []
+        for row in condition_statuses:
+            condition_id = row.get("condition_id")
+            input_digest = row.get("condition_input_digest")
+            if not isinstance(condition_id, str) or not isinstance(input_digest, str):
+                raise DevelopmentalModelReplacementError("condition_start_witness_context_invalid")
+            start, _terminal = self.store.read_condition(condition_id=condition_id,
+                expected_input_digest=input_digest)
+            if start is None:
+                raise DevelopmentalModelReplacementError("condition_start_witness_missing")
+            claimed = row.get("condition_start_witness")
+            if claimed is not None and claimed != start:
+                raise DevelopmentalModelReplacementError("condition_start_witness_conflict")
+            bound.append({**dict(row), "condition_start_witness": dict(start)})
+        return bound
+
     def _persist_partial_run(self, *, trial_id: str,
                              observations: Sequence[Mapping[str, Any]],
                              condition_statuses: Sequence[Mapping[str, Any]],
-                             failure_posture: str) -> dict[str, Any]:
+                             failure_posture: str,
+                             condition_execution_order: Sequence[str] = CONDITION_ORDER) -> dict[str, Any]:
+        condition_statuses = self._bind_condition_start_witnesses(condition_statuses)
         completion = next((str(row.get("status")) for row in condition_statuses
             if row.get("status") in {"incomplete", "contradictory"}), "incomplete")
         semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol),
             "observations": [dict(item) for item in observations],
+            "condition_execution_order": list(condition_execution_order),
             "condition_statuses": [dict(item) for item in condition_statuses],
             "experiment_completion_posture": completion,
             "context_lineage_posture": "verified_persisted_frozen_context",
@@ -2646,7 +3366,8 @@ class DevelopmentalModelReplacementExperiment:
         run_id, run_digest = self.store.persist_run(semantic)
         return {**semantic, "run_id": run_id, "run_digest": run_digest}
 
-    def run(self, *, trial_id: str = DEFAULT_TRIAL_ID) -> dict[str, Any]:
+    def run(self, *, trial_id: str = DEFAULT_TRIAL_ID,
+            condition_execution_order: Sequence[str] | None = None) -> dict[str, Any]:
         if (not isinstance(trial_id, str) or not trial_id or len(trial_id) > MAX_TRIAL_ID_LENGTH
                 or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_" for character in trial_id)):
             raise DevelopmentalModelReplacementError("trial_id_invalid")
@@ -2666,9 +3387,22 @@ class DevelopmentalModelReplacementExperiment:
         if self.objective_plan is not None:
             self.store._write(self.store.protocols / f"objective-task-plan-{self.protocol.protocol_id}.json",
                 self.objective_plan)
-        plan = self._condition_plan()
+        canonical_plan = self._condition_plan()
+        try:
+            execution_order = tuple(CONDITION_ORDER if condition_execution_order is None
+                else condition_execution_order)
+        except TypeError as exc:
+            raise DevelopmentalModelReplacementError(
+                "condition_execution_order_invalid") from exc
+        if (len(execution_order) != len(CONDITION_ORDER)
+                or any(type(condition) is not str for condition in execution_order)
+                or execution_order not in COUNTERBALANCED_CONDITION_ORDERS):
+            raise DevelopmentalModelReplacementError("condition_execution_order_invalid")
+        plan_by_condition = {row[0]: row for row in canonical_plan}
+        plan = tuple(plan_by_condition[condition] for condition in execution_order)
         observations: list[dict[str, Any]] = []
         condition_statuses: list[dict[str, Any]] = []
+        previous_condition_start_digest: str | None = None
         for condition, endpoint, expected, provenance_digest, with_history in plan:
             correlation = f"{self.protocol.protocol_id}:{trial_id}:{condition}"
             input_digest = self._condition_input_digest(trial_id=trial_id,
@@ -2678,6 +3412,15 @@ class DevelopmentalModelReplacementExperiment:
                 trial_id=trial_id, condition=condition)
             start, terminal = self.store.read_condition(condition_id=condition_id,
                 expected_input_digest=input_digest)
+            if (start is not None and start.get("schema_version") in {
+                    POSITION_CONDITION_START_SCHEMA, CONDITION_START_SCHEMA}
+                    and (tuple(start.get("execution_order", ())) != execution_order
+                        or start.get("execution_position") != execution_order.index(condition) + 1)):
+                raise DevelopmentalModelReplacementError("condition_execution_order_evidence_invalid")
+            if (start is not None and start.get("schema_version") == CONDITION_START_SCHEMA
+                    and start.get("previous_condition_start_digest")
+                        != previous_condition_start_digest):
+                raise DevelopmentalModelReplacementError("condition_execution_chain_invalid")
             if terminal is not None:
                 status = str(terminal["status"])
                 row = {"condition": condition, "condition_id": condition_id,
@@ -2697,12 +3440,15 @@ class DevelopmentalModelReplacementExperiment:
                     condition_statuses.append(row)
                     return self._persist_partial_run(trial_id=trial_id, observations=observations,
                         condition_statuses=condition_statuses,
-                        failure_posture=str(terminal.get("failure_posture") or status))
+                        failure_posture=str(terminal.get("failure_posture") or status),
+                        condition_execution_order=execution_order)
                 observation = self._verify_observation(terminal["observation"],
                     condition=condition, provenance_digest=provenance_digest,
                     with_history=with_history, trial_id=trial_id, endpoint=endpoint)
                 observations.append(observation)
                 condition_statuses.append(row)
+                if start is not None:
+                    previous_condition_start_digest = str(start["condition_start_digest"])
                 continue
             if start is not None:
                 condition_statuses.append({"condition": condition, "condition_id": condition_id,
@@ -2712,10 +3458,14 @@ class DevelopmentalModelReplacementExperiment:
                     "failure_posture": "started_without_terminal_no_replay"})
                 return self._persist_partial_run(trial_id=trial_id, observations=observations,
                     condition_statuses=condition_statuses,
-                    failure_posture="started_without_terminal_no_replay")
+                    failure_posture="started_without_terminal_no_replay",
+                    condition_execution_order=execution_order)
             created, start = self.store.begin_condition(protocol_id=self.protocol.protocol_id,
                 protocol_digest=self.protocol.protocol_digest, trial_id=trial_id,
-                condition=condition, input_digest=input_digest, correlation_id=correlation)
+                condition=condition, input_digest=input_digest, correlation_id=correlation,
+                execution_order=execution_order,
+                execution_position=execution_order.index(condition) + 1,
+                previous_condition_start_digest=previous_condition_start_digest)
             if not created:
                 # Another process claimed the unique condition first. Never
                 # infer from our read that it is safe to make the same call.
@@ -2732,6 +3482,8 @@ class DevelopmentalModelReplacementExperiment:
                         "status": "completed",
                         "condition_start_digest": raced_terminal["condition_start_digest"],
                         "condition_result_digest": raced_terminal["condition_result_digest"]})
+                    previous_condition_start_digest = str(
+                        raced_terminal["condition_start_digest"])
                     continue
                 condition_statuses.append({"condition": condition, "condition_id": condition_id,
                     "condition_input_digest": start["input_digest"],
@@ -2740,7 +3492,8 @@ class DevelopmentalModelReplacementExperiment:
                     "failure_posture": "concurrent_condition_claim_no_replay"})
                 return self._persist_partial_run(trial_id=trial_id, observations=observations,
                     condition_statuses=condition_statuses,
-                    failure_posture="concurrent_condition_claim_no_replay")
+                    failure_posture="concurrent_condition_claim_no_replay",
+                    condition_execution_order=execution_order)
             raw_observation: dict[str, Any] | None = None
             try:
                 raw_observation = self._observe(condition, endpoint, expected,
@@ -2777,7 +3530,8 @@ class DevelopmentalModelReplacementExperiment:
                         if contradictory and isinstance(raw_observation, Mapping) else None),
                     "failure_posture": failure_posture})
                 return self._persist_partial_run(trial_id=trial_id, observations=observations,
-                    condition_statuses=condition_statuses, failure_posture=failure_posture)
+                    condition_statuses=condition_statuses, failure_posture=failure_posture,
+                    condition_execution_order=execution_order)
             terminal = self.store.finish_condition(start=start, status="completed",
                 observation=observation)
             observations.append(observation)
@@ -2785,6 +3539,9 @@ class DevelopmentalModelReplacementExperiment:
                 "condition_input_digest": terminal["input_digest"],
                 "status": "completed", "condition_start_digest": terminal["condition_start_digest"],
                 "condition_result_digest": terminal["condition_result_digest"]})
+            previous_condition_start_digest = str(terminal["condition_start_digest"])
+        observations_by_condition = {str(item["condition_id"]): item for item in observations}
+        observations = [observations_by_condition[condition] for condition in CONDITION_ORDER]
         outputs = [str(item["output_digest"]) for item in observations]
         differences = {"history_effect_model_a": outputs[0] != outputs[1],
                        "history_effect_model_b": outputs[2] != outputs[3],
@@ -2801,7 +3558,9 @@ class DevelopmentalModelReplacementExperiment:
             classification = "history_association_observed_model_b_only"
         else:
             classification = "no_observable_history_effect_either_model"
+        condition_statuses = self._bind_condition_start_witnesses(condition_statuses)
         semantic = {"trial_id": trial_id, "protocol": asdict(self.protocol), "observations": observations,
+                    "condition_execution_order": list(execution_order),
                     "condition_statuses": condition_statuses,
                     "context_lineage_posture": "verified_persisted_frozen_context",
                     "experiment_completion_posture": "completed",

@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Novel Acquisition Gate CPU Reconstruction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_digest",
+    "cycle_id",
+    "history_boundary_digest",
+    "history_boundary_stable_across_read",
+    "projected_history_record_count",
+    "receipt_schema_validated",
+    "preflight_receipt",
+    "verification_scope",
+    "runtime_receipt_emitted",
+    "model_loaded",
+    "inference_performed",
+    "learning_established",
+    "authority",
+    "reconstruction_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_novel_acquisition_gate_cpu_reconstruction:v1"
+    },
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "cycle_id": {
+      "type": "string",
+      "pattern": "^rootless-cognition-cycle-[0-9]{20}$"
+    },
+    "history_boundary_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "history_boundary_stable_across_read": {
+      "const": true
+    },
+    "projected_history_record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "receipt_schema_validated": {
+      "const": true
+    },
+    "preflight_receipt": {
+      "type": "object"
+    },
+    "verification_scope": {
+      "const": "offline_reconstruction_from_frozen_persisted_history"
+    },
+    "runtime_receipt_emitted": {
+      "const": false
+    },
+    "model_loaded": {
+      "const": false
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "reconstruction_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "preflight_receipt": {
+          "properties": {
+            "novel_acquisition_qualified": {
+              "const": true
+            },
+            "held_out_transfer_qualified": {
+              "const": true
+            },
+            "inference_performed": {
+              "const": false
+            },
+            "learning_claimed": {
+              "const": false
+            },
+            "authority_granted": {
+              "const": false
+            },
+            "historical_probe_overlap": {
+              "properties": {
+                "historical_probe_overlap_measurement_complete": {
+                  "const": true
+                },
+                "historical_probe_overlap_input_count": {
+                  "const": 0
+                }
+              },
+              "required": [
+                "historical_probe_overlap_measurement_complete",
+                "historical_probe_overlap_input_count"
+              ]
+            },
+            "acquisition_historical_probe_overlap": {
+              "properties": {
+                "historical_probe_overlap_measurement_complete": {
+                  "const": true
+                },
+                "historical_probe_overlap_input_count": {
+                  "const": 0
+                }
+              },
+              "required": [
+                "historical_probe_overlap_measurement_complete",
+                "historical_probe_overlap_input_count"
+              ]
+            }
+          },
+          "required": [
+            "novel_acquisition_qualified",
+            "held_out_transfer_qualified",
+            "inference_performed",
+            "learning_claimed",
+            "authority_granted",
+            "historical_probe_overlap",
+            "acquisition_historical_probe_overlap"
+          ]
+        }
+      }
+    }
+  ]
+}

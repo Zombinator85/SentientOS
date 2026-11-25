@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Planned Cycle Negative Example Ablation",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["schema_version", "status", "inference_performed", "learning_established", "model_attention_established", "authority"],
+  "properties": {
+    "schema_version": {"const": "sentientos.rootless_planned_cycle_negative_example_ablation:v1"},
+    "status": {"enum": ["negative_examples_not_present", "paired_prompt_reconstruction_verified"]},
+    "inference_performed": {"const": false},
+    "learning_established": {"const": false},
+    "model_attention_established": {"const": false},
+    "authority": {"const": false}
+  },
+  "allOf": [{
+    "if": {"properties": {"status": {"const": "paired_prompt_reconstruction_verified"}}},
+    "then": {
+      "required": ["intervention", "changed_context_fields", "baseline_prompt_digest", "ablated_prompt_digest", "baseline_prompt_chars", "ablated_prompt_chars", "selected_record_ids", "selected_record_digests", "removed_negative_example_packet_count", "removed_negative_example_digest", "negative_example_count", "no_imitation_guidance_unchanged", "heldout_probe_count", "heldout_probe_digest", "source_record_binding_unchanged", "exact_cycle_prompt_reconstructed", "runtime_condition_created"],
+      "properties": {
+        "intervention": {"const": "remove_only_prior_incorrect_examples_from_selected_history"},
+        "changed_context_fields": {"const": ["developmental_history"]},
+        "baseline_prompt_digest": {"$ref": "#/$defs/digest"},
+        "ablated_prompt_digest": {"$ref": "#/$defs/digest"},
+        "baseline_prompt_chars": {"type": "integer", "minimum": 0},
+        "ablated_prompt_chars": {"type": "integer", "minimum": 0},
+        "selected_record_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "selected_record_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+        "removed_negative_example_packet_count": {"type": "integer", "minimum": 1},
+        "removed_negative_example_digest": {"$ref": "#/$defs/digest"},
+        "negative_example_count": {"type": "integer", "minimum": 1},
+        "no_imitation_guidance_unchanged": {"const": true},
+        "heldout_probe_count": {"type": "integer", "minimum": 1},
+        "heldout_probe_digest": {"$ref": "#/$defs/digest"},
+        "source_record_binding_unchanged": {"const": true},
+        "exact_cycle_prompt_reconstructed": {"const": false},
+        "runtime_condition_created": {"const": false}
+      }
+    },
+    "else": {"properties": {"schema_version": true, "status": true, "inference_performed": true, "learning_established": true, "model_attention_established": true, "authority": true}}
+  }],
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

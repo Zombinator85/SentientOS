@@ -1,0 +1,286 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_persisted_gate_evidence.schema.json",
+  "title": "Persisted durable-learning gate evidence inventory v4",
+  "description": "Read-only, protocol-bound inventory of gate artifacts and V11 execution progress, including the withheld-acquisition competence assessment. Host reviews can record a bounded access observation, but do not promote retention eligibility, learning, or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "evidence_assessment",
+    "artifacts", "retention_contrast_eligible", "promotion_performed", "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_persisted_gate_evidence:v4"
+    },
+    "protocol_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "protocol_digest": { "$ref": "#/$defs/sha256" },
+    "evidence_assessment": { "const": "validated_protocol_artifact_inventory" },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_preflight", "profile_pair", "profile_data_inventory_baseline",
+        "profile_registry_inventory_baseline", "condition_profile_data_inventories",
+        "condition_profile_registry_inventories", "runtime_access_setup_attempts",
+        "access_probe_interruptions", "paired_access_probe_completions",
+        "host_acceptance_reviews", "withheld_acquisition_competence_assessment",
+        "execution_progress"
+      ],
+      "properties": {
+        "branch_preflight": { "$ref": "#/$defs/artifactStatus" },
+        "profile_pair": { "$ref": "#/$defs/artifactStatus" },
+        "profile_data_inventory_baseline": { "$ref": "#/$defs/artifactStatus" },
+        "profile_registry_inventory_baseline": { "$ref": "#/$defs/artifactStatus" },
+        "condition_profile_data_inventories": { "$ref": "#/$defs/conditionCollections" },
+        "condition_profile_registry_inventories": { "$ref": "#/$defs/conditionCollections" },
+        "runtime_access_setup_attempts": { "$ref": "#/$defs/artifactCollection" },
+        "access_probe_interruptions": { "$ref": "#/$defs/artifactCollection" },
+        "paired_access_probe_completions": { "$ref": "#/$defs/artifactCollection" },
+        "host_acceptance_reviews": { "$ref": "#/$defs/hostReviewCollection" },
+        "withheld_acquisition_competence_assessment": {
+          "$ref": "#/$defs/competenceAssessmentStatus"
+        },
+        "execution_progress": { "$ref": "#/$defs/executionProgress" }
+      }
+    },
+    "retention_contrast_eligible": { "type": "boolean" },
+    "promotion_performed": { "const": false },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "inventoryStatus": {
+      "enum": [
+        "present_and_owner_verified", "present_and_source_verified", "missing",
+        "not_assessable_without_branch_preflight",
+        "not_assessable_without_profile_pair",
+        "not_applicable_to_protocol_version"
+      ]
+    },
+    "artifactStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/inventoryStatus" },
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "artifact_digest": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "enum": ["present_and_owner_verified", "present_and_source_verified"] } } },
+          "then": { "required": ["artifact_id", "artifact_digest"] }
+        }
+      ]
+    },
+    "artifactCollection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifacts"],
+      "properties": {
+        "status": { "$ref": "#/$defs/inventoryStatus" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/artifactStatus" } }
+      }
+    },
+    "competenceAssessmentStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": [
+            "present_and_owner_verified", "missing",
+            "not_assessable_without_complete_acquisition",
+            "not_applicable_to_protocol_version"
+          ]
+        },
+        "expected_acquisition_outcome_count": {
+          "type": "integer", "minimum": 2
+        },
+        "observed_acquisition_outcome_count": {
+          "type": "integer", "minimum": 0
+        },
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "artifact_digest": { "$ref": "#/$defs/sha256" },
+        "classification": {
+          "enum": [
+            "baseline_competence_demonstrated",
+            "baseline_competence_not_demonstrated",
+            "acquisition_outcomes_unscoreable"
+          ]
+        },
+        "qualified": { "type": "boolean" },
+        "minimum_correct_probe_count": { "type": "integer", "minimum": 1 },
+        "denominator_probe_count": { "type": "integer", "minimum": 1 },
+        "observed_correct_probe_count": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "null" }
+          ]
+        },
+        "observed_denominator_probe_count": {
+          "oneOf": [
+            { "type": "integer", "minimum": 1 },
+            { "type": "null" }
+          ]
+        },
+        "learning_established": { "const": false },
+        "authority": { "const": false }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": {
+            "enum": [
+              "present_and_owner_verified", "missing",
+              "not_assessable_without_complete_acquisition"
+            ]
+          } } },
+          "then": { "required": [
+            "expected_acquisition_outcome_count",
+            "observed_acquisition_outcome_count"
+          ] }
+        },
+        {
+          "if": { "properties": { "status": { "const": "present_and_owner_verified" } } },
+          "then": { "required": [
+            "artifact_id", "artifact_digest", "classification", "qualified",
+            "minimum_correct_probe_count", "denominator_probe_count",
+            "observed_correct_probe_count", "observed_denominator_probe_count",
+            "learning_established", "authority"
+          ] }
+        }
+      ]
+    },
+    "executionProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": {
+          "enum": ["v11_execution_progress", "not_applicable_to_protocol_version"]
+        },
+        "acquisition": { "$ref": "#/$defs/phaseProgress" },
+        "competence_assessment": {
+          "$ref": "#/$defs/competenceAssessmentStatus"
+        },
+        "delayed_probe": { "$ref": "#/$defs/delayedProbeProgress" },
+        "evaluation": { "$ref": "#/$defs/evaluationStatus" },
+        "learning_established": { "const": false },
+        "authority": { "const": false }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "v11_execution_progress" } } },
+          "then": { "required": [
+            "acquisition", "competence_assessment", "delayed_probe",
+            "evaluation", "learning_established", "authority"
+          ] }
+        },
+        {
+          "if": { "properties": { "status": { "const": "not_applicable_to_protocol_version" } } },
+          "then": { "not": { "anyOf": [
+            { "required": ["acquisition"] },
+            { "required": ["competence_assessment"] },
+            { "required": ["delayed_probe"] },
+            { "required": ["evaluation"] }
+          ] } }
+        }
+      ]
+    },
+    "phaseProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expected_outcome_count", "observed_outcome_count", "complete"],
+      "properties": {
+        "expected_outcome_count": { "type": "integer", "minimum": 2 },
+        "observed_outcome_count": { "type": "integer", "minimum": 0 },
+        "complete": { "type": "boolean" }
+      }
+    },
+    "delayedProbeProgress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_outcome_count", "observed_outcome_count",
+        "invocation_attempt_count", "complete"
+      ],
+      "properties": {
+        "expected_outcome_count": { "type": "integer", "minimum": 2 },
+        "observed_outcome_count": { "type": "integer", "minimum": 0 },
+        "invocation_attempt_count": { "type": "integer", "minimum": 0 },
+        "complete": { "type": "boolean" }
+      }
+    },
+    "evaluationStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["missing", "present_and_owner_verified"] },
+        "evaluation_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-evaluation-[0-9a-f]{24}$"
+        },
+        "evaluation_digest": { "$ref": "#/$defs/sha256" },
+        "schema_version": {
+          "const": "sentientos.durable_learning_evaluation:v33"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "present_and_owner_verified" } } },
+          "then": { "required": ["evaluation_id", "evaluation_digest", "schema_version"] }
+        },
+        {
+          "if": { "properties": { "status": { "const": "missing" } } },
+          "then": { "not": { "anyOf": [
+            { "required": ["evaluation_id"] },
+            { "required": ["evaluation_digest"] },
+            { "required": ["schema_version"] }
+          ] } }
+        }
+      ]
+    },
+    "conditionCollections": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/artifactCollection" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/artifactCollection" }
+      }
+    },
+    "hostReviewStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifact_id", "artifact_digest", "disposition", "bounded_access_observation_accepted"],
+      "properties": {
+        "status": { "const": "present_and_source_verified" },
+        "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-host-access-review-[0-9a-f]{24}$" },
+        "artifact_digest": { "$ref": "#/$defs/sha256" },
+        "disposition": { "enum": ["accepted_bounded_access_observation", "rejected", "insufficient_evidence"] },
+        "bounded_access_observation_accepted": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "disposition": { "const": "accepted_bounded_access_observation" } } },
+          "then": { "properties": { "bounded_access_observation_accepted": { "const": true } } }
+        },
+        {
+          "if": { "properties": { "disposition": { "enum": ["rejected", "insufficient_evidence"] } } },
+          "then": { "properties": { "bounded_access_observation_accepted": { "const": false } } }
+        }
+      ]
+    },
+    "hostReviewCollection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "artifacts"],
+      "properties": {
+        "status": { "$ref": "#/$defs/inventoryStatus" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/hostReviewStatus" } }
+      }
+    }
+  }
+}

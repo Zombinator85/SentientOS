@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_profile_registry_inventory_artifact.schema.json",
+  "title": "SentientOS durable-learning AppContainer registry inventory artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest",
+    "branch_preflight_id", "branch_preflight_digest",
+    "profile_pair_artifact_id", "profile_pair_artifact_digest", "condition",
+    "appcontainer_sid", "probe_manifest_digest", "worker_rpc_request_id",
+    "worker_rpc_response_result_digest", "worker_process_id",
+    "worker_process_creation_time_100ns", "process_start_nonce",
+    "registry_inventory", "registry_state_accounted", "profile_state_accounted",
+    "retention_contrast_eligible", "authority", "artifact_digest", "artifact_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_profile_registry_inventory:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "branch_preflight_id": { "type": "string", "pattern": "^devexp-durable-learning-branch-preflight-(?:v[2-6]-)?[0-9a-f]{24}$" },
+    "branch_preflight_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "profile_pair_artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-appcontainer-profile-pair-[0-9a-f]{24}$" },
+    "profile_pair_artifact_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+    "probe_manifest_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "worker_rpc_request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "worker_rpc_response_result_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "worker_process_id": { "type": "integer", "minimum": 1 },
+    "worker_process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+    "process_start_nonce": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "registry_inventory": { "$ref": "windows_appcontainer_registry_inventory.schema.json" },
+    "registry_state_accounted": { "const": false },
+    "profile_state_accounted": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-profile-registry-inventory-[0-9a-f]{24}$" }
+  }
+}

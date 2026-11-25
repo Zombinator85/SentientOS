@@ -7,6 +7,7 @@ They do not provide production serving authority.
 from __future__ import annotations
 
 import json
+import os
 import re
 import urllib.request
 from contextlib import nullcontext
@@ -18,7 +19,11 @@ from .control_plane_kernel import ControlPlaneKernel
 from .governed_local_model_invocation import (
     GovernedLocalModelInvoker, validate_receipt,
 )
-from .local_model import ActiveModelIdentity, LocalModel
+from .local_model import (
+    ActiveModelIdentity, LocalModel,
+    candidate_configuration_digest_from_payload,
+    candidate_configuration_payload,
+)
 from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_PURPOSE,
@@ -26,7 +31,7 @@ from .local_model_authority import (
     ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_COMPANION_INVOCATION_PURPOSES,
     build_rootless_experimental_epistemic_authority_map,
     build_rootless_experimental_developmental_authority_map,
-    stream_sha256, LocalModelAuthorityMap,
+    stream_sha256, LocalModelAuthorityMap, digest_payload,
 )
 from .local_runtime_provisioning import semantic_digest
 from .rootless_experimental_epistemic_session import (
@@ -41,7 +46,14 @@ from .rootless_experimental_local_model import (
 )
 
 
-ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED = 42
+_raw_backend_seed = os.environ.get("SENTIENTOS_HERMES_BACKEND_SEED", "42")
+if (not isinstance(_raw_backend_seed, str)
+        or not _raw_backend_seed.isascii()
+        or not _raw_backend_seed.isdecimal()
+        or len(_raw_backend_seed) > 10
+        or int(_raw_backend_seed) > 2**31 - 1):
+    raise RootlessExperimentalError("ollama_backend_seed_invalid")
+ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED = int(_raw_backend_seed)
 ROOTLESS_OLLAMA_CPU_THREADS = 5
 ROOTLESS_RECEIPT_ID_RE = re.compile(r"^lmrec-[0-9a-f]{24}$")
 ROOTLESS_DEVELOPMENTAL_MAX_CALLS = 32
@@ -64,6 +76,54 @@ def _rootless_ollama_model_options(*, model_name: str,
         "timeout_seconds": MAX_CALL_TIMEOUT_SECONDS,
         "seed": ROOTLESS_EXPERIMENTAL_OLLAMA_BACKEND_SEED,
     }
+
+
+def verify_rootless_historical_invocation_receipt(*, cycle_root: Path,
+        receipt_id: str, receipt_digest: str, expected_request_id: str,
+        expected_request_digest: str,
+        expected_active_model_identity: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Verify a retained invocation receipt without constructing a model session."""
+    root = validate_experiment_root(cycle_root)
+    runtime_root = root / "inference-custody"
+    _no_symlink_path(runtime_root)
+    if (not isinstance(receipt_id, str)
+            or not ROOTLESS_RECEIPT_ID_RE.fullmatch(receipt_id)
+            or not isinstance(receipt_digest, str)
+            or not isinstance(expected_request_id, str)
+            or not isinstance(expected_request_digest, str)
+            or not isinstance(expected_active_model_identity, Mapping)):
+        raise RootlessExperimentalError(
+            "developmental_historical_receipt_binding_invalid")
+    payload = _read_json(runtime_root / "receipts" / f"{receipt_id}.json",
+        max_bytes=MAX_RECORD_BYTES)
+    valid, _reasons = validate_receipt(payload)
+    request = payload.get("request") if isinstance(payload, Mapping) else None
+    linkage = request.get("linkage") if isinstance(request, Mapping) else None
+    historical_session = (linkage.get("rootless_experimental_session")
+        if isinstance(linkage, Mapping) else None)
+    from .resident_developmental_cognition import (
+        _valid_rootless_epistemic_session_binding)
+    identity = dict(expected_active_model_identity)
+    if (not valid
+            or payload.get("receipt_id") != receipt_id
+            or payload.get("receipt_digest") != receipt_digest
+            or payload.get("status") != "admitted_completed"
+            or not isinstance(request, Mapping)
+            or request.get("purpose") not in {
+                ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+                *ROOTLESS_EXPERIMENTAL_DEVELOPMENTAL_INVOCATION_PURPOSES}
+            or request.get("request_id") != expected_request_id
+            or request.get("request_digest") != expected_request_digest
+            or request.get("active_model_identity") != identity
+            or not isinstance(linkage, Mapping)
+            or "resident_cognitive_serving" in linkage
+            or not isinstance(historical_session, Mapping)
+            or not _valid_rootless_epistemic_session_binding(historical_session)
+            or historical_session.get("active_model_identity_digest")
+                != digest_payload({"identity": identity})):
+        raise RootlessExperimentalError(
+            "developmental_historical_receipt_binding_invalid")
+    return payload
 
 
 class RootlessExperimentalOllamaEpistemicSession(
@@ -112,6 +172,15 @@ class RootlessExperimentalOllamaEpistemicSession(
             default_engine="ollama", max_context_tokens=max_context_tokens,
             generation=GenerationConfig(max_new_tokens=max_new_tokens,
                 temperature=0, top_p=1))
+        configuration_payload = candidate_configuration_payload(
+            self.config.candidates[0], self.config, "ollama")
+        configuration_digest = candidate_configuration_digest_from_payload(
+            configuration_payload)
+        self.active_model_configuration_observation = {
+            "schema_version": "sentientos.active_model_configuration_observation:v1",
+            "configuration_digest": configuration_digest,
+            "payload": configuration_payload,
+        }
         authority_builder = (build_rootless_experimental_developmental_authority_map
             if developmental_cycle else build_rootless_experimental_epistemic_authority_map)
         self.authority_map = authority_builder(self.config, allowed_roots=[path.parent])
@@ -141,6 +210,7 @@ class RootlessExperimentalOllamaEpistemicSession(
                 or identity.fallback or identity.candidate_index != 0
                 or identity.model_content_sha256 != manifest_digest
                 or identity.artifact_size_bytes != manifest_size
+                or identity.configuration_digest != configuration_digest
                 or not any(self.authority_map.record_for_active_identity(identity, item)
                     is not None for item in required_purposes)):
             raise RootlessExperimentalError("epistemic_session_model_identity_mismatch")
@@ -284,6 +354,19 @@ class RootlessExperimentalOllamaEpistemicSession(
         self.active_model_identity = dict(identity_payload)
         self.authority_map = authority
         self.worker = worker
+        candidate = worker.config.candidates[identity.candidate_index]
+        configuration_payload = candidate_configuration_payload(
+            candidate, worker.config, identity.engine)
+        configuration_digest = candidate_configuration_digest_from_payload(
+            configuration_payload)
+        if configuration_digest != identity.configuration_digest:
+            raise RootlessExperimentalError(
+                "ollama_experimental_existing_invoker_configuration_mismatch")
+        self.active_model_configuration_observation = {
+            "schema_version": "sentientos.active_model_configuration_observation:v1",
+            "configuration_digest": configuration_digest,
+            "payload": configuration_payload,
+        }
         self.invoker = invoker
         self.runtime_root = Path(runtime_root).resolve()
         try:
@@ -411,6 +494,24 @@ class RootlessExperimentalOllamaEpistemicSession(
                 and expected["expected_active_model_identity"] != self.active_model_identity):
             raise RootlessExperimentalError("developmental_receipt_model_identity_mismatch")
         return payload
+
+    def verify_historical_invocation_receipt(
+            self, receipt_id: str, receipt_digest: str, *,
+            expected_request_id: str, expected_request_digest: str,
+            expected_active_model_identity: Mapping[str, Any]
+            ) -> Mapping[str, Any]:
+        """Verify a retained receipt against its own prior session binding.
+
+        Historical cognition may have been produced by a different session or
+        model. The receipt must still validate independently and bind exactly to
+        the observation's request and recorded model identity.
+        """
+        return verify_rootless_historical_invocation_receipt(
+            cycle_root=self.root, receipt_id=receipt_id,
+            receipt_digest=receipt_digest,
+            expected_request_id=expected_request_id,
+            expected_request_digest=expected_request_digest,
+            expected_active_model_identity=expected_active_model_identity)
 
     def measured_process_resources(self) -> Mapping[str, Any]:
         return {"measurement_source":

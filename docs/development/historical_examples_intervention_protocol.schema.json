@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_intervention_protocol.schema.json",
+  "title": "SentientOS historical examples intervention protocol",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "conditions",
+    "intervention",
+    "changed_context_fields",
+    "target_model_identity_digest",
+    "task_digest",
+    "private_task_plan_digest",
+    "held_out_probe_overlap_audit_digest",
+    "task_family_id",
+    "snapshot_id",
+    "snapshot_digest",
+    "generation_budget_digest",
+    "generation_config_digest",
+    "history_record_ids",
+    "history_record_digests",
+    "history_set_digest",
+    "probe_binding_digests",
+    "answer_key_digest",
+    "withheld_example_count",
+    "withheld_examples_digest",
+    "historical_examples_prompt_ablation",
+    "retained_per_record_strategy_count",
+    "per_record_strategies_unchanged",
+    "accumulated_strategy_unchanged",
+    "invocation_prompt_digests",
+    "preview_request_digests",
+    "owner_execution_tick_ids",
+    "owner_protocol_digests",
+    "owner_task_plan_digests",
+    "owner_prompt_pair_preview_digest",
+    "owner_prompt_pair_preview_schema",
+    "owner_prompt_pair_composition_verified",
+    "exact_pair_verified",
+    "inference_performed",
+    "learning_established",
+    "authority",
+    "protocol_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "sentientos.historical_examples_intervention_protocol:v2",
+        "sentientos.historical_examples_intervention_protocol:v3"
+      ]
+    },
+    "conditions": {
+      "type": "array",
+      "items": { "enum": ["examples_included", "examples_omitted"] },
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "intervention": { "const": "remove_raw_history_examples_only" },
+    "changed_context_fields": { "const": ["developmental_history"] },
+    "target_model_identity_digest": { "$ref": "#/$defs/digest" },
+    "task_digest": { "$ref": "#/$defs/digest" },
+    "private_task_plan_digest": { "$ref": "#/$defs/digest" },
+    "held_out_probe_overlap_audit_digest": { "$ref": "#/$defs/digest" },
+    "task_family_id": { "type": "string", "minLength": 1, "maxLength": 96 },
+    "snapshot_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "snapshot_digest": { "$ref": "#/$defs/digest" },
+    "generation_budget_digest": { "$ref": "#/$defs/digest" },
+    "generation_config_digest": { "$ref": "#/$defs/digest" },
+    "history_record_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true
+    },
+    "history_record_digests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/digest" },
+      "minItems": 1,
+      "maxItems": 256
+    },
+    "history_set_digest": { "$ref": "#/$defs/digest" },
+    "probe_binding_digests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/digest" },
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "answer_key_digest": { "$ref": "#/$defs/digest" },
+    "withheld_example_count": { "type": "integer", "minimum": 1 },
+    "withheld_examples_digest": { "$ref": "#/$defs/digest" },
+    "historical_examples_prompt_ablation": { "$ref": "#/$defs/ablation" },
+    "retained_per_record_strategy_count": { "type": "integer", "minimum": 0 },
+    "per_record_strategies_unchanged": { "const": true },
+    "accumulated_strategy_unchanged": { "const": true },
+    "invocation_prompt_digests": { "$ref": "#/$defs/armDigests" },
+    "preview_request_digests": { "$ref": "#/$defs/armDigests" },
+    "owner_execution_tick_ids": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "examples_omitted": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "owner_protocol_digests": { "$ref": "#/$defs/armDigests" },
+    "owner_task_plan_digests": { "$ref": "#/$defs/armDigests" },
+    "owner_protocol_field_digests_by_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": { "$ref": "#/$defs/ownerProtocolFieldDigests" },
+        "examples_omitted": { "$ref": "#/$defs/ownerProtocolFieldDigests" }
+      }
+    },
+    "owner_authority_map_digests": { "$ref": "#/$defs/authorityMapArmDigests" },
+    "owner_prompt_pair_preview_digest": { "$ref": "#/$defs/digest" },
+    "owner_prompt_pair_preview_schema": {
+      "const": "sentientos.objective_historical_examples_prompt_pair_preview:v1"
+    },
+    "owner_prompt_pair_composition_verified": { "const": true },
+    "exact_pair_verified": { "const": true },
+    "inference_performed": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "protocol_digest": { "$ref": "#/$defs/digest" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.historical_examples_intervention_protocol:v3"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "owner_protocol_field_digests_by_arm",
+          "owner_authority_map_digests"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "armDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": { "$ref": "#/$defs/digest" },
+        "examples_omitted": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "authorityMapArmDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": { "$ref": "#/$defs/authorityMapDigest" },
+        "examples_omitted": { "$ref": "#/$defs/authorityMapDigest" }
+      }
+    },
+    "authorityMapDigest": {
+      "type": "string",
+      "pattern": "^(sha256:)?[0-9a-f]{64}$"
+    },
+    "ownerProtocolFieldDigests": {
+      "type": "object",
+      "minProperties": 1,
+      "anyOf": [
+        { "required": ["authority_map_digest"] },
+        { "required": ["authority_map_policy_digest"] }
+      ],
+      "additionalProperties": { "$ref": "#/$defs/digest" }
+    },
+    "ablation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "intervention",
+        "changed_context_fields",
+        "baseline_prompt_digest",
+        "ablated_prompt_digest",
+        "baseline_prompt_chars",
+        "ablated_prompt_chars",
+        "withheld_example_count",
+        "withheld_examples_digest",
+        "selected_record_ids",
+        "selected_record_digests",
+        "selected_record_set_digest",
+        "retained_per_record_strategy_count",
+        "per_record_strategies_unchanged",
+        "accumulated_strategy_unchanged",
+        "inference_performed",
+        "learning_established",
+        "authority"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.objective_historical_examples_prompt_ablation:v1"
+        },
+        "intervention": { "const": "remove_examples_arrays_from_selected_history_experiences" },
+        "changed_context_fields": { "const": ["developmental_history"] },
+        "baseline_prompt_digest": { "$ref": "#/$defs/digest" },
+        "ablated_prompt_digest": { "$ref": "#/$defs/digest" },
+        "baseline_prompt_chars": { "type": "integer", "minimum": 1 },
+        "ablated_prompt_chars": { "type": "integer", "minimum": 1 },
+        "withheld_example_count": { "type": "integer", "minimum": 1 },
+        "withheld_examples_digest": { "$ref": "#/$defs/digest" },
+        "selected_record_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true
+        },
+        "selected_record_digests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest" },
+          "minItems": 1,
+          "maxItems": 256
+        },
+        "selected_record_set_digest": { "$ref": "#/$defs/digest" },
+        "retained_per_record_strategy_count": { "type": "integer", "minimum": 0 },
+        "per_record_strategies_unchanged": { "const": true },
+        "accumulated_strategy_unchanged": { "const": true },
+        "inference_performed": { "const": false },
+        "learning_established": { "const": false },
+        "authority": { "const": false }
+      }
+    }
+  }
+}

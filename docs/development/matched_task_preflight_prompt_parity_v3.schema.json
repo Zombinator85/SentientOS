@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/matched_task_preflight_prompt_parity_v3.schema.json",
+  "title": "Matched task preflight prompt parity audit v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pair_verification_file_sha256",
+    "left_preflight_sha256",
+    "right_preflight_sha256",
+    "left_preflight_verification_sha256",
+    "right_preflight_verification_sha256",
+    "shared_cycle_root_id",
+    "shared_source_receipt_digest",
+    "task_generation_seed",
+    "task_family_id",
+    "task_digest",
+    "task_commitment_nonce_pair_digest",
+    "left_target_model_identity_digest",
+    "right_target_model_identity_digest",
+    "left_selected_record_ids",
+    "right_selected_record_ids",
+    "shared_selected_record_ids",
+    "shared_selected_record_digests",
+    "left_only_selected_record_ids",
+    "right_only_selected_record_ids",
+    "left_selected_record_count",
+    "right_selected_record_count",
+    "selected_record_sets_equal",
+    "all_shared_record_digests_equal",
+    "left_withheld_example_count",
+    "right_withheld_example_count",
+    "left_withheld_examples_digest",
+    "right_withheld_examples_digest",
+    "withheld_examples_equal_by_count_and_digest",
+    "left_prompt_digests",
+    "right_prompt_digests",
+    "prompt_digests_equal_by_arm",
+    "inference_performed",
+    "learning_established",
+    "authority",
+    "interpretation_limit",
+    "audit_digest",
+    "selected_record_provenance",
+    "selected_record_source_reconstructed",
+    "cross_model_prompt_comparison_ready",
+    "prompt_comparison_readiness_posture"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.matched_task_preflight_prompt_parity:v3"
+    },
+    "pair_verification_file_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "left_preflight_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_preflight_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "left_preflight_verification_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_preflight_verification_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "shared_cycle_root_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shared_source_receipt_digest": {
+      "$ref": "#/$defs/hexDigest"
+    },
+    "task_generation_seed": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_family_id": {
+      "const": "rootless_integer_affine_transfer_wide_range_v7"
+    },
+    "task_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_commitment_nonce_pair_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "left_target_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_target_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "left_selected_record_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "right_selected_record_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "shared_selected_record_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "shared_selected_record_digests": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "left_only_selected_record_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "right_only_selected_record_ids": {
+      "$ref": "#/$defs/idList"
+    },
+    "left_selected_record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "right_selected_record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "selected_record_sets_equal": {
+      "type": "boolean"
+    },
+    "all_shared_record_digests_equal": {
+      "const": true
+    },
+    "left_withheld_example_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "right_withheld_example_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "left_withheld_examples_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_withheld_examples_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "withheld_examples_equal_by_count_and_digest": {
+      "type": "boolean"
+    },
+    "left_prompt_digests": {
+      "$ref": "#/$defs/promptDigests"
+    },
+    "right_prompt_digests": {
+      "$ref": "#/$defs/promptDigests"
+    },
+    "prompt_digests_equal_by_arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "properties": {
+        "examples_included": {
+          "type": "boolean"
+        },
+        "examples_omitted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "interpretation_limit": {
+      "const": "digest_parity_only_no_prompt_content_or_model_attention_claim"
+    },
+    "audit_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "selected_record_source_reconstructed": {
+      "const": true
+    },
+    "selected_record_provenance": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_digest",
+          "selected_by_left_target",
+          "selected_by_right_target",
+          "objective_task_families",
+          "source_model_identity_digests",
+          "source_identity_matches_left_target",
+          "source_identity_matches_right_target"
+        ],
+        "properties": {
+          "record_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "selected_by_left_target": {
+            "type": "boolean"
+          },
+          "selected_by_right_target": {
+            "type": "boolean"
+          },
+          "objective_task_families": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "source_model_identity_digests": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/digest"
+            }
+          },
+          "source_identity_matches_left_target": {
+            "type": "boolean"
+          },
+          "source_identity_matches_right_target": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "history_record_allowlist_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_record_allowlist_file_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "cross_model_prompt_comparison_ready": {
+      "type": "boolean"
+    },
+    "prompt_comparison_readiness_posture": {
+      "enum": [
+        "blocked_selected_history_set_mismatch",
+        "blocked_withheld_examples_mismatch",
+        "blocked_model_visible_prompt_digest_mismatch",
+        "ready_shared_task_history_and_prompt_digests"
+      ]
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hexDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "idList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "promptDigests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "properties": {
+        "examples_included": {
+          "$ref": "#/$defs/digest"
+        },
+        "examples_omitted": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "prompt_comparison_readiness_posture": {
+            "const": "ready_shared_task_history_and_prompt_digests"
+          }
+        },
+        "required": [
+          "prompt_comparison_readiness_posture"
+        ]
+      },
+      "then": {
+        "properties": {
+          "cross_model_prompt_comparison_ready": {
+            "const": true
+          },
+          "selected_record_sets_equal": {
+            "const": true
+          },
+          "withheld_examples_equal_by_count_and_digest": {
+            "const": true
+          },
+          "prompt_digests_equal_by_arm": {
+            "properties": {
+              "examples_included": {
+                "const": true
+              },
+              "examples_omitted": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "cross_model_prompt_comparison_ready": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}

@@ -5,6 +5,7 @@ import hashlib
 import json
 import math
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
 EVIDENCE_SCHEMA = "sentientos.embodiment_self_observation:v1"
@@ -13,7 +14,8 @@ POSTURES = frozenset({"production", "rehearsal", "synthetic_test"})
 FRESHNESS_POSTURES = frozenset({"current", "fresh", "aging", "stale", "expired", "unknown", "not_applicable"})
 CLASSES = frozenset({"body_manifest", "sensor_observation", "actuator_observation",
                      "avatar_commanded_state", "avatar_renderer_reported_state",
-                     "avatar_independently_observed_state", "fulfillment_observation"})
+                     "avatar_independently_observed_state", "fulfillment_observation",
+                     "scenario_fixture"})
 MAX_EMBODIMENT_OBSERVATIONS = 64
 MAX_EVIDENCE_ID_CHARS = 512
 FORBIDDEN = frozenset({"authority", "permission", "policy", "goal", "consciousness", "sentience"})
@@ -130,6 +132,30 @@ class EmbodimentObservation:
             raise EmbodimentEvidenceError("sensor_health_requires_presence")
         if self.evidence_class == "body_manifest":
             AvatarBodyManifest(**payload).validate()
+
+
+def make_synthetic_pre_action_proprioception_observation(*, run_id: str,
+        pose: str = "idle", observed_at: str | None = None
+        ) -> EmbodimentObservation:
+    """Create the bounded synthetic body-state observation used by task probes."""
+    if (not isinstance(run_id, str) or not run_id or len(run_id) > 256
+            or pose not in {"idle", "reach"}):
+        raise EmbodimentEvidenceError("synthetic_pre_action_observation_invalid")
+    arm_value = 0.75 if pose == "reach" else 0.0
+    timestamp = observed_at or datetime.now(timezone.utc).isoformat()
+    return EmbodimentObservation(
+        source_id=run_id + ":synthetic-pre-action-proprioception",
+        source_schema="sentientos.synthetic_proprioception_observation:v1",
+        source_digest=semantic_digest({"encoder_pose": pose,
+            "joint_state": {"arm": arm_value},
+            "source_posture": "synthetic_test"}),
+        observed_at=timestamp,
+        provenance_class="deterministic_synthetic_fixture",
+        freshness="current", posture="synthetic_test",
+        evidence_class="sensor_observation",
+        subject_id="synthetic-avatar-body", subject_kind="robot_body",
+        payload={"encoder_pose": pose, "joint_state": {"arm": arm_value},
+            "sampled_at": timestamp})
 
 
 class EmbodimentEvidenceOwner:

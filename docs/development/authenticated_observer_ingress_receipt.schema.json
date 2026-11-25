@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/authenticated_observer_ingress_receipt.schema.json",
+  "title": "Authenticated observer ingress receipt",
+  "description": "Records transport authentication at ingress. A same-process synthetic fixture is explicitly marked and must not qualify as independent retained history.",
+  "type": "object",
+  "required": [
+    "schema_version", "observation_id", "observation_digest",
+    "observer_source_id", "session_id", "generation_id", "sequence",
+    "message_id", "signed_envelope_digest", "received_at",
+    "transport_authenticated_at_ingress", "signature_reverified_on_load",
+    "source_distinct_from_renderer"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "sentientos.authenticated_observer_ingress_receipt:v1",
+        "sentientos.authenticated_observer_ingress_receipt:v2"
+      ]
+    },
+    "observation_id": {"type": "string", "minLength": 1},
+    "observation_digest": {"$ref": "#/$defs/sha256_prefixed"},
+    "observer_source_id": {"type": "string", "minLength": 1},
+    "session_id": {"type": "string", "minLength": 1},
+    "generation_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "message_id": {"$ref": "#/$defs/sha256"},
+    "signed_envelope_digest": {"$ref": "#/$defs/sha256_prefixed"},
+    "received_at": {"type": "string", "format": "date-time"},
+    "transport_authenticated_at_ingress": {"const": true},
+    "signature_reverified_on_load": {"const": false},
+    "source_distinct_from_renderer": {"const": true},
+    "capture_request_id": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "capture_provenance": {"type": "object"},
+    "request_elapsed_seconds": {"type": "number", "minimum": 0, "maximum": 300},
+    "source_observed_at": {"type": "string", "format": "date-time"},
+    "request_started_at": {"type": "string", "format": "date-time"},
+    "observation_time_posture": {
+      "const": "authenticated_request_correlated_receiver_time"
+    },
+    "renderer_report_receipt_identity": {"type": "object"},
+    "observer_fixture_posture": {
+      "const": "same_process_synthetic_fixture"
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.authenticated_observer_ingress_receipt:v1"
+            }
+          },
+          "not": {"required": ["observer_fixture_posture"]}
+        },
+        {
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.authenticated_observer_ingress_receipt:v2"
+            },
+            "observer_fixture_posture": {
+              "const": "same_process_synthetic_fixture"
+            }
+          },
+          "required": ["observer_fixture_posture"]
+        }
+      ]
+    },
+    {
+      "if": {"required": ["capture_request_id"]},
+      "then": {"required": ["capture_provenance", "request_elapsed_seconds"]}
+    }
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sha256_prefixed": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

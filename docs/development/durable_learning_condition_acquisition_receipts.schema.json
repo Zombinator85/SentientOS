@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_acquisition_receipts.schema.json",
+  "title": "Score-free condition-scoped acquisition receipt bundle",
+  "description": "Version 2 also binds retained-history record references to the exact history-state digest. Redacted receipt linkage is projected by the supervisor after verifying one condition's complete acquisition outcomes. Shape and digest validation alone do not authenticate source receipt verification or custody.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "condition",
+    "branch_id", "task_receipts",
+    "source_outcomes_verified_before_projection", "score_material_included",
+    "raw_prompt_or_output_included", "authority", "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_condition_acquisition_receipts:v2"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": {
+      "enum": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ]
+    },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "task_receipts": {
+      "type": "array", "minItems": 1, "maxItems": 256,
+      "items": { "$ref": "#/$defs/taskReceipt" }
+    },
+    "source_outcomes_verified_before_projection": { "const": true },
+    "score_material_included": { "const": false },
+    "raw_prompt_or_output_included": { "const": false },
+    "authority": { "const": false },
+    "bundle_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string", "pattern": "^[0-9a-f]{64}$"
+    },
+    "taskReceipt": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "task_digest", "outcome_id", "outcome_digest",
+        "outcome_verification_digest", "prompt_digest", "output_digest",
+        "invocation_attempt_id", "invocation_receipt_id",
+        "invocation_receipt_digest", "retained_state_digest",
+        "retained_state_record_refs", "available_experience_digests",
+        "preceding_feedback_digests"
+      ],
+      "properties": {
+        "task_digest": { "$ref": "#/$defs/digest" },
+        "outcome_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-outcome-[0-9a-f]{24}$"
+        },
+        "outcome_digest": { "$ref": "#/$defs/digest" },
+        "outcome_verification_digest": { "$ref": "#/$defs/digest" },
+        "prompt_digest": { "$ref": "#/$defs/digest" },
+        "output_digest": { "$ref": "#/$defs/digest" },
+        "invocation_attempt_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-attempt-[0-9a-f]{24}$"
+        },
+        "invocation_receipt_id": { "type": "string", "minLength": 1 },
+        "invocation_receipt_digest": { "$ref": "#/$defs/digest" },
+        "retained_state_digest": {
+          "type": "string", "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "retained_state_record_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/retainedStateRecordRef" }
+        },
+        "available_experience_digests": {
+          "type": "array", "items": { "$ref": "#/$defs/taggedDigest" }
+        },
+        "preceding_feedback_digests": {
+          "type": "array", "items": { "$ref": "#/$defs/taggedDigest" }
+        }
+      }
+    },
+    "taggedDigest": {
+      "type": "string", "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "retainedStateRecordRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_id", "record_digest", "receipt_id", "receipt_digest"],
+      "properties": {
+        "record_id": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" },
+        "record_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "receipt_id": { "type": "string", "pattern": "^devreceipt-[0-9a-f]{24}$" },
+        "receipt_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

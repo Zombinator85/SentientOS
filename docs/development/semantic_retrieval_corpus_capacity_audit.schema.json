@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Semantic retrieval corpus capacity audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "supersedes", "correction", "scope", "source_root",
+    "atomic_snapshot", "stable_double_scan", "history_directory_count",
+    "history_roots_with_records", "record_file_count",
+    "duplicate_snapshot_copy_count", "unique_record_count",
+    "unique_record_digest_count", "record_identity_conflict_count",
+    "unique_records_by_task_family", "unique_records_without_task_family",
+    "phase_a_min_independent_queries", "independent_source_reuse_permitted",
+    "distinct_experience_shortfall", "unique_records", "source_file_inventory",
+    "source_inventory_digest", "audit_digest", "inference_performed",
+    "learning_established", "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.semantic_retrieval_corpus_capacity_audit:v2" },
+    "supersedes": { "const": "artifacts/experiments/semantic-retrieval-capacity-20261123/corpus_capacity_audit_v1.json" },
+    "correction": { "const": "v1 extracted the history-root identifier from the wrong path depth; v2 recomputes it from the actual record path and distinguishes all history directories from non-empty record roots." },
+    "scope": { "const": "persisted_rootless_experimental_history_records_only" },
+    "source_root": { "const": "sentientos-data/rootless-experimental/developmental-cognition-cycles" },
+    "atomic_snapshot": { "const": false },
+    "stable_double_scan": { "const": true },
+    "history_directory_count": { "type": "integer", "minimum": 0 },
+    "history_roots_with_records": { "type": "integer", "minimum": 0 },
+    "record_file_count": { "type": "integer", "minimum": 0 },
+    "duplicate_snapshot_copy_count": { "type": "integer", "minimum": 0 },
+    "unique_record_count": { "type": "integer", "minimum": 0 },
+    "unique_record_digest_count": { "type": "integer", "minimum": 0 },
+    "record_identity_conflict_count": { "const": 0 },
+    "unique_records_by_task_family": {
+      "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "unique_records_without_task_family": { "type": "integer", "minimum": 0 },
+    "phase_a_min_independent_queries": { "type": "integer", "minimum": 1 },
+    "independent_source_reuse_permitted": { "const": false },
+    "distinct_experience_shortfall": { "type": "integer", "minimum": 0 },
+    "unique_records": {
+      "type": "array", "items": { "$ref": "#/$defs/uniqueRecord" },
+      "uniqueItems": true
+    },
+    "source_file_inventory": {
+      "type": "array", "items": { "$ref": "#/$defs/sourceFile" }
+    },
+    "source_inventory_digest": { "$ref": "#/$defs/prefixedDigest" },
+    "audit_digest": { "$ref": "#/$defs/prefixedDigest" },
+    "inference_performed": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false }
+  },
+  "$defs": {
+    "hexDigest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "prefixedDigest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "recordId": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" },
+    "cycleId": { "type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$" },
+    "taskFamilies": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "uniqueRecord": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_id", "record_digest", "task_family_ids"],
+      "properties": {
+        "record_id": { "$ref": "#/$defs/recordId" },
+        "record_digest": { "$ref": "#/$defs/prefixedDigest" },
+        "task_family_ids": { "$ref": "#/$defs/taskFamilies" }
+      }
+    },
+    "sourceFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["cycle_id", "path", "record_id", "record_digest", "source_file_sha256", "task_family_ids"],
+      "properties": {
+        "cycle_id": { "$ref": "#/$defs/cycleId" },
+        "path": { "type": "string", "minLength": 1 },
+        "record_id": { "$ref": "#/$defs/recordId" },
+        "record_digest": { "$ref": "#/$defs/prefixedDigest" },
+        "source_file_sha256": { "$ref": "#/$defs/hexDigest" },
+        "task_family_ids": { "$ref": "#/$defs/taskFamilies" }
+      }
+    }
+  }
+}

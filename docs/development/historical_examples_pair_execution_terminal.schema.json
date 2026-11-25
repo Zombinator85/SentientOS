@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_execution_terminal.schema.json",
+  "title": "SentientOS historical examples pair execution terminal",
+  "description": "One completed pair result tied to its task-level execution plan, governed runner binding, score, and stable history inventory.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_plan_digest", "runner_binding_digest", "cohort_digest", "analysis_plan_digest", "trial_index", "protocol_digest", "runner_cycle_id", "target_model_identity_digest", "source_boundary_digest", "score_digest", "invocation_receipt_bindings", "runtime_history_inventory", "completion_status", "inference_performed", "durable_learning_established", "learning_established", "authority", "terminal_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_execution_terminal:v1"},
+    "execution_plan_digest": {"$ref": "#/$defs/digest"},
+    "runner_binding_digest": {"$ref": "#/$defs/digest"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "analysis_plan_digest": {"$ref": "#/$defs/digest"},
+    "trial_index": {"type": "integer", "minimum": 0, "maximum": 31},
+    "protocol_digest": {"$ref": "#/$defs/digest"},
+    "runner_cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+    "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+    "source_boundary_digest": {"$ref": "#/$defs/digest"},
+    "score_digest": {"$ref": "#/$defs/digest"},
+    "invocation_receipt_bindings": {
+      "type": "object", "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": {"$ref": "#/$defs/receiptBinding"},
+        "examples_omitted": {"$ref": "#/$defs/receiptBinding"}
+      }
+    },
+    "runtime_history_inventory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_count", "record_set_digest", "receipt_count", "receipt_set_digest", "stable_across_arms", "selected_record_receipts_verified"],
+      "properties": {
+        "record_count": {"type": "integer", "minimum": 1},
+        "record_set_digest": {"$ref": "#/$defs/digest"},
+        "receipt_count": {"type": "integer", "minimum": 0},
+        "receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "stable_across_arms": {"const": true},
+        "selected_record_receipts_verified": {"const": true}
+      }
+    },
+    "completion_status": {"const": "completed"},
+    "inference_performed": {"const": true},
+    "durable_learning_established": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "terminal_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "receiptBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "receipt_digest", "request_id", "request_digest", "preview_request_digest", "prompt_digest", "output_digest"],
+      "properties": {
+        "receipt_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "receipt_digest": {"$ref": "#/$defs/digest"},
+        "request_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "request_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "preview_request_digest": {"$ref": "#/$defs/digest"},
+        "prompt_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "output_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/windows_appcontainer_registry_inventory.schema.json",
+  "title": "SentientOS bounded AppContainer registry inventory observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "appcontainer_sid",
+    "worker_process_id",
+    "worker_process_creation_time_100ns",
+    "key_count",
+    "value_count",
+    "total_value_bytes",
+    "keys",
+    "registry_contents_digest",
+    "snapshot_atomicity_verified",
+    "writer_quiescence_verified",
+    "security_metadata_verified",
+    "registry_state_accounted",
+    "profile_state_accounted",
+    "retention_contrast_eligible",
+    "authority",
+    "inventory_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.windows_appcontainer_registry_inventory:v1"
+    },
+    "appcontainer_sid": {
+      "type": "string",
+      "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"
+    },
+    "worker_process_id": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4294967295
+    },
+    "worker_process_creation_time_100ns": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18446744073709551615
+    },
+    "key_count": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "value_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2048
+    },
+    "total_value_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 524288
+    },
+    "keys": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": { "$ref": "#/$defs/key" }
+    },
+    "registry_contents_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "snapshot_atomicity_verified": { "const": false },
+    "writer_quiescence_verified": { "const": false },
+    "security_metadata_verified": { "const": false },
+    "registry_state_accounted": { "const": false },
+    "profile_state_accounted": { "const": false },
+    "retention_contrast_eligible": { "const": false },
+    "authority": { "const": false },
+    "inventory_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relative_path", "value_count", "subkey_count", "values"],
+      "properties": {
+        "relative_path": {
+          "type": "string",
+          "maxLength": 2048,
+          "pattern": "^(?:[^/\\\\]+(?:\\\\[^/\\\\]+)*)?$"
+        },
+        "value_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2048
+        },
+        "subkey_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "values": {
+          "type": "array",
+          "maxItems": 2048,
+          "items": { "$ref": "#/$defs/value" }
+        }
+      }
+    },
+    "value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value_type", "data_size_bytes", "typed_data_sha256"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 16384 },
+        "value_type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "data_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "typed_data_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

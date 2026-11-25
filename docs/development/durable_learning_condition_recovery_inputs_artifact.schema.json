@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_recovery_inputs_artifact.schema.json",
+  "title": "Durable learning condition recovery inputs artifact",
+  "description": "Pins the immutable condition-local receipt stores and reciprocal branch runtime manifests prepared for a bounded recovery worker. It does not prove effective access, peer denial, worker launch, or learning.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest",
+    "profile_pair_artifact", "staged_by_condition",
+    "manifest_digest_by_condition", "worker_launched",
+    "journal_write_access_granted", "authority", "artifact_digest",
+    "artifact_id"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_condition_recovery_inputs_artifact:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "profile_pair_artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1 },
+        "artifact_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "staged_by_condition": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/conditionInputs" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/conditionInputs" }
+      }
+    },
+    "manifest_digest_by_condition": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/digest" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "worker_launched": { "const": false },
+    "journal_write_access_granted": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-worker-recovery-inputs-[0-9a-f]{24}$"
+    }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "conditionInputs": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "acquisition_receipt_bundle_artifact",
+        "acquisition_receipt_bundle_access",
+        "acquisition_receipt_bundle_root",
+        "invocation_receipt_artifact", "invocation_receipt_access",
+        "invocation_receipt_root", "invocation_receipt_count",
+        "authority", "runtime_manifest"
+      ],
+      "properties": {
+        "acquisition_receipt_bundle_artifact": { "type": "object" },
+        "acquisition_receipt_bundle_access": { "type": "object" },
+        "acquisition_receipt_bundle_root": { "type": "string", "minLength": 1 },
+        "invocation_receipt_artifact": { "type": "object" },
+        "invocation_receipt_access": { "type": "object" },
+        "invocation_receipt_root": { "type": "string", "minLength": 1 },
+        "invocation_receipt_count": { "type": "integer", "minimum": 1, "maximum": 12288 },
+        "authority": { "const": false },
+        "runtime_manifest": { "type": "object" }
+      }
+    }
+  }
+}

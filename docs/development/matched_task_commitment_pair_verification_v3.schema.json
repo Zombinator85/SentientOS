@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/matched_task_commitment_pair_verification_v3.schema.json",
+  "title": "Matched task commitment pair verification v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "left_preflight_sha256",
+    "right_preflight_sha256",
+    "shared_cycle_root_id",
+    "shared_source_receipt_digest",
+    "task_commitment_key_file_sha256",
+    "task_factory_source_sha256",
+    "preflight_source_sha256",
+    "resident_cognition_source_sha256",
+    "task_commitment_nonce_pair_digest",
+    "task_generation_seed",
+    "task_family_id",
+    "task_digest",
+    "history_prompt_identity_policy",
+    "left_target_model_identity_digest",
+    "right_target_model_identity_digest",
+    "matched_task_commitments",
+    "task_digest_recomputed",
+    "distinct_model_targets",
+    "inference_performed",
+    "learning_established",
+    "authority",
+    "verification_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.matched_task_commitment_pair_verification:v3"
+    },
+    "left_preflight_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_preflight_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "shared_cycle_root_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "shared_source_receipt_digest": {
+      "$ref": "#/$defs/hexDigest"
+    },
+    "task_commitment_key_file_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_factory_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "preflight_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "resident_cognition_source_sha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_commitment_nonce_pair_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "task_generation_seed": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "task_family_id": {
+      "type": "string",
+      "const": "rootless_integer_affine_transfer_wide_range_v7"
+    },
+    "task_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "history_prompt_identity_policy": {
+      "const": "matched_cross_model_identity_omitted:v1"
+    },
+    "left_target_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "right_target_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "matched_task_commitments": {
+      "const": true
+    },
+    "task_digest_recomputed": {
+      "const": true
+    },
+    "distinct_model_targets": {
+      "const": true
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "verification_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "shared_history_record_allowlist_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "shared_history_record_allowlist_file_sha256": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hexDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

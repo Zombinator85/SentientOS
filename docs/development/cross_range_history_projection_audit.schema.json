@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sentientos.cross_range_history_projection_audit:v1",
+  "type": "object",
+  "required": ["schema_version", "analysis_timing", "status", "source_family", "target_family", "target_family_anchor_gate_available", "history_records_file_count", "history_records_manifest_digest", "prompt_delivery_verified", "all_family_probe_overlap_checked", "inference_performed", "capability_evaluated", "learning_established", "causal_claim_made", "authority_granted", "audit_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.cross_range_history_projection_audit:v1"},
+    "analysis_timing": {"const": "posthoc_preinference_history_projection_audit"},
+    "status": {"enum": ["source_history_anchor_gate_available", "source_history_anchor_gate_not_available"]},
+    "source_family": {"$ref": "#/$defs/family"},
+    "target_family": {"$ref": "#/$defs/family"},
+    "target_family_anchor_gate_available": {"type": "boolean"},
+    "history_records_file_count": {"type": "integer", "minimum": 1},
+    "history_records_manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_score_binding_accepted_by_projection_auditor": {"const": true},
+    "prompt_delivery_verified": {"const": false},
+    "all_family_probe_overlap_checked": {"const": false},
+    "inference_performed": {"const": false},
+    "capability_evaluated": {"const": false},
+    "learning_established": {"const": false},
+    "causal_claim_made": {"const": false},
+    "authority_granted": {"const": false},
+    "audit_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "family": {
+      "type": "object",
+      "required": ["task_family_id", "candidate_record_count", "projectable_experience_count", "projectable_source_run_count", "correct_example_count", "independent_input_anchor_coverage", "historical_only", "current_truth", "authority"],
+      "properties": {
+        "task_family_id": {"type": "string"},
+        "candidate_record_count": {"type": "integer", "minimum": 0},
+        "projectable_experience_count": {"type": "integer", "minimum": 0},
+        "projectable_source_run_count": {"type": "integer", "minimum": 0},
+        "correct_example_count": {"type": "integer", "minimum": 0},
+        "independent_input_anchor_coverage": {
+          "type": "object",
+          "required": ["status", "correct_source_run_count", "distinct_correct_input_count", "candidate_anchor_pair_count", "conflicting_correct_input_count", "minimum_requirements"],
+          "properties": {
+            "status": {"type": "string"},
+            "correct_source_run_count": {"type": "integer", "minimum": 0},
+            "distinct_correct_input_count": {"type": "integer", "minimum": 0},
+            "candidate_anchor_pair_count": {"type": "integer", "minimum": 0},
+            "conflicting_correct_input_count": {"type": "integer", "minimum": 0},
+            "minimum_requirements": {"type": "object"}
+          }
+        },
+        "historical_only": {"const": true},
+        "current_truth": {"const": false},
+        "authority": {"const": false}
+      }
+    }
+  }
+}

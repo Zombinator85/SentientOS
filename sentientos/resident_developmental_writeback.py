@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
@@ -26,6 +27,12 @@ from .governed_local_model_invocation import (
 )
 from .local_model_authority import digest_payload
 from .canonical_memory import sentientos_memory_dir
+from .developmental_model_replacement_conditions import (
+    CONDITION_ORDER as MODEL_REPLACEMENT_CONDITION_ORDER,
+    COUNTERBALANCED_CONDITION_ORDERS as MODEL_REPLACEMENT_EXECUTION_ORDERS)
+from .developmental_model_replacement_evidence import (
+    compact_verified_campaign_condition_order_summary,
+    verified_campaign_condition_order_summary)
 from .private_file_custody import (
     PrivateFileCustodyError, list_bounded_json_names_at, open_private_directory,
     read_private_file_at, publish_immutable_bytes,
@@ -52,9 +59,12 @@ MAX_SELECTED_EVIDENCE_BYTES = 6000
 MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES = 65_536
 MAX_RESOURCE_LINEAGE_SELECTED_EVIDENCE_BYTES = 10_240
 # A verified five-condition replacement run has a larger but still tightly
-# bounded lineage vector. This allowance is limited to one v2 embodiment fact;
+# bounded lineage and answer-free outcome vectors. This allowance is limited
+# to one verified model-replacement embodiment fact;
 # all general and mixed-source selections retain the 6 KB cap.
 MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES = 8192
+MAX_MODEL_REPLACEMENT_CAMPAIGN_SELECTED_EVIDENCE_BYTES = 1_114_112
+MAX_MODEL_REPLACEMENT_CAMPAIGN_INPUT_CHARS = 16_384
 # A completed three-condition history-intervention run carries a bounded set
 # of invocation and score identities. Keep its writeback allowance narrow to
 # one explicitly projected experiment fact.
@@ -62,11 +72,13 @@ MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES = 10_240
 # A bounded task-family trial gains provenance and receipt chronology when it
 # is projected through the authenticated owner. Keep that extra envelope
 # allowance limited to the validated historical-only trial shape.
-MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES = 12_288
+MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES = 16_384
 # A scored objective-family trial carries three matched outputs, evaluator
-# scores, and retained per-probe results. Its prompt can exceed the general
-# 8 KB writeback input budget while remaining under its narrowly selected cap.
-MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 16_384
+# scores, per-probe outcomes, and exact model identity. Its selected fact is
+# bounded separately from the smaller generic developmental-experiment shape.
+# The bounded prompt allowance stays below both the runner's 24 KB input cap
+# and the model context limit.
+MAX_OBJECTIVE_TASK_FAMILY_INPUT_CHARS = 24_576
 # A complete, independently reconciled consequence chain plus proprioception
 # can exceed the ordinary writeback prompt limit. Keep the larger allowance
 # tied to the exact bounded chain shape and below the resident model context.
@@ -74,6 +86,11 @@ MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS = 24_576
 # A single preregistered strategy-quality vector is larger than a general
 # evidence fact but remains bounded to 12 KB and carries no execution claim.
 MAX_STRATEGY_QUALITY_SELECTED_EVIDENCE_BYTES = 12_288
+MODEL_REPLACEMENT_CONDITION_ORDER = (
+    "model_a_history_present", "model_a_history_withheld",
+    "model_b_history_present", "model_b_history_withheld",
+    "model_a_history_restored",
+)
 MAX_RETRIEVAL_RECORDS = 16
 MAX_INTERPRETATION_CHARS = 4000
 MAX_RESIDENT_COGNITION_TIMEOUT_SECONDS = 120
@@ -493,6 +510,30 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
     conditions = payload.get("conditions") if isinstance(payload, Mapping) else None
     examples = payload.get("acquisition_examples") if isinstance(payload, Mapping) else None
     projection = payload.get("interpretation_projection") if isinstance(payload, Mapping) else None
+    score_rows = scores if isinstance(scores, list) else []
+    history_score = next((row for row in score_rows if isinstance(row, Mapping)
+        and row.get("condition_id") == "history_present"), None)
+    descriptor_inputs = (descriptor.get("probe_inputs")
+        if isinstance(descriptor, Mapping) else None)
+    examples_projectable = (isinstance(examples, list)
+        and 1 <= len(examples) <= 16)
+    if (not examples_projectable and isinstance(projection, Mapping)
+            and projection.get("schema_version") ==
+                "sentientos.developmental_history_interpretation_projection:v4"
+            and isinstance(history_score, Mapping)
+            and isinstance(descriptor_inputs, list)
+            and isinstance(history_score.get("probe_results"), list)
+            and 1 <= len(descriptor_inputs) <= 16
+            and len(history_score["probe_results"]) == len(descriptor_inputs)):
+        examples = [{
+            "probe_input": result.get("probe_input"),
+            "observed_answer": result.get("observed_answer"),
+            "evaluator_correct": result.get("correct"),
+            "source_score_digest": history_score.get("score_digest"),
+            "source_condition": "history_present",
+        } if isinstance(result, Mapping) else None
+            for result in history_score["probe_results"]]
+        examples_projectable = True
     if not (isinstance(source, Mapping) and source.get("kind") == "embodiment"
             and isinstance(subject, Mapping)
             and subject.get("subject_kind") == "developmental_history_intervention_experiment"
@@ -506,7 +547,9 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
             and isinstance(projection, Mapping)
             and projection.get("schema_version")
                 in {"sentientos.developmental_history_interpretation_projection:v1",
-                    "sentientos.developmental_history_interpretation_projection:v2"}
+                    "sentientos.developmental_history_interpretation_projection:v2",
+                    "sentientos.developmental_history_interpretation_projection:v3",
+                    "sentientos.developmental_history_interpretation_projection:v4"}
             and isinstance(descriptor, Mapping)
             and isinstance(descriptor.get("task_family_id"), str)
             and descriptor.get("task_family_id") == payload.get("objective_task_family")
@@ -517,7 +560,7 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
             and descriptor["task_digest"].startswith("sha256:")
             and isinstance(scores, list) and len(scores) == 3
             and isinstance(conditions, list) and len(conditions) == 3
-            and isinstance(examples, list) and 1 <= len(examples) <= 16
+            and examples_projectable
             and {row.get("condition_id") for row in scores if isinstance(row, Mapping)}
                 == {"history_present", "history_withheld", "history_restored"}
             and {row.get("condition_id") for row in conditions if isinstance(row, Mapping)}
@@ -535,7 +578,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
             and history_score.get("schema_version") in {
                 "sentientos.objective_task_score:v3",
                 "sentientos.objective_task_score:v4",
-                "sentientos.objective_task_score:v5"}
+                "sentientos.objective_task_score:v5",
+                "sentientos.objective_task_score:v6"}
             and history_score.get("evaluator") == "deterministic_exact_integer_suite_oracle_v2"
             and history_score.get("task_digest") == descriptor.get("task_digest")
             and isinstance(history_score.get("plan_digest"), str)
@@ -551,6 +595,53 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
         raw = value.removeprefix("sha256:")
         return (len(raw) == 64 and all(character in "0123456789abcdef" for character in raw)
             and len(value) in {64, 71})
+
+    if (isinstance(projection, Mapping)
+            and projection.get("schema_version") ==
+                "sentientos.developmental_history_interpretation_projection:v4"):
+        evaluation = payload.get("objective_evaluation")
+        outcomes = (evaluation.get("probe_level_outcomes")
+            if isinstance(evaluation, Mapping) else None)
+        expected_score_digests = {row["condition_id"]: row["score_digest"]
+            for row in scores if isinstance(row, Mapping)}
+        vector_fields = (
+            "correctness_by_condition", "answerability_by_condition",
+            "abstention_by_condition",
+        )
+        unscoreable = (outcomes.get("unscoreable_condition_ids")
+            if isinstance(outcomes, Mapping) else None)
+        if (not isinstance(evaluation, Mapping)
+                or not isinstance(descriptor_inputs, list)
+                or not 1 <= len(descriptor_inputs) <= 16
+                or evaluation.get("probe_count") != len(descriptor_inputs)
+                or payload.get("objective_evaluation_projection_posture")
+                    != "digest_bound_compact_condition_vectors"
+                or not valid_digest(payload.get("objective_evaluation_source_digest"))
+                or not isinstance(outcomes, Mapping)
+                or outcomes.get("schema_version")
+                    != "sentientos.objective_probe_level_outcomes_projection:v2"
+                or outcomes.get("condition_order") != list(expected_conditions)
+                or outcomes.get("task_digest") != descriptor.get("task_digest")
+                or outcomes.get("probe_count") != len(descriptor_inputs)
+                or outcomes.get("condition_score_digests") != expected_score_digests
+                or outcomes.get("posture") not in {
+                    "partial_per_probe_outcomes_unscoreable_conditions",
+                    "independent_oracle_correctness_only_answer_values_omitted"}
+                or not valid_digest(outcomes.get("source_digest"))
+                or not isinstance(unscoreable, list)
+                or any(item not in expected_conditions for item in unscoreable)
+                or len(set(unscoreable)) != len(unscoreable)):
+            return False
+        for field in vector_fields:
+            vector_map = outcomes.get(field)
+            if (not isinstance(vector_map, Mapping)
+                    or set(vector_map) != set(expected_conditions)
+                    or any(not isinstance(vector_map[condition], list)
+                        or len(vector_map[condition]) != len(descriptor_inputs)
+                        or any(value is not None and type(value) is not bool
+                            for value in vector_map[condition])
+                        for condition in expected_conditions)):
+                return False
 
     def valid_timestamp(value: Any) -> bool:
         if not isinstance(value, str) or len(value) > 64 or value.endswith("-00:00"):
@@ -647,7 +738,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
     # Historical examples must be tied to the exact evaluator-scored present
     # condition, rather than being arbitrary content under the expanded cap.
     if history_score.get("schema_version") in {
-            "sentientos.objective_task_score:v4", "sentientos.objective_task_score:v5"}:
+            "sentientos.objective_task_score:v4", "sentientos.objective_task_score:v5",
+            "sentientos.objective_task_score:v6"}:
         if (type(history_score.get("answered_count")) is not int
                 or type(history_score.get("abstained_count")) is not int
                 or history_score["answered_count"] + history_score["abstained_count"]
@@ -659,7 +751,8 @@ def _is_bounded_objective_task_family_trial(fact: Mapping[str, Any]) -> bool:
                 and type(example.get("evaluator_correct")) is bool
                 or history_score.get("schema_version") in {
                     "sentientos.objective_task_score:v4",
-                    "sentientos.objective_task_score:v5"}
+                    "sentientos.objective_task_score:v5",
+                    "sentientos.objective_task_score:v6"}
                     and example.get("observed_answer") is None
                     and example.get("evaluator_correct") is None)
             or example.get("source_score_digest") != history_score.get("score_digest")
@@ -678,7 +771,22 @@ def _writeback_input_limit(facts: Sequence[Mapping[str, Any]]) -> int:
     if (_selected_fact_byte_limit(facts)
             == MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES):
         return MAX_COMPLETE_CONSEQUENCE_CYCLE_INPUT_CHARS
+    if (_selected_fact_byte_limit(facts)
+            == MAX_MODEL_REPLACEMENT_CAMPAIGN_SELECTED_EVIDENCE_BYTES):
+        return MAX_MODEL_REPLACEMENT_CAMPAIGN_INPUT_CHARS
     return (52_000 if _selected_fact_byte_limit(facts) == 48_000 else 8000)
+
+
+def _campaign_fact_for_writeback_prompt(
+        fact: Mapping[str, Any]) -> dict[str, Any] | None:
+    compact = compact_verified_campaign_condition_order_summary(fact)
+    if compact is None:
+        return None
+    compact_fact = {key: dict(fact[key]) if isinstance(fact.get(key), Mapping)
+        else fact.get(key) for key in (
+            "fact_id", "source", "subject", "stage", "disposition",
+            "evidence_strength", "effect_claimed", "effect_proven")}
+    return {**compact_fact, "payload": compact}
 
 
 def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
@@ -725,10 +833,29 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and payload.get("current_truth") is False and payload.get("authority") is False
                 and isinstance(projection, Mapping)
                 and projection.get("schema_version")
-                    == "sentientos.model_replacement_interpretation_projection:v2"
+                    in {"sentientos.model_replacement_interpretation_projection:v2",
+                        "sentientos.model_replacement_interpretation_projection:v3",
+                        "sentientos.model_replacement_interpretation_projection:v4",
+                        "sentientos.model_replacement_interpretation_projection:v5",
+                        "sentientos.model_replacement_interpretation_projection:v6"}
                 and _valid_model_replacement_continuity_assessment(
                     payload.get("continuity_assessment"), disposition=fact.get("disposition"))):
             return MAX_MODEL_REPLACEMENT_SELECTED_EVIDENCE_BYTES
+        if (isinstance(source, Mapping) and source.get("kind") == "embodiment"
+                and source.get("schema_version") in {
+                    "sentientos.developmental_model_replacement_campaign_world_state_record:v2",
+                    "sentientos.developmental_model_replacement_campaign_world_state_record:v3"}
+                and isinstance(subject, Mapping)
+                and subject.get("subject_kind") == "developmental_model_replacement_campaign"
+                and isinstance(payload, Mapping)
+                and payload.get("report_schema_version") in {
+                    "sentientos.developmental_model_replacement_campaign_report:v6",
+                    "sentientos.developmental_model_replacement_campaign_report:v7"}
+                and payload.get("current_truth") is False
+                and payload.get("learning_established") is False
+                and payload.get("authority") is False
+                and verified_campaign_condition_order_summary(fact) is not None):
+            return MAX_MODEL_REPLACEMENT_CAMPAIGN_SELECTED_EVIDENCE_BYTES
         if (isinstance(source, Mapping) and source.get("kind") == "embodiment"
                 and isinstance(subject, Mapping)
                 and subject.get("subject_kind") == "developmental_history_intervention_experiment"
@@ -738,7 +865,9 @@ def _selected_fact_byte_limit(facts: Sequence[Mapping[str, Any]]) -> int:
                 and isinstance(projection, Mapping)
                 and projection.get("schema_version")
                     in {"sentientos.developmental_history_interpretation_projection:v1",
-                        "sentientos.developmental_history_interpretation_projection:v2"}):
+                        "sentientos.developmental_history_interpretation_projection:v2",
+                        "sentientos.developmental_history_interpretation_projection:v3",
+                        "sentientos.developmental_history_interpretation_projection:v4"}):
             if _is_bounded_objective_task_family_trial(fact):
                 return MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
             return MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES
@@ -1003,6 +1132,23 @@ def _model_replacement_interpretation_projection(
     raw_observations = original.get("observations")
     if not isinstance(raw_observations, (list, tuple)) or len(raw_observations) > 5:
         return dict(fact)
+    source_schema = source.get("schema_version")
+    if source_schema not in {
+            "sentientos.developmental_model_replacement_run:v1",
+            "sentientos.developmental_model_replacement_run:v2"}:
+        return dict(fact)
+    raw_execution_order = original.get("condition_execution_order")
+    execution_order = (list(MODEL_REPLACEMENT_CONDITION_ORDER)
+        if raw_execution_order is None and source_schema ==
+            "sentientos.developmental_model_replacement_run:v1"
+        else raw_execution_order)
+    if (not _valid_model_replacement_execution_order(execution_order)
+            or (source_schema == "sentientos.developmental_model_replacement_run:v1"
+                and tuple(execution_order) != MODEL_REPLACEMENT_CONDITION_ORDER)
+            or (source_schema == "sentientos.developmental_model_replacement_run:v2"
+                and not isinstance(raw_execution_order, list))):
+        return dict(fact)
+    execution_order = list(execution_order)
     omitted = False
 
     def bounded_values(value: Any, *, limit: int = 8) -> Any:
@@ -1138,11 +1284,13 @@ def _model_replacement_interpretation_projection(
         output_relation = source_assessment.get("output_relation")
         if (isinstance(history_identity, Mapping) and isinstance(input_delivery, Mapping)
                 and isinstance(output_relation, Mapping)):
+            history_bound = (history_identity.get("posture") ==
+                "frozen_context_record_set_bound")
             continuity_assessment = {
                 "schema": source_assessment.get("schema_version"),
-                "history": ("bound" if history_identity.get("posture")
-                    == "frozen_context_record_set_bound" else "unavailable"),
-                "history_set_digest": history_identity.get("record_set_digest"),
+                "history": "bound" if history_bound else "unavailable",
+                "history_set_digest": (history_identity.get("record_set_digest")
+                    if history_bound else None),
                 "restart": "not_established",
                 "input": ("request_lineage_verified" if input_delivery.get("posture")
                     == "condition_request_lineage_verified" else "incomplete"),
@@ -1161,6 +1309,7 @@ def _model_replacement_interpretation_projection(
         "context": shared,
         "vector_hash_encoding": "sha256_hex",
         "condition_columns": list(observation_columns),
+        "condition_execution_order": execution_order,
         "conditions": condition_rows,
         "resource_postures": sorted(resource_postures),
         "event_time_postures": sorted(event_time_postures),
@@ -1201,9 +1350,10 @@ def _model_replacement_interpretation_projection(
 
         suite_fields = {"probe_count", "model_a_history_correct_probe_delta",
             "model_b_history_correct_probe_delta", "restoration_correct_probe_delta"}
-        selective_fields = {"condition_answered_counts", "condition_abstained_counts",
-            "condition_coverage", "condition_selective_accuracy",
-            "selective_metrics_posture"}
+        selective_field_order = ("condition_answered_counts",
+            "condition_abstained_counts", "condition_coverage",
+            "condition_selective_accuracy", "selective_metrics_posture")
+        selective_fields = set(selective_field_order)
         selective_present = (isinstance(objective, Mapping)
             and bool(selective_fields.intersection(objective)))
         selective_posture = (isinstance(objective, Mapping)
@@ -1238,6 +1388,109 @@ def _model_replacement_interpretation_projection(
                         and 0 <= selective_accuracy[index] <= 1)
                 for index, (answered, abstained) in enumerate(zip(
                     selective_counts, selective_abstentions)))))))
+        probe_outcome_comparison: dict[str, Any] | None = None
+        probe_outcome_comparison_posture = "not_available_for_this_score_shape"
+        if selective_present and not selective_unknown and selective_valid:
+            score_rows = [row.get("objective_task_score")
+                if isinstance(row, Mapping) else None for row in raw_observations]
+            score_rows_match = (len(score_rows) == len(MODEL_REPLACEMENT_CONDITION_ORDER)
+                and isinstance(score_digests, (list, tuple))
+                and len(score_digests) == len(MODEL_REPLACEMENT_CONDITION_ORDER)
+                and type(probe_count) is int and 2 <= probe_count <= 16
+                and all(isinstance(raw_observations[index], Mapping)
+                    and raw_observations[index].get("condition_id") == condition
+                    and isinstance(score_rows[index], Mapping)
+                    and score_rows[index].get("score_digest") == score_digests[index]
+                    and score_rows[index].get("schema_version")
+                        in {"sentientos.objective_task_score:v5",
+                            "sentientos.objective_task_score:v6"}
+                    and score_rows[index].get("status")
+                        in {"correct", "incorrect", "selective"}
+                    and type(score_rows[index].get("correct_count")) is int
+                    and score_rows[index].get("probe_count") == probe_count
+                    for index, condition in enumerate(MODEL_REPLACEMENT_CONDITION_ORDER)))
+            if not score_rows_match:
+                selective_valid = False
+            else:
+                correct_counts = [score.get("correct_count") for score in score_rows]
+                expected_coverage = [answered / probe_count
+                    for answered in selective_counts]
+                expected_accuracy = [
+                    (correct_counts[index] / answered if answered > 0 else None)
+                    for index, answered in enumerate(selective_counts)]
+                selective_valid = (
+                    all(type(correct_counts[index]) is int
+                        and 0 <= correct_counts[index] <= selective_counts[index]
+                        for index in range(len(MODEL_REPLACEMENT_CONDITION_ORDER)))
+                    and selective_coverage == expected_coverage
+                    and selective_accuracy == expected_accuracy)
+                probe_rows_by_condition: list[list[Mapping[str, Any]]] = []
+                probe_inputs: list[int] | None = None
+                probe_rows_valid = selective_valid
+                for score in score_rows:
+                    rows = score.get("probe_results") if isinstance(score, Mapping) else None
+                    if (not isinstance(rows, list) or len(rows) != probe_count
+                            or any(not isinstance(row, Mapping)
+                                or type(row.get("probe_input")) is not int
+                                or type(row.get("abstained", False)) is not bool
+                                or (row.get("abstained", False)
+                                    and (row.get("correct") is not None
+                                        or row.get("observed_answer") is not None))
+                                or (not row.get("abstained", False)
+                                    and (type(row.get("correct")) is not bool
+                                        or type(row.get("observed_answer")) is not int))
+                                for row in rows)):
+                        probe_rows_valid = False
+                        break
+                    current_inputs = [row["probe_input"] for row in rows]
+                    if (len(set(current_inputs)) != probe_count
+                            or (probe_inputs is not None and current_inputs != probe_inputs)):
+                        probe_rows_valid = False
+                        break
+                    if probe_inputs is None:
+                        probe_inputs = current_inputs
+                    probe_rows_by_condition.append(rows)
+                if probe_rows_valid:
+                    probe_rows_valid = all(
+                        sum(row.get("correct") is True for row in rows)
+                            == score_rows[index].get("correct_count")
+                        and sum(row.get("abstained", False) is False for row in rows)
+                            == score_rows[index].get("answered_count")
+                        and sum(row.get("abstained", False) is True for row in rows)
+                            == score_rows[index].get("abstained_count")
+                        for index, rows in enumerate(probe_rows_by_condition))
+                if probe_rows_valid and probe_inputs is not None:
+                    per_probe_outcomes = []
+                    restoration_matches: list[bool] = []
+                    for probe_index, _probe_input in enumerate(probe_inputs):
+                        outcomes: list[str] = []
+                        for condition_index, _condition in enumerate(
+                                MODEL_REPLACEMENT_CONDITION_ORDER):
+                            row = probe_rows_by_condition[condition_index][probe_index]
+                            outcomes.append("abstained"
+                                if row.get("abstained", False) else
+                                "correct" if row["correct"] else "incorrect")
+                        restoration_matches.append(
+                            outcomes[0] == outcomes[4])
+                        per_probe_outcomes.append({
+                            "probe_index": probe_index,
+                            "outcomes_by_condition": outcomes,
+                        })
+                    probe_outcome_comparison = {
+                        "schema_version": "sentientos.model_replacement_probe_outcome_comparison:v1",
+                        "condition_order": list(MODEL_REPLACEMENT_CONDITION_ORDER),
+                        "probe_count": probe_count,
+                        "probe_outcomes": per_probe_outcomes,
+                        "restoration_matches_by_probe": restoration_matches,
+                        "restoration_outcomes_stable": all(restoration_matches),
+                        "scope": "answer_free_per_probe_outcomes_for_this_exact_score_suite",
+                        "historical_only": True, "current_truth": False,
+                        "authority": False,
+                    }
+                    probe_outcome_comparison_posture = "score_bound_aligned_probe_rows"
+                else:
+                    probe_outcome_comparison_posture = (
+                        "probe_rows_missing_invalid_or_not_aligned")
         suite_projection_valid = (
             (suite_assessment and type(probe_count) is int and 2 <= probe_count <= 16
                 and suite_fields.issubset(objective)
@@ -1277,6 +1530,24 @@ def _model_replacement_interpretation_projection(
                 "salted_private_oracle_commitment:v1")
             if suite_assessment:
                 objective_evaluation.update({key: objective[key] for key in suite_fields})
+            if selective_present:
+                # Keep independently checked coverage and selective accuracy
+                # available to later cognition without merging them into
+                # correctness or assigning utility to abstention.
+                objective_evaluation["selective_metrics"] = {
+                    "condition_order": [
+                        *MODEL_REPLACEMENT_CONDITION_ORDER],
+                    "condition_execution_order": list(execution_order),
+                    **{key: objective.get(key)
+                        for key in selective_field_order},
+                    "condition_correct_counts": (
+                        list(correct_counts) if selective_present
+                            and not selective_unknown and selective_valid
+                        else None),
+                    "probe_outcome_comparison": probe_outcome_comparison,
+                    "probe_outcome_comparison_posture":
+                        probe_outcome_comparison_posture,
+                }
             summary["objective_evaluation"] = objective_evaluation
         else:
             omitted = True
@@ -1306,7 +1577,8 @@ def _model_replacement_interpretation_projection(
                 and semantic.get("score_schema_version") in {
                     "sentientos.objective_task_score:v3",
                     "sentientos.objective_task_score:v4",
-                    "sentientos.objective_task_score:v5"}
+                    "sentientos.objective_task_score:v5",
+                    "sentientos.objective_task_score:v6"}
                 and semantic.get("evaluator") in {
                     "deterministic_exact_integer_oracle_v1",
                     "deterministic_exact_integer_suite_oracle_v2"}
@@ -1328,7 +1600,7 @@ def _model_replacement_interpretation_projection(
             omitted = True
             summary["objective_score_contract_posture"] = "invalid_or_inconsistent"
     projection_binding = {
-        "schema_version": "sentientos.model_replacement_interpretation_projection:v2",
+        "schema_version": "sentientos.model_replacement_interpretation_projection:v6",
         "source_fact_id": str(fact.get("fact_id", "")),
         "source_payload_digest": digest(dict(original)),
         "source_record_digest": str(source.get("digest", "")),
@@ -1338,6 +1610,108 @@ def _model_replacement_interpretation_projection(
     projected = dict(fact)
     projected["payload"] = {**summary, "interpretation_projection": projection_binding}
     return projected
+
+
+def _valid_model_replacement_execution_order(value: Any) -> bool:
+    return (isinstance(value, (list, tuple))
+        and all(type(condition) is str for condition in value)
+        and tuple(value) in MODEL_REPLACEMENT_EXECUTION_ORDERS)
+
+
+def _compact_history_objective_evaluation(original: Mapping[str, Any]
+        ) -> tuple[dict[str, Any], str, str]:
+    """Retain score aggregates and compact answer-free per-probe outcomes.
+
+    The full source remains bound by its digest. Per-probe input values are
+    already bound by the task descriptor, while correctness, answerability,
+    and abstention vectors are the interpretation-relevant projection.
+    """
+    evaluation = original.get("objective_evaluation")
+    if not isinstance(evaluation, Mapping):
+        raise DevelopmentalWritebackError(
+            "developmental_history_objective_evaluation_invalid")
+    retained_fields = (
+        "assessment", "calibration_metric_posture",
+        "condition_abstained_counts", "condition_answered_counts",
+        "condition_brier_scored_answer_counts",
+        "condition_brier_squared_error_sums_basis_points_squared",
+        "condition_correct_counts", "condition_coverage",
+        "condition_mean_brier_scores", "condition_score_digests",
+        "condition_selective_accuracy", "history_accuracy_delta",
+        "history_correct_probe_delta", "model_behavior_posture",
+        "paired_common_answer_brier_comparisons", "plan_digest",
+        "probe_count", "restoration_correct_probe_delta",
+        "restoration_correctness_stable", "scope",
+        "selective_metrics_posture",
+    )
+    projected = {key: evaluation[key] for key in retained_fields
+        if key in evaluation}
+    full_digest = "sha256:" + digest(dict(evaluation))
+    outcome_value = evaluation.get("probe_level_outcomes")
+    if outcome_value is None:
+        projected["probe_level_outcomes"] = None
+        return projected, full_digest, "bounded_aggregate_only"
+    descriptor = original.get("objective_task_descriptor")
+    condition_order = ["history_present", "history_withheld", "history_restored"]
+    descriptor_inputs = (descriptor.get("probe_inputs")
+        if isinstance(descriptor, Mapping) else None)
+    if (not isinstance(outcome_value, Mapping)
+            or not isinstance(descriptor_inputs, (list, tuple))
+            or len(descriptor_inputs) != evaluation.get("probe_count")
+            or len(descriptor_inputs) > 16
+            or outcome_value.get("condition_order") != condition_order
+            or outcome_value.get("task_digest") != descriptor.get("task_digest")
+            or not isinstance(outcome_value.get("condition_score_digests"), Mapping)
+            or set(outcome_value["condition_score_digests"]) != set(condition_order)
+            or not isinstance(outcome_value.get("probe_outcomes"), list)
+            or len(outcome_value["probe_outcomes"]) != len(descriptor_inputs)):
+        raise DevelopmentalWritebackError(
+            "developmental_history_probe_outcome_projection_invalid")
+    outcome_fields = (
+        "correctness_by_condition", "answerability_by_condition",
+        "abstention_by_condition",
+    )
+    compact_vectors = {
+        field: {condition: [] for condition in condition_order}
+        for field in outcome_fields}
+    for index, row in enumerate(outcome_value["probe_outcomes"]):
+        if (not isinstance(row, Mapping)
+                or type(row.get("probe_index")) is not int
+                or row.get("probe_index") != index
+                or type(row.get("probe_input")) is not int
+                or row.get("probe_input") != descriptor_inputs[index]):
+            raise DevelopmentalWritebackError(
+                "developmental_history_probe_outcome_projection_invalid")
+        for field in outcome_fields:
+            values = row.get(field)
+            if (not isinstance(values, Mapping)
+                    or set(values) != set(condition_order)
+                    or any(value is not None and type(value) is not bool
+                        for value in values.values())):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_probe_outcome_projection_invalid")
+            for condition in condition_order:
+                compact_vectors[field][condition].append(values[condition])
+    unscoreable = outcome_value.get("unscoreable_condition_ids")
+    if (not isinstance(unscoreable, list)
+            or any(item not in condition_order for item in unscoreable)
+            or len(set(unscoreable)) != len(unscoreable)):
+        raise DevelopmentalWritebackError(
+            "developmental_history_probe_outcome_projection_invalid")
+    projected["probe_level_outcomes"] = {
+        "schema_version": "sentientos.objective_probe_level_outcomes_projection:v2",
+        "condition_order": condition_order,
+        "condition_score_digests": dict(outcome_value["condition_score_digests"]),
+        "posture": outcome_value.get("posture"),
+        "probe_count": len(descriptor_inputs),
+        "correctness_by_condition": compact_vectors["correctness_by_condition"],
+        "answerability_by_condition": compact_vectors["answerability_by_condition"],
+        "abstention_by_condition": compact_vectors["abstention_by_condition"],
+        "task_digest": outcome_value["task_digest"],
+        "unscoreable_condition_ids": list(unscoreable),
+        "source_digest": "sha256:" + digest(dict(outcome_value)),
+    }
+    return projected, full_digest, "digest_bound_compact_condition_vectors"
 
 
 def _resource_interpretation_projection(fact: Mapping[str, Any]) -> dict[str, Any]:
@@ -1936,6 +2310,14 @@ def _developmental_history_interpretation_projection(
                     or len(set(value)) != len(value)):
                 raise DevelopmentalWritebackError(error)
             selected[key] = list(value)
+        if "retrieved_record_ids" in selected:
+            record_ids = selected["retrieved_record_ids"]
+            record_digests = selected["retrieved_record_digests"]
+            if (len(record_ids) != len(record_digests)
+                    or any(re.fullmatch(r"sha256:[0-9a-f]{64}", item) is None
+                        for item in record_digests)):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_retrieval_lineage_invalid")
         selected_conditions.append(selected)
     scores = original.get("objective_scores")
     score_summary = None
@@ -1954,13 +2336,20 @@ def _developmental_history_interpretation_projection(
                 "score_digest": item.get("score_digest"),
                 "status": item.get("status"),
                 "correct": item.get("correct"),
+                **({key: item.get(key) for key in (
+                    "confidence_basis_points",
+                    "brier_squared_error_sum_basis_points_squared",
+                    "brier_scored_answer_count")}
+                    if item.get("schema_version") ==
+                        "sentientos.objective_task_score:v6" else {}),
                 **({"correct_count": item.get("correct_count"),
                     "probe_count": item.get("probe_count"),
                     **({"answered_count": item.get("answered_count"),
                         "abstained_count": item.get("abstained_count")}
                         if item.get("schema_version") in {
                             "sentientos.objective_task_score:v4",
-                            "sentientos.objective_task_score:v5"} else {})}
+                            "sentientos.objective_task_score:v5",
+                            "sentientos.objective_task_score:v6"} else {})}
                     if "correct_count" in item else {}),
             })
     history_summary = original.get("history_intervention_summary")
@@ -1988,6 +2377,14 @@ def _developmental_history_interpretation_projection(
                         "observable_difference", "interpretation") if key in item})
                 projected_history_summary = dict(history_summary)
                 projected_history_summary["measurements"] = compact_measurements
+    projected_objective_evaluation = original.get("objective_evaluation")
+    objective_evaluation_source_digest = None
+    objective_evaluation_projection_posture = None
+    if family_projection:
+        (projected_objective_evaluation,
+            objective_evaluation_source_digest,
+            objective_evaluation_projection_posture) = (
+                _compact_history_objective_evaluation(original))
     summary = {
         "run_id": original.get("run_id"), "run_digest": original.get("run_digest"),
         "protocol_id": original.get("protocol_id"),
@@ -2001,16 +2398,30 @@ def _developmental_history_interpretation_projection(
         "active_model_identity": original.get("active_model_identity"),
         "active_model_identity_digest": original.get("active_model_identity_digest"),
         "authority_map_digest": original.get("authority_map_digest"),
+        # Preserve the classification binding contract while compacting a v3
+        # intervention run. The source schema remains v3 in World-State, so
+        # downstream history-context validation still requires these fields.
+        "primary_classification": original.get("primary_classification"),
+        "classification_scope": original.get("classification_scope"),
+        "full_structured_output_classification": original.get(
+            "full_structured_output_classification"),
+        "response_text_assessment_posture": original.get(
+            "response_text_assessment_posture"),
         "conditions": selected_conditions,
         "condition_event_times": original.get("condition_event_times"),
         "event_time_posture": original.get("event_time_posture"),
         "history_intervention_summary": projected_history_summary,
         "objective_scores": score_summary,
-        "objective_evaluation": original.get("objective_evaluation"),
+        "objective_evaluation": projected_objective_evaluation,
         "claims_posture": original.get("claims_posture"),
         "current_truth": False, "authority": False,
         "learning_established": False, "reconstruction_time_is_event_time": False,
     }
+    if family_projection:
+        summary["objective_evaluation_source_digest"] = (
+            objective_evaluation_source_digest)
+        summary["objective_evaluation_projection_posture"] = (
+            objective_evaluation_projection_posture)
     if companion_decisions is not None:
         # The protocol's verified identity digest is sufficient for exact
         # model matching on later context assembly; retaining the full mapping
@@ -2025,6 +2436,8 @@ def _developmental_history_interpretation_projection(
             "disposition", "model_disposition", "disposition_normalization",
             "evidence_ids", "history_record_ids",
         }
+        decision_validation_fields = {
+            "decision_validation_status", "decision_validation_error_code"}
         if (not isinstance(companion_decisions, (list, tuple))
                 or len(companion_decisions) != len(expected_conditions)):
             raise DevelopmentalWritebackError(
@@ -2032,7 +2445,9 @@ def _developmental_history_interpretation_projection(
         projected_decisions: list[dict[str, Any]] = []
         for expected_condition, decision in zip(expected_conditions, companion_decisions):
             condition = by_condition.get(expected_condition)
-            if (not isinstance(decision, Mapping) or set(decision) != decision_fields
+            if (not isinstance(decision, Mapping)
+                    or set(decision) not in (decision_fields,
+                        decision_fields | decision_validation_fields)
                     or decision.get("condition_id") != expected_condition
                     or not isinstance(condition, Mapping)
                     or any(decision.get(key) != condition.get(key) for key in (
@@ -2060,16 +2475,43 @@ def _developmental_history_interpretation_projection(
                         condition.get("retrieved_record_ids", ()))):
                 raise DevelopmentalWritebackError(
                     "developmental_history_companion_decisions_invalid")
+            validation_status = decision.get(
+                "decision_validation_status", "validated")
+            validation_error = decision.get("decision_validation_error_code")
+            if validation_status == "rejected_invalid_output":
+                if (not isinstance(validation_error, str)
+                        or re.fullmatch(r"[a-z0-9_]{1,120}", validation_error) is None
+                        or decision.get("disposition") != "abstain"
+                        or decision.get("model_disposition") != "abstain"
+                        or decision.get("disposition_normalization")
+                            != "invalid_experimental_response_rejected"
+                        or decision.get("evidence_ids")
+                        or decision.get("history_record_ids")):
+                    raise DevelopmentalWritebackError(
+                        "developmental_history_companion_decision_validation_invalid")
+            elif validation_status != "validated" or validation_error is not None:
+                raise DevelopmentalWritebackError(
+                    "developmental_history_companion_decision_validation_invalid")
             normalization = decision.get("disposition_normalization")
-            if (normalization is not None and (
-                    normalization != "history_unavailable_sentinel_means_abstention"
-                    or expected_condition != "history_withheld"
-                    or decision["model_disposition"] != "answer"
-                    or decision["disposition"] != "abstain"
-                    or decision["evidence_ids"] or decision["history_record_ids"])):
+            if normalization == "history_unavailable_sentinel_means_abstention":
+                if (expected_condition != "history_withheld"
+                        or decision["model_disposition"] != "answer"
+                        or decision["disposition"] != "abstain"
+                        or decision["evidence_ids"] or decision["history_record_ids"]):
+                    raise DevelopmentalWritebackError(
+                        "developmental_history_companion_decisions_invalid")
+            elif (normalization == "invalid_experimental_response_rejected"
+                    and validation_status != "rejected_invalid_output"):
                 raise DevelopmentalWritebackError(
                     "developmental_history_companion_decisions_invalid")
-            projected_decisions.append({key: decision[key] for key in decision_fields})
+            elif normalization is not None and normalization != (
+                    "invalid_experimental_response_rejected"):
+                raise DevelopmentalWritebackError(
+                    "developmental_history_companion_decisions_invalid")
+            projected_decisions.append({key: decision[key] for key in decision_fields}
+                | ({key: decision[key] for key in decision_validation_fields
+                    if key in decision} if decision_validation_fields.issubset(decision)
+                    else {}))
         summary["history_decision_contrast"] = {
             "schema_version": "sentientos.history_decision_contrast:v1",
             "measurement_scope": "history_conditioned_decision_proposal",
@@ -2222,32 +2664,49 @@ def _developmental_history_interpretation_projection(
         lineage_present = (isinstance(history_score, Mapping)
             and all(key in history_score for key in lineage_fields))
         if lineage_present:
-            if (any(not isinstance(history_score.get(key), str)
+            lineage_failures: list[str] = []
+            if any(not isinstance(history_score.get(key), str)
                     or not history_score.get(key) or len(history_score[key]) > 128
-                    for key in lineage_fields)
-                    or history_score.get("schema_version") not in {
-                        "sentientos.objective_task_score:v3",
-                        "sentientos.objective_task_score:v4",
-                        "sentientos.objective_task_score:v5"}
-                    or history_score.get("evaluator") !=
-                        "deterministic_exact_integer_suite_oracle_v2"
-                    or history_score.get("task_digest") != descriptor.get("task_digest")
-                    or history_score.get("output_digest") != history_condition.get("output_digest")
-                    or any(not isinstance(history_score.get(key), str)
-                        or len(history_score[key]) != 71
-                        or not history_score[key].startswith("sha256:")
-                        or any(character not in "0123456789abcdef"
-                            for character in history_score[key][7:])
-                        for key in ("plan_digest", "task_digest", "score_digest"))
-                    or not isinstance(history_score.get("output_digest"), str)
-                    or len(history_score["output_digest"]) not in {64, 71}
-                    or (len(history_score["output_digest"]) == 71
-                        and not history_score["output_digest"].startswith("sha256:"))
+                    for key in lineage_fields):
+                lineage_failures.append("lineage_field_shape_invalid")
+            if history_score.get("schema_version") not in {
+                    "sentientos.objective_task_score:v3",
+                    "sentientos.objective_task_score:v4",
+                    "sentientos.objective_task_score:v5",
+                    "sentientos.objective_task_score:v6"}:
+                lineage_failures.append("score_schema_unsupported")
+            if history_score.get("evaluator") != \
+                    "deterministic_exact_integer_suite_oracle_v2":
+                lineage_failures.append("evaluator_unrecognized")
+            if history_score.get("task_digest") != descriptor.get("task_digest"):
+                lineage_failures.append("task_digest_mismatch")
+            if history_score.get("output_digest") != history_condition.get(
+                    "output_digest"):
+                lineage_failures.append("output_digest_mismatch")
+            if any(not isinstance(history_score.get(key), str)
+                    or len(history_score[key]) != 71
+                    or not history_score[key].startswith("sha256:")
                     or any(character not in "0123456789abcdef"
-                        for character in history_score["output_digest"]
-                            .removeprefix("sha256:"))):
+                        for character in history_score[key][7:])
+                    for key in ("plan_digest", "task_digest", "score_digest")):
+                lineage_failures.append("lineage_digest_format_invalid")
+            output_digest = history_score.get("output_digest")
+            if (not isinstance(output_digest, str)
+                    or len(output_digest) not in {64, 71}
+                    or (len(output_digest) == 71
+                        and not output_digest.startswith("sha256:"))
+                    or (isinstance(output_digest, str)
+                        and any(character not in "0123456789abcdef"
+                            for character in output_digest.removeprefix("sha256:")))):
+                lineage_failures.append("output_digest_format_invalid")
+            if lineage_failures:
                 raise DevelopmentalWritebackError(
-                    "developmental_history_task_score_lineage_invalid")
+                    "developmental_history_task_score_lineage_invalid",
+                    diagnostic={
+                        "schema_version": (
+                            "sentientos.developmental_history_task_score_lineage_failure:v1"),
+                        "failed_checks": lineage_failures,
+                    })
         elif any(any(key in example for key in (
                 "source_score_schema_version", "source_plan_digest", "source_task_digest",
                 "source_output_digest", "source_evaluator"))
@@ -2261,7 +2720,8 @@ def _developmental_history_interpretation_projection(
                 and result.get("correct") is None
                 and history_score.get("schema_version") in {
                     "sentientos.objective_task_score:v4",
-                    "sentientos.objective_task_score:v5"})
+                    "sentientos.objective_task_score:v5",
+                    "sentientos.objective_task_score:v6"})
             answered = (isinstance(result, Mapping)
                 and type(result.get("observed_answer")) is int
                 and type(result.get("correct")) is bool)
@@ -2277,15 +2737,33 @@ def _developmental_history_interpretation_projection(
         examples = original["acquisition_examples"]
         if examples != expected_examples:
             raise DevelopmentalWritebackError("developmental_history_task_example_binding_invalid")
+        if not isinstance(score_summary, list):
+            raise DevelopmentalWritebackError(
+                "developmental_history_task_score_projection_missing")
+        projected_history_score = next((item for item in score_summary
+            if isinstance(item, dict)
+            and item.get("condition_id") == "history_present"), None)
+        if not isinstance(projected_history_score, dict):
+            raise DevelopmentalWritebackError(
+                "developmental_history_task_score_projection_missing")
+        # The task-family reader rechecks acquisition_examples against the
+        # score's exact probe rows. Preserve this one validated vector in the
+        # compact projection; the examples already retain these same values,
+        # while the withheld/restored answer vectors remain omitted.
+        projected_history_score["probe_results"] = [dict(result)
+            for result in probe_results]
         summary.update({"objective_task_family": family_id,
             "objective_task_descriptor": dict(descriptor),
-            "acquisition_examples": [dict(example) for example in examples],
             "task_family_posture": "operator_declared_protocol_bound"})
+    projection_byte_limit = (MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES
+        if family_projection else MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES)
     if len(json.dumps(summary, sort_keys=True, separators=(",", ":"),
-            ensure_ascii=False).encode("utf-8")) > MAX_DEVELOPMENTAL_EXPERIMENT_SELECTED_EVIDENCE_BYTES:
+            ensure_ascii=False).encode("utf-8")) > projection_byte_limit:
         raise DevelopmentalWritebackError("developmental_history_projection_over_bound")
     binding = {
         "schema_version": (
+            "sentientos.developmental_history_interpretation_projection:v4"
+            if family_projection else
             "sentientos.developmental_history_interpretation_projection:v2"
             if original.get("companion_intervention_decisions") is not None else
             "sentientos.developmental_history_interpretation_projection:v1"),
@@ -2404,6 +2882,7 @@ class DevelopmentalHistoryProjection:
     canonical_explicit_user_retention: bool = False
     task_family_outcome_corroboration: tuple[Mapping[str, Any], ...] = ()
     task_family_unsettled_outcome_groups: tuple[tuple[str, str], ...] = ()
+    task_family_unsettled_confidence_groups: tuple[tuple[str, str, str], ...] = ()
     retrieval_policy_id: str | None = None
 
 
@@ -2815,9 +3294,19 @@ class ResidentDevelopmentalWritebackController:
                 or receipt.output_size_bytes != len(source_output_text.encode("utf-8"))
                 or receipt.effects.get("local_model_inference") is not True):
             raise DevelopmentalWritebackError("cognition_source_output_unverified")
+        history_condition = (isinstance(observation, Mapping)
+            and observation.get("condition_id") == "with-history"
+            and observation.get("developmental_projection_present") is True
+            and bool(observation.get("retrieved_record_ids")))
+        no_history_consolidation_condition = (
+            isinstance(observation, Mapping)
+            and observation.get("condition_id") ==
+                "durable-learning-history-withheld"
+            and observation.get("developmental_projection_present") is False
+            and not observation.get("retrieved_record_ids")
+            and not observation.get("retrieved_record_digests"))
         if (not isinstance(observation, Mapping)
-                or observation.get("condition_id") != "with-history"
-                or observation.get("developmental_projection_present") is not True
+                or not (history_condition or no_history_consolidation_condition)
                 or observation.get("output_digest") != receipt.output_digest
                 or observation.get("inference_receipt_id") != receipt.receipt_id
                 or observation.get("inference_receipt_digest") != receipt.receipt_digest
@@ -2906,7 +3395,8 @@ class ResidentDevelopmentalWritebackController:
                 or request.get("purpose") != "resident_developmental_retrieval_cognition"):
             raise DevelopmentalWritebackError("cognition_request_lineage_mismatch")
         context_fields = (
-            "tick_id", "condition_id", "correlation_id", "current_snapshot_id",
+            "tick_id", "condition_id", "developmental_projection_present",
+            "correlation_id", "current_snapshot_id",
             "current_snapshot_digest", "current_projection_id", "current_projection_digest",
             "current_fact_ids", "retrieved_record_ids", "retrieved_record_digests",
             "self_model_projection_present", "self_model_projection_id",
@@ -2994,11 +3484,35 @@ class ResidentDevelopmentalWritebackController:
                "evidence; exact provenance is retained separately. " if expanded_evidence else "")
             + "Keep provenance and uncertainty attached to each interpretation. For resource evidence, distinguish measured, "
             + "estimated, predicted, and unknown values by their source posture; shared host usage is not invocation attribution. "
+            + "A counterbalanced model-replacement campaign summary is an aggregate of exact trial artifacts. Its condition-by-position "
+            + "counts and output diversity are descriptive; do not claim an order effect, learning, or improvement. "
             + "Resource expenditure is not inherently good or bad and must not become a reward, penalty, or objective.")
+        prompt_selection = selection.semantic_payload()
+        if (_selected_fact_byte_limit(selection.facts)
+                == MAX_MODEL_REPLACEMENT_CAMPAIGN_SELECTED_EVIDENCE_BYTES):
+            if len(selection.facts) != 1:
+                raise DevelopmentalModelReplacementError(
+                    "campaign_prompt_projection_selection_invalid")
+            compact_fact = _campaign_fact_for_writeback_prompt(selection.facts[0])
+            if compact_fact is None:
+                raise DevelopmentalModelReplacementError(
+                    "campaign_prompt_projection_invalid")
+            prompt_selection["facts"] = [compact_fact]
+            prompt_selection["prompt_projection_posture"] = (
+                "validated_campaign_position_aggregate_full_source_retained_in_candidate")
+            raw_conflicts = prompt_selection.get("conflicts", [])
+            if isinstance(raw_conflicts, list):
+                prompt_selection["conflicts"] = [{key: item.get(key)
+                    for key in ("conflict_id", "kind", "subject_id", "severity")}
+                    for item in raw_conflicts[:8] if isinstance(item, Mapping)]
+                prompt_selection["conflict_count"] = len(raw_conflicts)
+                prompt_selection["conflict_inventory_digest"] = digest(raw_conflicts)
+                prompt_selection["conflicts_omitted_count"] = max(
+                    0, len(raw_conflicts) - len(prompt_selection["conflicts"]))
         # Compact JSON preserves every selected fact and provenance field while
         # reducing token overhead for the larger, authenticated consequence chain.
         prompt = json.dumps({"instruction":instruction,
-            "selection":selection.semantic_payload()}, sort_keys=True,
+            "selection":prompt_selection}, sort_keys=True,
             separators=(",", ":"))
         request = invoker.build_request(purpose=PURPOSE, prompt=prompt,
             caller=PRINCIPAL, correlation_id=correlation_id,
@@ -3334,8 +3848,14 @@ class ResidentDevelopmentalWritebackController:
                                     "sentientos.runtime_history_projection:v1",
                                     "sentientos.model_replacement_interpretation_projection:v1",
                                     "sentientos.model_replacement_interpretation_projection:v2",
+                                    "sentientos.model_replacement_interpretation_projection:v3",
+                                    "sentientos.model_replacement_interpretation_projection:v4",
+                                    "sentientos.model_replacement_interpretation_projection:v5",
+                                    "sentientos.model_replacement_interpretation_projection:v6",
                                     "sentientos.developmental_history_interpretation_projection:v1",
-                                    "sentientos.developmental_history_interpretation_projection:v2"}
+                                    "sentientos.developmental_history_interpretation_projection:v2",
+                                    "sentientos.developmental_history_interpretation_projection:v3",
+                                    "sentientos.developmental_history_interpretation_projection:v4"}
                                 or (projection.get("schema_version")
                                     == "sentientos.runtime_history_projection:v1"
                                     and not (
@@ -3350,21 +3870,31 @@ class ResidentDevelopmentalWritebackController:
                                                 == "chat_process_software_generation_invocation")))
                                 or (projection.get("schema_version")
                                     in {"sentientos.model_replacement_interpretation_projection:v1",
-                                        "sentientos.model_replacement_interpretation_projection:v2"}
+                                        "sentientos.model_replacement_interpretation_projection:v2",
+                                        "sentientos.model_replacement_interpretation_projection:v3",
+                                        "sentientos.model_replacement_interpretation_projection:v4",
+                                        "sentientos.model_replacement_interpretation_projection:v5",
+                                        "sentientos.model_replacement_interpretation_projection:v6"}
                                     and not (source.get("kind") == "embodiment"
                                         and subject.get("subject_kind")
                                             == "developmental_model_replacement_experiment"
                                         and payload_value.get("run_id") == subject.get("subject_id")
                                         and payload_value.get("current_truth") is False
                                         and payload_value.get("authority") is False))
-                                or (projection.get("schema_version")
-                                    == "sentientos.model_replacement_interpretation_projection:v2"
+                                or (projection.get("schema_version") in {
+                                        "sentientos.model_replacement_interpretation_projection:v2",
+                                        "sentientos.model_replacement_interpretation_projection:v3",
+                                        "sentientos.model_replacement_interpretation_projection:v4",
+                                        "sentientos.model_replacement_interpretation_projection:v5",
+                                        "sentientos.model_replacement_interpretation_projection:v6"}
                                     and not _valid_model_replacement_continuity_assessment(
                                         payload_value.get("continuity_assessment"),
                                         disposition=fact.get("disposition")))
                                 or (projection.get("schema_version")
                                     in {"sentientos.developmental_history_interpretation_projection:v1",
-                                        "sentientos.developmental_history_interpretation_projection:v2"}
+                                        "sentientos.developmental_history_interpretation_projection:v2",
+                                        "sentientos.developmental_history_interpretation_projection:v3",
+                                        "sentientos.developmental_history_interpretation_projection:v4"}
                                     and not (source.get("kind") == "embodiment"
                                         and subject.get("subject_kind")
                                             == "developmental_history_intervention_experiment"
@@ -3377,7 +3907,23 @@ class ResidentDevelopmentalWritebackController:
                                         and len(payload_value["conditions"]) == 3))
                                 or projection.get("source_fact_id") != fact.get("fact_id")
                                 or projection.get("source_record_digest") != source.get("digest")
-                                or projection.get("projected_payload_digest") != digest(payload_value)):
+                                or projection.get("projected_payload_digest") != digest(payload_value)
+                                or (source.get("schema_version") ==
+                                    "sentientos.developmental_model_replacement_run:v2"
+                                    and projection.get("schema_version") !=
+                                        "sentientos.model_replacement_interpretation_projection:v6")
+                                or (projection.get("schema_version") ==
+                                    "sentientos.model_replacement_interpretation_projection:v6"
+                                    and (source.get("schema_version") not in {
+                                            "sentientos.developmental_model_replacement_run:v1",
+                                            "sentientos.developmental_model_replacement_run:v2"}
+                                        or not _valid_model_replacement_execution_order(
+                                            payload_value.get("condition_execution_order"))
+                                        or source.get("schema_version") ==
+                                            "sentientos.developmental_model_replacement_run:v1"
+                                            and tuple(payload_value.get(
+                                                "condition_execution_order", ()))
+                                                != MODEL_REPLACEMENT_CONDITION_ORDER))):
                             raise DevelopmentalWritebackError("durable_resource_projection_binding_invalid")
                         projection_semantic = dict(projection); claimed_projection = projection_semantic.pop("projection_digest")
                         if claimed_projection != digest(projection_semantic):
@@ -3564,8 +4110,14 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
             or len(set(contradictions)) != len(contradictions)
             or not set(contradictions).issubset(consumed_ids)
             or not isinstance(context, Mapping)
-            or context.get("condition_id") != "with-history"
-            or not context.get("retrieved_record_ids")):
+            or not ((context.get("condition_id") == "with-history"
+                    and context.get("developmental_projection_present") is True
+                    and bool(context.get("retrieved_record_ids")))
+                or (context.get("condition_id") ==
+                    "durable-learning-history-withheld"
+                    and context.get("developmental_projection_present") is False
+                    and not context.get("retrieved_record_ids")
+                    and not context.get("retrieved_record_digests")))):
         raise DevelopmentalWritebackError("cognition_candidate_lineage_invalid")
 
 

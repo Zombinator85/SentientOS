@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/historical_examples_record_allowlist.schema.json",
+  "title": "Historical examples shared-record allowlist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "cycle_root_id", "source_receipt_digest",
+    "task_digest", "record_ids", "record_digests", "basis",
+    "source_parity_audit_sha256", "inference_performed",
+    "learning_established", "authority", "allowlist_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_record_allowlist:v1"},
+    "cycle_root_id": {"type": "string", "minLength": 1},
+    "source_receipt_digest": {"$ref": "#/$defs/hexDigest"},
+    "task_digest": {"$ref": "#/$defs/digest"},
+    "record_ids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^devrec-[a-z0-9-]+$"}
+    },
+    "record_digests": {
+      "type": "object", "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/digest"}
+    },
+    "basis": {"const": "intersection_of_verified_matched_preflight_history_sets"},
+    "source_parity_audit_sha256": {"$ref": "#/$defs/digest"},
+    "inference_performed": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "allowlist_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "hexDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

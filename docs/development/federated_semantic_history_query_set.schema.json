@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-query-set:v2",
+  "title": "SentientOS federated semantic history query set",
+  "description": "Preregistered query artifact bound to source-qualified experience records in a federated source manifest. Schema validates shape; runtime validation recomputes all digests and verifies every reference.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "federated_manifest_digest", "evaluation_protocol",
+    "evaluation_protocol_digest", "question_count",
+    "questions", "question_digests", "strata", "source_experience_refs",
+    "max_input_chars", "target_model_identity",
+    "target_model_identity_digest", "authority", "inference_performed",
+    "learning_established", "query_set_digest", "query_set_id"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_query_set:v2" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "evaluation_protocol_digest": { "$ref": "#/$defs/digest" },
+    "evaluation_protocol": {
+      "type": "object", "additionalProperties": true,
+      "required": ["schema_version", "source_evaluation_protocol_schema", "adjudication_procedure_digest", "minimum_queries_per_stratum", "confidence_level", "bootstrap_samples", "false_inclusion_interval_method", "federated_sampling_unit", "source_experience_independence_verified", "reviewer_independence_established", "learning_established", "authority", "protocol_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.semantic_history_federated_retrieval_gate:v1" },
+        "source_evaluation_protocol_schema": { "const": "sentientos.semantic_history_retrieval_gate:v12" },
+        "adjudication_procedure_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "minimum_queries_per_stratum": { "type": "integer", "minimum": 20 },
+        "confidence_level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 },
+        "bootstrap_samples": { "type": "integer", "minimum": 1000 },
+        "false_inclusion_interval_method": { "const": "paired_binary_clopper_pearson_bonferroni:v1" },
+        "federated_sampling_unit": { "const": "source_id_record_id_record_digest:v1" },
+        "source_experience_independence_verified": { "const": false },
+        "reviewer_independence_established": { "const": false },
+        "learning_established": { "const": false },
+        "authority": { "const": false },
+        "protocol_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "question_count": { "type": "integer", "minimum": 60, "maximum": 255 },
+    "questions": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1200, "pattern": "\\S" }
+    },
+    "question_digests": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": { "$ref": "#/$defs/digest" }
+    },
+    "strata": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": { "enum": ["paraphrased_experience", "lexical_distractor", "no_applicable_history"] }
+    },
+    "source_experience_refs": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": { "$ref": "#/$defs/sourceExperienceRef" }
+    },
+    "max_input_chars": { "type": "integer", "minimum": 128, "maximum": 131072 },
+    "target_model_identity": { "type": ["object", "null"] },
+    "target_model_identity_digest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+    "authority": { "const": false },
+    "inference_performed": { "const": false },
+    "learning_established": { "const": false },
+    "query_set_digest": { "$ref": "#/$defs/digest" },
+    "query_set_id": { "type": "string", "pattern": "^federated-queryset-[0-9a-f]{24}$" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sourceExperienceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "record_id", "record_digest", "source_experience_unit_digest"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+        "record_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "record_digest": { "$ref": "#/$defs/digest" },
+        "source_experience_unit_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

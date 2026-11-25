@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_receipt_bundle_store.schema.json",
+  "title": "Condition-local receipt bundle storage artifact",
+  "description": "Pins a score-free receipt bundle file and the intended AppContainer read-only ACL. It records ACL structure and file readback only; live effective access and peer denial remain unverified.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "condition",
+    "branch_id", "root_identity", "appcontainer_sid", "bundle_file_name",
+    "bundle_digest", "access_policy", "effective_access_verified",
+    "peer_denial_verified", "bundle_receipt_authentication_verified",
+    "authority", "artifact_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_condition_receipt_bundle_store:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": {
+      "enum": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ]
+    },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "root_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["volume_serial", "file_id_hex"],
+      "properties": {
+        "volume_serial": { "type": "integer", "minimum": 0 },
+        "file_id_hex": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+      }
+    },
+    "appcontainer_sid": {
+      "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"
+    },
+    "bundle_file_name": {
+      "type": "string",
+      "pattern": "^durable-learning-condition-receipts-[0-9a-f]{24}\\.json$"
+    },
+    "bundle_digest": { "$ref": "#/$defs/digest" },
+    "access_policy": { "const": "condition_receipt_read" },
+    "effective_access_verified": { "const": false },
+    "peer_denial_verified": { "const": false },
+    "bundle_receipt_authentication_verified": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

@@ -2,6 +2,8 @@
 
 Added `ResidentEpistemicDevelopmentRuntime.trace_proposition()` as an explicitly selected, read-only trace for a configured proposition. It validates the bounded receipt inventory, returns source run and digest identities with original observation time, active/inactive relation, state generation and predecessor/successor digest chain, event identities and matching admission receipt IDs. When a caller supplies a cognitive tick it also records the exact verified prior projection identity and state digests. Output is capped at one selected proposition, sixteen events, and 32 KiB; receipt recovery must verify and the trace makes no truth or authority claim.
 
+The trace schema advanced to v2 when event rows gained explicit removed binding IDs and the active binding set reconstructed after each generation. Each set must hash to the successor state's evidence-set digest, and the event must bind to that state's generation, predecessor, and last-update-event ID. State rows expose these links with support / contradiction binding references. This is provenance for evidence membership transitions, not a truth or causal claim.
+
 Extended the recovered task-family test to inspect the trace after fresh-owner reconstruction and verify source identity, event-to-state binding, both mutation receipt stages, and the same state digest passed to later cognition. The invalid event bound is rejected.
 
 Validation: the targeted recovered task-family end-to-end node passed. The combined epistemic development and causal-introspection scope completed 57 passing tests. Python compilation and `git diff --check` passed. The large cognition test blob was reconstructed in verified chunks; source blob identities matched local Git hashes before publication.

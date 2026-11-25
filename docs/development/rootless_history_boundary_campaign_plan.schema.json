@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Shared History Campaign Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "task_family_id",
+    "ordered_model_identity_digests",
+    "ordered_cycle_ids",
+    "ordered_task_generation_seeds",
+    "ordered_backend_seeds",
+    "initial_history_boundary",
+    "initial_runtime_admission_ledger",
+    "initial_cognition_recovery_state",
+    "preregistration_timing_independently_attested",
+    "authority",
+    "plan_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "sentientos.rootless_history_boundary_campaign_plan:v5",
+        "sentientos.rootless_history_boundary_campaign_plan:v6",
+        "sentientos.rootless_history_boundary_campaign_plan:v7",
+        "sentientos.rootless_history_boundary_campaign_plan:v8",
+        "sentientos.rootless_history_boundary_campaign_plan:v9",
+        "sentientos.rootless_history_boundary_campaign_plan:v10",
+        "sentientos.rootless_history_boundary_campaign_plan:v11",
+        "sentientos.rootless_history_boundary_campaign_plan:v12"
+      ]
+    },
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^rootless-history-campaign-[0-9a-f]{20}$"
+    },
+    "task_family_id": {
+      "enum": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7",
+        "rootless_integer_affine_transfer_novel_range_v8"
+      ]
+    },
+    "ordered_model_identity_digests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "model_identity_recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "engine", "resolved_manifest_path", "manifest_sha256", "model_name", "gpu_layers", "max_context_tokens", "generation_config", "runtime_options", "identity_implementation_sha256"],
+      "properties": {
+        "schema_version": {"const": "sentientos.rootless_history_model_identity_recipe:v1"},
+        "engine": {"const": "ollama"},
+        "resolved_manifest_path": {"type": "string", "minLength": 1},
+        "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "model_name": {"type": "string", "minLength": 1},
+        "gpu_layers": {"type": "integer", "minimum": 0, "maximum": 128},
+        "max_context_tokens": {"const": 8192},
+        "generation_config": {
+          "type": "object", "additionalProperties": false,
+          "required": ["max_new_tokens", "temperature", "top_p"],
+          "properties": {
+            "max_new_tokens": {"const": 512},
+            "temperature": {"const": 0},
+            "top_p": {"const": 1}
+          }
+        },
+        "runtime_options": {
+          "type": "object", "additionalProperties": false,
+          "required": ["api_base", "model", "manifest_sha256", "num_gpu", "num_thread", "keep_alive", "think", "timeout_seconds"],
+          "properties": {
+            "api_base": {"type": "string", "minLength": 1},
+            "model": {"type": "string", "minLength": 1},
+            "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "num_gpu": {"type": "integer", "minimum": 0, "maximum": 128},
+            "num_thread": {"type": "integer", "minimum": 1},
+            "keep_alive": {"type": "string", "minLength": 1},
+            "think": {"const": false},
+            "timeout_seconds": {"type": "integer", "minimum": 1}
+          }
+        },
+        "identity_implementation_sha256": {
+          "type": "object", "additionalProperties": false,
+          "required": ["sentientos/local_model.py", "sentientos/rootless_experimental_ollama_epistemic_session.py", "sentientos/rootless_experimental_local_model.py", "work/rootless_history_boundary_campaign.py"],
+          "properties": {
+            "sentientos/local_model.py": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "sentientos/rootless_experimental_ollama_epistemic_session.py": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "sentientos/rootless_experimental_local_model.py": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "work/rootless_history_boundary_campaign.py": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
+    "experiment_implementation_sha256": {
+      "type": "object",
+      "minProperties": 3,
+      "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+      "propertyNames": {"pattern": "^([A-Za-z_][A-Za-z0-9_]*\\.py|sentientos/.+\\.py|scripts/.+\\.py|work/.+\\.py|[A-Za-z_][A-Za-z0-9_]*/.+\\.py|semantic_embeddings\\.py|docs/development/(authenticated_observer_ingress_receipt|observation_authentication_receipt_summary|history_transfer_evidence_precondition|history_transfer_precondition_audit|rootless_history_boundary_campaign_plan|rootless_novel_acquisition_transfer_probe_preflight|rootless_history_boundary_campaign_audit|rootless_planned_cycle_strategy_inclusion_ablation|rootless_planned_cycle_historical_examples_ablation|developmental_history_task_score_lineage_failure)\\.schema\\.json)$"}
+    },
+    "transfer_probe_count": {"type": "integer", "minimum": 4, "maximum": 16},
+    "cross_range_history_enabled_competence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "source_task_family_id", "target_task_family_id", "conditions", "minimum_score_bound_correct_source_runs", "minimum_distinct_correct_source_inputs", "require_unique_correct_input_contribution_per_source_run", "require_zero_overlap_with_all_declared_history_families", "require_exact_source_record_receipts_present_restored", "minimum_planned_cycles", "cross_cycle_history_posture", "baseline_competence_required", "claim_scope"],
+      "properties": {
+        "schema_version": {"enum": ["sentientos.cross_range_history_enabled_competence_protocol:v1", "sentientos.cross_range_history_enabled_competence_protocol:v2"]},
+        "source_task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"},
+        "target_task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"},
+        "conditions": {"const": ["history_present", "history_withheld", "history_restored"]},
+        "minimum_score_bound_correct_source_runs": {"const": 2},
+        "minimum_distinct_correct_source_inputs": {"const": 3},
+        "require_unique_correct_input_contribution_per_source_run": {"const": true},
+        "require_zero_overlap_with_all_declared_history_families": {"const": true},
+        "require_exact_source_record_receipts_present_restored": {"const": true},
+        "minimum_planned_cycles": {"const": 2},
+        "cross_cycle_history_posture": {"const": "append_only_campaign_history"},
+        "baseline_competence_required": {"const": false},
+        "claim_scope": {"const": "history_conditioned_capability_pattern_only"},
+        "per_probe_outcomes_required": {"const": true},
+        "probe_outcome_schema_version": {"const": "sentientos.objective_probe_transition_summary:v1"},
+        "score_digest_binding_required": {"const": true},
+        "answer_values_in_summary": {"const": false}
+      }
+    },
+    "ordered_cycle_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"
+      }
+    },
+    "ordered_task_generation_seeds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 1, "maximum": 4294967295}
+    },
+    "ordered_backend_seeds": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0, "maximum": 4294967295}
+    },
+    "initial_history_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "file_count", "total_size_bytes", "files", "atomic_snapshot", "boundary_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.rootless_history_boundary:v1"},
+        "file_count": {"type": "integer", "minimum": 0, "maximum": 50000},
+        "total_size_bytes": {"type": "integer", "minimum": 0, "maximum": 2147483648},
+        "files": {
+          "type": "array",
+          "maxItems": 50000,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "size_bytes", "sha256"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^(records/devrec-[0-9a-f]{24}|receipts/devreceipt-[0-9a-f]{24})\\.json$"
+              },
+              "size_bytes": {"type": "integer", "minimum": 0, "maximum": 134217728},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        },
+        "atomic_snapshot": {"const": false},
+        "boundary_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "initial_runtime_admission_ledger": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "sha256", "size_bytes", "admission_count", "revocation_count", "admission_bindings", "revocation_bindings", "atomic_snapshot"],
+          "properties": {
+            "schema_version": {"const": "sentientos.rootless_history_campaign_admission_boundary:v1"},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "size_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+            "admission_count": {"type": "integer", "minimum": 0, "maximum": 8192},
+            "revocation_count": {"type": "integer", "minimum": 0, "maximum": 8192},
+            "admission_bindings": {
+              "type": "array",
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["admission_id", "binding_digest", "issued_sequence"],
+                "properties": {
+                  "admission_id": {"type": "string", "minLength": 1, "maxLength": 256},
+                  "binding_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+                  "issued_sequence": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "revocation_bindings": {
+              "type": "array",
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["revocation_id", "binding_digest", "sequence"],
+                "properties": {
+                  "revocation_id": {"type": "string", "minLength": 1, "maxLength": 512},
+                  "binding_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+                  "sequence": {"type": "integer", "minimum": 1}
+                }
+              }
+            },
+            "atomic_snapshot": {"const": false}
+          }
+        }
+      ]
+    },
+    "initial_cognition_recovery_state": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["schema_version", "files", "file_count", "total_size_bytes", "completed_tick_bindings", "incomplete_tick_bindings", "atomic_snapshot", "boundary_digest"],
+          "properties": {
+            "schema_version": {"const": "sentientos.rootless_cognition_recovery_state:v1"},
+            "files": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "sha256", "size_bytes"],
+                "properties": {
+                  "path": {"type": "string", "pattern": "^(composition_state\\.json|cognition_observations/devcog-[0-9a-f]{24}\\.json|inference-custody/receipts/lmrec-[0-9a-f]{24}\\.json)$"},
+                  "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "size_bytes": {"type": "integer", "minimum": 0, "maximum": 67108864}
+                }
+              }
+            },
+            "file_count": {"type": "integer", "minimum": 1, "maximum": 8192},
+            "total_size_bytes": {"type": "integer", "minimum": 0, "maximum": 67108864},
+            "completed_tick_bindings": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tick_id", "row_digest"],
+                "properties": {
+                  "tick_id": {"type": "string", "minLength": 1},
+                  "row_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              }
+            },
+            "incomplete_tick_bindings": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tick_id", "status", "row_digest_without_status"],
+                "properties": {
+                  "tick_id": {"type": "string", "minLength": 1},
+                  "status": {"type": ["string", "null"]},
+                  "row_digest_without_status": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                }
+              }
+            },
+            "atomic_snapshot": {"const": false},
+            "boundary_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      ]
+    },
+    "preregistration_timing_independently_attested": {"const": false},
+    "authority": {"const": false},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v5"}}, "required": ["schema_version"]},
+      "then": {"properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v6"}}, "required": ["schema_version"]},
+      "then": {"properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v7"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v8"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v9"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256", "cross_range_history_enabled_competence"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v10"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256", "cross_range_history_enabled_competence", "transfer_probe_count"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v11"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_novel_range_v8"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v12"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256", "transfer_probe_count"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_novel_range_v8"}}
+      }
+    },
+    {
+      "if": {"properties": {"cross_range_history_enabled_competence": {"type": "object"}}, "required": ["cross_range_history_enabled_competence"]},
+      "then": {"properties": {"schema_version": {"enum": ["sentientos.rootless_history_boundary_campaign_plan:v9", "sentientos.rootless_history_boundary_campaign_plan:v10"]}}}
+    }
+  ]
+}

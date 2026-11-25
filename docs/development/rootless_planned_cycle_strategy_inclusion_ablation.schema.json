@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Planned Cycle Strategy Inclusion Ablation",
+  "type": "object",
+  "unevaluatedProperties": false,
+  "required": ["schema_version", "status", "inference_performed", "learning_established", "authority"],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_planned_cycle_strategy_inclusion_ablation:v1"
+    },
+    "status": {
+      "enum": ["accumulated_strategy_not_present", "paired_prompt_reconstruction_verified"]
+    },
+    "inference_performed": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "paired_prompt_reconstruction_verified"}}},
+      "then": {
+        "required": [
+          "intervention", "changed_context_fields", "accumulated_strategy_digest",
+          "accumulated_strategy_serialization_digest", "baseline_prompt_digest",
+          "ablated_prompt_digest", "baseline_prompt_chars", "ablated_prompt_chars",
+          "prompt_chars_removed", "selected_record_ids", "selected_record_digests",
+          "history_packets_unchanged", "history_packets_digest",
+          "retained_per_record_candidate_strategy_count",
+          "baseline_contains_accumulated_strategy",
+          "ablated_prompt_excludes_accumulated_strategy",
+          "exact_cycle_prompt_reconstructed", "model_attention_established"
+        ],
+        "properties": {
+          "intervention": {"const": "remove_only_top_level_accumulated_candidate_strategy"},
+          "changed_context_fields": {"const": ["task_family_accumulated_candidate_strategy"]},
+          "accumulated_strategy_digest": {"$ref": "#/$defs/digest"},
+          "accumulated_strategy_serialization_digest": {"$ref": "#/$defs/digest"},
+          "baseline_prompt_digest": {"$ref": "#/$defs/digest"},
+          "ablated_prompt_digest": {"$ref": "#/$defs/digest"},
+          "baseline_prompt_chars": {"type": "integer", "minimum": 0},
+          "ablated_prompt_chars": {"type": "integer", "minimum": 0},
+          "prompt_chars_removed": {"type": "integer"},
+          "selected_record_ids": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+          "selected_record_digests": {"type": "array", "items": {"$ref": "#/$defs/digest"}},
+          "history_packets_unchanged": {"const": true},
+          "history_packets_digest": {"$ref": "#/$defs/digest"},
+          "retained_per_record_candidate_strategy_count": {"type": "integer", "minimum": 0},
+          "baseline_contains_accumulated_strategy": {"const": true},
+          "ablated_prompt_excludes_accumulated_strategy": {"const": true},
+          "exact_cycle_prompt_reconstructed": {"const": false},
+          "model_attention_established": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "accumulated_strategy_not_present"}}},
+      "then": {
+        "properties": {
+          "schema_version": true,
+          "status": true,
+          "inference_performed": true,
+          "learning_established": true,
+          "authority": true
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

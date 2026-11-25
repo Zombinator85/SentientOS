@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_worker_operation_journal.schema.json",
+  "title": "SentientOS condition-worker operation journal",
+  "description": "Immutable condition-scope reservation, per-request intent, and completion records. A single immutable reservation makes different concurrent request IDs contend for one condition operation. Consolidation intents and completions expose the exact prepared snapshot digest, and the completion must match its intent. An intent without a matching completion is ambiguous and must not be automatically replayed.",
+  "oneOf": [
+    { "$ref": "#/$defs/scopeReservation" },
+    { "$ref": "#/$defs/intent" },
+    { "$ref": "#/$defs/completion" },
+    { "$ref": "#/$defs/legacyIntent" },
+    { "$ref": "#/$defs/legacyCompletion" }
+  ],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "requestId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "protocolId": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "scopeReservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "request_id", "request_digest", "snapshot_digest", "authority", "scope_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_condition_worker_scope_reservation:v1" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "$ref": "#/$defs/condition" },
+        "branch_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "request_id": { "$ref": "#/$defs/requestId" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "authority": { "const": false },
+        "scope_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "intent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "request_id", "operation", "request_digest", "snapshot_digest", "request_payload", "authority", "intent_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_condition_worker_intent:v3" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "$ref": "#/$defs/condition" },
+        "branch_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "request_id": { "$ref": "#/$defs/requestId" },
+        "operation": { "const": "consolidate_branch" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "request_payload": { "$ref": "durable_learning_condition_worker_rpc.schema.json#/$defs/consolidatePayload" },
+        "authority": { "const": false },
+        "intent_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "legacyIntent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "request_id", "operation", "request_digest", "snapshot_digest", "authority", "intent_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_condition_worker_intent:v2" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "$ref": "#/$defs/condition" },
+        "branch_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "request_id": { "$ref": "#/$defs/requestId" },
+        "operation": { "const": "consolidate_branch" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "authority": { "const": false },
+        "intent_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "completion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "request_id", "request_digest", "intent_digest", "snapshot_digest", "result_digest", "result", "authority", "receipt_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_condition_worker_completion:v3" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "$ref": "#/$defs/condition" },
+        "branch_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "request_id": { "$ref": "#/$defs/requestId" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "intent_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "result_digest": { "$ref": "#/$defs/digest" },
+        "result": { "type": "object" },
+        "authority": { "const": false },
+        "receipt_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "legacyCompletion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "request_id", "request_digest", "intent_digest", "snapshot_digest", "result_digest", "result", "authority", "receipt_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.durable_learning_condition_worker_completion:v2" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "$ref": "#/$defs/condition" },
+        "branch_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "request_id": { "$ref": "#/$defs/requestId" },
+        "request_digest": { "$ref": "#/$defs/digest" },
+        "intent_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "result_digest": { "$ref": "#/$defs/digest" },
+        "result": { "type": "object" },
+        "authority": { "const": false },
+        "receipt_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

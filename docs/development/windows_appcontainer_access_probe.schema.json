@@ -1,0 +1,711 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/windows_appcontainer_access_probe.schema.json",
+  "title": "SentientOS AppContainer worker access probe",
+  "description": "Digest-bound startup targets, worker-reported access results, and supervisor readback checks. Neither report alone proves process or filesystem isolation.",
+  "oneOf": [
+    {"$ref": "#/$defs/manifest"},
+    {"$ref": "#/$defs/result"},
+    {"$ref": "#/$defs/supervisorCheck"},
+    {"$ref": "#/$defs/completion"},
+    {"$ref": "#/$defs/persistedArtifact"},
+    {"$ref": "#/$defs/runtimeAccessAttemptArtifact"},
+    {"$ref": "#/$defs/workerAccessProbeInterruptionArtifact"},
+    {"$ref": "#/$defs/runRecord"},
+    {"$ref": "#/$defs/supervisedRun"},
+    {"$ref": "#/$defs/workerOnce"}
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "condition": {
+      "enum": ["relevant_experience_available", "relevant_experience_withheld"]
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "volume_serial", "file_id_hex", "content_sha256", "content_size"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "maxLength": 2048},
+        "volume_serial": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "file_id_hex": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "content_sha256": {"$ref": "#/$defs/digest"},
+        "content_size": {"type": "integer", "minimum": 1, "maximum": 4096}
+      }
+    },
+    "manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "condition", "appcontainer_sid", "own_condition", "own_sentinel", "peer_condition", "peer_sentinel", "scorer_sentinel", "authority", "manifest_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_access_probe:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "condition": {"$ref": "#/$defs/condition"},
+        "appcontainer_sid": {"type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"},
+        "own_condition": {"$ref": "#/$defs/condition"},
+        "own_sentinel": {"$ref": "#/$defs/target"},
+        "peer_condition": {"$ref": "#/$defs/condition"},
+        "peer_sentinel": {"$ref": "#/$defs/target"},
+        "scorer_sentinel": {"$ref": "#/$defs/target"},
+        "authority": {"const": false},
+        "manifest_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "winerror": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "ownResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opened_read_write", "expected_identity_matched", "read_digest_matched", "end_of_file_verified", "write_same_bytes_succeeded", "flush_succeeded", "winerror"],
+      "properties": {
+        "opened_read_write": {"type": "boolean"},
+        "expected_identity_matched": {"type": "boolean"},
+        "read_digest_matched": {"type": "boolean"},
+        "end_of_file_verified": {"type": "boolean"},
+        "write_same_bytes_succeeded": {"type": "boolean"},
+        "flush_succeeded": {"type": "boolean"},
+        "winerror": {"$ref": "#/$defs/winerror"}
+      }
+    },
+    "denialResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["open_denied", "winerror"],
+      "properties": {
+        "open_denied": {"type": "boolean"},
+        "winerror": {"$ref": "#/$defs/winerror"}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "condition", "appcontainer_sid", "manifest_digest", "own_sentinel", "peer_sentinel", "scorer_sentinel", "worker_reported_probe_complete", "supervisor_verification_required", "authority", "probe_result_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_result:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "condition": {"$ref": "#/$defs/condition"},
+        "appcontainer_sid": {"type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"},
+        "manifest_digest": {"$ref": "#/$defs/digest"},
+        "own_sentinel": {"$ref": "#/$defs/ownResult"},
+        "peer_sentinel": {"$ref": "#/$defs/denialResult"},
+        "scorer_sentinel": {"$ref": "#/$defs/denialResult"},
+        "worker_reported_probe_complete": {"type": "boolean"},
+        "supervisor_verification_required": {"const": true},
+        "authority": {"const": false},
+        "probe_result_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "supervisorSentinelCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["opened_read_only", "identity_matched", "content_digest_matched", "end_of_file_verified", "winerror"],
+      "properties": {
+        "opened_read_only": {"type": "boolean"},
+        "identity_matched": {"type": "boolean"},
+        "content_digest_matched": {"type": "boolean"},
+        "end_of_file_verified": {"type": "boolean"},
+        "winerror": {"$ref": "#/$defs/winerror"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "opened_read_only": {"const": true}
+            },
+            "required": ["opened_read_only"]
+          },
+          "then": {
+            "properties": {
+              "winerror": {"type": "null"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "opened_read_only": {"const": false}
+            },
+            "required": ["opened_read_only"]
+          },
+          "then": {
+            "properties": {
+              "winerror": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+              "identity_matched": {"const": false},
+              "content_digest_matched": {"const": false},
+              "end_of_file_verified": {"const": false}
+            }
+          }
+        }
+      ]
+    },
+    "supervisorCheck": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "condition", "manifest_digest", "sentinels", "all_sentinel_identities_and_contents_match", "worker_exit_confirmed_by_caller", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority", "check_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_supervisor_check:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "condition": {"$ref": "#/$defs/condition"},
+        "manifest_digest": {"$ref": "#/$defs/digest"},
+        "sentinels": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["own_sentinel", "peer_sentinel", "scorer_sentinel"],
+          "properties": {
+            "own_sentinel": {"$ref": "#/$defs/supervisorSentinelCheck"},
+            "peer_sentinel": {"$ref": "#/$defs/supervisorSentinelCheck"},
+            "scorer_sentinel": {"$ref": "#/$defs/supervisorSentinelCheck"}
+          }
+        },
+        "all_sentinel_identities_and_contents_match": {"type": "boolean"},
+        "worker_exit_confirmed_by_caller": {"const": true},
+        "process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false},
+        "check_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "launchObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_id", "process_creation_time_100ns", "token_is_appcontainer", "appcontainer_sid", "enabled_capability_count", "inherited_handles_requested", "process_start_nonce", "environment_block_sha256", "requested_executable_sha256", "requested_capability_count", "job_object_bound", "job_active_process_limit", "isolation_verified", "authority"],
+      "properties": {
+        "process_id": {"type": "integer", "minimum": 1},
+        "process_creation_time_100ns": {"type": "integer", "minimum": 1},
+        "token_is_appcontainer": {"const": true},
+        "appcontainer_sid": {"type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"},
+        "enabled_capability_count": {"const": 0},
+        "inherited_handles_requested": {"const": false},
+        "process_start_nonce": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "environment_block_sha256": {"$ref": "#/$defs/digest"},
+        "requested_executable_sha256": {"$ref": "#/$defs/digest"},
+        "requested_capability_count": {"const": 0},
+        "job_object_bound": {"const": true},
+        "job_active_process_limit": {"const": 1},
+        "isolation_verified": {"const": false},
+        "authority": {"const": false}
+      }
+    },
+    "completion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "condition", "manifest_digest", "worker_process_id", "worker_process_creation_time_100ns", "worker_exit_confirmed_by_process_handle", "worker_exit_code", "worker_report_matches_expected_matrix", "process_identity_binding_verified", "sentinel_readback", "all_probe_checks_match", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority", "completion_digest"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_completion:v1"}
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["worker_response_result_digest"]},
+                {"required": ["expected_result_digest"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_completion:v2"}
+            }
+          },
+          "then": {
+            "required": ["worker_response_result_digest", "expected_result_digest"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_completion:v3"}
+            }
+          },
+          "then": {
+            "required": ["worker_response_result_digest", "expected_result_digest", "worker_launch_observation"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_exit_confirmed_by_process_handle": {"const": true}
+            }
+          },
+          "then": {
+            "properties": {
+              "worker_exit_code": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+              "sentinel_readback": {"$ref": "#/$defs/supervisorCheck"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_exit_confirmed_by_process_handle": {"const": false}
+            }
+          },
+          "then": {
+            "properties": {
+              "worker_exit_code": {"type": "null"},
+              "sentinel_readback": {"type": "null"},
+              "all_probe_checks_match": {"const": false}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "all_probe_checks_match": {"const": true}
+            }
+          },
+          "then": {
+            "properties": {
+              "worker_exit_confirmed_by_process_handle": {"const": true},
+              "worker_exit_code": {"const": 0},
+              "worker_report_matches_expected_matrix": {"const": true},
+              "process_identity_binding_verified": {"const": true},
+              "sentinel_readback": {
+                "allOf": [
+                  {"$ref": "#/$defs/supervisorCheck"},
+                  {
+                    "properties": {
+                      "all_sentinel_identities_and_contents_match": {"const": true}
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "schema_version": {"enum": ["sentientos.windows_appcontainer_access_probe_completion:v1", "sentientos.windows_appcontainer_access_probe_completion:v2", "sentientos.windows_appcontainer_access_probe_completion:v3"]},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "condition": {"$ref": "#/$defs/condition"},
+        "manifest_digest": {"$ref": "#/$defs/digest"},
+        "worker_process_id": {"type": "integer", "minimum": 1},
+        "worker_process_creation_time_100ns": {"type": "integer", "minimum": 1},
+        "worker_exit_confirmed_by_process_handle": {"type": "boolean"},
+        "worker_exit_code": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "worker_report_matches_expected_matrix": {"type": "boolean"},
+        "worker_response_result_digest": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "expected_result_digest": {"$ref": "#/$defs/digest"},
+        "worker_launch_observation": {"$ref": "#/$defs/launchObservation"},
+        "process_identity_binding_verified": {"type": "boolean"},
+        "sentinel_readback": {
+          "oneOf": [
+            {"$ref": "#/$defs/supervisorCheck"},
+            {"type": "null"}
+          ]
+        },
+        "all_probe_checks_match": {"type": "boolean"},
+        "process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false},
+        "completion_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "conditionPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": {"$ref": "#/$defs/completion"},
+        "relevant_experience_withheld": {"$ref": "#/$defs/completion"}
+      }
+    },
+    "manifestPair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": {"$ref": "#/$defs/manifest"},
+        "relevant_experience_withheld": {"$ref": "#/$defs/manifest"}
+      }
+    },
+    "persistedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "branch_preflight_id", "branch_preflight_digest", "profile_pair_artifact_id", "profile_pair_artifact_digest", "runtime_access_setup", "condition_access_probe_manifests", "condition_completions", "authority", "artifact_digest", "artifact_id"],
+      "properties": {
+        "schema_version": {"const": "sentientos.durable_learning_access_probe_artifact:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "branch_preflight_id": {"type": "string", "minLength": 1},
+        "branch_preflight_digest": {"$ref": "#/$defs/digest"},
+        "profile_pair_artifact_id": {"type": "string", "minLength": 1},
+        "profile_pair_artifact_digest": {"$ref": "#/$defs/digest"},
+        "runtime_access_setup": {"$ref": "#/$defs/runtimeAccessSetup"},
+        "condition_access_probe_manifests": {"$ref": "#/$defs/manifestPair"},
+        "condition_completions": {"$ref": "#/$defs/conditionPair"},
+        "authority": {"const": false},
+        "artifact_digest": {"$ref": "#/$defs/digest"},
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-access-probe-completion-[0-9a-f]{24}$"}
+      }
+    },
+    "runtimeAccessAttemptArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "branch_preflight_id", "branch_preflight_digest", "profile_pair_artifact_id", "profile_pair_artifact_digest", "runtime_access_setup", "authority", "artifact_digest", "artifact_id"],
+      "properties": {
+        "schema_version": {"const": "sentientos.durable_learning_runtime_access_attempt:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "branch_preflight_id": {"type": "string", "minLength": 1},
+        "branch_preflight_digest": {"$ref": "#/$defs/digest"},
+        "profile_pair_artifact_id": {"type": "string", "minLength": 1},
+        "profile_pair_artifact_digest": {"$ref": "#/$defs/digest"},
+        "runtime_access_setup": {"$ref": "#/$defs/runtimeAccessSetup"},
+        "authority": {"const": false},
+        "artifact_digest": {"$ref": "#/$defs/digest"},
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-runtime-access-attempt-[0-9a-f]{24}-[0-9a-f]{24}$"}
+      }
+    },
+    "workerAccessProbeInterruptionArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "protocol_digest", "branch_preflight_id", "branch_preflight_digest", "profile_pair_artifact_id", "profile_pair_artifact_digest", "runtime_access_setup", "failure_phase", "launch_call_started", "launch_call_returned", "worker_process_observations", "created_endpoint_conditions", "accepted_pipe_conditions", "cleanup_errors", "failure_type", "retry_blocked", "authority", "artifact_digest", "artifact_id"],
+      "properties": {
+        "schema_version": {"const": "sentientos.durable_learning_worker_access_probe_interruption:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "branch_preflight_id": {"type": "string", "minLength": 1},
+        "branch_preflight_digest": {"$ref": "#/$defs/digest"},
+        "profile_pair_artifact_id": {"type": "string", "minLength": 1},
+        "profile_pair_artifact_digest": {"$ref": "#/$defs/digest"},
+        "runtime_access_setup": {"$ref": "#/$defs/runtimeAccessSetup"},
+        "failure_phase": {
+          "enum": ["worker_pair_launch", "pipe_acceptance", "probe_rpc_and_record", "cleanup"]
+        },
+        "launch_call_started": {"const": true},
+        "launch_call_returned": {"type": "boolean"},
+        "worker_process_observations": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/interruptedWorkerObservation"}
+        },
+        "created_endpoint_conditions": {"$ref": "#/$defs/conditionSubset"},
+        "accepted_pipe_conditions": {"$ref": "#/$defs/conditionSubset"},
+        "cleanup_errors": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "enum": ["pipe_connection_close_failed", "pipe_endpoint_close_failed", "worker_process_cleanup_failed"]
+          }
+        },
+        "failure_type": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,95}$"},
+        "retry_blocked": {"const": true},
+        "authority": {"const": false},
+        "artifact_digest": {"$ref": "#/$defs/digest"},
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-access-probe-interruption-[0-9a-f]{24}-[0-9a-f]{24}$"}
+      }
+    },
+    "runRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "branch_preflight_id", "profile_pair_artifact_id", "completion_artifact_id", "completion_artifact_digest", "all_probe_checks_match", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.durable_learning_access_probe_run_record:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "branch_preflight_id": {"type": "string", "minLength": 1},
+        "profile_pair_artifact_id": {"type": "string", "minLength": 1},
+        "completion_artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-access-probe-completion-[0-9a-f]{24}$"},
+        "completion_artifact_digest": {"$ref": "#/$defs/digest"},
+        "all_probe_checks_match": {"type": "boolean"},
+        "process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false}
+      }
+    },
+    "supervisedRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "status", "runtime_access_setup", "worker_pair_launch", "probe_record", "authority"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": ["runtime_access_incomplete", "prior_runtime_access_attempt_unresolved"]
+              }
+            }
+          },
+          "then": {
+            "required": ["runtime_access_attempt_artifact"],
+            "properties": {
+              "worker_pair_launch": {"type": "null"},
+              "probe_record": {"type": "null"},
+              "runtime_access_attempt_artifact": {"$ref": "#/$defs/runtimeAccessAttemptReference"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {"const": "prior_worker_access_probe_interrupted"}
+            }
+          },
+          "then": {
+            "required": ["worker_access_probe_interruption"],
+            "properties": {
+              "worker_pair_launch": {"type": "null"},
+              "probe_record": {"type": "null"},
+              "worker_access_probe_interruption": {"$ref": "#/$defs/workerAccessProbeInterruptionReference"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {"const": "prior_access_probe_already_completed"}
+            }
+          },
+          "then": {
+            "required": ["prior_access_probe_artifact"],
+            "properties": {
+              "worker_pair_launch": {"type": "null"},
+              "probe_record": {"type": "null"},
+              "prior_access_probe_artifact": {"$ref": "#/$defs/priorAccessProbeReference"}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {"const": "completed"}
+            }
+          },
+          "then": {
+            "properties": {
+              "worker_pair_launch": {"$ref": "#/$defs/workerPairLaunch"},
+              "probe_record": {"$ref": "#/$defs/runRecord"}
+            }
+          }
+        }
+      ],
+      "properties": {
+        "schema_version": {"const": "sentientos.durable_learning_access_probe_supervised_run:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "status": {
+          "enum": ["runtime_access_incomplete", "prior_runtime_access_attempt_unresolved", "prior_worker_access_probe_interrupted", "prior_access_probe_already_completed", "completed"]
+        },
+        "runtime_access_setup": {"$ref": "#/$defs/runtimeAccessSetup"},
+        "runtime_access_attempt_artifact": {"$ref": "#/$defs/runtimeAccessAttemptReference"},
+        "worker_access_probe_interruption": {"$ref": "#/$defs/workerAccessProbeInterruptionReference"},
+        "prior_access_probe_artifact": {"$ref": "#/$defs/priorAccessProbeReference"},
+        "worker_pair_launch": {
+          "oneOf": [
+            {"$ref": "#/$defs/workerPairLaunch"},
+            {"type": "null"}
+          ]
+        },
+        "probe_record": {
+          "oneOf": [
+            {"$ref": "#/$defs/runRecord"},
+            {"type": "null"}
+          ]
+        },
+        "authority": {"const": false}
+      }
+    },
+    "runtimeAccessAttemptReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-runtime-access-attempt-[0-9a-f]{24}-[0-9a-f]{24}$"},
+        "artifact_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "priorAccessProbeReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-access-probe-completion-[0-9a-f]{24}$"},
+        "artifact_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "workerAccessProbeInterruptionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": {"type": "string", "pattern": "^devexp-durable-learning-access-probe-interruption-[0-9a-f]{24}-[0-9a-f]{24}$"},
+        "artifact_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "interruptedWorkerObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_id", "process_creation_time_100ns", "observation_digest"],
+      "properties": {
+        "process_id": {"type": "integer", "minimum": 1},
+        "process_creation_time_100ns": {"type": "integer", "minimum": 1},
+        "observation_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "conditionSubset": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/condition"}
+    },
+    "workerPairLaunch": {
+      "type": "object",
+      "required": ["schema_version", "protocol_id", "profile_pair_digest", "worker_observations", "both_condition_sids_match_observed_process_tokens", "conversation_store_process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_worker_pair_launch:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "profile_pair_digest": {"$ref": "#/$defs/digest"},
+        "worker_observations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relevant_experience_available", "relevant_experience_withheld"],
+          "properties": {
+            "relevant_experience_available": {"type": "object"},
+            "relevant_experience_withheld": {"type": "object"}
+          }
+        },
+        "both_condition_sids_match_observed_process_tokens": {"const": true},
+        "conversation_store_process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false}
+      }
+    },
+    "runtimeRootIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "volume_serial", "file_id_hex"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?:[A-Za-z]:[\\\\/]|\\\\\\\\[^\\\\/]+[\\\\/][^\\\\/]+[\\\\/])", "maxLength": 2048},
+        "volume_serial": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "file_id_hex": {"type": "string", "pattern": "^[0-9a-f]{32}$"}
+      }
+    },
+    "runtimeGrantApplied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "grant"],
+      "properties": {
+        "status": {"const": "applied"},
+        "grant": {"type": "object"}
+      }
+    },
+    "runtimeGrantFailed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_code", "mutation_state", "authority"],
+      "properties": {
+        "status": {"const": "failed"},
+        "reason_code": {"type": "string", "minLength": 1},
+        "mutation_state": {
+          "enum": ["not_attempted", "api_call_outcome_unknown", "api_reported_failure", "api_succeeded_unverified", "acl_verified"]
+        },
+        "authority": {"const": false}
+      }
+    },
+    "runtimeGrantSet": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          {"$ref": "#/$defs/runtimeGrantApplied"},
+          {"$ref": "#/$defs/runtimeGrantFailed"}
+        ]
+      }
+    },
+    "runtimeAccessSetup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "profile_pair_digest", "runtime_roots", "grants_by_condition", "all_requested_grants_applied", "effective_access_verified", "peer_denial_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority", "setup_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_runtime_access_setup:v1"},
+        "protocol_id": {"type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"},
+        "profile_pair_digest": {"$ref": "#/$defs/digest"},
+        "runtime_roots": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"$ref": "#/$defs/runtimeRootIdentity"}
+        },
+        "grants_by_condition": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["relevant_experience_available", "relevant_experience_withheld"],
+          "properties": {
+            "relevant_experience_available": {"$ref": "#/$defs/runtimeGrantSet"},
+            "relevant_experience_withheld": {"$ref": "#/$defs/runtimeGrantSet"}
+          }
+        },
+        "all_requested_grants_applied": {"type": "boolean"},
+        "effective_access_verified": {"const": false},
+        "peer_denial_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false},
+        "setup_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "workerOnce": {
+      "oneOf": [
+        { "$ref": "#/$defs/accessProbeWorkerOnce" },
+        { "$ref": "#/$defs/profileStateWorkerOnce" }
+      ]
+    },
+    "accessProbeWorkerOnce": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "requests_processed", "operation", "response_status", "response_result_digest", "dispatcher_poisoned", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_access_probe_worker_once:v1"},
+        "requests_processed": {"const": 1},
+        "operation": {"const": "probe_access_matrix"},
+        "response_status": {
+          "enum": ["completed", "rejected", "failed"]
+        },
+        "response_result_digest": {"$ref": "#/$defs/digest"},
+        "dispatcher_poisoned": {"type": "boolean"},
+        "process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false}
+      }
+    },
+    "profileStateWorkerOnce": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "requests_processed", "operation", "response_status", "response_result_digest", "registry_inventory_digest", "dispatcher_poisoned", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.windows_appcontainer_profile_state_worker_once:v1"},
+        "requests_processed": {"const": 2},
+        "operation": {"const": "profile_state_preflight"},
+        "response_status": { "enum": ["completed", "rejected", "failed"] },
+        "response_result_digest": {"$ref": "#/$defs/digest"},
+        "registry_inventory_digest": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "dispatcher_poisoned": {"type": "boolean"},
+        "process_isolation_verified": {"const": false},
+        "filesystem_isolation_verified": {"const": false},
+        "retention_contrast_eligible": {"const": false},
+        "authority": {"const": false}
+      }
+    }
+  }
+}

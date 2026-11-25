@@ -18,6 +18,18 @@ import pytest
 
 pytestmark = pytest.mark.no_legacy_skip
 
+
+def _semantic_identity_result(model_id: str, revision: str,
+        vectors: list[tuple[float, ...]]) -> SimpleNamespace:
+    identity = {"schema_version": "sentientos.semantic_embedder_identity:v1",
+        "provider": "sentence-transformers", "model_id": model_id,
+        "revision": revision, "device": "cpu"}
+    identity_digest = hashlib.sha256(json.dumps(identity, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+    return SimpleNamespace(identity=identity, identity_digest=identity_digest,
+        vectors=vectors)
+
+
 from sentientos import chat_service
 from sentientos.chat_service import (ChatInputBudgetError,
     DevelopmentSimulationInference, PersistentConversationService,
@@ -651,9 +663,10 @@ def test_ordinary_fallback_applies_verified_developmental_history(
     invoker = ExperienceDecisionInvoker()
     app = service(tmp_path / "history-selected", invoker, cognition_bridge=bridge)
     session_id = app.create_session()
-    app.sessions.append_turn(session_id, role="user", text=topic)
+    prior_user = app.sessions.append_turn(session_id, role="user", text=topic)
     app.sessions.append_turn(session_id, role="assistant",
-        text="I will keep that calibration experience in context.")
+        text="I will keep that calibration experience in context.",
+        linkage={"source_user_turn_id": prior_user["turn_id"]})
     app.sessions.append_turn(session_id, role="user", text="Thanks!")
     response = app.chat(query, session_id=session_id,
         request_id="developmental-history-selected")
@@ -680,7 +693,10 @@ def test_ordinary_fallback_applies_verified_developmental_history(
             selected_context["selection_digest"])
 
 
-def test_ordinary_developmental_history_prompt_rejects_tampering() -> None:
+@pytest.mark.parametrize("compact", (False, True))
+def test_ordinary_developmental_history_prompt_rejects_tampering(compact: bool) -> None:
+    from sentientos.conversation_session import verify_ordinary_chat_history_projection_triplet
+
     history = ContextSnapshot("session-developmental-history", (), 4000,
         False, "a" * 64)
     memory = {"memories": [], "retrieval_posture": "complete",
@@ -698,6 +714,15 @@ def test_ordinary_developmental_history_prompt_rejects_tampering() -> None:
             "record_digest": record["record_digest"]}],
         "omitted_records": [], "omitted_records_digest":
             chat_service.digest_payload([]), "omission_reason": None}
+    if compact:
+        from sentientos.cognition_retrieval import COMPACT_CHAT_SELECTION, ordinary_chat_history_partition
+        omitted = [{"record_id": "devrec-" + "b" * 24, "record_digest": "sha256:" + "b" * 64}]
+        del selection["available_records"], selection["omitted_records"]
+        selection.update(schema_version=COMPACT_CHAT_SELECTION, omitted_record_sha256=["b" * 64],
+            omitted_records_digest="sha256:" + chat_service.digest_payload(omitted),
+            omission_reason="ordinary_prompt_budget", history_state_digest="sha256:" + "c" * 64,
+            target_model_identity_digest=None)
+        assert ordinary_chat_history_partition(selection) == (selection["selected_records"] + omitted, omitted)
     selection["selection_digest"] = chat_service.digest_payload(selection)
     semantic = {
         "schema_version": "sentientos.ordinary_chat_developmental_history_context:v1",
@@ -710,12 +735,25 @@ def test_ordinary_developmental_history_prompt_rejects_tampering() -> None:
         current_message="What next?", runtime_context={},
         developmental_history_context=context)
     assert "[DEVELOPMENTAL_HISTORY_DATA]" in prompt
+    # Earlier saved chat bundles use an untagged omission digest.
+    verify_ordinary_chat_history_projection_triplet(history_present=context,
+        history_withheld=None, history_restored=context)
     tampered = {**context, "authority": True}
     with pytest.raises(ValueError,
             match="ordinary_chat_developmental_history_context_invalid"):
         assemble_local_chat_context(history=history, memory_snapshot=memory,
             current_message="What next?", runtime_context={},
             developmental_history_context=tampered)
+    if compact:
+        # Rehash a different omitted record while retaining the original omission commitment.
+        changed_selection = {k: v for k, v in selection.items() if k != "selection_digest"}
+        changed_selection["omitted_record_sha256"] = ["e" * 64]
+        changed_selection["selection_digest"] = chat_service.digest_payload(changed_selection)
+        changed = {**semantic, "selection": changed_selection}
+        changed["selection_digest"] = chat_service.digest_payload(changed)
+        with pytest.raises(ValueError, match="ordinary_chat_history_selection_invalid"):
+            assemble_local_chat_context(history=history, memory_snapshot=memory,
+                current_message="What next?", developmental_history_context=changed)
 
 
 @pytest.mark.skipif(os.name == "nt",
@@ -728,6 +766,9 @@ def test_ordinary_epistemic_context_uses_only_remaining_prompt_budget(
 
         def can_handle(self):
             return False
+
+        def respond(self, **_kwargs):
+            raise AssertionError("unavailable cognition must use ordinary fallback")
 
         def ordinary_chat_epistemic_context(self, *, question, max_input_chars):
             self.requested_budgets.append(max_input_chars)
@@ -2846,7 +2887,7 @@ def test_verified_retained_memory_supports_cited_answer_after_restart_in_new_ses
         vectors = [(1.0, 0.0)]
         vectors.extend((1.0, 0.0) if "cooling unit" in text else (0.0, 1.0)
             for text in texts[1:])
-        return SimpleNamespace(identity_digest="b" * 64, vectors=vectors)
+        return _semantic_identity_result(model_id, revision, vectors)
 
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", encode_memory)
     restarted_app = service(tmp_path, FakeInvoker(), screen_observer=lambda: screen,

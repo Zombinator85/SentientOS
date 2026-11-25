@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS semantic history retrieval query set",
+  "description": "Input accepted by the semantic-history retrieval queries command. Use either opaque externally asserted source experience digests, or exact record IDs from the frozen history corpus; the latter binds each sampling unit to immutable history evidence and is checked against blinded consensus labels. This schema requires at least 20 and at most 85 queries in each stratum; the owner API additionally checks equal array lengths, query-count divisibility by three, and exact balance across preregistered strata.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "questions",
+    "strata"
+  ],
+  "oneOf": [
+    {"required": ["source_experience_digests"]},
+    {"required": ["source_experience_record_ids"]}
+  ],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1200,
+        "pattern": "\\S"
+      }
+    },
+    "strata": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "items": {
+        "enum": [
+          "paraphrased_experience",
+          "lexical_distractor",
+          "no_applicable_history"
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "paraphrased_experience"
+          },
+          "minContains": 20,
+          "maxContains": 85
+        },
+        {
+          "contains": {
+            "const": "lexical_distractor"
+          },
+          "minContains": 20,
+          "maxContains": 85
+        },
+        {
+          "contains": {
+            "const": "no_applicable_history"
+          },
+          "minContains": 20,
+          "maxContains": 85
+        }
+      ]
+    },
+    "source_experience_digests": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "source_experience_record_ids": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 255,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^devrec-[0-9a-f]{24}$"
+      }
+    },
+    "target_model_identity": {
+      "type": "object",
+      "minProperties": 1
+    }
+  }
+}

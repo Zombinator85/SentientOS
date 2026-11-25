@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS blinded semantic history retrieval review pair v2",
+  "description": "Reviewer-facing query-record pair for v8 adjudication packets. Preregistered strata, source-experience bindings, and retrieval outcomes are excluded.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cohort_id",
+    "adjudication_packet_digest",
+    "adjudication_procedure",
+    "adjudication_procedure_digest",
+    "target_model_identity",
+    "target_model_identity_digest",
+    "query",
+    "record",
+    "retrieval_condition_outcomes_included",
+    "current_truth",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.developmental_history_retrieval_review_pair:v2"
+    },
+    "cohort_id": {
+      "type": "string",
+      "pattern": "^devexp-retrieval-cohort-[0-9a-f]{24}$"
+    },
+    "adjudication_packet_digest": {
+      "$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/digest"
+    },
+    "adjudication_procedure": {
+      "$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/procedure"
+    },
+    "adjudication_procedure_digest": {
+      "$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/digest"
+    },
+    "target_model_identity": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "object", "minProperties": 1}
+      ]
+    },
+    "target_model_identity_digest": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/digest"}
+      ]
+    },
+    "query": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["question_digest", "question"],
+      "properties": {
+        "question_digest": {
+          "$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/digest"
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1200,
+          "pattern": "\\S"
+        }
+      }
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["record_id", "record_digest", "projection_digest", "record_projection"],
+      "properties": {
+        "record_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "record_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "projection_digest": {
+          "$ref": "semantic_history_retrieval_adjudication_packet.schema.json#/$defs/digest"
+        },
+        "record_projection": {
+          "type": "object"
+        }
+      }
+    },
+    "retrieval_condition_outcomes_included": {"const": false},
+    "current_truth": {"const": false},
+    "authority": {"const": false}
+  }
+}

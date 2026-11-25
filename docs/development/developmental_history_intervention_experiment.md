@@ -16,28 +16,159 @@ writeback selection still excludes exact evidence identities already processed.
 
 When comparison is enabled and prior history exists, an immutable
 history-intervention protocol is atomically persisted before the first model
-invocation. Existing protocol versions preserve the fixed order:
+invocation. Unscheduled legacy protocols preserve the fixed order:
 history_present, history_withheld, history_restored. The opt-in companion
 intervention also supports protocol v7 for explicitly selected order and
-protocol v8 for a caller-supplied trial index. The owner derives the order for
-v8, records the index, and verifies that the recorded order matches the
-deterministic alternating schedule: even trials use history_present first;
-odd trials use history_withheld first. This is counterbalancing, not
-randomization. Restored remains third so it always follows
-exact-history revalidation. The protocol binds the snapshot and current
+protocol v8 for the legacy alternating-first trial index. Objective task
+comparisons use protocol v9 for that same legacy schedule. New scheduled
+companion and objective comparisons use protocol v10 and v11 respectively.
+They bind the task/history selection, trial index, and one of all six condition
+permutations. Over each six-trial block, every condition appears twice in every
+position. Exact retained history is revalidated immediately before the
+restored-condition invocation, so restored need not always occupy the final
+position. This deterministic balance is counterbalancing, not randomization.
+The resident owner allocates the next index under its tick lock and persists a
+protocol-bound schedule claim before the first condition inference. An explicit
+index override is accepted only when it is the next slot for the exact matched
+task/model/context. Older v8/v9 artifacts retain their alternating-first
+and restoration-third interpretation. Unscheduled objective comparisons use
+protocol v12: it keeps the fixed legacy order and persists per-probe correctness
+and answerability transitions for scored suites in `objective_evaluation`.
+Answerability is reported separately so a history-associated change between
+answering and abstaining is measurable even when correctness for that probe is
+unknown. Restoration comparisons likewise report correctness and answerability
+stability independently. The `gain`/`cost` transition labels indicate only
+whether history increased or decreased answerability; they do not rank
+answering above abstaining or prescribe which behavior the system should adopt.
+Recovery recomputes these transitions from the
+independently verified score rows and rejects a mismatch. Recovery also accepts
+the earlier immutable run-summary shape after independently recomputing its
+correctness-only transitions and original selective-score assessment posture,
+and the intermediate answerability-summary shape, so the new fields and
+scoreability fix do not invalidate already-recorded evidence. Legacy v2 affine
+suites have no retained per-probe rows, so recovery derives only each probe's
+correctness from the verified answer list and frozen task plan; answer values
+are not copied into the transition summary. The protocol binds the snapshot and current
 projection, exact fact and developmental-record identities, record-set digest,
 model/artifact/active identity, authority-map digest, fixed budget,
 temperature-zero posture, template digest, comparisons, non-claims, and exact
 invocation order. Persisted condition, score, and decision arrays remain in
 canonical present/withheld/restored order for compatibility.
 
+Calibrated selective family-suite tasks use objective protocol v13. It retains
+the balanced six-permutation schedule and per-probe correctness and
+answerability transitions while requiring the v5 family task contract to be
+bound in the immutable pre-inference task plan. The contract records a
+confidence value for each answered prediction; score v6 checks those values
+against the independent oracle and records squared probability error. The
+objective summary reports per-condition Brier sums, scored-answer counts, and
+descriptive means. These metrics describe this preregistered task only: a Brier
+score is not proof of calibration, history-caused improvement, or transferable
+learning. Protocols v11 and v12 and family-suite v4 retain their prior
+contracts.
+
+An objective schedule slot is reserved when its immutable protocol and claim
+are persisted, before condition inference. A later crash does not free that
+slot: fully receipted conditions can be recovered into the original run without
+replaying inference, while an incomplete run remains incomplete and the next
+request for the same exact binding receives the next index. Consequently, a
+six-run cohort requires six complete runs from one uninterrupted schedule
+block; it cannot silently skip an interrupted index or combine trials across
+blocks. Requests blocked before protocol creation do not consume a slot. This
+distinguishes preregistered exposure from completed evidence and prevents
+retries from reusing a condition order after partial exposure.
+
 The maintained rootless Hermes cycle accepts the optional
 `SENTIENTOS_HERMES_HISTORY_ORDER_TRIAL_INDEX` environment variable and passes
-that validated index to both later companion-history comparisons. It records the
-selected index in its cycle result and the experiment protocols. To counterbalance
-independent invocations, the experiment supervisor must assign successive trial
-indices; the one-shot runner does not allocate or persist a shared schedule.
-When the variable is unset, the runner preserves the historical fixed order.
+that validated index to objective acquisition and transfer condition order as
+well as both later companion-history comparisons. When unset, the resident
+owner allocates and persists the next objective index automatically. Balanced
+objective protocols use v11, calibrated family-suite protocols use v13, and
+companion protocols use v10 to bind their six-permutation order; score
+and decision arrays remain in canonical
+present/withheld/restored order for compatibility. The cycle records the
+selected index in its result and experiment protocols. To counterbalance
+matched independent invocations, reuse the exact task seed and matched context
+for all six trials. The durable schedule key includes task, model, current
+projection, history selection, generation posture, inference budget, and prior
+self-model/epistemic projections; a changed binding starts a separate block.
+`DevelopmentalExperimentStore.persist_objective_cohort_summary` accepts six
+recovered v11 balanced objective runs or six v13 calibrated-family runs from one schedule block, with one trial
+at each index and matching model, authority, template, history-selection,
+current cognitive projection, generation posture, inference budget, prior
+self-model/epistemic projection, and task bindings. It stores an immutable
+digest-bound cohort summary with the six protocol, schedule-claim, and run
+digests, plus
+condition correctness totals, correctness by condition position, and
+answer-free per-probe counts for correctness and abstention by condition and
+condition position, history-associated transitions, and restoration
+stability. Loading the summary revalidates every run and recomputes the
+aggregate. This makes missing, duplicated, mixed, or incomplete blocks
+explicit; it does not assign trial indices, randomize execution, remove order
+effects, or establish learning, transfer, or model-independent development.
+New v3 cohort summaries also aggregate per-probe answerability by condition
+and order position, plus paired history and restoration answerability
+transitions. Selective suites remain cohort-scoreable when every condition has
+verified per-probe results; unanswered probes contribute unknown correctness
+and a separately measured abstention. Existing immutable v2 summaries remain
+loadable and are recomputed under their original correctness/abstention-only
+shape. If a complete block contains older verified run summaries without
+answerability transitions, persistence emits the v2 shape rather than filling
+those fields with inferred values.
+Calibrated v13 blocks use immutable cohort-summary v4, which preserves each
+condition's aggregate Brier numerator and scored-answer denominator and reports
+the weighted mean. Paired differences compare Brier error only on probes
+answered in both conditions, with per-trial matched counts and numerators
+retained, plus per-trial and cohort matched-answer coverage against all
+trial-probe opportunities.
+Each calibrated three-condition run now also stores paired Brier comparisons
+for history-present versus withheld and restored versus original history-present.
+The run summary binds all three condition score digests and reports the common
+answered-probe count, coverage, both matched Brier sums, and first-minus-second
+mean difference. Recovery recomputes this metric for new calibrated runs while
+continuing to accept the prior summary shape for already persisted runs.
+The paired differences are descriptive; separately reported answerability
+remains necessary context. Cohort v2 and v3 continue to recompute in their
+original shapes.
+`ResidentEpistemicDevelopmentRuntime.process_verified_task_family_cohort`
+revalidates a complete cohort before admitting its six member runs through the
+existing run-level evidence adapter, including calibrated v13 cohorts. The
+cohort summary itself is not added as a seventh binding, since it is derived
+from those same scores; its Brier aggregates remain descriptive diagnostics
+and do not independently support a family-history claim. If requested,
+the runtime recomputes the task-family proposition state after the member
+bindings are processed. Admission remains subject to the configured rule,
+proposition scope, optional model-identity scope, and ordinary mutation
+receipts. It honors the configured per-tick binding limit and accepts an
+explicit remaining budget when called after other admissions in the same
+maintenance tick; if the cohort cannot be fully admitted, it defers state
+advancement and resumes idempotently later. If member verification or admission
+fails after processing starts, the daemon records an unresolved cohort outcome,
+defers that proposition for the rest of the tick, and retries from durable
+member bindings on a later tick.
+The maintenance daemon applies this path to eligible selected runs in the
+current World-State cycle when they form a complete matched block and the
+remaining evidence budget can admit its missing run bindings. Other selected
+runs continue through ordinary single-run processing only for unscheduled
+legacy objective protocols. A v11 scheduled run can enter task-family epistemic
+state only as a member of a digest-verified complete six-run cohort; unmatched
+or incomplete scheduled runs are recorded as unresolved context. This prevents
+one partially observed condition order from updating the task-family history
+effect proposition on its own.
+This cohort gate applies to the family-level history-effect proposition.
+Separately, a verified run may contribute exact evaluator-correct answers as
+task-scoped historical examples when those examples are later selected into
+developmental memory. Such examples remain bound to their source task and
+score, with incorrect answers and abstentions kept in distinct prompt blocks;
+their reuse does not admit a run to the epistemic proposition or establish a
+balanced history effect.
+When the variable is unset, objective interventions use the durable balanced
+schedule; legacy v12 objective protocols retain their fixed order.
+For v8 through v11 scheduled results, run recovery requires each condition's governed
+invocation receipt and verifies that its timezone-aware receipt event time
+follows the protocol's scheduled order. These receipt times are owner-reported
+local event claims, not independent time authority; missing, tied, or reversed
+times make the scheduled comparison unrecoverable as a valid controlled run.
 
 Withholding changes only the ephemeral prompt projection. It never deletes,
 tombs, rewrites, or reclassifies history. Restoration re-reads every exact
@@ -63,11 +194,29 @@ order-effect estimate. These are bounded associations only.
 For companion-decision runs, the verified run projection now carries each
 condition's response digest, normalized and model disposition, and exact
 current-evidence and history citations into the ordinary World-State/writeback
-path. The writeback interpretation projection preserves this text-free contrast
+path. Its retrieval lineage also requires a one-to-one retrieved-record ID and
+SHA-256 digest vector before projecting the comparison into durable evidence.
+The writeback interpretation projection preserves this text-free contrast
 for later cognition to evaluate. This records which condition produced which
 proposal identity and citations; it does not mark the proposal correct, executed,
 or improved, and it does not establish that later cognition applied the result
 successfully.
+
+New run schema v3 summaries for companion-decision comparisons retain the
+existing full-output-digest measurement and add a separate response-text-digest
+assessment. The response assessment checks present-versus-withheld response
+text and present-versus-restored stability independently of citation metadata,
+while reporting citation compatibility and decision validation alongside it.
+Any rejected condition output makes the response difference unqualified; a
+history-citation binding failure is classified separately from a history
+association. A history-associated response difference is qualified only when
+all three outputs validate, citations match their selected history, and the
+response returns after restoration. Run recovery recomputes this assessment
+from the persisted decision packet and observations, and binds each available
+receipt output body back to its raw output digest and response-text digest.
+Rootless validated outputs require this receipt body. Historical v2 runs retain
+their original summary shape. Neither digest difference nor qualification
+establishes better performance or learning.
 
 Later context assembly exposes this contrast only when the current serving
 identity matches the experiment's verified identity digest. The protocol keeps
@@ -82,7 +231,45 @@ The later prompt adds a compact `decision_pattern` derived from the three
 response digests, dispositions, and history citations. Its
 `proposal_fingerprint_relation` distinguishes a difference reproduced after
 restoration, no observed response/disposition difference, and an unstable
-restoration. Citation-only differences do not count as proposal differences.
+restoration. New decision-pattern v3 also carries the verified response-text
+assessment and marks it unavailable for legacy summaries that predate that
+measurement. If a condition output was rejected, digest and disposition
+differences become unavailable and the relation explicitly reports rejection;
+later cognition cannot mistake the rejection marker for a proposal difference.
+Citation-only differences do not count as proposal differences.
+The persistent history projection recognizes run schema v3 and uses the
+response-text classification as its primary classification when that verified
+assessment exists. It retains the full structured-output classification under
+an explicit field and labels the measurement scope, so retrieval and later
+reasoning can distinguish the two without losing the original digest result.
+The projected history record's disposition follows the same primary
+classification, avoiding a second path that could present a citation-only
+structured-output difference as a decision effect. Later context assembly
+recomputes the v3 primary classification and scope from the verified run
+summary, then requires the source disposition and duplicated payload fields to
+match those values before including the run in cognition. It also recomputes the
+response-assessment posture from the verified assessment and decision rows, and
+uses that posture when qualifying measurements for a different model. The
+v3 posture is strictly checked. For legacy v2 records, an absent or unrecognized
+posture is conservatively reconstructed from the retained response assessment
+and decision rows so older history remains readable without claiming a
+measurement that the record cannot support. The
+primary classification and metrics remain source-attributed history. An exact
+current-serving identity match marks them
+applicable to the current model; a different or unavailable identity does not.
+Different-model measurements remain available as explicitly source-model-only
+evidence for model-transition comparisons, without establishing transfer or
+model independence; missing identity remains unresolved. Ordinary history
+retrieval indexes matching-model response classifications and separately
+indexes identified different-model results with explicit model-replacement
+terms, while leaving opaque response digests out of lexical relevance ranking.
+When a run is present in the current World-State evidence, its compact prompt
+projection also records the same identity relation and appends the scope
+instruction; this keeps the direct-evidence path consistent with retrieved
+history.
+Before exposing the contrast to later cognition, retrieval rechecks that every
+condition's retrieved record IDs have a matching vector of valid SHA-256 record
+digests and that the decision citations remain a subset of those retrieved IDs.
 The prompt keeps response digests opaque and warns that even a restoration-stable
 difference does not identify the better proposal. A deterministic fake-inference
 counterfactual consumes that relation in matching present/restored prompts and
@@ -94,17 +281,36 @@ interpret the pattern correctly or make better decisions.
 
 For a structured objective task whose descriptor explicitly requires task-family history, the resident owner projects exact, score-bound examples from the requested family with their source-model applicability posture. The record-level natural-language interpretation is omitted from that task-specific prompt, and its separate digest is not sent to the model. The enclosing record and candidate digests continue to bind the omitted source content for audit. Unrelated selected facts and embodiment/security projections are not carried into that scoped packet. Evaluator-correct examples are the only positive mapping evidence. Evaluator-incorrect examples are passed in a separate `prior_incorrect_examples` block explicitly labeled as historical errors, not mapping evidence, current truth, or authority; unknown-correctness rows remain withheld and represented by digest-only omission evidence. The task prompt tells the model not to repeat a failed answer for the same input. The durable record and ordinary history remain unchanged.
 
-Outcome posture affects retrieval priority only when the restored score matches the history-present score. A favorable present-vs-withheld contrast with failed restoration is ranked as tentative history, below restoration-stable favorable evidence. Exact evaluator-correct examples remain available with their source and uncertainty qualifiers; the unstable comparison does not establish a repeatable history effect.
+Outcome posture affects retrieval priority only when the restored score matches
+the history-present score. For controlled-task-effect v2, restoration stability
+also requires every probe's correctness and abstention outcome to match across
+present and restored conditions; equal aggregate counts are insufficient when
+per-probe outcomes differ. A favorable present-vs-withheld contrast with failed
+restoration is ranked as tentative history, below restoration-stable favorable
+evidence. Exact evaluator-correct examples remain available with their source
+and uncertainty qualifiers when that probe is restoration-stable; unstable
+probes are withheld, and the run is not treated as repeatably restoration-stable.
+The owner recomputes each v2 restoration marker from its bound condition labels;
+malformed or contradictory transition rows cannot produce stable guidance.
+Legacy v1 and schema-less aggregate records retain their historical aggregate-only
+posture because they do not contain the per-probe signature.
 
-When eligible examples are spread across runs and no single contributing run
-contains three distinct inputs, the prompt builder can fit a provisional
-integer-affine relation across at least two distinct score-bound runs, each
-contributing a distinct probe input, outside known unsettled task/model outcome
-groups in the same declared family. It requires a one-to-one binding between
+When eligible examples are spread across at least two distinct score-bound
+runs, the prompt builder can fit a provisional integer-affine relation when
+some pair of runs each supplies one evaluator-correct probe input absent from
+the other member of that pair, with at least three distinct inputs in their
+union, outside known unsettled task/model outcome groups in the same declared
+family. It selects the pair with the largest input union, then the largest
+combined unique-input count, and resolves remaining ties by sorted run digest.
+It requires a one-to-one binding between
 run IDs and run digests and one task, score, and source-model binding per run.
 It deduplicates repeated probe inputs, rejects conflicting answers, excludes
 adverse or unsettled source-outcome groups, and binds the
 summary to the contributing run, score, record, and source-model digests. The
+remaining runs can corroborate the deduplicated examples, but they do not
+replace the selected anchor pair or count as independent trials. Adding a run
+cannot remove the pair's unique probe inputs because uniqueness is measured
+within the pair. The
 aggregation step recomputes each bound source-model digest from its retained
 identity before counting it; sources without a verified identity remain
 unbound. It also requires all contributing examples to have the same target
@@ -135,8 +341,11 @@ will apply the retrieved answer correctly.
 Retrieval gives an additional priority to a favorable result only when at least
 two distinct admitted run IDs share the exact task commitment and source model
 identity, and every available comparable run in that group is restoration-stable
-and favorable. Repeated references to one run do not count twice; an unstable,
-neutral, or adverse comparable run prevents this corroboration priority. This
+and favorable. For v2 effects, restoration stability is checked at every probe,
+not only by comparing aggregate correct counts. V1 and schema-less legacy
+effects remain aggregate-only. Repeated references to one run
+do not count twice; an unstable, neutral, or adverse comparable run prevents
+this corroboration priority. This
 selection rule helps later context distinguish a one-run outcome from a
 repeat-run-consistent one. It does not establish statistical independence,
 causality, general learning, or improved performance.
@@ -157,7 +366,8 @@ replacement mapping rule. A CPU-only controlled retrieval fixture demonstrates
 that such a selected record reaches the bounded prompt projection; real-model
 application and subsequent performance effects remain unverified.
 
-New task-family trials use the v4 selective-answer contract. Each probe accepts
+New task-family trials use the v4 selective-answer contract unless they opt into
+the calibrated v5 contract described above. Each probe accepts
 an integer answer or `null` abstention; evaluator correctness and abstention
 are recorded separately, with coverage and accuracy among answered probes
 reported independently. New score records use
@@ -165,6 +375,10 @@ reported independently. New score records use
 aggregate status is `selective` and aggregate correctness is unknown. Per-probe
 correctness and exact correct-answer counts remain scoreable, so history
 comparison can measure correct answers without counting abstentions as wrong.
+When all conditions retain verified per-probe outcomes, the experiment summary
+and balanced cohort treat the suite as scoreable even though aggregate
+correctness is unknown. Coverage and answerability remain separate outcomes;
+they do not increase or reduce correctness counts.
 Recovered v4 score records retain their historical aggregate semantics.
 Abstentions have unknown evaluator correctness, so they are never positive
 mapping guidance or negative answer feedback. A
@@ -201,3 +415,90 @@ real resident activation/serving transitions and cross-model cadence,
 endogenous relevance, consequence learning, self-model
 mutation, broad belief revision, forgetting policy, and resource-allocation
 learning.
+
+The semantic-history decision qualifier now treats a missing or non-sequence
+decision packet, a non-string disposition, and unknown or inconsistent output
+validation status/error fields as invalid evidence instead of allowing
+malformed values to qualify. Legacy packets without validation fields retain
+the validated default. Explicitly rejected outputs remain an invalid-response
+classification. Valid packets still
+require the ordered present/withheld/restored decisions, exact recalled token,
+bound history citation, matched controls, and restoration-stability evidence.
+The direct history-transfer qualifier likewise rejects non-sequence condition
+packets and non-mapping condition rows before it reads prompt digests or
+controls, and requires every output to have validated status with no validation
+error before a transfer difference can qualify. It also recomputes the
+response-text digest for each condition before accepting its output binding.
+Qualification schema v5 reports that digest-binding result consistently for
+evaluated and precondition-skipped transfers, and records the all-condition
+decision-validation result directly.
+The rootless cycle's
+historical-recall summary now carries the
+resident observation's digest vector into each reported condition and accepts
+citations only as unique, non-empty string record-ID sequences. Retrieved IDs
+must align one-for-one with valid SHA-256 record digests, cited IDs must be
+among those retrieved records, and the condition exposes its cognition
+observation identity. Before qualification, the runner joins every live
+condition capture to the reloaded, verified experiment observation by
+observation ID and checks its observation digest, receipt identity, prompt and
+control bindings, and complete retrieved-ID / digest vectors. It also joins
+the capture to the reloaded companion-decision packet and checks receipt and
+output identities, recomputes the response digest, and compares disposition,
+validation status, evidence citations, and history citations. A mismatch
+aborts the cycle instead of producing a qualified history claim. It also
+requires exactly one capture for each of the present, withheld, and restored
+conditions, so duplicate captures cannot mask an omitted arm. The cycle result
+uses schema v17 for the persisted matched-input packets and receipt, record,
+and observation identities on both later intervention arms. It now reports
+the exact-scored task-family acquisition as its own top-level result, including
+scoreability, baseline outcome, and writeback references, even when transfer is
+skipped for insufficient baseline competence. This keeps acquisition evidence
+visible independently of transfer eligibility. The result also records a
+source-run score-to-history binding for eligible acquisition writebacks. The
+audit filters history examples by the exact acquisition run ID, then requires
+one projected experience, the history-present score digest, and matching
+correct, incorrect, abstained, and unknown outcome counts before transfer can
+start. A mismatch fails closed; the persisted binding exposes counts and
+digests without answer values and does not claim that learning occurred.
+The result also records a
+bounded diagnostic row for each rejected decision: condition, validation code
+and domain, output-text integrity status, raw-output parse status and
+disposition enum, output digest, digest
+of a parseable raw response, whether that
+digest matches either valid arm, citation count and condition-compatibility
+posture, and an explicit `decision_qualified=false` marker. The rejected output
+text and citation IDs are not retained or promoted into decision evidence.
+Older cycle artifacts retain their original schema. These checks harden artifact
+interpretation; they do not change the experiment's learning or performance
+claims.
+
+Run recovery now re-verifies persisted invocation receipts for rootless
+observations, including unscheduled companion-intervention runs. For validated
+companion decisions, recovery binds the receipt's optional output text back to
+its output digest and byte count, requires it to be untruncated, and then
+recomputes the response digest before accepting the decision packet. The
+receipt digest by itself does not cover the optional output-text field, so this
+explicit binding is needed before that text can serve as recovery evidence. A
+self-consistent run digest and stored response digest alone therefore cannot
+stand in for the original authenticated model output after restart. This
+recovery also checks that an explicitly rejected rootless response carries
+the fixed `INVALID_EXPERIMENTAL_RESPONSE` marker digest. This
+strengthens provenance recovery; it does not establish learning or performance
+improvement.
+The shared invocation-receipt validator now applies the same output-text
+digest and byte-count binding to every complete optional receipt body, so other
+recovery consumers cannot treat detached text as verified output either.
+
+## Persisted synthetic acquisition observation
+
+The persisted rootless cycle `rootless-cognition-cycle-1e3f877fb56242c5b2c0`
+contains acquisition run `devexp-run-ac5c6e94e3114ab74169e4a5` under
+protocol `devexp-protocol-a3dc9f257964519b3741a65b`. The exact-scored affine
+task asked for outputs `[3, 4, 5]` from verified examples `(0, 2)` and
+`(1, 5)`, so the oracle outputs were `[11, 14, 17]`. All three condition
+receipts returned `[8, 11, 14]` with the same output digest; the scorer recorded 0/3
+correct for present, withheld, and restored. Since the preregistered withheld
+baseline required at least two correct probes, transfer was correctly skipped.
+This is evidence of an unsuccessful synthetic baseline-competence screen and
+no observed response difference in that episode. It does not establish a
+history effect, durable learning, or real-world performance.

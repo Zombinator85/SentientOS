@@ -257,10 +257,9 @@ def _exit_code_for_status(status: Any) -> int:
 
 def main() -> int:
     import argparse
-    default_manifest = (Path.home() / ".ollama/models/blobs/"
-        "sha256-f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce")
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model-manifest", type=Path, default=default_manifest)
+    parser.add_argument("--model-manifest", type=Path, required=True,
+        help="Path to the small immutable Ollama registry-manifest JSON, not a model-weight blob.")
     parser.add_argument("--model", default="sentientos-hermes4:14b-q4km")
     parser.add_argument("--gpu-layers", type=int, default=0,
         help="Explicit Ollama GPU layer count from 0 to 128; 0 keeps inference on CPU.")

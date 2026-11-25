@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_boundary_acceptance.schema.json",
+  "title": "Reviewed durable-learning process and state boundary evidence",
+  "description": "A content-addressed independent review over reloaded process, capability, persistent-state, scorer, protocol, and bounded-access artifacts. Acceptance does not enable worker mutation or promote isolation or learning claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "artifact_id", "artifact_digest", "protocol", "host",
+    "condition_pair", "worker_executables", "process_launches",
+    "inherited_handles", "broker_capabilities", "persistent_state",
+    "scorer_custody", "bounded_access_review", "reviewer", "disposition",
+    "criteria", "claim_limits", "summary", "authority"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_boundary_acceptance:v1" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-boundary-acceptance-[0-9a-f]{24}$" },
+    "artifact_digest": { "$ref": "#/$defs/sha256" },
+    "protocol": { "$ref": "#/$defs/artifactRef" },
+    "host": {
+      "type": "object", "additionalProperties": false,
+      "required": ["host_identity", "os_build"],
+      "properties": {
+        "host_identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "os_build": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "condition_pair": { "$ref": "#/$defs/conditionPair" },
+    "worker_executables": { "$ref": "#/$defs/conditionRefs" },
+    "process_launches": { "$ref": "#/$defs/conditionRefs" },
+    "inherited_handles": { "$ref": "#/$defs/conditionRefs" },
+    "broker_capabilities": { "$ref": "#/$defs/conditionRefs" },
+    "persistent_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/stateRefs" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/stateRefs" }
+      }
+    },
+    "scorer_custody": { "$ref": "#/$defs/artifactRef" },
+    "bounded_access_review": { "$ref": "#/$defs/artifactRef" },
+    "reviewer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "role", "run_operator_identity", "independent_from_run_operator", "reviewed_at"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "role": { "const": "independent_boundary_reviewer" },
+        "run_operator_identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "independent_from_run_operator": { "const": true },
+        "reviewed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "disposition": { "enum": ["accepted_complete_boundary", "rejected", "insufficient_evidence"] },
+    "criteria": {
+      "type": "object", "additionalProperties": false,
+      "required": ["protocol_worker_host_binding", "process_pair_binding", "inherited_handle_completeness", "broker_capability_completeness", "persistent_state_completeness", "scorer_custody", "recovery_boundary", "independent_review"],
+      "properties": {
+        "protocol_worker_host_binding": { "$ref": "#/$defs/criterion" },
+        "process_pair_binding": { "$ref": "#/$defs/criterion" },
+        "inherited_handle_completeness": { "$ref": "#/$defs/criterion" },
+        "broker_capability_completeness": { "$ref": "#/$defs/criterion" },
+        "persistent_state_completeness": { "$ref": "#/$defs/criterion" },
+        "scorer_custody": { "$ref": "#/$defs/criterion" },
+        "recovery_boundary": { "$ref": "#/$defs/criterion" },
+        "independent_review": { "$ref": "#/$defs/criterion" }
+      }
+    },
+    "claim_limits": {
+      "type": "object", "additionalProperties": false,
+      "required": ["process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "worker_mutation_eligible", "model_attention_established", "performance_improvement_established", "reviewer_identity_authenticated", "reviewer_independence_authenticated", "learning_established", "authority"],
+      "properties": {
+        "process_isolation_verified": { "const": false },
+        "filesystem_isolation_verified": { "const": false },
+        "retention_contrast_eligible": { "const": false },
+        "worker_mutation_eligible": { "const": false },
+        "model_attention_established": { "const": false },
+        "performance_improvement_established": { "const": false },
+        "reviewer_identity_authenticated": { "const": false },
+        "reviewer_independence_authenticated": { "const": false },
+        "learning_established": { "const": false },
+        "authority": { "const": false }
+      }
+    },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "authority": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "disposition": { "const": "accepted_complete_boundary" } } },
+      "then": { "properties": { "criteria": { "properties": {
+        "protocol_worker_host_binding": { "properties": { "status": { "const": "accepted" } } },
+        "process_pair_binding": { "properties": { "status": { "const": "accepted" } } },
+        "inherited_handle_completeness": { "properties": { "status": { "const": "accepted" } } },
+        "broker_capability_completeness": { "properties": { "status": { "const": "accepted" } } },
+        "persistent_state_completeness": { "properties": { "status": { "const": "accepted" } } },
+        "scorer_custody": { "properties": { "status": { "const": "accepted" } } },
+        "recovery_boundary": { "properties": { "status": { "const": "accepted" } } },
+        "independent_review": { "properties": { "status": { "const": "accepted" } } }
+      } } } }
+    },
+    {
+      "if": { "properties": { "disposition": { "enum": ["rejected", "insufficient_evidence"] } } },
+      "then": { "properties": { "criteria": { "properties": {
+        "protocol_worker_host_binding": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "process_pair_binding": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "inherited_handle_completeness": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "broker_capability_completeness": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "persistent_state_completeness": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "scorer_custody": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "recovery_boundary": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } },
+        "independent_review": { "properties": { "status": { "enum": ["rejected", "insufficient"] } } }
+      } } } }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifactRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "artifact_digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "conditionPair": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "relevant_experience_withheld": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "conditionRefs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/artifactRef" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/artifactRef" }
+      }
+    },
+    "stateRefs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["filesystem", "registry", "profile", "service", "recovery", "history"],
+      "properties": {
+        "filesystem": { "$ref": "#/$defs/artifactRef" },
+        "registry": { "$ref": "#/$defs/artifactRef" },
+        "profile": { "$ref": "#/$defs/artifactRef" },
+        "service": { "$ref": "#/$defs/artifactRef" },
+        "recovery": { "$ref": "#/$defs/artifactRef" },
+        "history": { "$ref": "#/$defs/artifactRef" }
+      }
+    },
+    "criterion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "evidence_refs", "finding"],
+      "properties": {
+        "status": { "enum": ["accepted", "rejected", "insufficient"] },
+        "evidence_refs": { "type": "array", "minItems": 1, "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+        "finding": { "type": "string", "minLength": 1, "maxLength": 2048 }
+      }
+    }
+  }
+}

@@ -367,16 +367,24 @@ class AuthenticatedBridgeIndependentObserver:
     """
 
     RECEIPT_SCHEMA = "sentientos.authenticated_observer_ingress_receipt:v1"
+    RECEIPT_SCHEMA_V2 = "sentientos.authenticated_observer_ingress_receipt:v2"
 
     def __init__(self, *, runtime: Any, observer_id: str, generation_id: str,
                  clock: Any = None, max_observation_age_seconds: float = 30.0,
-                 receive_timeout_seconds: float = 1.0) -> None:
+                 receive_timeout_seconds: float = 1.0,
+                 observer_fixture_posture: str | None = None) -> None:
         from .gaming_companion_bridge_runtime import CompanionBridgeLoopbackRuntime
         if not isinstance(runtime, CompanionBridgeLoopbackRuntime):
             raise EmbodiedConsequenceError("authenticated_observer_runtime_required")
         if (not isinstance(observer_id, str) or not observer_id
                 or not isinstance(generation_id, str) or not generation_id):
             raise EmbodiedConsequenceError("authenticated_observer_identity_invalid")
+        if (observer_fixture_posture is not None
+                and (not isinstance(observer_fixture_posture, str)
+                    or observer_fixture_posture
+                        != "same_process_synthetic_fixture")):
+            raise EmbodiedConsequenceError(
+                "authenticated_observer_fixture_posture_invalid")
         for name, value, maximum in (("age", max_observation_age_seconds, 300.0),
                                      ("timeout", receive_timeout_seconds, 30.0)):
             if (isinstance(value, bool) or not isinstance(value, (int, float))
@@ -385,6 +393,7 @@ class AuthenticatedBridgeIndependentObserver:
         self._runtime = runtime
         self._observer_id = observer_id
         self._generation_id = generation_id
+        self._observer_fixture_posture = observer_fixture_posture
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._max_age = float(max_observation_age_seconds)
         self._timeout = float(receive_timeout_seconds)
@@ -533,7 +542,9 @@ class AuthenticatedBridgeIndependentObserver:
             correlation_id=expectation.correlation_id, observed=dict(observed),
             observed_at=canonical_observed_at, confidence=payload["confidence"],
             quality=payload["quality"], source_digest=source_digest, posture="rehearsal")
-        receipt = {"schema_version": self.RECEIPT_SCHEMA,
+        receipt = {"schema_version": (
+                self.RECEIPT_SCHEMA_V2 if self._observer_fixture_posture is not None
+                else self.RECEIPT_SCHEMA),
             "observation_id": observation.observation_id,
             "observation_digest": observation.observation_digest,
             "observer_source_id": message.source_id,
@@ -548,6 +559,8 @@ class AuthenticatedBridgeIndependentObserver:
             "source_distinct_from_renderer": (
                 expected_renderer_source_id is None
                 or message.source_id != expected_renderer_source_id)}
+        if self._observer_fixture_posture is not None:
+            receipt["observer_fixture_posture"] = self._observer_fixture_posture
         if payload.get("schema_version") == "sentientos.bridge_consequence_observation:v2":
             if request_started_wall is None:
                 raise EmbodiedConsequenceError(
@@ -3214,15 +3227,33 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
         renderer_receipt_field = {"renderer_report_receipt_identity"}
         base_receipt_shapes = {frozenset(required), frozenset(required | capture_fields),
             frozenset(required | capture_fields | capture_timing_fields)}
-        valid_receipt_fields = base_receipt_shapes | {
+        valid_receipt_fields_v1 = base_receipt_shapes | {
             frozenset(set(shape) | renderer_receipt_field) for shape in base_receipt_shapes}
+        fixture_field = {"observer_fixture_posture"}
+        valid_receipt_fields_v2 = {
+            frozenset(set(shape) | fixture_field)
+            for shape in valid_receipt_fields_v1}
+        valid_receipt_fields = valid_receipt_fields_v1 | valid_receipt_fields_v2
+        receipt_fields = (frozenset(receipt)
+            if isinstance(receipt, Mapping) else frozenset())
+        receipt_shape = receipt_fields - renderer_receipt_field - fixture_field
+        receipt_schema = (receipt.get("schema_version")
+            if isinstance(receipt, Mapping) else None)
         capture_elapsed = receipt.get("request_elapsed_seconds") if isinstance(receipt, Mapping) else None
         capture_elapsed_valid = (not isinstance(capture_elapsed, bool)
             and isinstance(capture_elapsed, (int, float))
             and math.isfinite(float(capture_elapsed))
             and 0 <= float(capture_elapsed) <= 300)
         if (not isinstance(receipt, Mapping) or frozenset(receipt) not in valid_receipt_fields
-                or receipt.get("schema_version") != AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA
+                or receipt_schema not in {
+                    AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA,
+                    AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA_V2}
+                or (receipt_schema == AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA
+                    and frozenset(receipt) not in valid_receipt_fields_v1)
+                or (receipt_schema == AuthenticatedBridgeIndependentObserver.RECEIPT_SCHEMA_V2
+                    and (frozenset(receipt) not in valid_receipt_fields_v2
+                        or receipt.get("observer_fixture_posture")
+                            != "same_process_synthetic_fixture"))
                 or receipt.get("observation_id") != value.get("observation_id")
                 or receipt.get("observation_digest") != value.get("observation_digest")
                 or not isinstance(receipt.get("observer_source_id"), str)
@@ -3237,21 +3268,21 @@ def _verify_consequence_attribution(value: Mapping[str, Any]) -> None:
                 or re.fullmatch(r"sha256:[0-9a-f]{64}", str(receipt.get("signed_envelope_digest"))) is None
                 or not isinstance(receipt.get("message_id"), str)
                 or re.fullmatch(r"[0-9a-f]{64}", str(receipt.get("message_id"))) is None
-                or (frozenset(receipt) - renderer_receipt_field in {
+                or (receipt_shape in {
                         frozenset(required | capture_fields),
                         frozenset(required | capture_fields | capture_timing_fields)}
                     and (not isinstance(receipt.get("capture_request_id"), str)
                         or re.fullmatch(r"[0-9a-f]{32}", str(receipt.get("capture_request_id"))) is None
                         or not capture_elapsed_valid
                         or not isinstance(receipt.get("capture_provenance"), Mapping)))
-                or (frozenset(receipt) - renderer_receipt_field ==
+                or (receipt_shape ==
                         frozenset(required | capture_fields | capture_timing_fields)
                     and (receipt.get("observation_time_posture") !=
                             "authenticated_request_correlated_receiver_time"
                         or not isinstance(receipt.get("source_observed_at"), str)
                         or not isinstance(receipt.get("request_started_at"), str)))):
             raise EmbodiedConsequenceError("consequence_observer_receipt_invalid")
-        if (frozenset(receipt) - renderer_receipt_field
+        if (receipt_shape
                 == frozenset(required | capture_fields | capture_timing_fields)):
             for field in ("source_observed_at", "request_started_at"):
                 try:

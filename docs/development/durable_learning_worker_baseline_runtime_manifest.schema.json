@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_worker_baseline_runtime_manifest.schema.json",
+  "title": "SentientOS durable-learning baseline worker runtime manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "condition",
+    "branch_id", "appcontainer_sid", "session_id", "roots", "authority",
+    "manifest_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": ["sentientos.durable_learning_worker_baseline_runtime_manifest:v1", "sentientos.durable_learning_worker_baseline_runtime_manifest:v2"]
+    },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+    "session_id": { "type": "string", "minLength": 1 },
+    "roots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "history", "session", "journal"],
+      "properties": {
+        "state": { "$ref": "#/$defs/root" },
+        "history": { "$ref": "#/$defs/root" },
+        "session": { "$ref": "#/$defs/root" },
+        "journal": { "$ref": "#/$defs/root" }
+      }
+    },
+    "peer_condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "peer_branch_id": { "type": "string", "minLength": 1 },
+    "peer_roots": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "history", "session", "journal"],
+      "properties": {
+        "state": { "$ref": "#/$defs/root" },
+        "history": { "$ref": "#/$defs/root" },
+        "session": { "$ref": "#/$defs/root" },
+        "journal": { "$ref": "#/$defs/root" }
+      }
+    },
+    "authority": { "const": false },
+    "manifest_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "$defs": {
+    "root": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "identity"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["volume_serial", "file_id_hex"],
+          "properties": {
+          "volume_serial": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 },
+            "file_id_hex": { "type": "string", "pattern": "^[0-9a-f]{32}$" }
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_manifest:v2" } }, "required": ["schema_version"] },
+      "then": { "required": ["peer_condition", "peer_branch_id", "peer_roots"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_manifest:v1" } }, "required": ["schema_version"] },
+      "then": { "not": { "anyOf": [ { "required": ["peer_condition"] }, { "required": ["peer_branch_id"] }, { "required": ["peer_roots"] } ] } }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_manifest:v2" }, "condition": { "const": "relevant_experience_available" } }, "required": ["schema_version", "condition"] },
+      "then": { "properties": { "peer_condition": { "const": "relevant_experience_withheld" } }, "required": ["peer_condition"] }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_runtime_manifest:v2" }, "condition": { "const": "relevant_experience_withheld" } }, "required": ["schema_version", "condition"] },
+      "then": { "properties": { "peer_condition": { "const": "relevant_experience_available" } }, "required": ["peer_condition"] }
+    }
+  ]
+}

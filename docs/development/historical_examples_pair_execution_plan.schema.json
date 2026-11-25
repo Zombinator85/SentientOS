@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_execution_plan.schema.json",
+  "title": "SentientOS historical examples pair execution plan",
+  "description": "Preregistration for ordered task-level intervention pairs. It is not a rootless acquisition/transfer cycle plan.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cohort_digest", "analysis_plan_digest", "source_cycle_root_id", "source_receipt_id", "source_receipt_digest", "source_history_set_digest", "source_boundary_digest", "generation_budget_digest", "generation_config_digest", "snapshot_id", "snapshot_digest", "target_model_identity_digest", "history_prompt_identity_policy", "task_family_id", "trial_count", "trials", "execution_policy", "preregistration_timing_independently_attested", "outcomes_observed", "model_loaded", "model_invoked", "learning_established", "authority", "execution_plan_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_execution_plan:v1"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "analysis_plan_digest": {"$ref": "#/$defs/digest"},
+    "source_cycle_root_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source_receipt_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "source_receipt_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_history_set_digest": {"$ref": "#/$defs/digest"},
+    "source_boundary_digest": {"$ref": "#/$defs/digest"},
+    "generation_budget_digest": {"$ref": "#/$defs/digest"},
+    "generation_config_digest": {"$ref": "#/$defs/digest"},
+    "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 128},
+    "snapshot_digest": {"$ref": "#/$defs/digest"},
+    "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+    "history_prompt_identity_policy": {"type": ["string", "null"], "enum": ["matched_cross_model_identity_omitted:v1", null]},
+    "task_family_id": {"type": "string", "minLength": 1, "maxLength": 96},
+    "trial_count": {"type": "integer", "minimum": 2, "maximum": 32},
+    "trials": {"type": "array", "minItems": 2, "maxItems": 32, "items": {"$ref": "#/$defs/trial"}},
+    "execution_policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ordered_one_pair_per_run", "retry_ambiguous_invocation", "replace_incomplete_trial", "require_all_trials_for_cohort_score"],
+      "properties": {
+        "ordered_one_pair_per_run": {"const": true},
+        "retry_ambiguous_invocation": {"const": false},
+        "replace_incomplete_trial": {"const": false},
+        "require_all_trials_for_cohort_score": {"const": true}
+      }
+    },
+    "preregistration_timing_independently_attested": {"const": false},
+    "outcomes_observed": {"const": false},
+    "model_loaded": {"const": false},
+    "model_invoked": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "execution_plan_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "trial": {
+      "type": "object", "additionalProperties": false,
+      "required": ["trial_index", "protocol_digest", "task_digest", "task_generation_seed", "probe_binding_set_digest", "probe_count", "arm_order", "runner_cycle_id", "backend_seed"],
+      "properties": {
+        "trial_index": {"type": "integer", "minimum": 0},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_digest": {"$ref": "#/$defs/digest"},
+        "task_generation_seed": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+        "probe_binding_set_digest": {"$ref": "#/$defs/digest"},
+        "probe_count": {"type": "integer", "minimum": 1},
+        "arm_order": {"type": "array", "prefixItems": [{"enum": ["examples_included", "examples_omitted"]}, {"enum": ["examples_included", "examples_omitted"]}], "minItems": 2, "maxItems": 2, "uniqueItems": true},
+        "runner_cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+        "backend_seed": {"type": "integer", "minimum": 0, "maximum": 2147483647}
+      }
+    }
+  }
+}

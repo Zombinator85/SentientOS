@@ -19,7 +19,8 @@ except ImportError:  # Keep imports usable on Windows; custody fails closed ther
     _fcntl = None
 
 from .developmental_model_replacement_experiment import (
-    CONDITION_ORDER, FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4, NON_CLAIMS,
+    CONDITION_ORDER, COUNTERBALANCED_CONDITION_ORDERS, FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4,
+    FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6, NON_CLAIMS,
     DevelopmentalModelReplacementError,
     DevelopmentalModelReplacementExperiment, _digest,
     ModelReplacementArtifactStore,
@@ -28,14 +29,20 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_regular_file
 
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v1"
 SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v2"
+COUNTERBALANCED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v3"
+COUNTERBALANCED_SCORED_PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_campaign_protocol:v4"
 STATE_SCHEMA = "sentientos.developmental_model_replacement_campaign_state:v1"
 LEGACY_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v1"
 PREVIOUS_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v2"
 PREVIOUS_PROBE_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v3"
 PREVIOUS_PAIRED_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v4"
-REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v5"
+PREVIOUS_ORDER_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v5"
+PREVIOUS_CHAIN_REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v6"
+REPORT_SCHEMA = "sentientos.developmental_model_replacement_campaign_report:v7"
+PREVIOUS_WORLD_STATE_RECORD_SCHEMA = (
+    "sentientos.developmental_model_replacement_campaign_world_state_record:v2")
 WORLD_STATE_RECORD_SCHEMA = (
-    "sentientos.developmental_model_replacement_campaign_world_state_record:v1")
+    "sentientos.developmental_model_replacement_campaign_world_state_record:v3")
 MIN_TRIALS = 2
 MAX_TRIALS = 32
 CAMPAIGN_NON_CLAIMS = NON_CLAIMS + (
@@ -75,6 +82,7 @@ class CampaignProtocol:
     grants_authority: bool = False
     schema_version: str = PROTOCOL_SCHEMA
     objective_task_plan_digest: str | None = None
+    trial_condition_orders: tuple[tuple[str, ...], ...] = ()
 
     def semantic_payload(self) -> dict[str, Any]:
         value = asdict(self)
@@ -82,6 +90,8 @@ class CampaignProtocol:
         # Keep the historical v1 identity scope unchanged.
         if self.schema_version == PROTOCOL_SCHEMA:
             value.pop("objective_task_plan_digest")
+        if self.schema_version in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA}:
+            value.pop("trial_condition_orders")
         return value
 
     @classmethod
@@ -106,8 +116,12 @@ class CampaignProtocol:
                   p.model_a_provenance_digest, p.model_b_provenance_digest,
                   c.history_record_set_digest, c.current_projection_digest,
                   dict(c.inference_budget), dict(c.generation_posture), p.condition_order,
-                  len(ids), ids, schema_version=(SCORED_PROTOCOL_SCHEMA if plan is not None else PROTOCOL_SCHEMA),
-                  objective_task_plan_digest=plan_digest)
+                  len(ids), ids, schema_version=(COUNTERBALANCED_SCORED_PROTOCOL_SCHEMA
+                    if plan is not None else COUNTERBALANCED_PROTOCOL_SCHEMA),
+                  objective_task_plan_digest=plan_digest,
+                  trial_condition_orders=tuple(COUNTERBALANCED_CONDITION_ORDERS[index]
+                    for index in ((0, 3) if len(ids) == 2 else (0, 1, 3) if len(ids) == 3
+                        else tuple(range(4)) * ((len(ids) + 3) // 4))[:len(ids)]))
         payload = raw.semantic_payload()
         digest = _digest(payload)
         return replace(raw, campaign_id="model-replacement-campaign-" + digest[7:31], campaign_digest=digest)
@@ -123,7 +137,8 @@ class CampaignProtocol:
         payload = self.semantic_payload()
         digest = _digest(payload)
         if (self.campaign_digest != digest or self.campaign_id != "model-replacement-campaign-" + digest[7:31]
-                or self.schema_version not in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA}
+                or self.schema_version not in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA,
+                    COUNTERBALANCED_PROTOCOL_SCHEMA, COUNTERBALANCED_SCORED_PROTOCOL_SCHEMA}
                 or type(self.grants_authority) is not bool or self.grants_authority is not False
                 or self.condition_order != CONDITION_ORDER
                 or type(self.condition_order) is not tuple
@@ -132,12 +147,25 @@ class CampaignProtocol:
                 or not trial_ids_valid
                 or self.planned_trial_count != len(self.trial_ids)
                 or len(set(self.trial_ids)) != len(self.trial_ids)
+                or (self.schema_version in {COUNTERBALANCED_PROTOCOL_SCHEMA,
+                        COUNTERBALANCED_SCORED_PROTOCOL_SCHEMA}
+                    and (type(self.trial_condition_orders) is not tuple
+                        or len(self.trial_condition_orders) != len(self.trial_ids)
+                        or any(type(order) is not tuple or order not in COUNTERBALANCED_CONDITION_ORDERS
+                            for order in self.trial_condition_orders)
+                        or max(self.trial_condition_orders.count(order)
+                            for order in COUNTERBALANCED_CONDITION_ORDERS)
+                            - min(self.trial_condition_orders.count(order)
+                            for order in COUNTERBALANCED_CONDITION_ORDERS) > 1))
+                or (self.schema_version in {PROTOCOL_SCHEMA, SCORED_PROTOCOL_SCHEMA}
+                    and self.trial_condition_orders != ())
                 or type(self.aggregation_rules) is not tuple
                 or self.aggregation_rules != AGGREGATION_RULES
                 or type(self.non_claims) is not tuple
                 or self.non_claims != CAMPAIGN_NON_CLAIMS
-                or (self.schema_version == PROTOCOL_SCHEMA and self.objective_task_plan_digest is not None)
-                or (self.schema_version == SCORED_PROTOCOL_SCHEMA and
+                or (self.schema_version in {PROTOCOL_SCHEMA, COUNTERBALANCED_PROTOCOL_SCHEMA}
+                    and self.objective_task_plan_digest is not None)
+                or (self.schema_version in {SCORED_PROTOCOL_SCHEMA, COUNTERBALANCED_SCORED_PROTOCOL_SCHEMA} and
                     (not isinstance(self.objective_task_plan_digest, str)
                      or len(self.objective_task_plan_digest) != 71
                      or not self.objective_task_plan_digest.startswith("sha256:")
@@ -490,6 +518,12 @@ class DevelopmentalModelReplacementCampaign:
     @classmethod
     def create(cls, *, experiment: DevelopmentalModelReplacementExperiment,
                artifact_root: Path, trial_ids: Sequence[str]) -> "DevelopmentalModelReplacementCampaign":
+        """Persist a frozen campaign protocol and empty state without inference.
+
+        Experiment construction must already bind the real context and endpoint
+        identities. This method only persists those inputs and preregisters the
+        trial inventory; inference begins only through ``run_next_trial``.
+        """
         # Freeze every identity, including a scored task plan, before campaign
         # publication. A later runner can only reconstruct this exact bundle.
         experiment.store.persist_context(experiment.context)
@@ -514,6 +548,8 @@ class DevelopmentalModelReplacementCampaign:
             missing_code="campaign_protocol_custody_changed", invalid_code="campaign_protocol_custody_changed")
         try:
             raw["trial_ids"] = tuple(raw["trial_ids"]); raw["condition_order"] = tuple(raw["condition_order"])
+            if "trial_condition_orders" in raw:
+                raw["trial_condition_orders"] = tuple(tuple(order) for order in raw["trial_condition_orders"])
             raw["aggregation_rules"] = tuple(raw["aggregation_rules"]); raw["non_claims"] = tuple(raw["non_claims"])
             protocol = CampaignProtocol(**raw); protocol.verify(); store.verify_protocol(protocol)
         except (KeyError, TypeError, DevelopmentalModelReplacementError) as exc:
@@ -527,8 +563,11 @@ class DevelopmentalModelReplacementCampaign:
             # A campaign recovery read must never call the inference endpoint or
             # reinterpret a started condition as a completed trial. Preserve the
             # exact durable in-progress state for explicit later review.
+            trial_index = protocol.trial_ids.index(trial_id)
+            recovery_order = (protocol.trial_condition_orders[trial_index]
+                if protocol.trial_condition_orders else CONDITION_ORDER)
             campaign.recovery_condition_journal = experiment.inspect_trial_custody(
-                trial_id=trial_id)
+                trial_id=trial_id, condition_execution_order=recovery_order)
             campaign.recovery_posture = "interrupted_trial_preserved_not_replayed"
         else:
             campaign.recovery_posture = "durable_state_reconstructed"
@@ -545,6 +584,8 @@ class DevelopmentalModelReplacementCampaign:
         try:
             raw["trial_ids"] = tuple(raw["trial_ids"])
             raw["condition_order"] = tuple(raw["condition_order"])
+            if "trial_condition_orders" in raw:
+                raw["trial_condition_orders"] = tuple(tuple(order) for order in raw["trial_condition_orders"])
             raw["aggregation_rules"] = tuple(raw["aggregation_rules"])
             raw["non_claims"] = tuple(raw["non_claims"])
             protocol = CampaignProtocol(**raw)
@@ -599,6 +640,8 @@ class DevelopmentalModelReplacementCampaign:
         try:
             for key in ("trial_ids", "condition_order", "aggregation_rules", "non_claims"):
                 raw[key] = tuple(raw[key])
+            if "trial_condition_orders" in raw:
+                raw["trial_condition_orders"] = tuple(tuple(order) for order in raw["trial_condition_orders"])
             campaign_protocol = CampaignProtocol(**raw)
             campaign_protocol.verify()
             campaign_store.verify_protocol(campaign_protocol)
@@ -669,7 +712,11 @@ class DevelopmentalModelReplacementCampaign:
             raise DevelopmentalModelReplacementError("campaign_not_runnable")
         trial_id = self.state["next_trial_id"]
         self.state = self.store.write_state(self.protocol, {**self.state, "in_progress_trial_id": trial_id})
-        try: run = self.experiment.run(trial_id=trial_id)
+        try:
+            trial_index = self.protocol.trial_ids.index(trial_id)
+            order = (self.protocol.trial_condition_orders[trial_index]
+                if self.protocol.trial_condition_orders else CONDITION_ORDER)
+            run = self.experiment.run(trial_id=trial_id, condition_execution_order=order)
         except Exception:
             self._invalidate("campaign_trial_failed_no_retry")
             raise
@@ -711,6 +758,12 @@ class DevelopmentalModelReplacementCampaign:
         if self.state["validity"] != "valid_complete": raise DevelopmentalModelReplacementError("campaign_incomplete")
         runs = [self.experiment.store.load_verified_run(item["run_id"], item["run_digest"])
                 for item in self.state["completed_trials"]]
+        for index, run in enumerate(runs):
+            expected_order = (self.protocol.trial_condition_orders[index]
+                if self.protocol.trial_condition_orders else CONDITION_ORDER)
+            if tuple(run.get("condition_execution_order", CONDITION_ORDER)) != expected_order:
+                raise DevelopmentalModelReplacementError(
+                    "campaign_trial_condition_order_binding_invalid")
         classifications: dict[str, int] = {}
         for run in runs: classifications[run["classification"]] = classifications.get(run["classification"], 0) + 1
         count = len(runs)
@@ -719,6 +772,38 @@ class DevelopmentalModelReplacementCampaign:
             digests = [run["observations"][index]["output_digest"] for run in runs]
             conditions[condition] = {"ordered_output_digests": digests, "unique_output_digest_count": len(set(digests)),
                                      "exact_baseline_repeat_count": sum(d == digests[0] for d in digests)}
+        position_counts = {condition: [0] * len(CONDITION_ORDER)
+            for condition in CONDITION_ORDER}
+        schedule_rows: list[dict[str, Any]] = []
+        position_evidence: list[dict[str, Any]] = []
+        for index, run in enumerate(runs):
+            actual_order = tuple(run.get("condition_execution_order", CONDITION_ORDER))
+            planned_order = (self.protocol.trial_condition_orders[index]
+                if self.protocol.trial_condition_orders else CONDITION_ORDER)
+            observations_by_condition = {str(row.get("condition_id")): row
+                for row in run["observations"] if isinstance(row, Mapping)}
+            for position, condition in enumerate(actual_order):
+                position_counts[condition][position] += 1
+                observation = observations_by_condition[condition]
+                score = observation.get("objective_task_score")
+                score_summary = ({key: score.get(key) for key in (
+                    "status", "correct", "correct_count", "answered_count",
+                    "abstained_count", "probe_count")}
+                    if isinstance(score, Mapping) else None)
+                position_evidence.append({"trial_id": run["trial_id"],
+                    "condition": condition, "execution_position": position + 1,
+                    "output_digest": observation.get("output_digest"),
+                    "objective_score_summary": score_summary})
+            schedule_rows.append({"trial_id": run["trial_id"],
+                "preregistered_order": list(planned_order),
+                "observed_order": list(actual_order),
+                "condition_order_evidence_posture": run.get(
+                    "condition_order_evidence_posture",
+                    "legacy_run_without_condition_journal"),
+                "condition_start_witnesses": [dict(row["condition_start_witness"])
+                    for row in run.get("condition_statuses", ())
+                    if isinstance(row, Mapping)
+                    and isinstance(row.get("condition_start_witness"), Mapping)]})
         def difference_count(key: str) -> int:
             return sum(bool(run["differences"][key]) for run in runs)
         a, b = difference_count("history_effect_model_a"), difference_count("history_effect_model_b")
@@ -754,7 +839,8 @@ class DevelopmentalModelReplacementCampaign:
                 "independence_or_improvement_claimed": False}
             if plan.get("task", {}).get("schema_version") in {
                     "sentientos.affine_prediction_task_suite:v2",
-                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4}:
+                    FAMILY_TASK_SCHEMA_V3, FAMILY_TASK_SCHEMA_V4,
+                    FAMILY_TASK_SCHEMA_V5, FAMILY_TASK_SCHEMA_V6}:
                 def answered_count(score: Mapping[str, Any]) -> int:
                     answered = score.get("answered_count")
                     if type(answered) is int:
@@ -827,7 +913,10 @@ class DevelopmentalModelReplacementCampaign:
                                         "campaign_objective_probe_answer_invalid")
                                 actual = answer[probe_index]
                                 if actual is None and plan["task"].get(
-                                        "schema_version") == FAMILY_TASK_SCHEMA_V4:
+                                        "schema_version") in {
+                                            FAMILY_TASK_SCHEMA_V4,
+                                            FAMILY_TASK_SCHEMA_V5,
+                                            FAMILY_TASK_SCHEMA_V6}:
                                     outcome = "abstained"
                                 elif type(actual) is int:
                                     outcome = ("correct" if actual ==
@@ -914,12 +1003,23 @@ class DevelopmentalModelReplacementCampaign:
                             "campaign_objective_trial_score_invalid")
                     answered = score.get("answered_count")
                     abstained = score.get("abstained_count")
-                    if score.get("schema_version") == "sentientos.objective_task_score:v5":
+                    score_schema = score.get("schema_version")
+                    if score_schema in {
+                            "sentientos.objective_task_score:v4",
+                            "sentientos.objective_task_score:v5",
+                            "sentientos.objective_task_score:v6"}:
                         if (type(answered) is not int or type(abstained) is not int
                                 or answered + abstained != probe_count
                                 or not correct_count <= answered <= probe_count
-                                or (score.get("status") == "selective")
-                                    != (abstained > 0)):
+                                or (score_schema in {
+                                    "sentientos.objective_task_score:v5",
+                                    "sentientos.objective_task_score:v6"}
+                                    and (score.get("status") == "selective")
+                                        != (abstained > 0))
+                                or (score_schema ==
+                                    "sentientos.objective_task_score:v4"
+                                    and abstained > 0
+                                    and score.get("status") != "incorrect")):
                             raise DevelopmentalModelReplacementError(
                                 "campaign_objective_trial_score_invalid")
                     else:
@@ -1008,6 +1108,12 @@ class DevelopmentalModelReplacementCampaign:
             "model_difference_with_history_observed_count": difference_count("model_difference_with_history"),
             "model_difference_without_history_observed_count": difference_count("model_difference_without_history"),
             "model_a_restoration_stable_count": restoration, "condition_output_reproducibility": conditions,
+            "condition_order_summary": {"trial_schedules": schedule_rows,
+                "condition_position_counts_positions_1_to_5": position_counts,
+                "condition_outcomes_by_execution_position": position_evidence,
+                "order_evidence_limit":
+                    "condition_start_digest_chain_is_structural_not_external_authentication",
+                "position_effect_estimated": False},
             "all_trials_same_classification": len(classifications) == 1,
             "model_a_history_effect_observed_every_trial": a == count,
             "model_b_history_effect_observed_every_trial": b == count,
@@ -1030,11 +1136,25 @@ class DevelopmentalModelReplacementCampaign:
             schema_version: str) -> dict[str, Any]:
         if schema_version not in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
                 PREVIOUS_PROBE_REPORT_SCHEMA, PREVIOUS_PAIRED_REPORT_SCHEMA,
+                PREVIOUS_ORDER_REPORT_SCHEMA, PREVIOUS_CHAIN_REPORT_SCHEMA,
                 REPORT_SCHEMA}:
             raise DevelopmentalModelReplacementError(
                 "campaign_report_schema_unsupported")
         semantic = json.loads(json.dumps({key: value for key, value in report.items()
             if key not in {"report_id", "report_digest"}}, sort_keys=True))
+        if schema_version not in {PREVIOUS_CHAIN_REPORT_SCHEMA, REPORT_SCHEMA}:
+            semantic.pop("condition_order_summary", None)
+        elif schema_version == PREVIOUS_CHAIN_REPORT_SCHEMA:
+            summary = semantic.get("condition_order_summary")
+            schedules = summary.get("trial_schedules") if isinstance(summary, Mapping) else None
+            if isinstance(schedules, list):
+                legacy_summary = {key: value for key, value in summary.items()
+                    if key != "order_evidence_limit"}
+                semantic["condition_order_summary"] = {**legacy_summary,
+                    "trial_schedules": [{key: value for key, value in row.items()
+                        if key not in {"condition_order_evidence_posture",
+                            "condition_start_witnesses"}}
+                        if isinstance(row, Mapping) else row for row in schedules]}
         objective = semantic.get("objective_evaluation")
         if schema_version in {LEGACY_REPORT_SCHEMA, PREVIOUS_REPORT_SCHEMA,
                 PREVIOUS_PROBE_REPORT_SCHEMA}:
@@ -1220,6 +1340,11 @@ class DevelopmentalModelReplacementCampaign:
                 "learning_established": False,
                 "authority": False,
             }
+            if report.get("schema_version") == REPORT_SCHEMA:
+                payload["validity"] = report.get("validity")
+                payload["planned_trial_count"] = report.get("planned_trial_count")
+            if "condition_order_summary" in report:
+                payload["condition_order_summary"] = report["condition_order_summary"]
             if "objective_evaluation" in report:
                 payload["objective_evaluation"] = report["objective_evaluation"]
             if len(json.dumps(payload, sort_keys=True, separators=(",", ":"),
@@ -1229,7 +1354,9 @@ class DevelopmentalModelReplacementCampaign:
             record: dict[str, Any] = {
                 "source_kind": "embodiment",
                 "source_id": report_id,
-                "schema_version": WORLD_STATE_RECORD_SCHEMA,
+                "schema_version": (PREVIOUS_WORLD_STATE_RECORD_SCHEMA
+                    if report.get("schema_version") == PREVIOUS_CHAIN_REPORT_SCHEMA
+                    else WORLD_STATE_RECORD_SCHEMA),
                 "subject_id": report_id,
                 "subject_kind": "developmental_model_replacement_campaign",
                 "stage": "observation",

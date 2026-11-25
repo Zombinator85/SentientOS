@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_worker_rpc.schema.json",
+  "title": "SentientOS durable-learning condition-worker RPC envelope",
+  "description": "Closed, pathless request/response envelopes for one condition-bound worker. Schema validity is not process or filesystem isolation evidence.",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "protocolId": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "message_type", "protocol_id", "protocol_digest",
+        "condition", "request_id", "operation", "payload", "authority"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.durable_learning_condition_worker_rpc:v1"
+        },
+        "message_type": { "const": "request" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "operation": {
+          "enum": [
+            "inspect_baseline",
+            "probe_access_matrix",
+            "inventory_profile_registry",
+            "recover_acquisition_receipts",
+            "prepare_consolidation_snapshot",
+            "consolidate_branch",
+            "reconstruct_strategy_projection",
+            "inspect_delayed_probe_gate"
+          ]
+        },
+        "payload": {
+          "oneOf": [
+            { "$ref": "#/$defs/inspectBaselinePayload" },
+            { "$ref": "#/$defs/probeAccessMatrixPayload" },
+            { "$ref": "#/$defs/profileRegistryInventoryPayload" },
+            { "$ref": "#/$defs/recoverReceiptsPayload" },
+            { "$ref": "#/$defs/prepareConsolidationPayload" },
+            { "$ref": "#/$defs/consolidatePayload" },
+            { "$ref": "#/$defs/reconstructProjectionPayload" },
+            { "$ref": "#/$defs/inspectProbeGatePayload" }
+          ]
+        },
+        "authority": { "const": false }
+      },
+      "allOf": [
+        { "if": { "properties": { "operation": { "const": "inspect_baseline" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/inspectBaselinePayload" } } } },
+        { "if": { "properties": { "operation": { "const": "probe_access_matrix" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/probeAccessMatrixPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "inventory_profile_registry" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/profileRegistryInventoryPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "recover_acquisition_receipts" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/recoverReceiptsPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "prepare_consolidation_snapshot" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/prepareConsolidationPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "consolidate_branch" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/consolidatePayload" } } } },
+        { "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/reconstructProjectionPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "inspect_delayed_probe_gate" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/inspectProbeGatePayload" } } } }
+      ]
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "message_type", "protocol_id", "protocol_digest",
+        "condition", "request_id", "operation", "status", "result_digest",
+        "result", "process_start_nonce", "authority"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.durable_learning_condition_worker_rpc:v1"
+        },
+        "message_type": { "const": "response" },
+        "protocol_id": { "$ref": "#/$defs/protocolId" },
+        "protocol_digest": { "$ref": "#/$defs/digest" },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "operation": {
+          "enum": [
+            "inspect_baseline",
+            "probe_access_matrix",
+            "inventory_profile_registry",
+            "recover_acquisition_receipts",
+            "prepare_consolidation_snapshot",
+            "consolidate_branch",
+            "reconstruct_strategy_projection",
+            "inspect_delayed_probe_gate"
+          ]
+        },
+        "status": { "enum": ["completed", "rejected", "failed"] },
+        "result_digest": { "$ref": "#/$defs/digest" },
+        "result": { "type": ["object", "null"] },
+        "process_start_nonce": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "authority": { "const": false }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operation": { "const": "inspect_baseline" },
+              "status": { "enum": ["completed", "rejected"] }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": { "$ref": "durable_learning_worker_baseline_inventory.schema.json" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "operation": { "const": "inventory_profile_registry" } } },
+          "then": {
+            "if": { "properties": { "status": { "const": "completed" } } },
+            "then": { "properties": { "result": { "$ref": "windows_appcontainer_registry_inventory.schema.json" } } },
+            "else": { "properties": { "result": { "type": "null" } } }
+          }
+        }
+      ]
+    },
+    "inspectBaselinePayload": {
+      "type": "object", "additionalProperties": false,
+      "properties": { "expected_baseline_inventory_digest": { "$ref": "#/$defs/digest" } }
+    },
+    "probeAccessMatrixPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["probe_manifest_digest"],
+      "properties": { "probe_manifest_digest": { "$ref": "#/$defs/digest" } }
+    },
+    "profileRegistryInventoryPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["probe_manifest_digest", "expected_appcontainer_sid"],
+      "properties": {
+        "probe_manifest_digest": { "$ref": "#/$defs/digest" },
+        "expected_appcontainer_sid": {
+          "type": "string",
+          "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"
+        }
+      }
+    },
+    "recoverReceiptsPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task_digests"],
+      "properties": {
+        "task_digests": { "type": "array", "minItems": 1, "maxItems": 256,
+          "uniqueItems": true, "items": { "$ref": "#/$defs/digest" } }
+      }
+    },
+    "prepareConsolidationPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["acquisition_receipt_digests"],
+      "properties": {
+        "acquisition_receipt_digests": { "type": "array", "minItems": 1,
+          "maxItems": 512, "uniqueItems": true,
+          "description": "Complete set of invocation receipt digests indexed for this condition.",
+          "items": { "$ref": "#/$defs/digest" } }
+      }
+    },
+    "consolidatePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["acquisition_receipt_digests", "consolidation_policy_digest",
+        "snapshot_digest", "baseline_history_state_digest",
+        "baseline_record_refs", "source_fact_ids",
+        "allowed_history_record_refs", "withhold_developmental_history"],
+      "properties": {
+        "acquisition_receipt_digests": { "type": "array", "minItems": 1,
+          "maxItems": 512, "uniqueItems": true, "items": { "$ref": "#/$defs/digest" } },
+        "consolidation_policy_digest": { "$ref": "#/$defs/digest" },
+        "snapshot_digest": { "$ref": "#/$defs/digest" },
+        "baseline_history_state_digest": { "$ref": "#/$defs/digest" },
+        "baseline_record_refs": { "$ref": "#/$defs/historyRecordRefs" },
+        "source_fact_ids": { "type": "array", "minItems": 1,
+          "maxItems": 1024, "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+        "allowed_history_record_refs": { "$ref": "#/$defs/historyRecordRefs" },
+        "withhold_developmental_history": { "type": "boolean" }
+      }
+    },
+    "historyRecordRefs": {
+      "type": "array", "maxItems": 512,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["record_id", "record_digest"],
+        "properties": {
+          "record_id": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" },
+          "record_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      }
+    },
+    "reconstructProjectionPayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["consolidation_receipt_digest", "answer_exclusion_audit_digest",
+        "strategy_projection_policy_digest"],
+      "properties": {
+        "consolidation_receipt_digest": { "$ref": "#/$defs/digest" },
+        "answer_exclusion_audit_digest": { "$ref": "#/$defs/digest" },
+        "strategy_projection_policy_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "inspectProbeGatePayload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["probe_task_digest", "strategy_projection_digest"],
+      "properties": {
+        "probe_task_digest": { "$ref": "#/$defs/digest" },
+        "strategy_projection_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

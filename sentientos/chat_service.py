@@ -1119,10 +1119,16 @@ class ChatResponse(BaseModel):
 
 
 def _chat_response_diagnostics(response_text: str,
-                               lineage: Mapping[str, Any] | None = None
+                               lineage: Mapping[str, Any] | None = None,
+                               history_linkage: Mapping[str, Any] | None = None
                                ) -> dict[str, object]:
     """Bind API delivery text to stored lineage without exposing model prompts."""
     result = dict(lineage) if isinstance(lineage, Mapping) else {}
+    if isinstance(history_linkage, Mapping):
+        citation_audit = _ordinary_history_record_id_citation_audit(
+            response_text, history_linkage)
+        if citation_audit is not None:
+            result["developmental_history_citation_audit"] = citation_audit
     delivery_digest = hashlib.sha256(response_text.encode("utf-8")).hexdigest()
     result["delivery_text_sha256"] = delivery_digest
     result.setdefault("transcript_text_sha256", delivery_digest)
@@ -1214,6 +1220,9 @@ def _saved_transcript_response_diagnostics(
     saved_digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     result["saved_transcript_text_sha256"] = saved_digest
     if isinstance(linkage, Mapping):
+        citation_audit = _ordinary_history_record_id_citation_audit(text, linkage)
+        if citation_audit is not None:
+            result["developmental_history_citation_audit"] = citation_audit
         citation_ids = linkage.get("cognition_conversation_turn_citation_ids", [])
         citation_digests = linkage.get(
             "cognition_conversation_turn_citation_digests", [])
@@ -1305,12 +1314,118 @@ def _stored_output_lineage_matches(stored: Any, observed: Any) -> bool:
             and all(observed.get(key) == value for key, value in stored.items())))
 
 
+def _ordinary_history_record_id_citation_audit(text: str,
+        linkage: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Bind literal history record-ID citations to the selected response context."""
+    if (linkage.get("ordinary_developmental_history_context_posture") != "selected"
+            or not isinstance(linkage.get("ordinary_developmental_history_record_ids"), list)
+            or not isinstance(linkage.get(
+                "ordinary_developmental_history_record_digests"), list)):
+        return None
+    selected = linkage["ordinary_developmental_history_record_ids"]
+    selected_digests = linkage["ordinary_developmental_history_record_digests"]
+    if (not selected or len(selected) > 16
+            or len(selected_digests) != len(selected)
+            or any(not isinstance(record_id, str)
+                or re.fullmatch(r"devrec-[0-9a-f]{24}", record_id) is None
+                for record_id in selected)
+            or any(not isinstance(record_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", record_digest) is None
+                for record_digest in selected_digests)
+            or len(set(selected)) != len(selected)):
+        return None
+    selection_digest = linkage.get(
+        "ordinary_developmental_history_selection_digest")
+    if (not isinstance(selection_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}", selection_digest) is None):
+        return None
+    prompt_block_digest = linkage.get(
+        "ordinary_developmental_history_prompt_block_digest")
+    if (prompt_block_digest is not None
+            and (not isinstance(prompt_block_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None)):
+        return None
+    retrieval_policy_id = linkage.get(
+        "ordinary_developmental_history_retrieval_policy_id")
+    if (retrieval_policy_id is not None
+            and (not isinstance(retrieval_policy_id, str)
+                or re.fullmatch(r"[a-z0-9_.:-]{1,512}", retrieval_policy_id) is None)):
+        return None
+    history_state_digest = linkage.get(
+        "ordinary_developmental_history_state_digest")
+    if (history_state_digest is not None
+            and (not isinstance(history_state_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", history_state_digest) is None)):
+        return None
+    serving_model_identity_digest = linkage.get(
+        "ordinary_developmental_history_serving_model_identity_digest")
+    if (serving_model_identity_digest is not None
+            and (not isinstance(serving_model_identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}",
+                    serving_model_identity_digest) is None)):
+        return None
+    scan_complete = len(text) <= 65536
+    citations = list(dict.fromkeys(re.findall(
+        r"(?<![A-Za-z0-9_-])devrec-[0-9a-f]{24}(?![A-Za-z0-9_-])",
+        text[:65536])))
+    selected_set = set(selected)
+    selected_citations = [record_id for record_id in citations
+        if record_id in selected_set]
+    digest_by_id = dict(zip(selected, selected_digests))
+    unselected_count = sum(record_id not in selected_set for record_id in citations)
+    if not scan_complete:
+        posture = "scan_incomplete_response_length_limit"
+    elif not citations:
+        posture = "no_literal_record_id_citation"
+    elif unselected_count and selected_citations:
+        posture = "selected_and_unselected_record_ids_cited"
+    elif unselected_count:
+        posture = "unselected_record_id_cited"
+    else:
+        posture = "selected_record_id_cited"
+    return {
+        "schema_version": (
+            "sentientos.ordinary_history_record_id_citation_audit:v4"
+            if isinstance(serving_model_identity_digest, str) else
+            "sentientos.ordinary_history_record_id_citation_audit:v3"),
+        "scan_policy_id": "exact_devrec_id_tokens_in_saved_assistant_text:v1",
+        "response_text_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        "response_turn_digest": digest_payload({"text": text}),
+        "selection_digest": selection_digest,
+        **({"prompt_block_digest": prompt_block_digest}
+            if isinstance(prompt_block_digest, str) else {}),
+        **({"retrieval_policy_id": retrieval_policy_id}
+            if isinstance(retrieval_policy_id, str) else {}),
+        **({"history_state_digest": linkage[
+            "ordinary_developmental_history_state_digest"]}
+            if isinstance(linkage.get(
+                "ordinary_developmental_history_state_digest"), str) else {}),
+        **({"serving_model_identity_digest": serving_model_identity_digest}
+            if isinstance(serving_model_identity_digest, str) else {}),
+        "citation_posture": posture,
+        "selected_record_ids_cited": selected_citations,
+        "selected_record_citations": [{
+            "record_id": record_id,
+            "record_digest": digest_by_id[record_id],
+        } for record_id in selected_citations],
+        "unselected_record_id_count": unselected_count,
+        "explicit_record_id_count": len(citations),
+        "scan_complete": scan_complete,
+        "influence_posture": "not_measured",
+        "learning_established": False,
+    }
+
+
 _ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS = (
     "ordinary_developmental_history_context_posture",
     "ordinary_developmental_history_selection_digest",
     "ordinary_developmental_history_record_ids",
     "ordinary_developmental_history_record_digests",
+    "ordinary_developmental_history_retrieval_policy_id",
     "ordinary_developmental_history_prompt_block_digest",
+    "ordinary_developmental_history_target_model_identity_digest",
+    "ordinary_developmental_history_serving_model_identity_digest",
+    "ordinary_developmental_history_state_digest",
 )
 _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES = frozenset({
     "selected", "provider_returned_no_context", "provider_unavailable",
@@ -1320,7 +1435,8 @@ _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES = frozenset({
 
 
 def _ordinary_developmental_history_lineage_matches(
-        stored_linkage: Mapping[str, Any], caller_linkage: object) -> bool:
+        stored_linkage: Mapping[str, Any], caller_linkage: object, *,
+        serving_model_identity: object = None) -> bool:
     """Bind saved ordinary-history exposure to its verified invocation receipt."""
     if not isinstance(caller_linkage, Mapping):
         return not any(key in stored_linkage
@@ -1331,14 +1447,38 @@ def _ordinary_developmental_history_lineage_matches(
         _ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS if key in stored_linkage)
     keys_to_compare = (_ORDINARY_DEVELOPMENTAL_HISTORY_LINEAGE_KEYS
         if receipt_has_contract else persisted_keys)
-    return (not receipt_has_contract and not persisted_keys) or all(
+    fields_match = (not receipt_has_contract and not persisted_keys) or all(
         (key in stored_linkage) == (key in caller_linkage)
         and stored_linkage.get(key) == caller_linkage.get(key)
         for key in keys_to_compare)
+    history_state_digest = stored_linkage.get(
+        "ordinary_developmental_history_state_digest")
+    if (history_state_digest is not None
+            and (not isinstance(history_state_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", history_state_digest) is None
+                or stored_linkage.get(
+                    "ordinary_developmental_history_context_posture") != "selected")):
+        return False
+    for key in ("ordinary_developmental_history_target_model_identity_digest",
+            "ordinary_developmental_history_serving_model_identity_digest"):
+        identity_digest = stored_linkage.get(key)
+        if identity_digest is None:
+            continue
+        if (not isinstance(identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}", identity_digest) is None
+                or not isinstance(serving_model_identity, Mapping)):
+            return False
+        observed_identity_digest = hashlib.sha256(json.dumps(
+            dict(serving_model_identity), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False).encode("utf-8")).hexdigest()
+        if identity_digest != observed_identity_digest:
+            return False
+    return fields_match
 
 
 def _ordinary_developmental_history_exposure(
-        linkage: Mapping[str, Any]) -> dict[str, Any] | None:
+        linkage: Mapping[str, Any], *,
+        response_text: str | None = None) -> dict[str, Any] | None:
     """Project bounded history-selection lineage for a later feedback record."""
     if "ordinary_developmental_history_context_posture" not in linkage:
         return None
@@ -1349,8 +1489,20 @@ def _ordinary_developmental_history_exposure(
         "ordinary_developmental_history_record_digests", [])
     prompt_block_digest = linkage.get(
         "ordinary_developmental_history_prompt_block_digest")
+    retrieval_policy_id = linkage.get(
+        "ordinary_developmental_history_retrieval_policy_id")
+    target_model_identity_digest = linkage.get(
+        "ordinary_developmental_history_target_model_identity_digest")
+    serving_model_identity_digest = linkage.get(
+        "ordinary_developmental_history_serving_model_identity_digest")
+    history_state_digest = linkage.get(
+        "ordinary_developmental_history_state_digest")
+    has_history_state_digest = (
+        "ordinary_developmental_history_state_digest" in linkage)
     has_prompt_block_digest = (
         "ordinary_developmental_history_prompt_block_digest" in linkage)
+    has_retrieval_policy_id = (
+        "ordinary_developmental_history_retrieval_policy_id" in linkage)
     if (not isinstance(posture, str)
             or posture not in _ORDINARY_DEVELOPMENTAL_HISTORY_POSTURES
             or not isinstance(record_ids, list) or not isinstance(record_digests, list)
@@ -1364,7 +1516,32 @@ def _ordinary_developmental_history_exposure(
             or (has_prompt_block_digest
                 and (not isinstance(prompt_block_digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None))
+            or (has_retrieval_policy_id
+                and (not isinstance(retrieval_policy_id, str)
+                    or re.fullmatch(r"[a-z0-9_.:-]{1,512}",
+                        retrieval_policy_id) is None
+                    or posture != "selected"))
             or (has_prompt_block_digest and posture != "selected")):
+        raise ChatRequestStateError(
+            "ordinary_developmental_history_exposure_invalid")
+    if (target_model_identity_digest is not None
+            and (not isinstance(target_model_identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}",
+                    target_model_identity_digest) is None
+                or posture != "selected")):
+        raise ChatRequestStateError(
+            "ordinary_developmental_history_exposure_invalid")
+    if (serving_model_identity_digest is not None
+            and (not isinstance(serving_model_identity_digest, str)
+                or re.fullmatch(r"[0-9a-f]{64}",
+                    serving_model_identity_digest) is None
+                or posture != "selected")):
+        raise ChatRequestStateError(
+            "ordinary_developmental_history_exposure_invalid")
+    if (has_history_state_digest
+            and (not isinstance(history_state_digest, str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}", history_state_digest) is None
+                or posture != "selected")):
         raise ChatRequestStateError(
             "ordinary_developmental_history_exposure_invalid")
     if posture == "selected":
@@ -1379,8 +1556,21 @@ def _ordinary_developmental_history_exposure(
         "selection_digest": selection_digest,
         "record_ids": list(record_ids),
         "record_digests": list(record_digests)}
+    if has_retrieval_policy_id:
+        result["retrieval_policy_id"] = retrieval_policy_id
     if isinstance(prompt_block_digest, str):
         result["prompt_block_digest"] = prompt_block_digest
+    if isinstance(target_model_identity_digest, str):
+        result["target_model_identity_digest"] = target_model_identity_digest
+    if isinstance(serving_model_identity_digest, str):
+        result["serving_model_identity_digest"] = serving_model_identity_digest
+    if isinstance(history_state_digest, str):
+        result["history_state_digest"] = history_state_digest
+    if isinstance(response_text, str):
+        citation_audit = _ordinary_history_record_id_citation_audit(
+            response_text, linkage)
+        if citation_audit is not None:
+            result["citation_audit"] = citation_audit
     return result
 
 
@@ -1390,6 +1580,22 @@ def _ordinary_developmental_history_response_context(
     exposure = _ordinary_developmental_history_exposure(linkage)
     if exposure is None:
         return {}
+    if "serving_model_identity_digest" in exposure:
+        return {"developmental_history_exposure": {
+            "schema_version": "sentientos.ordinary_developmental_history_exposure:v6",
+            **exposure, "influence_posture": "not_measured"}}
+    if "history_state_digest" in exposure:
+        return {"developmental_history_exposure": {
+            "schema_version": "sentientos.ordinary_developmental_history_exposure:v5",
+            **exposure, "influence_posture": "not_measured"}}
+    if "target_model_identity_digest" in exposure:
+        return {"developmental_history_exposure": {
+            "schema_version": "sentientos.ordinary_developmental_history_exposure:v4",
+            **exposure, "influence_posture": "not_measured"}}
+    if "retrieval_policy_id" in exposure:
+        return {"developmental_history_exposure": {
+            "schema_version": "sentientos.ordinary_developmental_history_exposure:v3",
+            **exposure, "influence_posture": "not_measured"}}
     prompt_block_digest = linkage.get(
         "ordinary_developmental_history_prompt_block_digest")
     if isinstance(prompt_block_digest, str):
@@ -1649,7 +1855,9 @@ class PersistentConversationService:
             and isinstance(verified_screen, Mapping)
             and verified_screen.get("capture_digest") == screen.get("capture_digest")
             and _ordinary_developmental_history_lineage_matches(
-                linkage, verified_caller_linkage))
+                linkage, verified_caller_linkage,
+                serving_model_identity=(verified.get("serving_identity")
+                    if isinstance(verified, Mapping) else None)))
 
     def developmental_cycle_reply_available(self, *, session_id: str,
             session_turns: Sequence[Mapping[str, Any]],
@@ -1736,7 +1944,8 @@ class PersistentConversationService:
                     raise ChatRequestStateError(
                         "developmental_cycle_prior_response_unverified")
                 ordinary_history_exposure = (
-                    _ordinary_developmental_history_exposure(linkage))
+                    _ordinary_developmental_history_exposure(linkage,
+                        response_text=str(assistant.get("text", ""))))
             else:
                 raise ChatRequestStateError(
                     "developmental_cycle_requires_resident_cognition_reply")
@@ -1747,6 +1956,7 @@ class PersistentConversationService:
                     "developmental_cycle_correction_target_not_cited")
             feedback_record = None
             source_capture_digest: str | None = None
+            source_capture_posture = "screen_capture_bound"
             feedback_observed_at = datetime.now(timezone.utc).isoformat().replace(
                 "+00:00", "Z")
             if operator_feedback is not None:
@@ -1762,8 +1972,11 @@ class PersistentConversationService:
                     if isinstance(source_provenance, Mapping) else None)
                 if (not isinstance(source_capture_digest, str)
                         or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None):
-                    raise ChatRequestStateError(
-                        "developmental_cycle_operator_feedback_requires_screen_evidence")
+                    if response_origin != "model_generated":
+                        raise ChatRequestStateError(
+                            "developmental_cycle_operator_feedback_requires_screen_evidence")
+                    source_capture_digest = None
+                    source_capture_posture = "conversation_turns_only"
             consequence_measurement: Mapping[str, Any] | None = None
             current_consequence_records: tuple[Mapping[str, Any], ...] = ()
             if avatar_nod_confirmed:
@@ -1824,9 +2037,6 @@ class PersistentConversationService:
                         or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None):
                     raise ChatRequestStateError(
                         "developmental_cycle_operator_feedback_lineage_invalid")
-                if source_capture_digest is None:
-                    raise ChatRequestStateError(
-                        "developmental_cycle_operator_feedback_requires_screen_evidence")
                 citation_ids = linkage.get(
                     "cognition_conversation_turn_citation_ids", [])
                 citation_digests = linkage.get(
@@ -1923,6 +2133,10 @@ class PersistentConversationService:
                     assistant_turn_id=assistant_turn_id,
                     assistant_response_digest=response_digest,
                     source_capture_digest=source_capture_digest,
+                    source_capture_posture=source_capture_posture,
+                    source_user_turn_id=(str(source_turn_id)
+                        if source_capture_posture == "conversation_turns_only"
+                        else None),
                     followup_capture_digest=followup_capture_digest,
                     observed_at=feedback_observed_at,
                     conversation_citation_ids=citation_ids,
@@ -1955,6 +2169,12 @@ class PersistentConversationService:
             "operator_feedback_included": feedback_record is not None,
             "operator_feedback_posture": ("operator_assertion_unverified"
                 if feedback_record is not None else None),
+            "operator_feedback_source_id": (feedback_record.get("source_id")
+                if isinstance(feedback_record, Mapping) else None),
+            "operator_feedback_assertion_digest": (
+                feedback_record.get("payload", {}).get("assertion_digest")
+                if isinstance(feedback_record, Mapping)
+                and isinstance(feedback_record.get("payload"), Mapping) else None),
             "self_model_reconciliation_status": getattr(
                 result, "self_model_reconciliation_status", "not_configured"),
             "self_model_reconciliation_id": getattr(
@@ -3057,16 +3277,23 @@ class PersistentConversationService:
             "feedback_fact_id", "feedback_assertion_digest",
             "conversation_session_id", "turn_id", "text_digest"}
         for reference in references[:16]:
-            if not isinstance(reference, Mapping) or set(reference) != expected_fields:
+            if (not isinstance(reference, Mapping)
+                    or set(reference) not in (expected_fields,
+                        expected_fields | {"source_user_turn_id"})):
                 continue
             source_session_id = reference.get("conversation_session_id")
             turn_id, expected_digest = reference.get("turn_id"), reference.get("text_digest")
+            source_user_turn_id = reference.get("source_user_turn_id")
             if (not isinstance(source_session_id, str)
                     or re.fullmatch(r"[a-z0-9][a-z0-9-]{7,63}", source_session_id) is None
                     or not isinstance(turn_id, str)
                     or not re.fullmatch(r"turn-[0-9a-f]{24}", turn_id)
                     or not isinstance(expected_digest, str)
                     or re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None
+                    or ("source_user_turn_id" in reference
+                        and (not isinstance(source_user_turn_id, str)
+                            or re.fullmatch(r"turn-[0-9a-f]{24}",
+                                source_user_turn_id) is None))
                     or (source_session_id == (conversation_context or {}).get("session_id")
                         and turn_id in current_turn_ids)):
                 continue
@@ -3102,6 +3329,8 @@ class PersistentConversationService:
                 if isinstance(row, Mapping) and row.get("turn_id") == turn_id), None)
             if (not isinstance(turn, Mapping)
                     or turn.get("role") not in {"user", "assistant"}
+                    or (turn_id == source_user_turn_id
+                        and turn.get("role") != "user")
                     or not isinstance(turn.get("text"), str)
                     or not turn["text"] or len(turn["text"]) > 2000
                     or turn.get("text_digest") != expected_digest
@@ -3868,7 +4097,8 @@ class PersistentConversationService:
                 if isinstance(verified_caller_linkage, Mapping) else None)
             developmental_history_lineage_matches = (
                 _ordinary_developmental_history_lineage_matches(
-                    linkage, verified_caller_linkage))
+                    linkage, verified_caller_linkage,
+                    serving_model_identity=verified.get("serving_identity")))
             predecessor_reference_matches = (
                 "predecessor_invocation_reference" not in linkage
                 or linkage.get("predecessor_invocation_reference")
@@ -4699,6 +4929,29 @@ class PersistentConversationService:
                 developmental_history_lineage[
                     "ordinary_developmental_history_selection_digest"] = (
                     selection_digest)
+            retrieval_policy_id = (selection.get("retrieval_policy_id")
+                if isinstance(selection, Mapping) else None)
+            if isinstance(retrieval_policy_id, str):
+                developmental_history_lineage[
+                    "ordinary_developmental_history_retrieval_policy_id"] = (
+                    retrieval_policy_id)
+            target_model_identity_digest = (selection.get(
+                "target_model_identity_digest") if isinstance(selection, Mapping)
+                else None)
+            if isinstance(target_model_identity_digest, str):
+                developmental_history_lineage[
+                    "ordinary_developmental_history_target_model_identity_digest"] = (
+                    target_model_identity_digest)
+            history_state_digest = (selection.get("history_state_digest")
+                if isinstance(selection, Mapping)
+                and selection.get("schema_version") in {
+                    "sentientos.ordinary_chat_developmental_history_selection:v3",
+                    "sentientos.ordinary_chat_developmental_history_selection:v4"}
+                else None)
+            if isinstance(history_state_digest, str):
+                developmental_history_lineage[
+                    "ordinary_developmental_history_state_digest"] = (
+                    history_state_digest)
             if isinstance(selected_records, list):
                 developmental_history_lineage[
                     "ordinary_developmental_history_record_ids"] = [
@@ -4712,6 +4965,12 @@ class PersistentConversationService:
                 developmental_history_lineage[
                     "ordinary_developmental_history_prompt_block_digest"] = (
                     developmental_history_prompt_block_digest)
+            if (developmental_history_context_posture == "selected"
+                    and isinstance(identity_payload, Mapping)):
+                developmental_history_lineage[
+                    "ordinary_developmental_history_serving_model_identity_digest"] = (
+                    hashlib.sha256(json.dumps(dict(identity_payload), sort_keys=True,
+                        separators=(",", ":"), ensure_ascii=False).encode("utf-8")).hexdigest())
         linkage.update(developmental_history_lineage)
         if predecessor_runtime_lineage is not None:
             linkage["verified_predecessor_runtime_handoff_digest"] = str(
@@ -5231,7 +5490,8 @@ class PersistentConversationService:
                         state="retention_failed", receipt=retention_result)
         return ChatResponse(response=response_text, session_id=session["session_id"], turn_id=assistant["turn_id"],
                             response_diagnostics=_chat_response_diagnostics(
-                                response_text, assistant_output_lineage),
+                                response_text, assistant_output_lineage,
+                                history_linkage=linkage),
                             context={"conversation_snapshot_digest": history.snapshot_digest,
                                      "memory_snapshot_digest": memory["snapshot_digest"],
                                      "memory_retrieval_posture": memory["retrieval_posture"],
@@ -6531,6 +6791,25 @@ async def root_page() -> HTMLResponse:
                             + (failures.ocr ? '; OCR failure: ' + failures.ocr : '')
                             + '; raw frame retained: no');
                     }
+                    const historyCitationAudit = lineage.developmental_history_citation_audit;
+                    if (historyCitationAudit
+                            && ['sentientos.ordinary_history_record_id_citation_audit:v1',
+                                'sentientos.ordinary_history_record_id_citation_audit:v2',
+                                'sentientos.ordinary_history_record_id_citation_audit:v3',
+                                'sentientos.ordinary_history_record_id_citation_audit:v4']
+                                .includes(historyCitationAudit.schema_version)) {
+                        const selectedCount = Array.isArray(
+                            historyCitationAudit.selected_record_ids_cited)
+                            ? historyCitationAudit.selected_record_ids_cited.length : 0;
+                        const unselectedCount = Number.isSafeInteger(
+                            historyCitationAudit.unselected_record_id_count)
+                            ? historyCitationAudit.unselected_record_id_count : 0;
+                        checks.push('developmental history citation scan: '
+                            + (historyCitationAudit.citation_posture || 'unknown')
+                            + '; selected IDs cited: ' + selectedCount
+                            + '; other record IDs: ' + unselectedCount
+                            + '; influence not measured');
+                    }
                     status.textContent = checks.join('; ') + ' (lineage: ' + lineageStatus + ').';
                     const list = document.createElement('dl');
                     const fields = [
@@ -6547,6 +6826,39 @@ async def root_page() -> HTMLResponse:
                         ['Output truncated', lineage.output_truncated === true ? 'yes'
                             : (lineage.output_truncated === false ? 'no' : 'unknown')],
                     ];
+                    if (historyCitationAudit
+                            && ['sentientos.ordinary_history_record_id_citation_audit:v1',
+                                'sentientos.ordinary_history_record_id_citation_audit:v2',
+                                'sentientos.ordinary_history_record_id_citation_audit:v3',
+                                'sentientos.ordinary_history_record_id_citation_audit:v4']
+                                .includes(historyCitationAudit.schema_version)) {
+                        fields.push(
+                            ['Developmental history citation scan',
+                                historyCitationAudit.citation_posture || 'unknown'],
+                            ['History selection digest',
+                                historyCitationAudit.selection_digest || 'unavailable'],
+                            ['History prompt block digest',
+                                historyCitationAudit.prompt_block_digest || 'unavailable'],
+                            ['History retrieval policy',
+                                historyCitationAudit.retrieval_policy_id || 'unavailable'],
+                            ['Serving model identity digest',
+                                historyCitationAudit.serving_model_identity_digest
+                                    || 'unavailable'],
+                            ['Response text SHA-256',
+                                historyCitationAudit.response_text_sha256 || 'unavailable'],
+                            ['Response turn digest',
+                                historyCitationAudit.response_turn_digest || 'unavailable'],
+                            ['Selected history record IDs cited', String(
+                                Array.isArray(historyCitationAudit.selected_record_ids_cited)
+                                    ? historyCitationAudit.selected_record_ids_cited.length : 0)],
+                            ['Other history record IDs cited', String(
+                                Number.isSafeInteger(
+                                    historyCitationAudit.unselected_record_id_count)
+                                    ? historyCitationAudit.unselected_record_id_count : 0)],
+                            ['Citation scan complete',
+                                historyCitationAudit.scan_complete === true ? 'yes' : 'no'],
+                            ['History influence measured', 'no']);
+                    }
                     if (screen && typeof screen === 'object') {
                         fields.push(
                             ['Screen observation captured at', screen.captured_at || 'unknown'],
@@ -7276,6 +7588,9 @@ async def root_page() -> HTMLResponse:
                                 + '; receipt: ' + String(data.writeback_receipt_id || 'unavailable')
                                 + (data.operator_feedback_included === true
                                     ? '; your report was included as unverified operator evidence'
+                                        + ' (source: '
+                                        + String(data.operator_feedback_source_id || 'unavailable')
+                                        + ')'
                                     : '')
                                 + '. History influence and performance improvement are not yet established.'
                                 + consequenceSummary + selfModelSummary

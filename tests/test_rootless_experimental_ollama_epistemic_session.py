@@ -228,6 +228,19 @@ def test_existing_companion_invoker_is_bound_to_rootless_receipt_custody(
     }
     assert owner._verify_observation_invocation(observation) is receipt
 
+    historical_binding = {**binding,
+        "session_id": "rootless-cognition-session-" + "b" * 20,
+        "run_id": "rootless-cognition-cycle-" + "b" * 20}
+    historical_receipt = {**receipt, "request": {**receipt["request"],
+        "linkage": {"rootless_experimental_session": historical_binding}}}
+    monkeypatch.setattr(module, "_read_json",
+        lambda *args, **kwargs: historical_receipt)
+    assert session.verify_historical_invocation_receipt(
+        receipt_id, receipt_digest, expected_request_id="request-1",
+        expected_request_digest="f" * 64,
+        expected_active_model_identity=identity_payload) is historical_receipt
+    assert owner._verify_observation_invocation(observation) is historical_receipt
+
     with pytest.raises(RootlessExperimentalError,
             match="ollama_experimental_session_request_out_of_scope"):
         session.build_request(**_kwargs("avatar_renderer_command", "out-of-scope"))

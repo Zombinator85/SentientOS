@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS durable-learning serving-turn preparation",
+  "description": "A condition-owned, persisted user turn prepared for a separate governed serving broker. Preparation is not inference or response commitment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "phase",
+    "condition",
+    "task_digest",
+    "session_id",
+    "user_turn_id",
+    "prompt",
+    "prompt_digest",
+    "client_request_id_digest",
+    "correlation_id",
+    "caller_linkage",
+    "model_invocation_performed",
+    "response_committed",
+    "authority",
+    "preparation_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_serving_turn_preparation:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "phase": {"enum": ["acquisition", "delayed_probe"]},
+    "condition": {
+      "enum": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ]
+    },
+    "task_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^session-[0-9a-f]{24}$"
+    },
+    "user_turn_id": {
+      "type": "string",
+      "pattern": "^turn-[0-9a-f]{24}$"
+    },
+    "prompt": {"type": "string", "minLength": 1, "maxLength": 65536},
+    "prompt_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "client_request_id_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "correlation_id": {
+      "type": "string",
+      "pattern": "^chat:session-[0-9a-f]{24}:turn-[0-9a-f]{24}$"
+    },
+    "caller_linkage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "session_id",
+        "user_turn_id",
+        "client_request_id_digest",
+        "chat_response_style"
+      ],
+      "properties": {
+        "session_id": {"$ref": "#/$defs/sessionId"},
+        "user_turn_id": {"$ref": "#/$defs/turnId"},
+        "client_request_id_digest": {"$ref": "#/$defs/digest"},
+        "chat_response_style": {"const": "default"}
+      }
+    },
+    "model_invocation_performed": {"const": false},
+    "response_committed": {"const": false},
+    "authority": {"const": false},
+    "preparation_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sessionId": {
+      "type": "string",
+      "pattern": "^session-[0-9a-f]{24}$"
+    },
+    "turnId": {
+      "type": "string",
+      "pattern": "^turn-[0-9a-f]{24}$"
+    }
+  }
+}

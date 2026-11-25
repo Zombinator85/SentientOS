@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_competence_assessment.schema.json",
+  "title": "Durable-learning withheld-acquisition competence assessment v1",
+  "description": "Answer-free, protocol-bound classification of scored withheld-condition acquisition competence before delayed probes. It does not establish learning or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "criterion_digest",
+    "condition", "acquisition_outcome_refs", "minimum_correct_probe_count",
+    "denominator_probe_count", "observed_correct_probe_count",
+    "observed_denominator_probe_count", "classification", "qualified",
+    "assessment_phase", "delayed_probes_started", "learning_established",
+    "authority", "assessment_id", "assessment_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_competence_assessment:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "criterion_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "const": "relevant_experience_withheld" },
+    "acquisition_outcome_refs": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/outcomeRef" }
+    },
+    "minimum_correct_probe_count": { "type": "integer", "minimum": 1 },
+    "denominator_probe_count": { "type": "integer", "minimum": 1 },
+    "observed_correct_probe_count": {
+      "oneOf": [
+        { "type": "integer", "minimum": 0 },
+        { "type": "null" }
+      ]
+    },
+    "observed_denominator_probe_count": {
+      "oneOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "null" }
+      ]
+    },
+    "classification": {
+      "enum": [
+        "baseline_competence_demonstrated",
+        "baseline_competence_not_demonstrated",
+        "acquisition_outcomes_unscoreable"
+      ]
+    },
+    "qualified": { "type": "boolean" },
+    "assessment_phase": {
+      "const": "after_acquisition_before_delayed_probes"
+    },
+    "delayed_probes_started": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "assessment_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-competence-assessment-[0-9a-f]{24}$"
+    },
+    "assessment_digest": { "$ref": "#/$defs/digest" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "classification": {
+        "const": "baseline_competence_demonstrated"
+      } } },
+      "then": { "properties": {
+        "qualified": { "const": true },
+        "observed_correct_probe_count": { "type": "integer", "minimum": 1 },
+        "observed_denominator_probe_count": { "type": "integer", "minimum": 1 }
+      } }
+    },
+    {
+      "if": { "properties": { "classification": {
+        "const": "baseline_competence_not_demonstrated"
+      } } },
+      "then": { "properties": {
+        "qualified": { "const": false },
+        "observed_correct_probe_count": { "type": "integer", "minimum": 0 },
+        "observed_denominator_probe_count": { "type": "integer", "minimum": 1 }
+      } }
+    },
+    {
+      "if": { "properties": { "classification": {
+        "const": "acquisition_outcomes_unscoreable"
+      } } },
+      "then": { "properties": {
+        "qualified": { "const": false },
+        "observed_correct_probe_count": { "type": "null" },
+        "observed_denominator_probe_count": { "type": "null" }
+      } }
+    }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "outcomeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition", "task_digest", "outcome_id", "outcome_digest"],
+      "properties": {
+        "condition": {
+          "enum": ["relevant_experience_available", "relevant_experience_withheld"]
+        },
+        "task_digest": { "$ref": "#/$defs/digest" },
+        "outcome_id": {
+          "type": "string",
+          "pattern": "^devexp-durable-learning-outcome-[0-9a-f]{24}$"
+        },
+        "outcome_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

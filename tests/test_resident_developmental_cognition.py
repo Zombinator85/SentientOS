@@ -51,6 +51,8 @@ from sentientos.resident_developmental_cognition import (
 from sentientos.resident_developmental_writeback import (
     DevelopmentalWritebackError, ResidentDevelopmentalWritebackController,
 )
+
+
 from sentientos.installation_state import InstallationIdentity, InstallationStateRegistry
 from sentientos.resident_cognitive_model_serving import CONFIG_SCHEMA as SERVING_CONFIG_SCHEMA
 from sentientos.runtime_admission import AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier
@@ -82,6 +84,17 @@ from sentientos.persistent_epistemic_state import (PersistentEpistemicStateOwner
     make_epistemic_update_candidate)
 
 pytestmark = pytest.mark.no_legacy_skip
+
+
+def _semantic_embedding_fixture(model_id: str, revision: str,
+        vectors: tuple[tuple[float, ...], ...]) -> SimpleNamespace:
+    identity = {"schema_version": "sentientos.semantic_embedder_identity:v1",
+        "provider": "sentence-transformers", "model_id": model_id,
+        "revision": revision, "device": "cpu"}
+    identity_digest = hashlib.sha256(json.dumps(identity, sort_keys=True,
+        separators=(",", ":")).encode("utf-8")).hexdigest()
+    return SimpleNamespace(identity=identity, identity_digest=identity_digest,
+        vectors=vectors)
 
 
 @pytest.fixture(autouse=True)
@@ -3987,7 +4000,7 @@ def test_admitted_family_example_supports_second_heldout_episode_after_restart(
     assert fourth_scores["history_restored"]["correct_count"] == 3
     fourth_progression = fourth_episode["progression"]
     assert fourth_progression["schema_version"] == \
-        "sentientos.objective_task_family_progression:v2"
+        "sentientos.objective_task_family_progression:v3"
     assert fourth_progression["target_model_outcome_summary_posture"] == \
         "descriptive_exact_episode_contrasts_only"
     cross_model_summary = next(item for item in
@@ -6650,6 +6663,7 @@ def test_companion_distinguishes_assistant_recommendation_from_user_decision(
 
 def test_companion_query_selects_relevant_older_experience_over_recent_unrelated_history(
         tmp_path: Path) -> None:
+    from sentientos.resident_developmental_cognition import SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID
     cognition, fake = owner(tmp_path)
     fake.history_interpretation = "A weak cell was observed during a technical inspection."
     fake.lesson_scope = "battery calibration"
@@ -6675,8 +6689,10 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert unrelated_ids[0] not in result.prior_record_ids
     assert result.history_record_ids == result.prior_record_ids
     prompt = json.loads(fake.requests[-1].prompt)
-    assert prompt["developmental_history_retrieval_policy_id"] == \
-        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
+    assert prompt["developmental_history_retrieval_policy_id"] == SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID
+    ordinary = cognition.ordinary_chat_developmental_history_context_for_model(
+        question="Which battery calibration scope applied to the weak cell?", max_input_chars=4000)
+    assert ordinary["developmental_history"][0]["record_id"] == relevant.written_record_id
     assert all(row["current_truth"] is False and row["authority"] is False
         for row in prompt["developmental_history"])
 
@@ -6705,8 +6721,7 @@ def test_companion_query_selects_relevant_older_experience_over_recent_unrelated
     assert unrelated_ids[0] not in followup.prior_record_ids
     followup_prompt = json.loads(fake.requests[-1].prompt)
     assert followup_prompt["companion_question"] == "What about that?"
-    assert followup_prompt["developmental_history_retrieval_policy_id"] == \
-        "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11"
+    assert followup_prompt["developmental_history_retrieval_policy_id"] == SEMANTIC_HISTORY_LEXICAL_FALLBACK_POLICY_ID
 
     # A specific new topic takes precedence over the prior user turn, which
     # should not drag its unrelated battery lesson into the bounded selection.
@@ -6819,6 +6834,7 @@ def test_history_query_retrieves_old_embodied_outcome_from_typed_report() -> Non
     from sentientos.resident_developmental_cognition import (
         ResidentDevelopmentalCognitionOwner,
     )
+    from sentientos.resident_developmental_writeback import DevelopmentalHistoryProjection
 
     consequence = {"selected_fact_ids": ["fact-consequence"],
         "selected_facts": [{"fact_id": "fact-consequence",
@@ -6846,19 +6862,21 @@ def test_history_query_retrieves_old_embodied_outcome_from_typed_report() -> Non
 
     class Store:
         def get(self, record_id):
-            return SimpleNamespace(candidate=candidates[record_id])
+            return SimpleNamespace(record_id=record_id, candidate=candidates[record_id],
+                record_digest="sha256:" + digest_payload(record_id))
 
     class Writeback:
         store = Store()
 
         def retrieve(self, record_ids, *, limit):
             self.selected = tuple(record_ids)
-            return SimpleNamespace(records=(), requested_record_ids=self.selected,
-                limit=limit)
+            return DevelopmentalHistoryProjection(records=(), requested_record_ids=self.selected)
 
     writeback = Writeback()
-    fake_owner = SimpleNamespace(writeback=writeback,
-        config=SimpleNamespace(max_retrieved_records=3), objective_task=None)
+    fake_owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+    fake_owner.writeback = writeback
+    fake_owner.config = SimpleNamespace(max_retrieved_records=3)
+    fake_owner.objective_task = None
     order = tuple(candidates)
     state = {"completed_ticks": [{"tick_id": f"tick-{index}",
         "record_id": record_id} for index, record_id in enumerate(order)]}
@@ -7051,8 +7069,8 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
         observed["model"] = (model_id, revision)
         document_vectors = [(0.99, 0.01) if "storm" in text else (0.0, 1.0)
             for text in texts[1:]]
-        return SimpleNamespace(identity_digest="d" * 64,
-            vectors=((1.0, 0.0), *document_vectors))
+        return _semantic_embedding_fixture(model_id, revision,
+            ((1.0, 0.0), *document_vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -7074,7 +7092,8 @@ def test_semantic_history_retrieval_recovers_lexically_disjoint_experience(
     policy_prefix, embedder_digest, selection_digest = (
         selected.retrieval_policy_id.rsplit(":", 2))
     assert policy_prefix.endswith(":v18")
-    assert embedder_digest == "d" * 64
+    assert embedder_digest == _semantic_embedding_fixture(
+        "test/local-embedder", "a" * 40, ()).identity_digest
     assert len(selection_digest) == 64
     assert all(character in "0123456789abcdef" for character in selection_digest)
     assert "Where should we shelter" in observed["texts"][0]
@@ -7114,8 +7133,7 @@ def test_weak_semantic_matches_do_not_displace_lexical_or_recent_history(
         vectors.extend((0.26, 0.965660398791) if "near threshold" in text
             else (0.1, 0.994987437) if "stone courtyard" in text
             else (0.0, 1.0) for text in texts[1:])
-        return SimpleNamespace(identity_digest="f" * 64,
-            vectors=tuple(vectors))
+        return _semantic_embedding_fixture(model_id, revision, tuple(vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -7199,7 +7217,7 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
         vectors = [(1.0, 0.0)]
         vectors.extend((1.0, 0.0) if "basalt outpost" in text
             else (0.0, 1.0) for text in texts[1:])
-        return SimpleNamespace(identity_digest="d" * 64, vectors=tuple(vectors))
+        return _semantic_embedding_fixture(model_id, revision, tuple(vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -7232,7 +7250,8 @@ def test_semantic_history_samples_older_lexically_disjoint_experience(
         "query_decision_polarity_then_overlap_then_semantic_with_"
         "identity_bound_correction_groups_decision_contrasts_embodied_"
         "reports_and_elliptical_session_context_then_recency_fill:v18:"
-        + "d" * 64 + ":")
+        + _semantic_embedding_fixture(
+            "test/local-embedder", "a" * 40, ()).identity_digest + ":")
 
     selection = {"schema_version": "sentientos.developmental_history_selection:v1",
         "policy": "most_recent_complete_record_suffix:v1",
@@ -7278,8 +7297,8 @@ def test_semantic_history_tick_phases_reach_complementary_older_records(
             and " :: " in text)
         target_vectors = [(1.0, 0.0) if "obsidian outpost" in text
             else (0.0, 1.0) for text in texts[1:]]
-        return SimpleNamespace(identity_digest="d" * 64,
-            vectors=((1.0, 0.0), *target_vectors))
+        return _semantic_embedding_fixture(model_id, revision,
+            ((1.0, 0.0), *target_vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -7365,8 +7384,8 @@ def test_indexed_semantic_history_changes_later_fake_decision_across_restart(
                 encoded_ids.add(record_ids[int(match.group(1))])
             vectors.append((1.0, 0.0) if "basalt outpost" in text
                 else (0.0, 1.0))
-        return SimpleNamespace(identity_digest="d" * 64,
-            vectors=tuple([(1.0, 0.0), *vectors[1:]]))
+        return _semantic_embedding_fixture(model_id, revision,
+            tuple([(1.0, 0.0), *vectors[1:]]))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -7411,17 +7430,21 @@ def test_indexed_semantic_history_changes_later_fake_decision_across_restart(
         target_entry["text_digest"])}
     same_tick_vectors = index.load(expected_records=expected_target,
         current_tick_digest=hashlib.sha256(
-            f"index-tick-{indexed_at}".encode()).hexdigest()).vectors
+            f"index-tick-{indexed_at}".encode()).hexdigest(),
+        expected_vector_dimension=2).vectors
     assert target_id not in same_tick_vectors
     assert target_id in index.load(expected_records=expected_target,
-        current_tick_digest=hashlib.sha256(b"a-later-tick").hexdigest()).vectors
+        current_tick_digest=hashlib.sha256(b"a-later-tick").hexdigest(),
+        expected_vector_dimension=2).vectors
     assert target_id not in index.load(expected_records={target_id: (
         "0" * 64, target_entry["text_digest"])},
-        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest(),
+        expected_vector_dimension=2).vectors
     other_embedder = SemanticHistoryIndex(state_root=cognition.config.state_root,
         embedder_identity_digest="e" * 64)
     assert target_id not in other_embedder.load(expected_records=expected_target,
-        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest()).vectors
+        current_tick_digest=hashlib.sha256(b"another-tick").hexdigest(),
+        expected_vector_dimension=2).vectors
 
     later_projection = None
     for tick in range(indexed_at + 1, indexed_at + 65):
@@ -7610,8 +7633,7 @@ def test_semantic_similarity_cannot_override_decision_polarity(
         vectors = [(1.0, 0.0)]
         vectors.extend([(0.99, 0.01) if "approved" in text else (0.8, 0.6)
             for text in texts[1:]])
-        return SimpleNamespace(identity_digest="e" * 64,
-            vectors=tuple(vectors))
+        return _semantic_embedding_fixture(model_id, revision, tuple(vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)
@@ -10128,6 +10150,11 @@ def test_sparse_session_topic_changes_real_prior_epistemic_projection_selection(
 
 def test_ordinary_developmental_history_projection_is_read_only_and_lexical(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from sentientos.chat_service import _ordinary_epistemic_context_budget
+    from sentientos.conversation_session import (
+        ContextSnapshot, assemble_local_chat_context,
+        verify_ordinary_chat_history_projection_triplet,
+    )
     if os.name == "nt":
         from sentientos.windows_handle_custody import ensure_private_child_directory
         ensure_private_child_directory(tmp_path, "cognition")
@@ -10150,11 +10177,29 @@ def test_ordinary_developmental_history_projection_is_read_only_and_lexical(
         encode_semantic=lambda *_args, **_kwargs: semantic_calls.append(True)))
 
     bridge = ResidentDevelopmentalCompanionBridge(cognition)
+    question = "What should I do about the west sensor calibration?"
+    chat_args = dict(history=ContextSnapshot("session-west", (), 8000, False, "a" * 64),
+        current_message=question, memory_snapshot={})
+    budget = _ordinary_epistemic_context_budget(assemble_local_chat_context(**chat_args))
+    assert budget is not None
     context = bridge.ordinary_chat_developmental_history_context(
-        question="What should I do about the west sensor calibration?",
-        max_input_chars=4000)
+        question=question, max_input_chars=budget)
 
     assert context is not None
+    prompt = assemble_local_chat_context(**chat_args, developmental_history_context=context)
+    assert "west sensor calibration drift" in prompt and len(prompt) <= 8000
+    verify_ordinary_chat_history_projection_triplet(history_present=context,
+        history_withheld=None, history_restored=context)
+    selection = dict(context["selection"])
+    selection["omitted_records_digest"] = "sha256:" + "0" * 64
+    selection.pop("selection_digest")
+    selection["selection_digest"] = digest_payload(selection)
+    altered = {**context, "selection": selection}
+    altered.pop("selection_digest")
+    altered["selection_digest"] = digest_payload(altered)
+    with pytest.raises(ValueError, match="ordinary_chat_history_selection_invalid"):
+        verify_ordinary_chat_history_projection_triplet(history_present=altered,
+            history_withheld=None, history_restored=altered)
     assert context["historical_only"] is True
     assert context["current_truth"] is False and context["authority"] is False
     packet = context["developmental_history"][0]
@@ -10171,6 +10216,21 @@ def test_ordinary_developmental_history_projection_is_read_only_and_lexical(
     assert bridge.ordinary_chat_developmental_history_context(
         question="What should I do about the west sensor calibration?",
         max_input_chars=128) is None
+
+
+def test_ordinary_integer_history_requires_task_scope_and_score_evidence() -> None:
+    from sentientos.resident_developmental_cognition import (
+        _asks_for_integer_prediction_examples, _ordinary_chat_integer_experiences,
+    )
+
+    assert _asks_for_integer_prediction_examples("Show examples from the integer sequence exercise.")
+    assert _asks_for_integer_prediction_examples("Which inputs failed in our earlier arithmetic task?")
+    assert not _asks_for_integer_prediction_examples("Predict the number of dropped frames in the game.")
+    assert not _asks_for_integer_prediction_examples("What is my phone number?")
+    candidate = {"interpretation": "I remember correctly predicting that 3 gives 7.",
+        "selected_facts": [{"payload": {"objective_task_family": "integer_affine_prediction",
+            "examples": [{"probe_input": 3, "observed_answer": 7, "evaluator_correct": True}]}}]}
+    assert _ordinary_chat_integer_experiences(candidate) == []
 
 
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:
@@ -11599,7 +11659,7 @@ def test_companion_decision_can_be_compared_with_history_present_and_withheld(
         assert contrast_packets[0]["authority"] is False
         assert contrast_packets[0]["performance_improvement_established"] is False
         pattern = contrast_packets[0]["decision_pattern"]
-        assert pattern["schema_version"] == "sentientos.history_decision_pattern:v2"
+        assert pattern["schema_version"] == "sentientos.history_decision_pattern:v3"
         assert pattern["present_restored_response_digest_match"] is True
         assert pattern["present_withheld_response_digest_differs"] is True
         assert pattern["present_restored_disposition_match"] is True
@@ -11803,8 +11863,7 @@ def test_semantically_retrieved_experience_changes_later_response_with_restorati
         vectors = [(1.0, 0.0)]
         vectors.extend([(0.99, 0.01) if "elevated stone refuge" in text
             else (0.0, 1.0) for text in texts[1:]])
-        return SimpleNamespace(identity_digest="a" * 64,
-            vectors=tuple(vectors))
+        return _semantic_embedding_fixture(model_id, revision, tuple(vectors))
 
     import semantic_embeddings
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", fake_encode)

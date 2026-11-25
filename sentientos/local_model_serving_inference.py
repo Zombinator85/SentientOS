@@ -2819,6 +2819,7 @@ class ProductionServingInferenceController:
                  budget: LocalModelInvocationBudget | None = None,
                  caller_linkage: Mapping[str, Any] | None = None,
                  resource_context: GovernedLocalModelResourceInvocationContext | None = None,
+                 pre_effect_guard: Callable[[], Mapping[str, Any] | None] | None = None,
                  ) -> LocalModelInvocationReceipt:
         session = self._serving.current_session()
         if session is None:
@@ -2879,6 +2880,33 @@ class ProductionServingInferenceController:
             "configured_mode", "mode_source", "observation_status", "game_foreground",
             "process_name_digest", "game_process_running", "running_process_name_digests",
             "observed_at", "transport_provenance")})
+        if pre_effect_guard is not None:
+            if not callable(pre_effect_guard):
+                raise ProductionServingInferenceError(
+                    "pre_effect_guard_callback_invalid")
+            gate_id = (caller_linkage.get("durable_learning_probe_gate_id")
+                if isinstance(caller_linkage, Mapping) else None)
+            guard_gate_id = getattr(pre_effect_guard, "gate_id", None)
+            if guard_gate_id is not None:
+                if (not isinstance(gate_id, str)
+                        or re.fullmatch(
+                            r"devexp-durable-learning-probe-gate-[0-9a-f]{24}",
+                            gate_id) is None):
+                    raise ProductionServingInferenceError(
+                        "durable_learning_probe_gate_linkage_required")
+                if guard_gate_id != gate_id:
+                    raise ProductionServingInferenceError(
+                        "durable_learning_probe_guard_linkage_mismatch")
+                linkage["durable_learning_probe_gate_id"] = gate_id
+            elif gate_id is not None:
+                raise ProductionServingInferenceError(
+                    "durable_learning_probe_gate_guard_required")
+            guard_prompt_digest = getattr(pre_effect_guard, "prompt_digest", None)
+            if (not isinstance(guard_prompt_digest, str)
+                    or guard_prompt_digest != digest_payload({
+                        "prompt": effective_prompt})):
+                raise ProductionServingInferenceError(
+                    "durable_learning_probe_guard_prompt_mismatch")
         invoker = GovernedLocalModelInvoker(
             model=model, authority_map=authority, kernel=self._serving._kernel,
             runtime_root=self._serving._handle.root / "local-model" / "inference")
@@ -2929,37 +2957,37 @@ class ProductionServingInferenceController:
             if current_generation != software_generation_attribution:
                 raise ProductionServingInferenceError("chat_process_generation_changed_during_inference")
 
-        def pre_effect_current() -> None:
+        def pre_effect_current() -> Mapping[str, Any] | None:
             current()
             # A selected or conservative gaming profile may arrive after the
             # admission snapshot but before backend entry. Do not let a request
             # whose budgets were derived in normal mode cross that boundary.
-            if workload_state.get("effective_mode") == "gaming":
-                return
-            latest_workload = self.current_workload_state()
-            if latest_workload.get("effective_mode") != "gaming":
-                return
-            latest_game_active = (
-                latest_workload.get("configured_mode") == "automatic"
-                and latest_workload.get("observation_status") == "available"
-                and (latest_workload.get("game_foreground") is True
-                    or latest_workload.get("game_process_running") is True))
-            if latest_game_active:
-                provenance = latest_workload.get("transport_provenance")
-                message_id = (provenance.get("message_id")
-                    if isinstance(provenance, Mapping) else None)
-                if not isinstance(message_id, str) or re.fullmatch(
-                        r"[0-9a-f]{64}", message_id) is None:
-                    return
-                raise LocalModelInvocationDeferred(
-                    "verified_game_workload_arrived_before_backend_entry:"
-                    + message_id)
-            if (latest_workload.get("configured_mode") == "gaming"
-                    and latest_workload.get("mode_source") == "operator_selected"):
-                raise LocalModelInvocationDeferred(
-                    "operator_selected_gaming_profile_arrived_before_backend_entry")
-            raise LocalModelInvocationDeferred(
-                "conservative_gaming_profile_arrived_before_backend_entry")
+            if workload_state.get("effective_mode") != "gaming":
+                latest_workload = self.current_workload_state()
+                if latest_workload.get("effective_mode") == "gaming":
+                    latest_game_active = (
+                        latest_workload.get("configured_mode") == "automatic"
+                        and latest_workload.get("observation_status") == "available"
+                        and (latest_workload.get("game_foreground") is True
+                            or latest_workload.get("game_process_running") is True))
+                    if latest_game_active:
+                        provenance = latest_workload.get("transport_provenance")
+                        message_id = (provenance.get("message_id")
+                            if isinstance(provenance, Mapping) else None)
+                        if not isinstance(message_id, str) or re.fullmatch(
+                                r"[0-9a-f]{64}", message_id) is None:
+                            raise LocalModelInvocationDeferred(
+                                "game_workload_provenance_unavailable_before_backend_entry")
+                        raise LocalModelInvocationDeferred(
+                            "verified_game_workload_arrived_before_backend_entry:"
+                            + message_id)
+                    if (latest_workload.get("configured_mode") == "gaming"
+                            and latest_workload.get("mode_source") == "operator_selected"):
+                        raise LocalModelInvocationDeferred(
+                            "operator_selected_gaming_profile_arrived_before_backend_entry")
+                    raise LocalModelInvocationDeferred(
+                        "conservative_gaming_profile_arrived_before_backend_entry")
+            return pre_effect_guard() if pre_effect_guard is not None else None
 
         def current_after() -> None:
             try:
@@ -3186,12 +3214,18 @@ class ProductionServingInferenceController:
         generation_config = value.get("generation_config")
         if not isinstance(generation_config, Mapping):
             raise ProductionServingInferenceError("stored_invocation_generation_config_invalid")
-        return {"serving_identity": {key: lifetime[key] for key in identity_keys},
+        guard_evidence = self._verify_stored_pre_effect_guard_evidence(
+            receipt_id=receipt_id, receipt_digest=receipt_digest,
+            request_id=request["request_id"], request_digest=request_digest)
+        result = {"serving_identity": {key: lifetime[key] for key in identity_keys},
                 "loaded_model_identity": dict(request["active_model_identity"]),
                 "request_id": request["request_id"], "receipt_id": receipt_id,
                 "receipt_digest": receipt_digest, "status": value["status"],
                 "prompt_digest": request.get("prompt_digest"),
                 "output_digest": value.get("output_digest"),
+                "observed_at": value.get("observed_at"),
+                "event_time_posture": "invocation_receipt_observed_at_digest_bound",
+                "request_linkage": dict(request.get("linkage", {})),
                 "generation_config_digest": digest_payload(dict(generation_config)),
                 "output_truncated": value.get("output_truncated"),
                 "fallback_occurred": value.get("fallback_occurred"),
@@ -3199,6 +3233,54 @@ class ProductionServingInferenceController:
                 "caller_linkage": dict(caller_context),
                 "serving_receipt_lineage": serving_receipt_lineage,
                 "assistant_output_lineage": assistant_output_lineage}
+        if guard_evidence is not None:
+            result["pre_effect_guard_evidence"] = guard_evidence
+        return result
+
+    def _verify_stored_pre_effect_guard_evidence(self, *, receipt_id: str,
+            receipt_digest: str, request_id: str,
+            request_digest: str) -> dict[str, Any] | None:
+        handle = self._serving._handle
+        directory = handle.fixed_object(
+            "local-model/inference/pre_effect_guard_evidence")
+        try:
+            names = handle.list_regular_names(directory, max_entries=MAX_INVOCATION_RECEIPTS)
+        except InstallationStateError as exc:
+            if exc.code in {"state_directory_missing", "state_parent_missing"}:
+                return None
+            raise ProductionServingInferenceError(
+                "stored_pre_effect_guard_directory_invalid") from exc
+        name = receipt_id + ".json"
+        if name not in names:
+            return None
+        try:
+            raw = handle.read_regular_bounded(directory.child(name),
+                max_bytes=65_536)
+            value = json.loads(raw.decode("utf-8"))
+        except (InstallationStateError, UnicodeError, ValueError, TypeError) as exc:
+            raise ProductionServingInferenceError(
+                "stored_pre_effect_guard_evidence_invalid") from exc
+        if (not isinstance(value, Mapping)
+                or json.dumps(dict(value), sort_keys=True, indent=2,
+                    ensure_ascii=False, allow_nan=False).encode("utf-8") + b"\n" != raw):
+            raise ProductionServingInferenceError(
+                "stored_pre_effect_guard_evidence_noncanonical")
+        semantic = {key: item for key, item in value.items()
+            if key != "evidence_digest"}
+        evidence = value.get("guard_evidence")
+        if (set(value) != {"schema_version", "receipt_id", "receipt_digest",
+                "request_id", "request_digest", "guard_evidence", "evidence_digest"}
+                or value.get("schema_version") !=
+                    "sentientos.local_model_pre_effect_guard_evidence:v1"
+                or value.get("receipt_id") != receipt_id
+                or value.get("receipt_digest") != receipt_digest
+                or value.get("request_id") != request_id
+                or value.get("request_digest") != request_digest
+                or not isinstance(evidence, Mapping)
+                or value.get("evidence_digest") != digest_payload(semantic)):
+            raise ProductionServingInferenceError(
+                "stored_pre_effect_guard_evidence_binding_invalid")
+        return dict(value)
 
 
     def inspect_interrupted_chat_invocation(self, *, session_id: str, user_turn_id: str,

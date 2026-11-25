@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/rootless_cycle_configuration_cohort_audit.schema.json",
+  "title": "SentientOS rootless cycle configuration cohort audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cycle_count",
+    "cycles",
+    "parity",
+    "configuration_parity_gate_passed",
+    "audit_performed_inference",
+    "learning_established",
+    "authority",
+    "audit_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.rootless_cycle_configuration_cohort_audit:v1"
+    },
+    "cycle_count": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "cycles": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cycle_id",
+          "preregistration_file_sha256",
+          "cycle_result_file_sha256",
+          "model_identity_digest",
+          "model_configuration_digest",
+          "configuration_payload_present",
+          "configuration_payload_digest",
+          "source_content_digest",
+          "source_provenance_complete",
+          "task_family_id",
+          "condition_identity_bindings_verified"
+        ],
+        "properties": {
+          "cycle_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "preregistration_file_sha256": {
+            "$ref": "#/$defs/hexDigest"
+          },
+          "cycle_result_file_sha256": {
+            "$ref": "#/$defs/hexDigest"
+          },
+          "model_identity_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "model_configuration_digest": {
+            "$ref": "#/$defs/hexDigest"
+          },
+          "configuration_payload_present": {
+            "type": "boolean"
+          },
+          "configuration_payload_digest": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/digest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_content_digest": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hexDigest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_provenance_complete": {
+            "type": "boolean"
+          },
+          "task_family_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "condition_identity_bindings_verified": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_configuration_digests_equal",
+        "canonical_configuration_payloads_present",
+        "canonical_configuration_payload_digests_equal",
+        "model_identity_digests_equal",
+        "source_provenance_complete_for_all_cycles",
+        "source_content_digests_equal",
+        "task_families_equal",
+        "condition_identity_bindings_verified"
+      ],
+      "properties": {
+        "model_configuration_digests_equal": {
+          "type": "boolean"
+        },
+        "canonical_configuration_payloads_present": {
+          "type": "boolean"
+        },
+        "canonical_configuration_payload_digests_equal": {
+          "type": "boolean"
+        },
+        "model_identity_digests_equal": {
+          "type": "boolean"
+        },
+        "source_provenance_complete_for_all_cycles": {
+          "type": "boolean"
+        },
+        "source_content_digests_equal": {
+          "type": "boolean"
+        },
+        "task_families_equal": {
+          "type": "boolean"
+        },
+        "condition_identity_bindings_verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "configuration_parity_gate_passed": {
+      "type": "boolean"
+    },
+    "audit_performed_inference": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "audit_digest": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "hexDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
+

@@ -24,7 +24,11 @@ _MODEL_META_NAME = "model.json"
 _ALLOW_MODEL_CODE_EXEC_ENV = "SENTIENTOS_ALLOW_MODEL_CODE_EXECUTION"
 
 
-__all__ = ["ActiveModelIdentity", "LocalModel"]
+__all__ = [
+    "ActiveModelIdentity", "LocalModel", "candidate_configuration_digest",
+    "candidate_configuration_digest_from_payload",
+    "candidate_configuration_payload",
+]
 
 
 def _canonical_digest(value: Any) -> str:
@@ -60,14 +64,34 @@ class ActiveModelIdentity:
         return dict(self.__dict__)
 
 
-def candidate_configuration_digest(candidate: ModelCandidate, config: ModelConfig, engine: str) -> str:
-    payload = {
+def candidate_configuration_payload(candidate: ModelCandidate,
+        config: ModelConfig, engine: str) -> dict[str, Any]:
+    """Return the canonical, non-path payload bound by model identity."""
+    return {
         "engine": engine.lower(),
         "options": {key: value for key, value in sorted(candidate.options.items()) if key != "path"},
         "max_context_tokens": config.max_context_tokens,
         "generation": config.generation.as_kwargs(),
     }
-    return _canonical_digest(payload)
+
+
+def candidate_configuration_digest_from_payload(payload: Mapping[str, Any]) -> str:
+    """Recompute a model configuration digest from its persisted payload."""
+    if (not isinstance(payload, Mapping)
+            or set(payload) != {
+                "engine", "options", "max_context_tokens", "generation"}
+            or not isinstance(payload.get("engine"), str)
+            or not isinstance(payload.get("options"), Mapping)
+            or type(payload.get("max_context_tokens")) is not int
+            or not isinstance(payload.get("generation"), Mapping)):
+        raise ValueError("model_configuration_payload_invalid")
+    return _canonical_digest(dict(payload))
+
+
+def candidate_configuration_digest(candidate: ModelCandidate,
+        config: ModelConfig, engine: str) -> str:
+    return candidate_configuration_digest_from_payload(
+        candidate_configuration_payload(candidate, config, engine))
 
 
 def candidate_artifact_identity(candidate: ModelCandidate, metadata: Dict[str, Any]) -> tuple[str | None, str, str | None, int | None, str | None]:

@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_host_acceptance_review.schema.json",
+  "title": "Reviewed durable-learning target-host access-probe evidence",
+  "description": "A human review record bound to one immutable protocol-specific access-probe completion. Acceptance records only a bounded access observation and cannot promote isolation, retention, or learning claims.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "artifact_id", "artifact_digest", "protocol",
+    "reviewer", "host", "artifact_refs", "disposition",
+    "bounded_access_observation_accepted", "criteria", "claim_limits",
+    "review_summary", "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.durable_learning_host_acceptance_review:v1"
+    },
+    "artifact_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-host-access-review-[0-9a-f]{24}$"
+    },
+    "artifact_digest": { "$ref": "#/$defs/sha256" },
+    "protocol": { "$ref": "#/$defs/artifactRef" },
+    "reviewer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "role", "run_operator_identity", "independent_from_run_operator", "reviewed_at"],
+      "properties": {
+        "identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "role": { "const": "independent_reviewer" },
+        "run_operator_identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "independent_from_run_operator": { "const": true },
+        "reviewed_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host_identity", "os_name", "os_version", "os_build", "architecture"],
+      "properties": {
+        "host_identity": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "os_name": { "const": "Windows" },
+        "os_version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "os_build": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "architecture": { "enum": ["x64", "arm64"] }
+      }
+    },
+    "artifact_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch_preflight", "profile_pair", "access_probe_completion",
+        "registry_inventory_baseline", "registry_inventories",
+        "profile_data_inventory_baseline", "profile_data_inventories"
+      ],
+      "properties": {
+        "branch_preflight": { "$ref": "#/$defs/artifactRef" },
+        "profile_pair": { "$ref": "#/$defs/artifactRef" },
+        "access_probe_completion": { "$ref": "#/$defs/artifactRef" },
+        "registry_inventory_baseline": { "$ref": "#/$defs/artifactRef" },
+        "registry_inventories": { "$ref": "#/$defs/conditionRefs" },
+        "profile_data_inventory_baseline": { "$ref": "#/$defs/artifactRef" },
+        "profile_data_inventories": { "$ref": "#/$defs/conditionRefs" }
+      }
+    },
+    "disposition": {
+      "enum": ["accepted_bounded_access_observation", "rejected", "insufficient_evidence"]
+    },
+    "bounded_access_observation_accepted": { "type": "boolean" },
+    "criteria": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_profile_binding", "process_binding", "own_sentinel",
+        "peer_and_scorer_denial", "supervisor_readback",
+        "registry_and_profile_state", "runtime_access_setup"
+      ],
+      "properties": {
+        "protocol_profile_binding": { "$ref": "#/$defs/criterion" },
+        "process_binding": { "$ref": "#/$defs/criterion" },
+        "own_sentinel": { "$ref": "#/$defs/criterion" },
+        "peer_and_scorer_denial": { "$ref": "#/$defs/criterion" },
+        "supervisor_readback": { "$ref": "#/$defs/criterion" },
+        "registry_and_profile_state": { "$ref": "#/$defs/criterion" },
+        "runtime_access_setup": { "$ref": "#/$defs/criterion" }
+      }
+    },
+    "claim_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process_isolation_verified", "filesystem_isolation_verified",
+        "retention_contrast_eligible", "model_attention_established",
+        "performance_improvement_established", "learning_established",
+        "authority"
+      ],
+      "properties": {
+        "process_isolation_verified": { "const": false },
+        "filesystem_isolation_verified": { "const": false },
+        "retention_contrast_eligible": { "const": false },
+        "model_attention_established": { "const": false },
+        "performance_improvement_established": { "const": false },
+        "learning_established": { "const": false },
+        "authority": { "const": false }
+      }
+    },
+    "review_summary": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "authority": { "const": false }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "disposition": { "const": "accepted_bounded_access_observation" } } },
+      "then": {
+        "properties": {
+          "bounded_access_observation_accepted": { "const": true },
+          "criteria": {
+            "properties": {
+              "protocol_profile_binding": { "properties": { "status": { "const": "accepted" } } },
+              "process_binding": { "properties": { "status": { "const": "accepted" } } },
+              "own_sentinel": { "properties": { "status": { "const": "accepted" } } },
+              "peer_and_scorer_denial": { "properties": { "status": { "const": "accepted" } } },
+              "supervisor_readback": { "properties": { "status": { "const": "accepted" } } },
+              "registry_and_profile_state": { "properties": { "status": { "const": "accepted" } } },
+              "runtime_access_setup": { "properties": { "status": { "const": "accepted" } } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "disposition": { "enum": ["rejected", "insufficient_evidence"] } } },
+      "then": { "properties": { "bounded_access_observation_accepted": { "const": false } } }
+    }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "artifact_digest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "conditionRefs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/artifactRef" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/artifactRef" }
+      }
+    },
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence_refs", "finding"],
+      "properties": {
+        "status": { "enum": ["accepted", "rejected", "insufficient"] },
+        "evidence_refs": {
+          "type": "array", "minItems": 1, "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "finding": { "type": "string", "minLength": 1, "maxLength": 1024 }
+      }
+    }
+  }
+}

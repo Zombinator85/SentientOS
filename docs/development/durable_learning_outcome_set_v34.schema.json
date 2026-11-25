@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_outcome_set_v34.schema.json",
+  "title": "Durable-learning V11 outcome-set verification report v34",
+  "description": "Standalone validation entry point for the same V11 outcome-set report definition embedded in evaluation v34.",
+  "$ref": "durable_learning_evaluation_v34.schema.json#/$defs/reportV34"
+}

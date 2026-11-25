@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/rootless_cycle_configuration_cohort_audit_v2.schema.json",
+  "title": "SentientOS rootless cycle configuration cohort audit v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "cycle_count", "cycles", "parity", "configuration_parity_gate_passed", "seed_normalized_configuration_parity", "seed_normalized_configuration_parity_observed", "seed_normalized_interpretation_limit", "audit_performed_inference", "learning_established", "authority", "audit_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.rootless_cycle_configuration_cohort_audit:v2"},
+    "cycle_count": {"type": "integer", "minimum": 2},
+    "cycles": {"type": "array", "minItems": 2, "items": {"type": "object", "additionalProperties": false,
+      "required": ["cycle_id", "preregistration_file_sha256", "cycle_result_file_sha256", "model_identity_digest", "model_configuration_digest", "configuration_payload_present", "configuration_payload_digest", "configuration_core_digest_without_seed", "ollama_model_seed", "experiment_seed", "model_identity_core_digest", "external_protocol_digest", "campaign_binding_verified", "campaign_id", "campaign_plan_digest", "campaign_cycle_index", "source_content_digest", "source_provenance_complete", "task_family_id", "condition_identity_bindings_verified"],
+      "properties": {
+        "cycle_id": {"type": "string", "minLength": 1},
+        "preregistration_file_sha256": {"$ref": "#/$defs/hexDigest"},
+        "cycle_result_file_sha256": {"$ref": "#/$defs/hexDigest"},
+        "model_identity_digest": {"$ref": "#/$defs/digest"},
+        "model_configuration_digest": {"$ref": "#/$defs/hexDigest"},
+        "configuration_payload_present": {"type": "boolean"},
+        "configuration_payload_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "configuration_core_digest_without_seed": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "ollama_model_seed": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "experiment_seed": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        "model_identity_core_digest": {"$ref": "#/$defs/digest"},
+        "external_protocol_digest": {"anyOf": [{"$ref": "#/$defs/hexDigest"}, {"type": "null"}]},
+        "campaign_binding_verified": {"type": "boolean"},
+        "campaign_id": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        "campaign_plan_digest": {"anyOf": [{"$ref": "#/$defs/hexDigest"}, {"type": "null"}]},
+        "campaign_cycle_index": {"anyOf": [{"type": "integer", "minimum": 0}, {"type": "null"}]},
+        "source_content_digest": {"anyOf": [{"$ref": "#/$defs/hexDigest"}, {"type": "null"}]},
+        "source_provenance_complete": {"type": "boolean"},
+        "task_family_id": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "null"}]},
+        "condition_identity_bindings_verified": {"type": "boolean"}
+      }}},
+    "parity": {"type": "object", "additionalProperties": {"type": "boolean"}},
+    "configuration_parity_gate_passed": {"type": "boolean"},
+    "seed_normalized_configuration_parity": {"type": "object", "additionalProperties": {"type": "boolean"}},
+    "seed_normalized_configuration_parity_observed": {"type": "boolean"},
+    "seed_normalized_interpretation_limit": {"type": "string", "minLength": 1},
+    "audit_performed_inference": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "audit_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "hexDigest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

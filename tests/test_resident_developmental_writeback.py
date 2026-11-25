@@ -281,8 +281,8 @@ def test_objective_task_family_trial_gets_narrow_selected_evidence_and_prompt_bu
 
     assert _selected_fact_byte_limit([fact]) == (
         MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES)
-    assert MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES == 12_288
-    assert _writeback_input_limit([fact]) == 16_384
+    assert MAX_OBJECTIVE_TASK_FAMILY_SELECTED_EVIDENCE_BYTES == 16_384
+    assert _writeback_input_limit([fact]) == 24_576
 
     malformed = json.loads(json.dumps(fact))
     malformed["payload"]["task_family_posture"] = "unbound"

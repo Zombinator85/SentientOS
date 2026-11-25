@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Historical examples pair model identity preflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "run_id",
+    "trial_index",
+    "execution_plan_digest",
+    "source_receipt_id",
+    "source_receipt_digest",
+    "source_active_model_identity",
+    "target_model_identity_digest",
+    "model_loaded",
+    "model_invoked",
+    "identity_difference_fields"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.historical_examples_pair_model_identity_preflight:v1"
+    },
+    "status": {
+      "enum": ["matched_without_model_load", "rejected_identity_mismatch"]
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"
+    },
+    "trial_index": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "execution_plan_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "source_receipt_id": {
+      "type": "string",
+      "pattern": "^lmrec-[0-9a-f]{24}$"
+    },
+    "source_receipt_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_preregistration_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_configuration_observation_status": {
+      "enum": [
+        "source_preregistration_unavailable",
+        "source_preregistration_did_not_retain_configuration_payload",
+        "source_configuration_payload_verified"
+      ]
+    },
+    "source_active_model_identity": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "target_model_identity_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "predicted_model_identity_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identity_difference_fields": {
+      "description": "Fields that differ between the verified archived source identity and the predicted target identity; these differences are diagnostic and do not reject a run when the predicted identity digest matches the frozen target digest.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "artifact_size_bytes",
+          "candidate_index",
+          "configuration_digest",
+          "engine",
+          "fallback",
+          "model_content_sha256",
+          "posture",
+          "resolved_artifact_path",
+          "semantic_artifact_identity",
+          "sidecar_metadata_digest"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "predicted_model_configuration_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "configuration_digest", "payload"],
+      "properties": {
+        "schema_version": {
+          "const": "sentientos.active_model_configuration_observation:v1"
+        },
+        "configuration_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "payload": {
+          "type": "object"
+        }
+      }
+    },
+    "active_model_identity": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "predicted_active_model_identity": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "source_model_configuration_observation": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "model_loaded": {
+      "const": false
+    },
+    "model_invoked": {
+      "const": false
+    },
+    "run_root_allocated": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "matched_without_model_load" }
+        }
+      },
+      "then": {
+        "required": ["predicted_model_identity_digest", "active_model_identity"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": { "const": "rejected_identity_mismatch" }
+        }
+      },
+      "then": {
+        "required": [
+          "predicted_model_identity_digest",
+          "predicted_active_model_identity"
+        ]
+      }
+    }
+  ]
+}

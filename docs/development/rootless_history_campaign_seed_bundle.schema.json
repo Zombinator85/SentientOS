@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless History Campaign Initial Seed Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "campaign_id", "plan_digest", "task_family_id",
+    "source_history_boundary_digest", "source_history_file_count",
+    "source_history_total_size_bytes", "source_snapshot_atomic", "files",
+    "bundle_digest"
+  ],
+  "properties": {
+    "schema_version": {"const": "sentientos.rootless_history_campaign_seed_bundle:v1"},
+    "campaign_id": {"type": "string", "pattern": "^rootless-history-campaign-[0-9a-f]{20}$"},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "task_family_id": {"enum": [
+      "rootless_integer_affine_transfer_low_range_v6",
+      "rootless_integer_affine_transfer_wide_range_v7"
+    ]},
+    "source_history_boundary_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_history_file_count": {"type": "integer", "minimum": 0, "maximum": 50000},
+    "source_history_total_size_bytes": {"type": "integer", "minimum": 0, "maximum": 2147483648},
+    "source_snapshot_atomic": {"const": false},
+    "files": {
+      "type": "array",
+      "maxItems": 50000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "size_bytes", "content_base64"],
+        "properties": {
+          "path": {"type": "string", "pattern": "^(records/devrec-[0-9a-f]{24}|receipts/devreceipt-[0-9a-f]{24})\\.json$"},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "size_bytes": {"type": "integer", "minimum": 0, "maximum": 1048576},
+          "content_base64": {"type": "string", "contentEncoding": "base64", "maxLength": 1398104}
+        }
+      }
+    },
+    "bundle_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-review-pair:v1",
+  "title": "SentientOS federated semantic history review pair",
+  "description": "One blinded question/record unit for independent relevance review. It omits source identity, source-experience binding, preregistered stratum, and retrieval outcomes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "query_set_id", "query_set_digest",
+    "federated_manifest_digest", "question_digest", "question",
+    "record_ref_id", "record_digest", "record_projection",
+    "source_locator_fields_included", "source_experience_binding_included",
+    "preregistered_stratum_included", "retrieval_condition_outcomes_included",
+    "generative_model_invoked", "authority", "review_pair_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_review_pair:v1" },
+    "query_set_id": { "type": "string", "pattern": "^federated-queryset-[0-9a-f]{24}$" },
+    "query_set_digest": { "$ref": "#/$defs/digest" },
+    "federated_manifest_digest": { "$ref": "#/$defs/digest" },
+    "question_digest": { "$ref": "#/$defs/digest" },
+    "question": { "type": "string", "minLength": 1, "maxLength": 1200, "pattern": "\\S" },
+    "record_ref_id": { "type": "string", "pattern": "^frec-[0-9a-f]{24}$" },
+    "record_digest": { "$ref": "#/$defs/digest" },
+    "record_projection": { "type": "object" },
+    "source_locator_fields_included": { "const": false },
+    "source_experience_binding_included": { "const": false },
+    "preregistered_stratum_included": { "const": false },
+    "retrieval_condition_outcomes_included": { "const": false },
+    "generative_model_invoked": { "const": false },
+    "authority": { "const": false },
+    "review_pair_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/negative_guidance_replication_series_analysis_verification.schema.json",
+  "title": "Negative guidance replication series analysis verification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "series_id",
+    "series_plan_digest",
+    "primary_outcome_digest",
+    "analysis_digest",
+    "response_dynamics_file_sha256",
+    "planned_pair_count",
+    "verified_probe_count",
+    "verified_answered_counts",
+    "verified_correct_counts",
+    "reconciled_coverage_relation_counts",
+    "source_report_answer_relation_counts",
+    "source_report_changed_answer_or_abstention_count",
+    "answer_value_relation_independently_recomputed",
+    "receipt_answer_relation_recomputation",
+    "cross_report_probe_bindings_reconciled",
+    "correctness_and_response_change_reconciled_separately",
+    "independent_scorer_attested",
+    "causal_effect_established",
+    "learning_established",
+    "improvement_established",
+    "model_loaded",
+    "model_invoked",
+    "authority",
+    "verification_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.negative_guidance_replication_series_analysis_verification:v2"
+    },
+    "series_id": {"type": "string", "minLength": 1},
+    "series_plan_digest": {"$ref": "#/$defs/digest"},
+    "primary_outcome_digest": {"$ref": "#/$defs/digest"},
+    "analysis_digest": {"$ref": "#/$defs/digest"},
+    "response_dynamics_file_sha256": {"$ref": "#/$defs/digest"},
+    "planned_pair_count": {"type": "integer", "minimum": 1},
+    "verified_probe_count": {"type": "integer", "minimum": 1},
+    "verified_answered_counts": {"$ref": "#/$defs/armCounts"},
+    "verified_correct_counts": {"$ref": "#/$defs/armCounts"},
+    "reconciled_coverage_relation_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["both_abstained", "present_only_answered", "omitted_only_answered"],
+      "properties": {
+        "both_abstained": {"type": "integer", "minimum": 0},
+        "present_only_answered": {"type": "integer", "minimum": 0},
+        "omitted_only_answered": {"type": "integer", "minimum": 0}
+      }
+    },
+    "source_report_answer_relation_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["same_answer", "different_answers"],
+      "properties": {
+        "same_answer": {"type": "integer", "minimum": 0},
+        "different_answers": {"type": "integer", "minimum": 0}
+      }
+    },
+    "source_report_changed_answer_or_abstention_count": {"type": "integer", "minimum": 0},
+    "answer_value_relation_independently_recomputed": {"type": "boolean"},
+    "receipt_answer_relation_recomputation": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[0-9]+$"},
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["same_answer_count", "different_answers_count", "receipt_bindings_verified", "probe_answer_relations_recomputed"],
+        "properties": {
+          "same_answer_count": {"type": "integer", "minimum": 0},
+          "different_answers_count": {"type": "integer", "minimum": 0},
+          "receipt_bindings_verified": {"const": true},
+          "probe_answer_relations_recomputed": {"const": true}
+        }
+      }
+    },
+    "cross_report_probe_bindings_reconciled": {"const": true},
+    "correctness_and_response_change_reconciled_separately": {"const": true},
+    "independent_scorer_attested": {"const": false},
+    "causal_effect_established": {"const": false},
+    "learning_established": {"const": false},
+    "improvement_established": {"const": false},
+    "model_loaded": {"const": false},
+    "model_invoked": {"const": false},
+    "authority": {"const": false},
+    "verification_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "armCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["negative_guidance_present", "negative_guidance_omitted"],
+      "properties": {
+        "negative_guidance_present": {"type": "integer", "minimum": 0},
+        "negative_guidance_omitted": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

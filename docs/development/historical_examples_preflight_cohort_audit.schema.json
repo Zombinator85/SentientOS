@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_preflight_cohort_audit.schema.json",
+  "title": "SentientOS historical examples preflight cohort audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "trial_count", "unique_probe_input_count", "shared_boundary", "trials", "model_loaded", "model_invoked", "learning_established", "authority", "cohort_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_preflight_cohort_audit:v1"},
+    "trial_count": {"type": "integer", "minimum": 2},
+    "unique_probe_input_count": {"type": "integer", "minimum": 2},
+    "shared_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_family_id", "target_model_identity_digest", "history_prompt_identity_policy", "snapshot_id", "snapshot_digest", "history_set_digest", "generation_config_digest", "generation_budget_digest", "cycle_root_id", "source_receipt_id", "source_receipt_digest"],
+      "properties": {
+        "task_family_id": {"type": "string", "minLength": 1},
+        "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+        "history_prompt_identity_policy": {"type": ["string", "null"], "enum": ["matched_cross_model_identity_omitted:v1", null]},
+        "snapshot_id": {"type": "string", "minLength": 1},
+        "snapshot_digest": {"type": "string", "minLength": 1},
+        "history_set_digest": {"$ref": "#/$defs/digest"},
+        "generation_config_digest": {"$ref": "#/$defs/digest"},
+        "generation_budget_digest": {"$ref": "#/$defs/digest"},
+        "model_identity_backend_seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "cycle_root_id": {"type": "string", "minLength": 1},
+        "source_receipt_id": {"type": "string", "minLength": 1},
+        "source_receipt_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "trials": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["task_generation_seed", "task_digest", "report_digest", "verification_digest", "protocol_digest", "arm_order_seed_digest", "arm_order", "probe_count", "probe_binding_set_digest"],
+        "properties": {
+          "task_generation_seed": {"type": "integer"},
+          "task_digest": {"$ref": "#/$defs/digest"},
+          "report_digest": {"$ref": "#/$defs/digest"},
+          "verification_digest": {"$ref": "#/$defs/digest"},
+          "protocol_digest": {"$ref": "#/$defs/digest"},
+          "arm_order_seed_digest": {"$ref": "#/$defs/digest"},
+          "arm_order": {"type": "array", "items": {"enum": ["examples_included", "examples_omitted"]}, "minItems": 2, "maxItems": 2, "uniqueItems": true},
+          "probe_count": {"type": "integer", "minimum": 1},
+          "probe_binding_set_digest": {"$ref": "#/$defs/digest"}
+        }
+      }
+    },
+    "model_loaded": {"const": false},
+    "model_invoked": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "cohort_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

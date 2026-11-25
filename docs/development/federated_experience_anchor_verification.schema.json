@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-experience-anchor-verification:v3",
+  "title": "SentientOS federated experience-anchor source verification",
+  "description": "Read-only source replay receipt for a typed experience-anchor audit. It verifies source correspondence but does not establish event independence, Phase A eligibility, learning, or authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "audit_digest", "corpus_freeze_id",
+    "source_snapshot_count", "source_snapshot_digest",
+    "anchored_record_count", "distinct_experience_anchor_count",
+    "distinct_experience_shortfall", "independence_established",
+    "phase_a_eligibility_established", "inference_performed", "authority",
+    "verification_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_experience_anchor_verification:v3" },
+    "status": { "const": "verified" },
+    "audit_digest": { "$ref": "#/$defs/digest" },
+    "corpus_freeze_id": { "type": "string", "minLength": 1 },
+    "source_snapshot_count": { "type": "integer", "minimum": 1, "maximum": 100000 },
+    "source_snapshot_digest": { "$ref": "#/$defs/digest" },
+    "anchored_record_count": { "type": "integer", "minimum": 0 },
+    "distinct_experience_anchor_count": { "type": "integer", "minimum": 0 },
+    "distinct_experience_shortfall": { "type": "integer", "minimum": 0 },
+    "independence_established": { "const": false },
+    "phase_a_eligibility_established": { "const": false },
+    "inference_performed": { "const": false },
+    "authority": { "const": false },
+    "verification_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

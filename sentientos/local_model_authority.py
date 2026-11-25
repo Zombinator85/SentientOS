@@ -135,6 +135,14 @@ class LocalModelAuthorityMap:
     def semantic_payload(self) -> dict[str, Any]:
         return {"schema_version": AUTHORITY_SCHEMA_VERSION, "records": [r.to_dict() for r in self.records]}
 
+    @property
+    def policy_digest(self) -> str:
+        """Fingerprint authority policy without volatile observation metadata."""
+        return digest_payload({"schema_version":
+                "sentientos.local_model_authority_policy:v1",
+            "records": [{**record.semantic_payload(), "model_id": record.model_id}
+                for record in self.records]})
+
     def to_dict(self) -> dict[str, Any]:
         p = self.semantic_payload(); p.update({"map_id": self.map_id, "map_digest": self.map_digest, "generated_at": self.generated_at, "summary": dict(self.summary)})
         return p

@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/windows_appcontainer_profile_data_inventory.schema.json",
+  "title": "SentientOS AppContainer profile data inventory observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "condition",
+    "appcontainer_sid",
+    "profile_local_data_root_identity",
+    "tree_inventory",
+    "profile_state_accounted",
+    "registry_state_accounted",
+    "retention_contrast_eligible",
+    "authority",
+    "inventory_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.windows_appcontainer_profile_data_inventory:v1"
+    },
+    "protocol_id": {
+      "type": "string",
+      "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$"
+    },
+    "condition": {
+      "enum": [
+        "relevant_experience_available",
+        "relevant_experience_withheld"
+      ]
+    },
+    "appcontainer_sid": {
+      "type": "string",
+      "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$"
+    },
+    "profile_local_data_root_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "volume_serial",
+        "file_id_hex"
+      ],
+      "properties": {
+        "volume_serial": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "file_id_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "tree_inventory": {
+      "$ref": "windows_custody_regular_tree.schema.json"
+    },
+    "profile_state_accounted": {
+      "const": false
+    },
+    "registry_state_accounted": {
+      "const": false
+    },
+    "retention_contrast_eligible": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "inventory_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}

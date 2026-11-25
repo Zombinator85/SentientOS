@@ -5,13 +5,20 @@
   "authority_level": "bounded_state_transition",
   "source_paths": [
     "sentientos/developmental_model_replacement_experiment.py",
-    "docs/development/developmental_model_replacement_experiment.md"
+    "sentientos/developmental_history_intervention_experiment.py",
+    "sentientos/resident_developmental_cognition.py",
+    "docs/development/developmental_model_replacement_experiment.md",
+    "docs/development/developmental_history_intervention_experiment.md",
+    "docs/development/resident_developmental_cognition.md"
   ],
   "proof_tests": ["tests/test_developmental_model_replacement_experiment.py"],
   "implemented_surfaces": [
     "frozen same-state dual-model substitution",
     "separate source-bound model-development provenance",
     "within-model history ablation and cross-model comparison",
+    "paired calibrated-score comparisons over common answered probes",
+    "paired history-confidence evidence carried into later task-family prompts",
+    "versioned prompt-projection receipt with recovery checks for paired effects",
     "exact model-A restoration check",
     "bounded observational classification"
   ],

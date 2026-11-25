@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.dev/schemas/durable_learning_competence_authorization.schema.json",
+  "title": "SentientOS durable-learning competence authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_id",
+    "protocol_digest",
+    "assessment_id",
+    "assessment_digest",
+    "attempt_id",
+    "attempt_digest",
+    "condition",
+    "task_digest",
+    "prompt_digest",
+    "qualified",
+    "learning_established",
+    "authority",
+    "authorization_id",
+    "authorization_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_competence_authorization:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "assessment_id": { "type": "string", "pattern": "^devexp-durable-learning-competence-assessment-[0-9a-f]{24}$" },
+    "assessment_digest": { "$ref": "#/$defs/digest" },
+    "attempt_id": { "type": "string", "pattern": "^devexp-durable-learning-attempt-[0-9a-f]{24}$" },
+    "attempt_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld", "relevant_experience_restored"] },
+    "task_digest": { "$ref": "#/$defs/digest" },
+    "prompt_digest": { "$ref": "#/$defs/digest" },
+    "qualified": { "const": true },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "authorization_id": { "type": "string", "pattern": "^devexp-durable-learning-competence-authorization-[0-9a-f]{24}$" },
+    "authorization_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

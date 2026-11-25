@@ -636,6 +636,42 @@ RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA = {
             "items": {"type": "integer"}},
     },
 }
+RESIDENT_OBJECTIVE_TASK_SINGLE_ANSWER_OUTPUT_SCHEMA = {
+    "type": "object",
+    "required": ["answer"],
+    "additionalProperties": False,
+    "properties": {"answer": {"type": "integer"}},
+}
+
+
+def resident_objective_task_answer_output_schema(*, task_shape: str,
+        probe_count: int | None = None, allow_abstention: bool = False,
+        include_confidence: bool = False) -> dict[str, Any] | None:
+    """Return a closed JSON schema bound to one objective answer contract."""
+    if (type(allow_abstention) is not bool or type(include_confidence) is not bool
+            or (include_confidence and not allow_abstention)):
+        return None
+    if task_shape == "single" and probe_count == 1:
+        if allow_abstention or include_confidence:
+            return None
+        return dict(RESIDENT_OBJECTIVE_TASK_SINGLE_ANSWER_OUTPUT_SCHEMA)
+    if task_shape == "suite" and type(probe_count) is int and 2 <= probe_count <= 16:
+        items: dict[str, Any] = ({"anyOf": [{"type": "integer"},
+            {"type": "null"}]} if allow_abstention else {"type": "integer"})
+        properties: dict[str, Any] = {"answers": {"type": "array",
+            "minItems": probe_count, "maxItems": probe_count,
+            "items": items}}
+        required = ["answers"]
+        if include_confidence:
+            properties["confidence_basis_points"] = {"type": "array",
+                "minItems": probe_count, "maxItems": probe_count,
+                "items": {"anyOf": [
+                    {"type": "integer", "minimum": 0, "maximum": 10000},
+                    {"type": "null"}]}}
+            required.append("confidence_basis_points")
+        return {"type": "object", "required": required,
+            "additionalProperties": False, "properties": properties}
+    return None
 
 
 def companion_history_output_schema(condition_id: Any) -> Mapping[str, Any]:
@@ -777,9 +813,13 @@ class LocalModelInvocationRequest:
     linkage: Mapping[str, Any] = field(default_factory=dict)
     active_model_identity: Mapping[str, Any] = field(default_factory=dict)
     structured_output_schema: Mapping[str, Any] | None = None
+    authority_map_policy_digest: str | None = None
 
     def semantic_payload(self) -> dict[str, Any]:
-        return {"purpose": self.purpose, "prompt_digest": digest_payload({"prompt": self.prompt}), "prompt_size": len(self.prompt.encode("utf-8")), "model_id": self.model_id, "authority_map_digest": self.authority_map_digest, "model_artifact_digest": self.model_artifact_digest, "active_model_identity": dict(self.active_model_identity), "caller": self.caller, "lifecycle_phase": self.lifecycle_phase, "correlation_id": self.correlation_id, "expected_output_format": self.expected_output_format, "structured_output_schema": dict(self.structured_output_schema) if self.structured_output_schema is not None else None, "budget": self.budget.to_dict(), "upstream_evidence": dict(self.upstream_evidence), "linkage": dict(self.linkage), "allowed_effects": {"local_model_inference": True}, "forbidden_effects": dict(FORBIDDEN_EFFECTS)}
+        payload = {"purpose": self.purpose, "prompt_digest": digest_payload({"prompt": self.prompt}), "prompt_size": len(self.prompt.encode("utf-8")), "model_id": self.model_id, "authority_map_digest": self.authority_map_digest, "model_artifact_digest": self.model_artifact_digest, "active_model_identity": dict(self.active_model_identity), "caller": self.caller, "lifecycle_phase": self.lifecycle_phase, "correlation_id": self.correlation_id, "expected_output_format": self.expected_output_format, "structured_output_schema": dict(self.structured_output_schema) if self.structured_output_schema is not None else None, "budget": self.budget.to_dict(), "upstream_evidence": dict(self.upstream_evidence), "linkage": dict(self.linkage), "allowed_effects": {"local_model_inference": True}, "forbidden_effects": dict(FORBIDDEN_EFFECTS)}
+        if self.authority_map_policy_digest is not None:
+            payload["authority_map_policy_digest"] = self.authority_map_policy_digest
+        return payload
 
     @property
     def request_digest(self) -> str: return _digest_text(self.semantic_payload())
@@ -1017,6 +1057,16 @@ class LocalModelResidencyPreloadReceipt:
 
 def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
     reasons: list[str] = []
+    request_payload = payload.get("request")
+    if (isinstance(request_payload, Mapping)
+            and "authority_map_policy_digest" in request_payload
+            and (not isinstance(request_payload.get(
+                    "authority_map_policy_digest"), str)
+                or len(request_payload["authority_map_policy_digest"]) != 64
+                or any(character not in "0123456789abcdef"
+                    for character in request_payload[
+                        "authority_map_policy_digest"]))):
+        reasons.append("authority_map_policy_digest_invalid")
     schema = payload.get("schema_version")
     legacy_semantic_keys = ["request", "status", "reason_codes", "output_digest",
         "output_size_bytes", "generation_config", "admission_decision_ref", "purpose",
@@ -1233,6 +1283,29 @@ def validate_receipt(payload: Mapping[str, Any]) -> tuple[bool, list[str]]:
         reasons.append("receipt_digest_mismatch")
     if payload.get("receipt_id") != "lmrec-" + expected_digest[:24]:
         reasons.append("receipt_id_mismatch")
+    # output_text is intentionally outside the receipt semantic digest because
+    # callers may omit it. When it is present and complete, bind the optional
+    # text back to the authenticated output digest and byte count before any
+    # consumer treats that text as verified invocation evidence.
+    output_text = payload.get("output_text")
+    if output_text is not None:
+        if not isinstance(output_text, str):
+            reasons.append("receipt_output_text_invalid")
+        elif payload.get("output_truncated") is not True:
+            try:
+                text_digest = digest_payload({"output": output_text})
+                text_size = len(output_text.encode("utf-8"))
+            except (TypeError, ValueError, UnicodeError):
+                reasons.append("receipt_output_text_encoding_invalid")
+                text_digest = None
+                text_size = None
+            if (not isinstance(payload.get("output_digest"), str)
+                    or text_digest != payload.get("output_digest")):
+                reasons.append("receipt_output_text_digest_mismatch")
+            if (type(payload.get("output_size_bytes")) is not int
+                    or text_size is None
+                    or payload.get("output_size_bytes") != text_size):
+                reasons.append("receipt_output_text_size_mismatch")
     linkage = {"receipt_digest": payload.get("receipt_digest"),
         "allocation_digest": payload.get("resource_allocation_digest"),
         "attempt_id": payload.get("resource_attempt_id"),
@@ -1700,18 +1773,38 @@ class GovernedLocalModelInvoker:
                 raise ValueError("structured_output_schema_not_canonical")
             expected_intervention_schema = companion_history_output_schema(
                 (linkage or {}).get("condition_id"))
-            is_objective_task = "objective_task_plan_digest" in (upstream_evidence or {})
+            request_evidence = dict(upstream_evidence or {})
+            is_objective_task = "objective_task_plan_digest" in request_evidence
             allowed_intervention_schemas = [expected_intervention_schema]
             if is_objective_task:
-                allowed_intervention_schemas.append(RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
+                task_shape = request_evidence.get("objective_task_response_shape")
+                probe_count = request_evidence.get("objective_task_probe_count")
+                allow_abstention = request_evidence.get(
+                    "objective_task_allow_abstention", False)
+                include_confidence = request_evidence.get(
+                    "objective_task_include_confidence", False)
+                if (type(allow_abstention) is not bool
+                        or type(include_confidence) is not bool):
+                    raise ValueError("structured_output_schema_not_canonical")
+                objective_schema = resident_objective_task_answer_output_schema(
+                    task_shape=task_shape, probe_count=probe_count,
+                    allow_abstention=allow_abstention,
+                    include_confidence=include_confidence)
+                if objective_schema is not None:
+                    allowed_intervention_schemas.append(objective_schema)
+                elif "objective_task_response_shape" not in request_evidence:
+                    # Read compatibility for requests created before the
+                    # task-specific output contract was introduced.
+                    allowed_intervention_schemas.append(
+                        RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
             if (purpose == INTERVENTION_PURPOSE
                     and dict(structured_output_schema) not in allowed_intervention_schemas):
                 raise ValueError("structured_output_schema_not_canonical")
-        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None)
+        return LocalModelInvocationRequest(purpose=purpose, prompt=prompt, model_id=record.model_id, authority_map_digest=self.authority_map.map_digest, model_artifact_digest=record.model_content_sha256, caller=caller, lifecycle_phase=lifecycle_phase, correlation_id=correlation_id, expected_output_format=expected_output_format, budget=budget or LocalModelInvocationBudget(), upstream_evidence=upstream_evidence or {}, linkage=linkage or {}, active_model_identity=identity.to_dict() if identity is not None else {}, structured_output_schema=deepcopy(dict(structured_output_schema)) if structured_output_schema is not None else None, authority_map_policy_digest=getattr(self.authority_map, "policy_digest", None))
 
     def invoke(self, request: LocalModelInvocationRequest, *, persist: bool = True,
                include_output_in_receipt: bool = False,
-               pre_effect_guard: Callable[[], None] | None = None,
+               pre_effect_guard: Callable[[], Any] | None = None,
                post_effect_guard: Callable[[], None] | None = None,
                resource_context: GovernedLocalModelResourceInvocationContext | None = None,
                on_content_chunk: Callable[[str], None] | None = None) -> LocalModelInvocationReceipt:
@@ -1742,12 +1835,13 @@ class GovernedLocalModelInvoker:
     def _invoke_with_custody_lease(
             self, request: LocalModelInvocationRequest, *, persist: bool = True,
             include_output_in_receipt: bool = False,
-            pre_effect_guard: Callable[[], None] | None = None,
+            pre_effect_guard: Callable[[], Any] | None = None,
             post_effect_guard: Callable[[], None] | None = None,
             resource_context: GovernedLocalModelResourceInvocationContext | None = None,
             on_content_chunk: Callable[[str], None] | None = None
             ) -> LocalModelInvocationReceipt:
         started = time.monotonic(); status = "blocked_invalid"; reasons: list[str] = [] ; output: str | None = None; admitted_ref = None; fallback = False; truncated = False; backend_completion: Mapping[str, Any] | None = None
+        pre_effect_guard_evidence: Mapping[str, Any] | None = None
         cancellation_resource_observation: Mapping[str, Any] | None = None
         decision_payload: dict[str, Any] = {}; attempt_id: str | None = None; backend_entered = False
         admission_decision_record: Mapping[str, Any] | None = None
@@ -1813,8 +1907,30 @@ class GovernedLocalModelInvoker:
                 is_objective_task = "objective_task_plan_digest" in request.upstream_evidence
                 allowed_intervention_schemas = [expected_intervention_schema]
                 if is_objective_task:
-                    allowed_intervention_schemas.append(
-                        RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
+                    task_shape = request.upstream_evidence.get(
+                        "objective_task_response_shape")
+                    probe_count = request.upstream_evidence.get(
+                        "objective_task_probe_count")
+                    allow_abstention = request.upstream_evidence.get(
+                        "objective_task_allow_abstention", False)
+                    include_confidence = request.upstream_evidence.get(
+                        "objective_task_include_confidence", False)
+                    if (type(allow_abstention) is not bool
+                            or type(include_confidence) is not bool):
+                        reasons.append("structured_output_schema_not_canonical")
+                        allow_abstention = False
+                        include_confidence = False
+                    objective_schema = resident_objective_task_answer_output_schema(
+                        task_shape=task_shape, probe_count=probe_count,
+                        allow_abstention=allow_abstention,
+                        include_confidence=include_confidence)
+                    if objective_schema is not None:
+                        allowed_intervention_schemas.append(objective_schema)
+                    elif "objective_task_response_shape" not in request.upstream_evidence:
+                        # Historical receipts remain verifiable under the
+                        # previous combined single/suite schema.
+                        allowed_intervention_schemas.append(
+                            RESIDENT_OBJECTIVE_TASK_ANSWER_OUTPUT_SCHEMA)
                 if schema not in allowed_intervention_schemas:
                     reasons.append("structured_output_schema_not_canonical")
             elif request.purpose != "resident_developmental_interpretation": reasons.append("structured_output_schema_invalid")
@@ -1826,6 +1942,10 @@ class GovernedLocalModelInvoker:
                 if key not in link: reasons.append(f"genesis_linkage_missing_{key}")
         if self.invocation_counts.get(request.correlation_id, 0) >= request.budget.max_calls_per_correlation: reasons.append("duplicate_correlation")
         if request.authority_map_digest != self.authority_map.map_digest: reasons.append("model_authority_stale")
+        if (request.authority_map_policy_digest is not None
+                and request.authority_map_policy_digest
+                    != getattr(self.authority_map, "policy_digest", None)):
+            reasons.append("model_authority_policy_stale")
         if record and request.model_artifact_digest != record.model_content_sha256: reasons.append("model_digest_mismatch")
         identity = getattr(self.model, "active_identity", None)
         production_identity = identity is not None and getattr(identity, "posture", None) == "production"
@@ -1964,7 +2084,19 @@ class GovernedLocalModelInvoker:
                             generation["on_content_chunk"] = on_content_chunk
                         gen_kwargs: dict[str, Any] = {k: v for k, v in generation.items() if v is not None}
                         if pre_effect_guard is not None:
-                            try: pre_effect_guard()
+                            try:
+                                guard_result = pre_effect_guard()
+                                if guard_result is not None:
+                                    if not isinstance(guard_result, Mapping):
+                                        raise ValueError(
+                                            "pre_effect_guard_evidence_invalid")
+                                    encoded_guard = json.dumps(dict(guard_result),
+                                        sort_keys=True, ensure_ascii=False,
+                                        separators=(",", ":"), allow_nan=False).encode("utf-8")
+                                    if len(encoded_guard) > 65_536:
+                                        raise ValueError(
+                                            "pre_effect_guard_evidence_over_bound")
+                                    pre_effect_guard_evidence = dict(guard_result)
                             except Exception:
                                 if resource_context is not None and attempt_id is not None:
                                     resource_context.allocator.reconcile_not_begun(resource_context.allocation, attempt_id, observed_at=resource_context.clock())
@@ -2287,6 +2419,21 @@ class GovernedLocalModelInvoker:
                         receipt_persistence_confirmed=receipt_persistence_confirmed,
                         resource_linkage_persistence_confirmed=resource_linkage_persistence_confirmed) from exc
                 raise
+        if persist and pre_effect_guard_evidence is not None:
+            try:
+                self._persist_pre_effect_guard_evidence(receipt=receipt,
+                    request=request, evidence=pre_effect_guard_evidence)
+            except Exception as exc:
+                if backend_entered:
+                    raise LocalModelPostEffectCustodyError(
+                        receipt_id=receipt.receipt_id,
+                        receipt_digest=receipt.receipt_digest,
+                        invocation_status=receipt.status,
+                        failure_phase="pre_effect_guard_evidence_publication",
+                        receipt_persistence_confirmed=receipt_persistence_confirmed,
+                        resource_linkage_persistence_confirmed=(
+                            resource_linkage_persistence_confirmed)) from exc
+                raise
         return receipt
 
     def _record_for(self, model_id: str) -> LocalModelAuthorityRecord | None:
@@ -2296,6 +2443,31 @@ class GovernedLocalModelInvoker:
         atomic_write_json(self.runtime_root / "requests" / f"{request.request_id}.json", request.to_receipt_request_dict())
         if decision: atomic_write_json(self.runtime_root / "decisions" / f"{request.request_id}.json", dict(decision))
         atomic_write_json(self.runtime_root / "receipts" / f"{receipt.receipt_id}.json", receipt.to_dict(include_output=include_output))
+
+    def _persist_pre_effect_guard_evidence(self, *,
+            receipt: LocalModelInvocationReceipt,
+            request: LocalModelInvocationRequest,
+            evidence: Mapping[str, Any]) -> None:
+        semantic = {"schema_version":
+                "sentientos.local_model_pre_effect_guard_evidence:v1",
+            "receipt_id": receipt.receipt_id,
+            "receipt_digest": receipt.receipt_digest,
+            "request_id": request.request_id,
+            "request_digest": request.request_digest,
+            "guard_evidence": dict(evidence)}
+        digest = digest_payload(semantic)
+        payload = {**semantic, "evidence_digest": digest}
+        path = self.runtime_root / "pre_effect_guard_evidence" / (
+            f"{receipt.receipt_id}.json")
+        try:
+            existing = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            existing = None
+        if existing is not None:
+            if existing != payload:
+                raise ValueError("pre_effect_guard_evidence_identity_collision")
+            return
+        atomic_write_json(path, payload)
 
     @staticmethod
     def _valid_genesis_advice(text: str) -> bool:

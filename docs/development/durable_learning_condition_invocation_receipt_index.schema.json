@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_invocation_receipt_index.schema.json",
+  "title": "SentientOS condition-local invocation receipt index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "receipt_refs", "authority", "index_digest"],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_condition_invocation_receipt_index:v1" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "branch_id": { "type": "string", "minLength": 1 },
+    "receipt_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12288,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["receipt_id", "receipt_digest"],
+        "properties": {
+          "receipt_id": { "type": "string", "pattern": "^lmrec-[0-9a-f]{24}$" },
+          "receipt_digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "authority": { "const": false },
+    "index_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}

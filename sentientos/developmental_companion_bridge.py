@@ -41,6 +41,97 @@ class CognitionWorkloadUnavailable(RuntimeError):
     code = "cognition_unavailable_during_gaming"
 
 
+def _valid_history_citation_audit(value: object, *,
+        selected_record_ids: object, selected_record_digests: object,
+        selection_digest: object, prompt_block_digest: object,
+        retrieval_policy_id: object, history_state_digest: object,
+        serving_model_identity_digest: object,
+        response_digest: object) -> bool:
+    if (not isinstance(value, Mapping)
+            or not isinstance(selected_record_ids, list)
+            or not isinstance(selected_record_digests, list)
+            or len(selected_record_ids) != len(selected_record_digests)
+            or not isinstance(selection_digest, str)
+            or value.get("schema_version") not in {
+                "sentientos.ordinary_history_record_id_citation_audit:v3",
+                "sentientos.ordinary_history_record_id_citation_audit:v4"}):
+        return False
+    optional_fields = {key for key in ("prompt_block_digest", "retrieval_policy_id",
+        "history_state_digest", "serving_model_identity_digest") if key in value}
+    expected = {"schema_version", "scan_policy_id", "response_text_sha256",
+        "response_turn_digest",
+        "selection_digest", "citation_posture", "selected_record_ids_cited",
+        "selected_record_citations", "unselected_record_id_count",
+        "explicit_record_id_count", "scan_complete", "influence_posture",
+        "learning_established"} | optional_fields
+    cited_ids = value.get("selected_record_ids_cited")
+    cited_rows = value.get("selected_record_citations")
+    if (set(value) != expected
+            or value.get("scan_policy_id") !=
+                "exact_devrec_id_tokens_in_saved_assistant_text:v1"
+            or not isinstance(value.get("response_text_sha256"), str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                value["response_text_sha256"]) is None
+            or not isinstance(value.get("response_turn_digest"), str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                value["response_turn_digest"]) is None
+            or value.get("response_turn_digest") != response_digest
+            or value.get("selection_digest") != selection_digest
+            or not isinstance(cited_ids, list)
+            or not isinstance(cited_rows, list)
+            or len(cited_ids) != len(cited_rows)
+            or len(cited_ids) > len(selected_record_ids)
+            or any(not isinstance(record_id, str) for record_id in cited_ids)
+            or len(set(cited_ids)) != len(cited_ids)
+            or any(not isinstance(record_id, str)
+                or record_id not in selected_record_ids for record_id in cited_ids)):
+        return False
+    for key, expected_value in (
+            ("prompt_block_digest", prompt_block_digest),
+            ("retrieval_policy_id", retrieval_policy_id),
+            ("history_state_digest", history_state_digest),
+            ("serving_model_identity_digest", serving_model_identity_digest)):
+        if (key in value) != isinstance(expected_value, str):
+            return False
+        if key in value and value[key] != expected_value:
+            return False
+    serving_bound = (value.get("schema_version") ==
+        "sentientos.ordinary_history_record_id_citation_audit:v4")
+    if serving_bound != isinstance(serving_model_identity_digest, str):
+        return False
+    if (value.get("citation_posture") not in {
+            "scan_incomplete_response_length_limit", "no_literal_record_id_citation",
+            "selected_record_id_cited", "unselected_record_id_cited",
+            "selected_and_unselected_record_ids_cited"}
+            or type(value.get("unselected_record_id_count")) is not int
+            or value["unselected_record_id_count"] < 0
+            or type(value.get("explicit_record_id_count")) is not int
+            or value["explicit_record_id_count"] != len(cited_ids)
+                + value["unselected_record_id_count"]
+            or type(value.get("scan_complete")) is not bool
+            or value.get("influence_posture") != "not_measured"
+            or value.get("learning_established") is not False):
+        return False
+    expected_posture = (
+        "scan_incomplete_response_length_limit"
+        if value["scan_complete"] is False else
+        "no_literal_record_id_citation"
+        if value["explicit_record_id_count"] == 0 else
+        "selected_and_unselected_record_ids_cited"
+        if value["unselected_record_id_count"] and cited_ids else
+        "unselected_record_id_cited"
+        if value["unselected_record_id_count"] else
+        "selected_record_id_cited")
+    if value["citation_posture"] != expected_posture:
+        return False
+    digest_by_id = dict(zip(selected_record_ids, selected_record_digests))
+    return all(isinstance(row, Mapping)
+        and set(row) == {"record_id", "record_digest"}
+        and row.get("record_id") == record_id
+        and row.get("record_digest") == digest_by_id.get(record_id)
+        for record_id, row in zip(cited_ids, cited_rows))
+
+
 MAX_HISTORY_INTERVENTION_CAPTURE_AGE = timedelta(seconds=60)
 MAX_HISTORY_INTERVENTION_FUTURE_SKEW = timedelta(seconds=5)
 MAX_COMPANION_CONSEQUENCE_RECORDS = 32
@@ -216,7 +307,9 @@ def _screen_record(observation: Mapping[str, Any], *, staleness: str = "unknown"
 
 def make_operator_feedback_record(feedback: str, *, request_id: str,
         assistant_turn_id: str, assistant_response_digest: str,
-        source_capture_digest: str, followup_capture_digest: str,
+        source_capture_digest: str | None, followup_capture_digest: str,
+        source_capture_posture: str = "screen_capture_bound",
+        source_user_turn_id: str | None = None,
         observed_at: str, conversation_citation_ids: Sequence[str] = (),
         conversation_citation_digests: Sequence[str] = (),
         conversation_session_id: str | None = None,
@@ -224,7 +317,11 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         correction_target_epistemic_state_ids: Sequence[str] = (),
         developmental_history_exposure: Mapping[str, Any] | None = None,
         ) -> dict[str, Any]:
-    """Represent explicit local operator feedback as an unverified report."""
+    """Represent explicit local operator feedback as an unverified report.
+
+    Conversation-only feedback binds the source user/assistant turns and session
+    but carries no fabricated screen-capture digest.
+    """
     citation_pattern = re.compile(r"^turn-[0-9a-f]{24}$")
     history_exposure: dict[str, Any] | None = None
     if developmental_history_exposure is not None:
@@ -233,9 +330,12 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                 "operator_feedback_history_exposure_invalid")
         base_exposure_fields = {"context_posture", "selection_digest",
             "record_ids", "record_digests"}
-        expected_exposure_fields = (base_exposure_fields | {"prompt_block_digest"}
-            if "prompt_block_digest" in developmental_history_exposure
-            else base_exposure_fields)
+        optional_exposure_fields = {key for key in (
+            "prompt_block_digest", "retrieval_policy_id",
+            "target_model_identity_digest", "history_state_digest",
+            "serving_model_identity_digest", "citation_audit")
+            if key in developmental_history_exposure}
+        expected_exposure_fields = base_exposure_fields | optional_exposure_fields
         exposure_postures = {
             "selected", "provider_returned_no_context", "provider_unavailable",
             "provider_failed", "context_validation_failed",
@@ -247,7 +347,24 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         record_digests = developmental_history_exposure.get("record_digests")
         prompt_block_digest = developmental_history_exposure.get(
             "prompt_block_digest")
+        retrieval_policy_id = developmental_history_exposure.get(
+            "retrieval_policy_id")
+        target_model_identity_digest = developmental_history_exposure.get(
+            "target_model_identity_digest")
+        history_state_digest = developmental_history_exposure.get(
+            "history_state_digest")
+        serving_model_identity_digest = developmental_history_exposure.get(
+            "serving_model_identity_digest")
+        citation_audit = developmental_history_exposure.get("citation_audit")
         has_prompt_block_digest = "prompt_block_digest" in developmental_history_exposure
+        has_retrieval_policy_id = "retrieval_policy_id" in developmental_history_exposure
+        has_target_model_identity_digest = (
+            "target_model_identity_digest" in developmental_history_exposure)
+        has_history_state_digest = (
+            "history_state_digest" in developmental_history_exposure)
+        has_serving_model_identity_digest = (
+            "serving_model_identity_digest" in developmental_history_exposure)
+        has_citation_audit = "citation_audit" in developmental_history_exposure
         if (set(developmental_history_exposure) != expected_exposure_fields
                 or not isinstance(context_posture, str)
                 or context_posture not in exposure_postures
@@ -264,6 +381,37 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                     and (not isinstance(prompt_block_digest, str)
                         or re.fullmatch(r"[0-9a-f]{64}", prompt_block_digest) is None
                         or context_posture != "selected"))
+                or (has_retrieval_policy_id
+                    and (not isinstance(retrieval_policy_id, str)
+                        or re.fullmatch(r"[a-z0-9_.:-]{1,512}",
+                            retrieval_policy_id) is None
+                        or context_posture != "selected"
+                        or not has_prompt_block_digest))
+                or (has_target_model_identity_digest
+                    and (not isinstance(target_model_identity_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}",
+                            target_model_identity_digest) is None
+                        or context_posture != "selected"))
+                or (has_history_state_digest
+                    and (not isinstance(history_state_digest, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            history_state_digest) is None
+                        or context_posture != "selected"))
+                or (has_serving_model_identity_digest
+                    and (not isinstance(serving_model_identity_digest, str)
+                        or re.fullmatch(r"[0-9a-f]{64}",
+                            serving_model_identity_digest) is None
+                        or context_posture != "selected"))
+                or (has_citation_audit
+                    and not _valid_history_citation_audit(citation_audit,
+                        selected_record_ids=record_ids,
+                        selected_record_digests=record_digests,
+                        selection_digest=selection_digest,
+                        prompt_block_digest=prompt_block_digest,
+                        retrieval_policy_id=retrieval_policy_id,
+                        history_state_digest=history_state_digest,
+                        serving_model_identity_digest=serving_model_identity_digest,
+                        response_digest=assistant_response_digest))
                 or (context_posture == "selected"
                     and (not record_ids or not isinstance(selection_digest, str)
                         or re.fullmatch(r"[0-9a-f]{64}", selection_digest) is None))
@@ -277,14 +425,34 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
             "record_digests": list(record_digests)}
         if has_prompt_block_digest:
             history_exposure["prompt_block_digest"] = prompt_block_digest
+        if has_retrieval_policy_id:
+            history_exposure["retrieval_policy_id"] = retrieval_policy_id
+        if has_target_model_identity_digest:
+            history_exposure["target_model_identity_digest"] = (
+                target_model_identity_digest)
+        if has_history_state_digest:
+            history_exposure["history_state_digest"] = history_state_digest
+        if has_serving_model_identity_digest:
+            history_exposure["serving_model_identity_digest"] = (
+                serving_model_identity_digest)
+        if has_citation_audit:
+            history_exposure["citation_audit"] = dict(citation_audit)
     if (not isinstance(feedback, str) or not feedback.strip()
             or len(feedback) > 800 or len(feedback.encode("utf-8")) > 2048
             or not isinstance(request_id, str) or not request_id
             or not isinstance(assistant_turn_id, str) or not assistant_turn_id
             or not isinstance(assistant_response_digest, str)
             or re.fullmatch(r"[0-9a-f]{64}", assistant_response_digest) is None
-            or not isinstance(source_capture_digest, str)
-            or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None
+            or not isinstance(source_capture_posture, str)
+            or source_capture_posture not in {
+                "screen_capture_bound", "conversation_turns_only"}
+            or (source_capture_posture == "screen_capture_bound"
+                and (not isinstance(source_capture_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", source_capture_digest) is None))
+            or (source_capture_posture == "conversation_turns_only"
+                and (source_capture_digest is not None
+                    or not isinstance(source_user_turn_id, str)
+                    or citation_pattern.fullmatch(source_user_turn_id) is None))
             or not isinstance(followup_capture_digest, str)
             or re.fullmatch(r"[0-9a-f]{64}", followup_capture_digest) is None
             or not isinstance(observed_at, str) or not observed_at
@@ -313,6 +481,16 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
                         conversation_session_id) is None))
             or (developmental_history_exposure is not None
                 and conversation_session_id is None)
+            or (source_capture_posture == "conversation_turns_only"
+                and (conversation_session_id is None
+                    or source_user_turn_id == assistant_turn_id
+                    or len(conversation_citation_ids) < 2
+                    or not any(turn_id == source_user_turn_id
+                        for turn_id in conversation_citation_ids)
+                    or not any(turn_id == assistant_turn_id
+                        and digest == assistant_response_digest
+                        for turn_id, digest in zip(conversation_citation_ids,
+                            conversation_citation_digests))))
             or (history_exposure is not None
                 and "prompt_block_digest" in history_exposure
                 and not any(turn_id == assistant_turn_id
@@ -327,7 +505,20 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         raise DevelopmentalCompanionBridgeError(
             "operator_feedback_contract_invalid")
     normalized = feedback.strip()
-    schema_version = ("sentientos.local_operator_feedback:v7"
+    schema_version = ("sentientos.local_operator_feedback:v12"
+        if history_exposure is not None and "citation_audit" in history_exposure else
+        "sentientos.local_operator_feedback:v11"
+        if history_exposure is not None
+            and "serving_model_identity_digest" in history_exposure else
+        "sentientos.local_operator_feedback:v10"
+        if history_exposure is not None
+            and "target_model_identity_digest" in history_exposure else
+        "sentientos.local_operator_feedback:v9"
+        if source_capture_posture == "conversation_turns_only" else
+        "sentientos.local_operator_feedback:v8"
+        if history_exposure is not None
+            and "retrieval_policy_id" in history_exposure else
+        "sentientos.local_operator_feedback:v7"
         if history_exposure is not None
             and "prompt_block_digest" in history_exposure else
         "sentientos.local_operator_feedback:v6"
@@ -357,6 +548,15 @@ def make_operator_feedback_record(feedback: str, *, request_id: str,
         "authority": {"decision": False, "admission": False,
             "execution": False, "adoption": False, "truth": False},
     }
+    if schema_version == "sentientos.local_operator_feedback:v9":
+        semantic["source_capture_posture"] = source_capture_posture
+        semantic["source_user_turn_id"] = source_user_turn_id
+    elif schema_version in {"sentientos.local_operator_feedback:v10",
+            "sentientos.local_operator_feedback:v11",
+            "sentientos.local_operator_feedback:v12"}:
+        semantic["source_capture_posture"] = source_capture_posture
+        if source_capture_posture == "conversation_turns_only":
+            semantic["source_user_turn_id"] = source_user_turn_id
     if conversation_session_id is not None:
         semantic["conversation_session_id"] = conversation_session_id
     if correction_target_turn_id is not None:
@@ -832,6 +1032,30 @@ class ResidentDevelopmentalCompanionBridge:
             return None
         return provider(question=question, max_input_chars=max_input_chars)
 
+    def ordinary_chat_developmental_history_context_for_model(self, *,
+            question: str, target_model_identity: Mapping[str, Any] | None = None,
+            max_input_chars: int = 8000) -> dict[str, Any] | None:
+        """Rank ordinary-chat history against the exact serving model identity."""
+        if (target_model_identity is not None
+                and not isinstance(target_model_identity, Mapping)):
+            raise DevelopmentalCompanionBridgeError(
+                "ordinary_chat_target_model_identity_invalid")
+        owner = self._owner
+        if (owner is None or getattr(getattr(owner, "config", None),
+                "enabled", False) is not True):
+            return None
+        provider = getattr(owner,
+            "ordinary_chat_developmental_history_context_for_model", None)
+        if callable(provider):
+            return provider(question=question,
+                target_model_identity=target_model_identity,
+                max_input_chars=max_input_chars)
+        # Older owners expose only the model-independent interface. Preserve
+        # compatibility while making the loss of model-aware ranking explicit
+        # in the owner capability rather than silently breaking ordinary chat.
+        return self.ordinary_chat_developmental_history_context(
+            question=question, max_input_chars=max_input_chars)
+
     def history_intervention_available(self) -> bool:
         """Whether the existing three-condition cognition experiment is enabled."""
         owner = self._history_intervention_owner
@@ -1098,8 +1322,12 @@ class ResidentDevelopmentalCompanionBridge:
                 screen_observation: Mapping[str, Any] | None = None,
                 canonical_memory_context: Mapping[str, Any] | None = None,
                 conversation_context: Mapping[str, Any] | None = None,
-                historical_citation_context: Mapping[str, Any] | None = None
+                historical_citation_context: Mapping[str, Any] | None = None,
+                withhold_developmental_history: bool = False
                 ) -> ResidentCompanionInteractionResult:
+        if type(withhold_developmental_history) is not bool:
+            raise DevelopmentalCompanionBridgeError(
+                "developmental_history_withholding_invalid")
         proprioception: Sequence[EmbodimentObservation] = ()
         if self._proprioception_provider is not None:
             value = self._proprioception_provider()
@@ -1179,10 +1407,13 @@ class ResidentDevelopmentalCompanionBridge:
         gate = (self._cognition_inference_gate()
             if self._cognition_inference_gate is not None else nullcontext())
         with gate:
-            return self._owner.run_companion_interaction(
+            interaction_arguments = dict(
                 snapshot=snapshot, request_id=request_id, question=question,
                 prior_self_model=prior_self_model,
                 prior_epistemic_state=prior_epistemic_state,
                 canonical_memory_context=canonical_memory_context,
                 conversation_context=conversation_context,
                 historical_citation_context=historical_citation_context)
+            if withhold_developmental_history:
+                interaction_arguments["withhold_developmental_history"] = True
+            return self._owner.run_companion_interaction(**interaction_arguments)

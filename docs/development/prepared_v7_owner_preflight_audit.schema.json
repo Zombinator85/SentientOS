@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Prepared v7 Owner Preflight Integrity Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "campaign_id", "plan_digest", "cycle_id", "cycle_index",
+    "task_family_id", "task_generation_seed", "source_history_boundary_digest",
+    "source_history_file_count", "source_history_boundary_manifest_verified",
+    "source_history_records_reopened", "model_inference_performed", "checks",
+    "verification_posture", "report_claimed_held_out_transfer_qualified",
+    "held_out_transfer_independently_verified", "model_attention_established",
+    "learning_established", "authority", "source_report_digest", "audit_digest"
+  ],
+  "properties": {
+    "schema_version": {"enum": ["sentientos.rootless_prepared_v7_owner_preflight_audit:v4", "sentientos.rootless_prepared_v7_owner_preflight_audit:v5"]},
+    "campaign_id": {"type": "string", "pattern": "^rootless-history-campaign-[0-9a-f]{20}$"},
+    "plan_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+    "cycle_index": {"type": "integer", "minimum": 0, "maximum": 31},
+    "task_family_id": {"const": "rootless_integer_affine_transfer_wide_range_v7"},
+    "task_generation_seed": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+    "source_history_boundary_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_history_file_count": {"type": "integer", "minimum": 0, "maximum": 50000},
+    "source_history_boundary_manifest_verified": {"const": true},
+    "source_history_records_reopened": {"type": "boolean"},
+    "model_inference_performed": {"const": false},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "report_digest_verified", "plan_digest_verified", "initial_history_boundary_digest_verified",
+        "plan_digest_matches", "cycle_seed_matches",
+        "task_family_matches", "initial_history_boundary_matches",
+        "model_identity_matches_plan", "deterministic_acquisition_probes_match",
+        "deterministic_transfer_probes_match", "probe_reuse_report_matches",
+        "owner_and_binder_selected_no_records", "non_inference_posture"
+      ],
+      "properties": {
+        "report_digest_verified": {"const": true},
+        "plan_digest_verified": {"const": true},
+        "initial_history_boundary_digest_verified": {"const": true},
+        "plan_digest_matches": {"const": true},
+        "cycle_seed_matches": {"const": true},
+        "task_family_matches": {"const": true},
+        "initial_history_boundary_matches": {"const": true},
+        "model_identity_matches_plan": {"const": true},
+        "deterministic_acquisition_probes_match": {"const": true},
+        "deterministic_transfer_probes_match": {"const": true},
+        "probe_reuse_report_matches": {"const": true},
+        "owner_and_binder_selected_no_records": {"const": true},
+        "source_history_boundary_reopened_and_matched": {"type": "boolean"},
+        "source_history_stable_during_read": {"type": "boolean"},
+        "non_inference_posture": {"const": true}
+      }
+    },
+    "verification_posture": {"enum": ["report_integrity_and_plan_binding_verified; source_history_bytes_not_reopened", "report_integrity_plan_binding_and_source_overlap_recomputed"]},
+    "report_claimed_held_out_transfer_qualified": {"const": true},
+    "held_out_transfer_independently_verified": {"type": "boolean"},
+    "model_attention_established": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "source_report_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "source_history_record_count": {"type": "integer", "minimum": 0, "maximum": 50000},
+    "source_history_total_size_bytes": {"type": "integer", "minimum": 0, "maximum": 2147483648},
+    "source_family_example_counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rootless_integer_affine_transfer_low_range_v6", "rootless_integer_affine_transfer_wide_range_v7"],
+      "properties": {
+        "rootless_integer_affine_transfer_low_range_v6": {"type": "integer", "minimum": 0},
+        "rootless_integer_affine_transfer_wide_range_v7": {"type": "integer", "minimum": 0}
+      }
+    },
+    "source_family_probe_inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rootless_integer_affine_transfer_low_range_v6", "rootless_integer_affine_transfer_wide_range_v7"],
+      "properties": {
+        "rootless_integer_affine_transfer_low_range_v6": {"type": "array", "uniqueItems": true, "items": {"type": "integer"}},
+        "rootless_integer_affine_transfer_wide_range_v7": {"type": "array", "uniqueItems": true, "items": {"type": "integer"}}
+      }
+    },
+    "source_transfer_probe_overlaps": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rootless_integer_affine_transfer_low_range_v6", "rootless_integer_affine_transfer_wide_range_v7"],
+      "properties": {
+        "rootless_integer_affine_transfer_low_range_v6": {"type": "array", "uniqueItems": true, "items": {"type": "integer"}},
+        "rootless_integer_affine_transfer_wide_range_v7": {"type": "array", "uniqueItems": true, "items": {"type": "integer"}}
+      }
+    },
+    "source_history_boundary_reopened_and_matched": {"type": "boolean"},
+    "source_history_stable_during_read": {"type": "boolean"},
+    "projection_implementation_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "audit_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_prepared_v7_owner_preflight_audit:v4"}}, "required": ["schema_version"]},
+      "then": {"properties": {"source_history_records_reopened": {"const": false}, "held_out_transfer_independently_verified": {"const": false}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_prepared_v7_owner_preflight_audit:v5"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["source_history_record_count", "source_history_total_size_bytes", "source_family_example_counts", "source_family_probe_inputs", "source_transfer_probe_overlaps", "source_history_boundary_reopened_and_matched", "source_history_stable_during_read", "projection_implementation_sha256"],
+        "properties": {
+          "source_history_records_reopened": {"const": true},
+          "source_history_boundary_reopened_and_matched": {"const": true},
+          "source_history_stable_during_read": {"const": true},
+          "held_out_transfer_independently_verified": {"type": "boolean"},
+          "checks": {"required": ["source_history_boundary_reopened_and_matched", "source_history_stable_during_read"]}
+        }
+      }
+    }
+  ]
+}

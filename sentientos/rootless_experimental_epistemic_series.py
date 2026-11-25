@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 import stat
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -334,6 +336,19 @@ def run_rootless_experimental_correction_pressure_series_once(*,
                 or preview.get("model_invocation_performed") is not False
                 or preview.get("probe_observation_written") is not False):
             raise RootlessExperimentalError("epistemic_series_prompt_preview_invalid")
+        if case.reason_code_vocabulary:
+            try:
+                prompt_payload = json.loads(prompt)
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise RootlessExperimentalError(
+                    "epistemic_series_reason_vocabulary_prompt_invalid") from exc
+            probe_payload = (prompt_payload.get("epistemic_revision_probe")
+                if isinstance(prompt_payload, Mapping) else None)
+            if (not isinstance(probe_payload, Mapping)
+                    or probe_payload.get("reason_code_vocabulary") !=
+                        list(case.reason_code_vocabulary)):
+                raise RootlessExperimentalError(
+                    "epistemic_series_reason_vocabulary_not_exposed")
         prompts.append({"condition": condition, "prompt": prompt,
             "prompt_digest": prompt_digest})
     correction = series.correction_case
@@ -372,6 +387,8 @@ def run_rootless_experimental_correction_pressure_series_once(*,
         "condition_order": [row["condition"] for row in prompts],
         "prompts": prompts,
         "model_identity": dict(session.active_model_identity),
+        "model_configuration_observation":
+            dict(session.active_model_configuration_observation),
         "model_manifest_digest": model_manifest_digest,
         "model_artifact_sha256": session.model_manifest["artifact_sha256"],
         "runtime_bundle_digest": runtime_bundle_digest,
@@ -616,5 +633,428 @@ def _read_capture_index_digest(run_root: Path) -> str:
     if digest != semantic_digest(value):
         raise RootlessExperimentalError("epistemic_capture_index_digest_invalid")
     return str(digest)
+
+
+class _RootlessArtifactReceiptVerifier:
+    """Verify a closed experiment's receipts without loading its model."""
+
+    def __init__(self, *, run_root: Path, session_binding: Mapping[str, Any],
+            active_model_identity: Mapping[str, Any]) -> None:
+        from .rootless_experimental_local_model import (
+            verify_private_experiment_directory,
+        )
+
+        self.run_root = run_root
+        self.session_binding = dict(session_binding)
+        self.active_model_identity = dict(active_model_identity)
+        verify_private_experiment_directory(run_root / "inference-custody")
+        verify_private_experiment_directory(
+            run_root / "inference-custody" / "receipts")
+
+    def verify_persisted_invocation_receipt(self, receipt_id: str,
+            receipt_digest: str, **expected: Any) -> Mapping[str, Any]:
+        if (not isinstance(receipt_id, str) or not RECEIPT_ID_RE.fullmatch(receipt_id)
+                or not isinstance(receipt_digest, str)
+                or len(receipt_digest) != 64
+                or any(char not in "0123456789abcdef" for char in receipt_digest)
+                or expected.get("expected_session_binding") != self.session_binding
+                or expected.get("expected_active_model_identity") !=
+                    self.active_model_identity):
+            raise RootlessExperimentalError(
+                "epistemic_offline_receipt_expectation_invalid")
+        from .governed_local_model_invocation import validate_receipt
+
+        path = self.run_root / "inference-custody" / "receipts" / f"{receipt_id}.json"
+        payload = _read_json(_safe_child(EXPERIMENT_ROOT, path),
+            max_bytes=MAX_RECORD_BYTES)
+        valid, reasons = validate_receipt(payload)
+        request = payload.get("request")
+        linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        if (not valid or payload.get("receipt_id") != receipt_id
+                or payload.get("receipt_digest") != receipt_digest
+                or payload.get("status") != "admitted_completed"
+                or not isinstance(request, Mapping)
+                or request.get("request_id") != expected.get("expected_request_id")
+                or request.get("request_digest") != expected.get(
+                    "expected_request_digest")
+                or expected.get("expected_session_id") !=
+                    self.session_binding.get("session_id")
+                or request.get("purpose") !=
+                    ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                or request.get("active_model_identity") !=
+                    self.active_model_identity
+                or not isinstance(linkage, Mapping)
+                or linkage.get("rootless_experimental_session") !=
+                    self.session_binding):
+            raise RootlessExperimentalError(
+                "epistemic_offline_receipt_verification_failed:" +
+                ",".join(reasons if not valid else ()))
+        return payload
+
+
+class _NoInferenceInvoker:
+    """Satisfy the cognition reader's owner contract while forbidding inference."""
+
+    @staticmethod
+    def build_request(**_kwargs: Any) -> Any:
+        raise RootlessExperimentalError("epistemic_offline_inference_forbidden")
+
+    @staticmethod
+    def invoke(*_args: Any, **_kwargs: Any) -> Any:
+        raise RootlessExperimentalError("epistemic_offline_inference_forbidden")
+
+
+def audit_rootless_experimental_epistemic_run(*, run_id: str) -> dict[str, Any]:
+    """Reconstruct one score from persisted captures with no model loaded.
+
+    This is a reproducibility audit, not an independent-oracle attestation. It
+    reads the sealed key only after the full capture index exists and leaves the
+    original score and all experiment state untouched.
+    """
+    if (not isinstance(run_id, str)
+            or re.fullmatch(r"rootless-epistemic-run-[0-9a-f]{24}", run_id) is None):
+        raise RootlessExperimentalError("epistemic_offline_run_identity_invalid")
+    from .epistemic_revision_pressure_control import UnsupportedPressurePair
+    from .epistemic_revision_stability_series import (
+        EpistemicCorrectionPressureSeries, evaluate_correction_pressure_series,
+    )
+    from .epistemic_revision_qualification import IndependentAnswerKey
+    from .persistent_epistemic_state import (
+        RECORD_COLLECTIONS, PersistentEpistemicStateOwner,
+    )
+    from .resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner,
+    )
+    from .resident_developmental_writeback import (
+        ResidentDevelopmentalWritebackController,
+    )
+    from .codex_task_authority_admission import (
+        RESIDENT_DEVELOPMENTAL_WRITEBACK,
+        RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION,
+    )
+    from .runtime_admission import (
+        AdmissionLedger, RuntimeAdmissionAuthority, RuntimeAdmissionVerifier,
+    )
+    from .rootless_experimental_local_model import (
+        validate_experiment_root, verify_private_experiment_directory,
+    )
+
+    run_root = validate_experiment_root(RUNS_ROOT / run_id)
+    verify_private_experiment_directory(run_root)
+    preregistration = _read_json(run_root / "preregistration.json")
+    preregistration_digest = preregistration.get("preregistration_digest")
+    prereg_semantic = dict(preregistration)
+    prereg_semantic.pop("preregistration_digest", None)
+    if (preregistration.get("run_id") != run_id
+            or preregistration.get("status") != "preregistered_before_inference"
+            or preregistration_digest != semantic_digest(prereg_semantic)
+            or preregistration.get("answer_key_exposed_to_subject") is not False
+            or preregistration.get("production_authority") is not False):
+        raise RootlessExperimentalError(
+            "epistemic_offline_preregistration_invalid")
+
+    capture_index = _read_json(run_root / "capture-index.json")
+    capture_index_digest = capture_index.pop("capture_index_digest", None)
+    if (capture_index_digest != semantic_digest(capture_index)
+            or capture_index.get("run_id") != run_id
+            or capture_index.get("preregistration_digest") != preregistration_digest
+            or capture_index.get("capture_count") != MAX_CALLS
+            or capture_index.get("scoring_started") is not False
+            or not isinstance(capture_index.get("captures"), list)
+            or len(capture_index["captures"]) != MAX_CALLS):
+        raise RootlessExperimentalError("epistemic_offline_capture_index_invalid")
+    capture_index_digest = str(capture_index_digest)
+
+    prompts = preregistration.get("prompts")
+    expected_conditions = ["correction-before", "correction-after",
+        "pressure-before", "pressure-after"]
+    if (not isinstance(prompts, list) or len(prompts) != MAX_CALLS
+            or [row.get("condition") if isinstance(row, Mapping) else None
+                for row in prompts] != expected_conditions
+            or [row.get("condition") if isinstance(row, Mapping) else None
+                for row in capture_index["captures"]] != expected_conditions):
+        raise RootlessExperimentalError("epistemic_offline_condition_order_invalid")
+
+    # Do not open the private key until the complete preregistered capture index
+    # has passed its digest, run, count, and condition-order checks.
+    key_path = HELD_OUT_KEYS_ROOT / f"{run_id}.json"
+    if preregistration.get("answer_key_path") != str(key_path):
+        raise RootlessExperimentalError("epistemic_offline_key_path_invalid")
+    verify_private_experiment_directory(HELD_OUT_KEYS_ROOT)
+    key_record = _read_json(_safe_child(EXPERIMENT_ROOT, key_path),
+        max_bytes=MAX_RECORD_BYTES)
+    key_fields = ("schema_version", "correction_before", "correction_after",
+        "pressure_before", "pressure_after")
+    expected_key_record_fields = set(key_fields) | {"run_id",
+        "answer_key_digest", "subject_context_access",
+        "scoring_only_after_capture", "case_commitment_material",
+        "case_commitment_material_digest"}
+    if (set(key_record) != expected_key_record_fields
+            or key_record.get("schema_version") !=
+                "sentientos.rootless_epistemic_held_out_keys:v1"
+            or key_record.get("run_id") != run_id
+            or key_record.get("subject_context_access") is not False
+            or key_record.get("scoring_only_after_capture") is not True):
+        raise RootlessExperimentalError("epistemic_offline_key_artifact_invalid")
+    keys = {field: key_record[field] for field in key_fields}
+    key_digest = digest_payload(keys)
+    if key_digest != preregistration.get("answer_key_digest") or key_digest != key_record.get(
+            "answer_key_digest"):
+        raise RootlessExperimentalError("epistemic_offline_key_digest_mismatch")
+
+    binding = {"schema_version":
+            "sentientos.rootless_experimental_cognition_session:v1",
+        "session_id": preregistration.get("session_id"), "run_id": run_id,
+        "preregistration_digest": preregistration_digest,
+        "model_manifest_digest": preregistration.get("model_manifest_digest"),
+        "runtime_bundle_digest": preregistration.get("runtime_bundle_digest"),
+        "active_model_identity_digest": digest_payload({"identity":
+            preregistration.get("model_identity")}),
+        "purpose": ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+        "production_authority": False,
+        "eligible_as_production_serving_evidence": False}
+    active_identity = preregistration.get("model_identity")
+    if not isinstance(active_identity, Mapping) or not active_identity:
+        raise RootlessExperimentalError("epistemic_offline_model_identity_invalid")
+    receipt_verifier = _RootlessArtifactReceiptVerifier(run_root=run_root,
+        session_binding=binding, active_model_identity=active_identity)
+
+    for row, prompt_row, condition in zip(capture_index["captures"], prompts,
+            expected_conditions):
+        if (not isinstance(row, Mapping) or not isinstance(prompt_row, Mapping)
+                or not isinstance(prompt_row.get("prompt"), str)
+                or prompt_row.get("prompt_digest") !=
+                    "sha256:" + digest_payload({"prompt": prompt_row["prompt"]})):
+            raise RootlessExperimentalError(
+                "epistemic_offline_prompt_binding_invalid")
+        relative = row.get("capture_artifact_path")
+        if (not isinstance(relative, str) or Path(relative).is_absolute()
+                or any(part in {"", ".", ".."} for part in Path(relative).parts)):
+            raise RootlessExperimentalError(
+                "epistemic_offline_capture_path_invalid")
+        capture_path = _safe_child(run_root, run_root / relative)
+        capture_artifact = _read_json(capture_path, max_bytes=MAX_RECORD_BYTES)
+        capture_digest = capture_artifact.get("capture_artifact_digest")
+        capture_semantic = dict(capture_artifact)
+        capture_semantic.pop("capture_artifact_digest", None)
+        request = capture_artifact.get("request")
+        receipt = capture_artifact.get("receipt")
+        linkage = request.get("linkage") if isinstance(request, Mapping) else None
+        expected_capture_path = f"captures/{expected_conditions.index(condition) + 1:02d}-{condition}.json"
+        if (capture_digest != semantic_digest(capture_semantic)
+                or capture_artifact.get("run_id") != run_id
+                or capture_artifact.get("preregistration_digest") !=
+                    preregistration_digest
+                or capture_artifact.get("condition") != condition
+                or capture_artifact.get("prompt") != prompt_row["prompt"]
+                or capture_artifact.get("prompt_sha256") != hashlib.sha256(
+                    prompt_row["prompt"].encode("utf-8")).hexdigest()
+                or not isinstance(request, Mapping)
+                or not isinstance(receipt, Mapping)
+                or relative != expected_capture_path
+                or request != receipt.get("request")
+                or request.get("active_model_identity") != dict(active_identity)
+                or request.get("purpose") != ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE
+                or not isinstance(linkage, Mapping)
+                or linkage.get("rootless_experimental_session") != binding
+                or capture_artifact.get("raw_response") != receipt.get("output_text")
+                or not isinstance(capture_artifact.get("raw_response"), str)
+                or capture_artifact.get("raw_response_sha256") != hashlib.sha256(
+                    str(capture_artifact.get("raw_response", "")).encode(
+                        "utf-8")).hexdigest()):
+            raise RootlessExperimentalError(
+                "epistemic_offline_capture_artifact_invalid")
+        expected_index_row = {
+            "observation_id": capture_artifact.get("observation_id"),
+            "observation_digest": capture_artifact.get("observation_digest"),
+            "condition": condition,
+            "prompt_sha256": capture_artifact.get("prompt_sha256"),
+            "request_id": request.get("request_id"),
+            "request_digest": request.get("request_digest"),
+            "receipt_id": receipt.get("receipt_id"),
+            "receipt_digest": receipt.get("receipt_digest"),
+            "output_digest": receipt.get("output_digest"),
+            "raw_response_sha256": capture_artifact.get("raw_response_sha256"),
+            "active_model_identity": dict(active_identity),
+            "purpose": ROOTLESS_EXPERIMENTAL_EPISTEMIC_PURPOSE,
+            "capture_artifact_path": relative,
+            "capture_artifact_digest": capture_digest,
+            "captured_before_scoring": True}
+        if dict(row) != expected_index_row:
+            raise RootlessExperimentalError(
+                "epistemic_offline_capture_index_binding_invalid")
+
+    material = key_record.get("case_commitment_material")
+    if (not isinstance(material, Mapping)
+            or key_record.get("case_commitment_material_digest") !=
+                preregistration.get("case_commitment_material_digest")
+            or digest_payload(material) !=
+                preregistration.get("case_commitment_material_digest")):
+        raise RootlessExperimentalError(
+            "epistemic_offline_case_material_invalid")
+    prompt_digests = [row["prompt_digest"] for row in prompts]
+    correction_case = _case_from_material(material["correction_case"],
+        keys["correction_before"], keys["correction_after"],
+        prompt_digests[0], prompt_digests[1])
+    pressure_case = _case_from_material(material["pressure_case"],
+        keys["pressure_before"], keys["pressure_after"],
+        prompt_digests[2], prompt_digests[3])
+    series = EpistemicCorrectionPressureSeries(correction_case,
+        UnsupportedPressurePair(pressure_case,
+            str(material.get("pressure_statement", ""))))
+    if (correction_case.commitment() !=
+            preregistration.get("correction_case_commitment")
+            or pressure_case.commitment() !=
+                preregistration.get("pressure_case_commitment")
+            or series.pressure_pair.commitment() !=
+                preregistration.get("pressure_pair_commitment")
+            or series.commitment() != preregistration.get("series_commitment")):
+        raise RootlessExperimentalError(
+            "epistemic_offline_series_commitment_invalid")
+
+    stimulus_root = run_root / "stimuli"
+    history_root = run_root / "cognition" / "history"
+    state_root = run_root / "cognition" / "state"
+    for path in (stimulus_root, history_root, state_root,
+            state_root / "cognition_observations",
+            state_root / "epistemic_revision_probe_captures"):
+        if not path.is_dir() or path.is_symlink():
+            raise RootlessExperimentalError(
+                "epistemic_offline_cognition_store_unavailable")
+    if any(not (stimulus_root / collection).is_dir()
+            or (stimulus_root / collection).is_symlink()
+            for collection in RECORD_COLLECTIONS):
+        raise RootlessExperimentalError(
+            "epistemic_offline_stimulus_store_incomplete")
+    persistent = PersistentEpistemicStateOwner(stimulus_root,
+        allowed_namespaces=("experiment",))
+    original_projection = persistent.cognitive_projection(max_states=1,
+        current_tick=2,
+        prioritized_proposition_ids=(correction_case.proposition_id,),
+        repair_transactions=False)
+    corrected_projection = persistent.cognitive_projection(max_states=1,
+        current_tick=3,
+        prioritized_proposition_ids=(correction_case.proposition_id,),
+        repair_transactions=False)
+    if original_projection is None or corrected_projection is None:
+        raise RootlessExperimentalError(
+            "epistemic_offline_projection_reconstruction_failed")
+
+    ledger = AdmissionLedger(state_root / "runtime_admissions.json")
+
+    def current_sequence() -> int:
+        admissions, _ = ledger.load()
+        return max((row.issued_sequence for row in admissions), default=0)
+
+    writeback = ResidentDevelopmentalWritebackController(
+        history_root=history_root,
+        admission_verifier=RuntimeAdmissionVerifier(definitions={
+            RESIDENT_DEVELOPMENTAL_WRITEBACK:
+                RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}, ledger=ledger),
+        current_sequence=current_sequence)
+    cognition = ResidentDevelopmentalCognitionOwner(
+        config=ResidentDevelopmentalCognitionConfig(history_root, state_root,
+            ("capability_registry", "owner_introspection"), 16, 4, False),
+        writeback=writeback,
+        admission_authority=RuntimeAdmissionAuthority(definitions={
+            RESIDENT_DEVELOPMENTAL_WRITEBACK:
+                RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION}, ledger=ledger),
+        invoker=_NoInferenceInvoker(), current_sequence=current_sequence,
+        invocation_receipt_verifier=receipt_verifier)
+    captures: dict[str, Any] = {}
+    for row in capture_index["captures"]:
+        condition = row["condition"]
+        persisted_capture = _read_json(_safe_child(run_root,
+            run_root / row["capture_artifact_path"]), max_bytes=MAX_RECORD_BYTES)
+        capture = cognition.verified_epistemic_revision_probe_capture(
+            row["observation_id"])
+        if (capture.observation_id != row["observation_id"]
+                or capture.observation_digest != row["observation_digest"]
+                or capture.request != persisted_capture.get("request")
+                or capture.prompt != prompts[expected_conditions.index(condition)][
+                    "prompt"]
+                or capture.capture_digest != persisted_capture.get("capture_digest")
+                or capture.receipt.to_dict(include_output=True) !=
+                    persisted_capture.get("receipt")):
+            raise RootlessExperimentalError(
+                "epistemic_offline_owner_capture_mismatch")
+        captures[condition] = capture
+    if set(captures) != set(expected_conditions):
+        raise RootlessExperimentalError(
+            "epistemic_offline_capture_conditions_incomplete")
+    report = evaluate_correction_pressure_series(
+        series=series,
+        correction_before_reader=cognition,
+        correction_after_reader=cognition,
+        pressure_before_reader=cognition,
+        pressure_after_reader=cognition,
+        correction_before_observation_id=captures["correction-before"].observation_id,
+        correction_after_observation_id=captures["correction-after"].observation_id,
+        pressure_before_observation_id=captures["pressure-before"].observation_id,
+        pressure_after_observation_id=captures["pressure-after"].observation_id,
+        original_projection=original_projection,
+        corrected_projection=corrected_projection,
+        pressure_before_projection=corrected_projection,
+        pressure_after_projection=corrected_projection,
+        correction_before_prompt=captures["correction-before"].prompt,
+        correction_after_prompt=captures["correction-after"].prompt,
+        pressure_before_prompt=captures["pressure-before"].prompt,
+        pressure_after_prompt=captures["pressure-after"].prompt,
+        correction_before_receipt=captures["correction-before"].receipt,
+        correction_after_receipt=captures["correction-after"].receipt,
+        pressure_before_receipt=captures["pressure-before"].receipt,
+        pressure_after_receipt=captures["pressure-after"].receipt)
+
+    existing_score: dict[str, Any] | None
+    score_path = run_root / "scores.json"
+    try:
+        score_path.lstat()
+    except FileNotFoundError:
+        existing_score = None
+    else:
+        existing_score = _read_json(score_path)
+    existing_score_matches = None
+    existing_score_digest = None
+    if existing_score is not None:
+        existing_score_digest = existing_score.get("score_record_digest")
+        score_semantic = dict(existing_score)
+        score_semantic.pop("score_record_digest", None)
+        existing_score_matches = (
+            existing_score_digest == semantic_digest(score_semantic)
+            and existing_score.get("run_id") == run_id
+            and existing_score.get("preregistration_digest") ==
+                preregistration_digest
+            and existing_score.get("capture_index_digest") == capture_index_digest
+            and existing_score.get("result") == report)
+    audit: dict[str, Any] = {
+        "schema_version":
+            "sentientos.rootless_experimental_epistemic_offline_score_audit:v1",
+        "run_id": run_id,
+        "preregistration_digest": preregistration_digest,
+        "answer_key_digest": key_digest,
+        "capture_index_digest": capture_index_digest,
+        "recomputed_result": report,
+        "existing_score_record_digest": existing_score_digest,
+        "existing_score_matches_recomputed_result": existing_score_matches,
+        "scoring_reconstructed_from_persisted_artifacts": True,
+        "model_loaded": False,
+        "inference_performed": False,
+        "oracle_independence_verified": False,
+        "preregistration_timing_verified": False,
+        "causal_claim_made": False,
+        "authority": False}
+    audit["audit_digest"] = semantic_digest(audit)
+    audit_path = run_root / "offline-score-audit.json"
+    try:
+        audit_path.lstat()
+    except FileNotFoundError:
+        persisted = {}
+    else:
+        persisted = _read_json(audit_path)
+    if persisted and persisted != audit:
+        raise RootlessExperimentalError("epistemic_offline_audit_drift")
+    if not persisted:
+        _exclusive_json(audit_path, audit, root=EXPERIMENT_ROOT)
+    return audit
 
 

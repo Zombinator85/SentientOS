@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_score_verification.schema.json",
+  "title": "SentientOS historical examples pair score reconstruction verification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_digest", "score_digest", "probe_count", "runtime_history_record_count", "runtime_history_record_set_digest", "runtime_history_receipt_count", "runtime_history_receipt_set_digest", "runtime_history_receipt_record_links_verified", "selected_history_record_receipts_verified", "correct_counts", "scoring_reconstructed_from_archived_receipts", "private_answer_key_reconstructed", "independent_scorer_attested", "learning_established", "authority", "verification_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_score_verification:v1"},
+    "protocol_digest": {"$ref": "#/$defs/digest"},
+    "score_digest": {"$ref": "#/$defs/digest"},
+    "probe_count": {"type": "integer", "minimum": 1},
+    "runtime_history_record_count": {"type": "integer", "minimum": 1},
+    "runtime_history_record_set_digest": {"$ref": "#/$defs/digest"},
+    "runtime_history_receipt_count": {"type": "integer", "minimum": 0},
+    "runtime_history_receipt_set_digest": {"$ref": "#/$defs/digest"},
+    "runtime_history_receipt_record_links_verified": {"const": true},
+    "selected_history_record_receipts_verified": {"const": true},
+    "correct_counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["examples_included", "examples_omitted"],
+      "properties": {
+        "examples_included": {"type": "integer", "minimum": 0},
+        "examples_omitted": {"type": "integer", "minimum": 0}
+      }
+    },
+    "scoring_reconstructed_from_archived_receipts": {"const": true},
+    "private_answer_key_reconstructed": {"const": true},
+    "independent_scorer_attested": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "verification_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

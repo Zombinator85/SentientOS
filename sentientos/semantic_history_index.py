@@ -13,11 +13,13 @@ import os
 import re
 import stat
 import threading
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterator, Mapping, Sequence
 
+from semantic_embeddings import MAX_SEMANTIC_VECTOR_DIMENSION
 from .private_file_custody import (PrivateFileCustodyError,
     list_bounded_json_names_at, open_private_directory, publish_immutable_bytes,
     read_private_file_at)
@@ -33,7 +35,8 @@ TEXT_PROJECTION_POLICY = "resident_history_semantic_text:v1"
 MAX_INDEX_RECORDS = 4096
 MAX_INDEX_ENTRY_BYTES = 32_768
 MAX_INDEX_BYTES = 134_217_728
-MAX_VECTOR_DIMENSION = 1024
+MAX_VECTOR_DIMENSION = MAX_SEMANTIC_VECTOR_DIMENSION
+MAX_CACHE_SNAPSHOT_ATTEMPTS = 3
 
 
 class SemanticHistoryIndexError(ValueError):
@@ -44,6 +47,8 @@ class SemanticHistoryIndexError(ValueError):
 class SemanticHistoryIndexSnapshot:
     vectors: Mapping[str, tuple[float, ...]]
     digest: str
+    observed_entry_count: int
+    nonuse_reason: str | None
 
 
 def _canonical(value: Any) -> bytes:
@@ -67,10 +72,15 @@ def _vector(value: object) -> tuple[float, ...] | None:
             or len(value) > MAX_VECTOR_DIMENSION):
         return None
     if any(isinstance(item, bool) or not isinstance(item, (int, float))
-            or not math.isfinite(float(item)) for item in value):
+            for item in value):
         return None
-    result = tuple(float(item) for item in value)
-    norm = math.sqrt(sum(item * item for item in result))
+    try:
+        result = tuple(float(item) for item in value)
+        if any(not math.isfinite(item) for item in result):
+            return None
+        norm = math.sqrt(sum(item * item for item in result))
+    except (OverflowError, TypeError, ValueError):
+        return None
     if not 0.95 <= norm <= 1.05:
         return None
     return result
@@ -95,6 +105,8 @@ class SemanticHistoryIndex:
         self._cache_signature: tuple[int, int, int] | None = None
         self._cache_loaded = False
         self._payload_cache: dict[str, dict[str, Any]] = {}
+        self._entry_count = 0
+        self._publication_batch_depth = 0
 
     @staticmethod
     def _filename(record_id: str) -> str:
@@ -122,6 +134,29 @@ class SemanticHistoryIndex:
         self._root_ready = True
         return None
 
+    @contextmanager
+    def publication_batch(self) -> Iterator[None]:
+        """Publish related vectors, then bind cache state to a stable scan."""
+        with self._lock:
+            if self._publication_batch_depth == 0:
+                signature = self._signature()
+                if not self._cache_loaded or signature != self._cache_signature:
+                    self._refresh_cache()
+            self._publication_batch_depth += 1
+            try:
+                yield
+            finally:
+                self._publication_batch_depth -= 1
+                if self._publication_batch_depth == 0:
+                    try:
+                        self._refresh_cache()
+                    except Exception:
+                        self._payload_cache = {}
+                        self._entry_count = 0
+                        self._cache_signature = None
+                        self._cache_loaded = False
+                        raise
+
     def publish(self, *, record_id: str, record_digest: str, text_digest: str,
             indexed_tick_digest: str, vector: Sequence[float]) -> None:
         values = _vector(vector)
@@ -131,9 +166,10 @@ class SemanticHistoryIndex:
                 or not _valid_digest(indexed_tick_digest) or values is None):
             raise SemanticHistoryIndexError("semantic_history_index_entry_invalid")
         with self._lock:
-            signature = self._signature()
-            if not self._cache_loaded or signature != self._cache_signature:
-                self._refresh_cache()
+            if self._publication_batch_depth == 0:
+                signature = self._signature()
+                if not self._cache_loaded or signature != self._cache_signature:
+                    self._refresh_cache()
             existing = self._payload_cache.get(record_id)
             if existing is not None:
                 if (existing.get("record_digest") != record_digest
@@ -185,27 +221,42 @@ class SemanticHistoryIndex:
         self._remember_published(payload)
 
     def load(self, *, expected_records: Mapping[str, tuple[str, str]],
-            current_tick_digest: str) -> SemanticHistoryIndexSnapshot:
+            current_tick_digest: str,
+            expected_vector_dimension: int
+            ) -> SemanticHistoryIndexSnapshot:
         if (len(expected_records) > MAX_INDEX_RECORDS
-                or not _valid_digest(current_tick_digest)):
+                or not _valid_digest(current_tick_digest)
+                or type(expected_vector_dimension) is not int
+                or not 1 <= expected_vector_dimension <= MAX_VECTOR_DIMENSION):
             raise SemanticHistoryIndexError("semantic_history_index_read_bounds_invalid")
         with self._lock:
             signature = self._signature()
             if not self._cache_loaded or signature != self._cache_signature:
                 self._refresh_cache()
             cached_payloads = tuple(self._payload_cache.items())
+            observed_entry_count = self._entry_count
         expected = dict(expected_records)
         result: dict[str, tuple[float, ...]] = {}
         used_entries: list[dict[str, Any]] = []
         dimensions: int | None = None
+        exclusions = {"unmatched": 0, "stale": 0,
+            "current_tick_only": 0, "dimension_mismatch": 0}
         for record_id, payload in cached_payloads:
             try:
                 actual = expected.get(record_id)
                 vector = tuple(payload["vector"])
-                if (actual is None
-                        or (payload["record_digest"], payload["text_digest"]) != actual
-                        or payload.get("indexed_tick_digest") == current_tick_digest
+                if actual is None:
+                    exclusions["unmatched"] += 1
+                    continue
+                if (payload["record_digest"], payload["text_digest"]) != actual:
+                    exclusions["stale"] += 1
+                    continue
+                if payload.get("indexed_tick_digest") == current_tick_digest:
+                    exclusions["current_tick_only"] += 1
+                    continue
+                if (len(vector) != expected_vector_dimension
                         or (dimensions is not None and len(vector) != dimensions)):
+                    exclusions["dimension_mismatch"] += 1
                     continue
                 dimensions = len(vector)
                 result[record_id] = vector
@@ -216,7 +267,23 @@ class SemanticHistoryIndex:
                 continue
         snapshot_digest = _sha256(_canonical(sorted(
             used_entries, key=lambda item: item["record_id"])))
-        return SemanticHistoryIndexSnapshot(MappingProxyType(result), snapshot_digest)
+        nonuse_reason: str | None = None
+        if not result:
+            if observed_entry_count == 0:
+                nonuse_reason = "empty"
+            elif not cached_payloads:
+                nonuse_reason = "invalid_entries"
+            elif observed_entry_count != len(cached_payloads):
+                nonuse_reason = "mixed_or_unclassified"
+            else:
+                nonzero_exclusions = [reason for reason, count in exclusions.items()
+                    if count]
+                nonuse_reason = (nonzero_exclusions[0]
+                    if len(nonzero_exclusions) == 1
+                    and exclusions[nonzero_exclusions[0]] == len(cached_payloads)
+                    else "mixed_or_unclassified")
+        return SemanticHistoryIndexSnapshot(MappingProxyType(result),
+            snapshot_digest, observed_entry_count, nonuse_reason)
 
     def _signature(self) -> tuple[int, int, int] | None:
         try:
@@ -231,7 +298,28 @@ class SemanticHistoryIndex:
         return metadata.st_mtime_ns, metadata.st_ctime_ns, metadata.st_ino
 
     def _refresh_cache(self) -> None:
-        entries = self._read_entries()
+        # Bind the in-memory cache to a directory generation that brackets the
+        # file read. Without this check, a concurrent publisher can add an
+        # entry after _read_entries() but before _signature(); the incomplete
+        # cache would then carry the new signature and look current indefinitely.
+        entries = None
+        signature = None
+        for _ in range(MAX_CACHE_SNAPSHOT_ATTEMPTS):
+            before = self._signature()
+            try:
+                candidate_entries = self._read_entries()
+            except SemanticHistoryIndexError as exc:
+                if str(exc) != "semantic_history_index_collection_changed":
+                    raise
+                continue
+            after = self._signature()
+            if before == after:
+                entries = candidate_entries
+                signature = after
+                break
+        if entries is None:
+            raise SemanticHistoryIndexError(
+                "semantic_history_index_collection_changed")
         payloads: dict[str, dict[str, Any]] = {}
         for name, raw in entries:
             try:
@@ -271,7 +359,8 @@ class SemanticHistoryIndex:
                     SemanticHistoryIndexError, KeyError):
                 continue
         self._payload_cache = payloads
-        self._cache_signature = self._signature()
+        self._entry_count = len(entries)
+        self._cache_signature = signature
         self._cache_loaded = True
 
     def _read_entries(self) -> tuple[tuple[str, bytes], ...]:
@@ -338,8 +427,9 @@ class SemanticHistoryIndex:
             if values is not None:
                 with self._lock:
                     self._payload_cache[record_id] = {**dict(payload), "vector": values}
-                    self._cache_loaded = True
-                    self._cache_signature = self._signature()
+                    self._cache_signature = None
+                    if self._publication_batch_depth == 0:
+                        self._cache_loaded = False
 
     def _read_one(self, name: str) -> bytes:
         if os.name == "nt":

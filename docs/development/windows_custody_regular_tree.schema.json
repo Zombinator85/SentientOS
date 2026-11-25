@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/windows_custody_regular_tree.schema.json",
+  "title": "SentientOS bounded Windows regular-tree inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "root_volume_serial",
+    "root_file_id_hex",
+    "file_count",
+    "directory_count",
+    "total_bytes",
+    "files",
+    "directories",
+    "writer_quiescence_verified",
+    "snapshot_atomicity_verified",
+    "alternate_data_streams_verified",
+    "security_metadata_verified",
+    "authority",
+    "inventory_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.windows_custody_regular_tree:v1"
+    },
+    "root_volume_serial": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "root_file_id_hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "file_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8192
+    },
+    "directory_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8192
+    },
+    "total_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 67108864
+    },
+    "files": {
+      "type": "array",
+      "maxItems": 8192,
+      "items": {
+        "$ref": "#/$defs/file"
+      }
+    },
+    "directories": {
+      "type": "array",
+      "maxItems": 8192,
+      "items": {
+        "$ref": "#/$defs/directory"
+      }
+    },
+    "writer_quiescence_verified": {
+      "const": false
+    },
+    "snapshot_atomicity_verified": {
+      "const": false
+    },
+    "alternate_data_streams_verified": {
+      "const": false
+    },
+    "security_metadata_verified": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "inventory_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192,
+      "pattern": "^[^/]+(?:/[^/]+)*$"
+    },
+    "directory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relative_path",
+        "volume_serial",
+        "file_id_hex"
+      ],
+      "properties": {
+        "relative_path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "volume_serial": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "file_id_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relative_path",
+        "volume_serial",
+        "file_id_hex",
+        "size_bytes",
+        "content_sha256"
+      ],
+      "properties": {
+        "relative_path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "volume_serial": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "file_id_hex": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777216
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    }
+  }
+}

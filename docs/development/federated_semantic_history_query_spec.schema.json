@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:sentientos:schema:federated-semantic-history-query-spec:v1",
+  "title": "SentientOS federated semantic history query specification",
+  "description": "Input to the federated query-set freezer. Schema checks shape; runtime validation checks balanced strata, distinct source-qualified anchors, and manifest bindings.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "questions", "strata", "source_experience_refs",
+    "max_input_chars", "target_model_identity"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.federated_semantic_history_query_spec:v1" },
+    "questions": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1, "maxLength": 1200, "pattern": "\\S" }
+    },
+    "strata": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": { "enum": ["paraphrased_experience", "lexical_distractor", "no_applicable_history"] }
+    },
+    "source_experience_refs": {
+      "type": "array", "minItems": 60, "maxItems": 255,
+      "items": { "$ref": "#/$defs/sourceExperienceRef" }
+    },
+    "max_input_chars": { "type": "integer", "minimum": 128, "maximum": 131072 },
+    "target_model_identity": { "type": ["object", "null"] }
+  },
+  "$defs": {
+    "sourceExperienceRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "record_id"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^src-[0-9a-f]{24}$" },
+        "record_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    }
+  }
+}

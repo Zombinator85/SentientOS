@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_identity_neutral_execution_audit.schema.json",
+  "title": "SentientOS identity-neutral pair execution input audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_plan_digest", "cohort_digest", "target_model_identity_digest", "source_cycle_root_id", "trial_count", "verified_slots", "all_slots_verified", "source_parity_reconstruction_verified", "model_loaded", "model_invoked", "learning_established", "authority", "audit_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_identity_neutral_execution_audit:v1"},
+    "execution_plan_digest": {"$ref": "#/$defs/digest"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+    "source_cycle_root_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9]{20}$"},
+    "trial_count": {"type": "integer", "minimum": 2},
+    "verified_slots": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/slot"}
+    },
+    "all_slots_verified": {"const": true},
+    "source_parity_reconstruction_verified": {"const": true},
+    "model_loaded": {"const": false},
+    "model_invoked": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "audit_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "slot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["trial_index", "runner_cycle_id", "protocol_digest", "task_digest", "input_file_sha256", "binding"],
+      "properties": {
+        "trial_index": {"type": "integer", "minimum": 0},
+        "runner_cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_digest": {"$ref": "#/$defs/digest"},
+        "input_file_sha256": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["parity", "allowlist", "pair_verification", "left_report", "right_report", "left_verification", "right_verification"],
+          "properties": {
+            "parity": {"$ref": "#/$defs/digest"},
+            "allowlist": {"$ref": "#/$defs/digest"},
+            "pair_verification": {"$ref": "#/$defs/digest"},
+            "left_report": {"$ref": "#/$defs/digest"},
+            "right_report": {"$ref": "#/$defs/digest"},
+            "left_verification": {"$ref": "#/$defs/digest"},
+            "right_verification": {"$ref": "#/$defs/digest"}
+          }
+        },
+        "binding": {"$ref": "#/$defs/binding"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "parity_audit_digest", "parity_audit_file_digest", "source_parity_reconstruction_verified", "allowlist_digest", "allowlist_file_digest", "selected_record_ids", "selected_record_digests", "authority", "inference_performed", "learning_established"],
+      "properties": {
+        "status": {"const": "verified_identity_neutral_shared_history_binding"},
+        "parity_audit_digest": {"$ref": "#/$defs/digest"},
+        "parity_audit_file_digest": {"$ref": "#/$defs/digest"},
+        "source_parity_reconstruction_verified": {"const": true},
+        "allowlist_digest": {"$ref": "#/$defs/digest"},
+        "allowlist_file_digest": {"$ref": "#/$defs/digest"},
+        "selected_record_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^devrec-[a-z0-9-]+$"}, "uniqueItems": true},
+        "selected_record_digests": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/digest"}},
+        "authority": {"const": false},
+        "inference_performed": {"const": false},
+        "learning_established": {"const": false}
+      }
+    }
+  }
+}

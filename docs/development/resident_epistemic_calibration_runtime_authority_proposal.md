@@ -39,9 +39,34 @@ remains a separate unproven question.
 ## Proposed authority definition (not registered)
 
 The capability registry explicitly defers calibration runtime composition
-under separate authority. This proposal therefore does not reuse the generic
+under separate authority. The existing mutation path does not reuse the generic
 epistemic state-mutation definition as permission to consume calibration
 metadata.
+
+The runtime now exposes `preview_calibration_event_review(...)` as a
+non-authoritative inspection path. It verifies receipt recovery, the exact
+calibration and historical forecast identities, the active outcome binding
+digests, and deterministic evidence consistency. For a consistent, unapplied
+event it returns the exact review-request digest and the provisional stance
+derived from all active evidence. The mutation path reuses this same
+preparation logic, so the reviewed request digest is the one presented to the
+separate calibration-review admission. The digest binds a proposal descriptor
+containing stance, active evidence IDs, reason, uncertainty, model identity,
+deterministic proposer identity, and the scheduled update tick and timestamp.
+It also binds the exact proposition ID and digest, not only the forecast and
+current state digests. Preview does not
+issue admissions, create a state-update candidate, or mutate epistemic state; it reports
+`authority=false`, `truth=false`, and
+`runtime_admission_issued=false`, and
+`epistemic_state_mutation_performed=false`. Receipt recovery may reconcile
+mutation receipts as part of verifying custody. The preview does not make the
+capability eligible or remove the operator-registration requirement below.
+The complete preview carries a canonical `preview_digest`; its pure verifier
+checks that digest, the nested review-request digest, exact field sets,
+identifier and digest formats, evidence-list uniqueness and subset relations,
+posture counts, and agreement between the visible proposal and the request.
+These hashes detect content changes but do not authenticate the runtime or an
+operator.
 
 ```text
 capability_id: resident_epistemic_calibration_review

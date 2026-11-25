@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_execution_slot_audit.schema.json",
+  "title": "SentientOS historical examples pair execution slot audit",
+  "description": "Answer-free CPU audit binding each frozen execution slot to its journaled protocol and private task.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "execution_plan_digest", "cohort_digest", "trial_count", "verified_slots", "all_slots_verified", "model_invoked", "learning_established", "authority", "verification_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_execution_slot_audit:v1"},
+    "execution_plan_digest": {"$ref": "#/$defs/digest"},
+    "cohort_digest": {"$ref": "#/$defs/digest"},
+    "trial_count": {"type": "integer", "minimum": 2, "maximum": 32},
+    "verified_slots": {"type": "array", "minItems": 2, "maxItems": 32, "items": {"$ref": "#/$defs/slot"}},
+    "all_slots_verified": {"const": true},
+    "model_invoked": {"const": false},
+    "learning_established": {"const": false},
+    "authority": {"const": false},
+    "verification_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "slot": {
+      "type": "object", "additionalProperties": false,
+      "required": ["trial_index", "runner_cycle_id", "protocol_digest", "task_digest", "probe_binding_set_digest", "probe_count", "backend_seed", "snapshot_id", "target_model_identity_digest", "model_invoked", "learning_established", "authority"],
+      "properties": {
+        "trial_index": {"type": "integer", "minimum": 0, "maximum": 31},
+        "runner_cycle_id": {"type": "string", "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "task_digest": {"$ref": "#/$defs/digest"},
+        "probe_binding_set_digest": {"$ref": "#/$defs/digest"},
+        "probe_count": {"type": "integer", "minimum": 1},
+        "backend_seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+        "snapshot_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "target_model_identity_digest": {"$ref": "#/$defs/digest"},
+        "model_invoked": {"const": false},
+        "learning_established": {"const": false},
+        "authority": {"const": false}
+      }
+    }
+  }
+}

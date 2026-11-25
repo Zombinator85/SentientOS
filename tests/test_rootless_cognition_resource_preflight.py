@@ -1194,7 +1194,7 @@ def test_transfer_decision_prompt_requires_grounded_current_evidence(runner):
 
 
 
-def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
+def test_seeded_objective_task_pairs_use_stable_family_mapping(runner):
     first = runner._objective_task_pair(20261110)
     repeated = runner._objective_task_pair(20261110)
     second = runner._objective_task_pair(20261111)
@@ -1208,13 +1208,13 @@ def test_seeded_objective_task_pairs_are_reproducible_and_distinct(runner):
         transfer.specification()["task_family_id"])
     assert transfer.specification()["requires_task_family_history"] is True
     assert acquisition.specification()["task_family_id"] == (
-        "rootless_integer_affine_transfer_low_range_v5")
+        "rootless_integer_affine_transfer_low_range_v6")
     assert set(acquisition.specification()["probe_inputs"]).isdisjoint(
         transfer.specification()["probe_inputs"])
     for task in first:
         specification = task.specification()
-        assert specification["multiplier"] in {2, 3}
-        assert specification["offset"] in {0, 1, 2}
+        assert specification["multiplier"] == 2
+        assert specification["offset"] == 1
         inputs = specification["probe_inputs"]
         assert len(inputs) == 3
         if specification["requires_task_family_history"]:

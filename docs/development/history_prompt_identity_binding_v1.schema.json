@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/history_prompt_identity_binding_v1.schema.json",
+  "title": "History prompt identity binding v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "policy",
+    "target_model_identity",
+    "target_active_model_identity_digest",
+    "source_target_bindings",
+    "source_target_bindings_digest",
+    "posture",
+    "inference_performed",
+    "learning_established",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.history_prompt_identity_binding:v1"
+    },
+    "policy": {
+      "const": "matched_cross_model_identity_omitted:v1"
+    },
+    "target_model_identity": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "target_active_model_identity_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "source_target_bindings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "record_id",
+          "record_digest",
+          "source_fact_id",
+          "source_task_digest",
+          "source_active_model_identity_digest",
+          "target_active_model_identity_digest",
+          "model_identity_relation"
+        ],
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "record_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "source_fact_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_task_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "source_active_model_identity_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "target_active_model_identity_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "model_identity_relation": {
+            "const": "different_active_model_identity"
+          }
+        }
+      }
+    },
+    "source_target_bindings_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "posture": {
+      "const": "controller_verified_target_digest_omitted_from_prompt"
+    },
+    "inference_performed": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

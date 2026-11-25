@@ -1,0 +1,700 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rootless Shared History Campaign Boundary Audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "campaign_id",
+    "plan_digest",
+    "task_family_id",
+    "ordered_model_identity_digests",
+    "planned_cycle_count",
+    "completed_cycle_count",
+    "incomplete_cycle_count",
+    "all_planned_cycles_completed",
+    "source_run_count",
+    "initial_history_boundary_digest",
+    "cycle_boundaries",
+    "atomic_snapshot",
+    "file_append_only_history_chain_verified",
+    "seed_boundary_chain_verified",
+    "runtime_admission_chain_verified",
+    "cognition_recovery_state_chain_verified",
+    "append_only_history_chain_verified",
+    "preregistration_timing_independently_attested",
+    "model_attention_established",
+    "learning_established",
+    "authority",
+    "audit_digest"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        "sentientos.rootless_history_boundary_campaign_audit:v6",
+        "sentientos.rootless_history_boundary_campaign_audit:v7",
+        "sentientos.rootless_history_boundary_campaign_audit:v8",
+        "sentientos.rootless_history_boundary_campaign_audit:v9",
+        "sentientos.rootless_history_boundary_campaign_audit:v10",
+        "sentientos.rootless_history_boundary_campaign_audit:v11"
+      ]
+    },
+    "campaign_id": {
+      "type": "string",
+      "pattern": "^rootless-history-campaign-[0-9a-f]{20}$"
+    },
+    "plan_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "task_family_id": {
+      "enum": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7",
+        "rootless_integer_affine_transfer_novel_range_v8"
+      ]
+    },
+    "ordered_model_identity_digests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "planned_cycle_count": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 32
+    },
+    "completed_cycle_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "incomplete_cycle_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "all_planned_cycles_completed": {
+      "type": "boolean"
+    },
+    "source_run_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 32
+    },
+    "history_transfer_precondition_snapshot_chain_verified": {
+      "type": "boolean"
+    },
+    "initial_history_boundary_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "initial_history_seed_bundle_digest": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "initial_history_seed_bundle_verified": {
+      "type": "boolean"
+    },
+    "cycle_boundaries": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cycle_id",
+          "expected_model_identity_digest",
+          "terminal_status",
+          "cycle_manifest_digest",
+          "history_boundary_digest",
+          "history_file_count",
+          "history_seed_boundary_verified",
+          "expected_runtime_admission_ledger",
+          "runtime_admission_ledger",
+          "runtime_admission_seed_verified",
+          "runtime_admission_ledger_append_only",
+          "expected_cognition_recovery_state",
+          "cognition_recovery_state",
+          "cognition_recovery_seed_verified",
+          "cognition_recovery_state_append_only",
+          "run_preregistration_binding_verified",
+          "campaign_binding_verified",
+          "source_run_id",
+          "source_run_digest",
+          "acquisition_history_record_id",
+          "run_parameters_verified",
+          "source_run_binding_verified",
+          "failure_stage",
+          "failure_code",
+          "new_history_paths",
+          "changed_or_missing_prior_paths",
+          "append_only_from_prior_boundary"
+        ],
+        "properties": {
+          "cycle_id": {
+            "type": "string",
+            "pattern": "^rootless-cognition-cycle-[0-9a-f]{20}$"
+          },
+          "expected_model_identity_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "terminal_status": {
+            "enum": [
+              "completed",
+              "incomplete"
+            ]
+          },
+          "cycle_manifest_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "history_boundary_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "history_file_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 50000
+          },
+          "history_seed_boundary_verified": {
+            "type": "boolean"
+          },
+          "expected_runtime_admission_ledger": {
+            "$ref": "#/$defs/runtimeAdmissionBoundary"
+          },
+          "runtime_admission_ledger": {
+            "$ref": "#/$defs/runtimeAdmissionBoundary"
+          },
+          "runtime_admission_seed_verified": {
+            "type": "boolean"
+          },
+          "runtime_admission_ledger_append_only": {
+            "type": "boolean"
+          },
+          "expected_cognition_recovery_state": {
+            "$ref": "#/$defs/cognitionRecoveryStateBoundary"
+          },
+          "cognition_recovery_state": {
+            "$ref": "#/$defs/cognitionRecoveryStateBoundary"
+          },
+          "cognition_recovery_seed_verified": {
+            "type": "boolean"
+          },
+          "cognition_recovery_state_append_only": {
+            "type": "boolean"
+          },
+          "run_preregistration_binding_verified": {
+            "type": "boolean"
+          },
+          "campaign_binding_verified": {
+            "type": "boolean"
+          },
+          "transfer_probe_preflight_verified": {
+            "type": "boolean"
+          },
+          "transfer_probe_overlap_recomputed": {
+            "type": "boolean"
+          },
+          "transfer_probe_preflight_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "history_transfer_precondition_snapshot_status": {
+            "enum": [
+              "precondition_not_present",
+              "unbound_legacy_precondition",
+              "record_snapshot_digest_unavailable_or_invalid",
+              "precondition_record_unavailable",
+              "precondition_record_identity_mismatch",
+              "record_snapshot_digest_mismatch",
+              "exact_record_snapshot_match"
+            ]
+          },
+          "history_transfer_precondition_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^devrec-[0-9a-f]{24}$"
+          },
+          "history_transfer_precondition_record_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "history_transfer_precondition_snapshot_verified": {
+            "type": "boolean"
+          },
+          "source_run_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^devexp-run-[0-9a-f]{24}$"
+          },
+          "source_run_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "acquisition_history_record_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^devrec-[0-9a-f]{24}$"
+          },
+          "run_parameters_verified": {
+            "type": "boolean"
+          },
+          "source_run_binding_verified": {
+            "type": "boolean"
+          },
+          "failure_stage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "failure_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "new_history_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^resident-cognition/history/(records/devrec-[0-9a-f]{24}|receipts/devreceipt-[0-9a-f]{24})\\.json$"
+            }
+          },
+          "changed_or_missing_prior_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^resident-cognition/history/(records/devrec-[0-9a-f]{24}|receipts/devreceipt-[0-9a-f]{24})\\.json$"
+            }
+          },
+          "append_only_from_prior_boundary": {
+            "type": "boolean"
+          },
+          "acquisition_probe_preflight_verified": {
+            "type": "boolean"
+          },
+          "acquisition_probe_overlap_recomputed": {
+            "type": "boolean"
+          },
+          "acquisition_probe_overlap_input_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 3
+          },
+          "novel_acquisition_qualified": {
+            "type": "boolean"
+          },
+          "acquisition_probe_overlap_measurement_complete": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "novel_acquisition_qualified": {
+                  "const": true
+                }
+              },
+              "required": [
+                "novel_acquisition_qualified"
+              ]
+            },
+            "then": {
+              "properties": {
+                "acquisition_probe_preflight_verified": {
+                  "const": true
+                },
+                "acquisition_probe_overlap_input_count": {
+                  "const": 0
+                },
+                "acquisition_probe_overlap_measurement_complete": {
+                  "const": true
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "atomic_snapshot": {
+      "const": false
+    },
+    "file_append_only_history_chain_verified": {
+      "type": "boolean"
+    },
+    "seed_boundary_chain_verified": {
+      "type": "boolean"
+    },
+    "runtime_admission_chain_verified": {
+      "type": "boolean"
+    },
+    "cognition_recovery_state_chain_verified": {
+      "type": "boolean"
+    },
+    "append_only_history_chain_verified": {
+      "type": "boolean"
+    },
+    "preregistration_timing_independently_attested": {
+      "const": false
+    },
+    "model_attention_established": {
+      "const": false
+    },
+    "learning_established": {
+      "const": false
+    },
+    "authority": {
+      "const": false
+    },
+    "audit_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "$defs": {
+    "cognitionRecoveryStateBoundary": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "files",
+            "file_count",
+            "total_size_bytes",
+            "completed_tick_bindings",
+            "incomplete_tick_bindings",
+            "atomic_snapshot",
+            "boundary_digest"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.rootless_cognition_recovery_state:v1"
+            },
+            "files": {
+              "type": "array",
+              "maxItems": 8192,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "sha256",
+                  "size_bytes"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "pattern": "^(composition_state\\.json|cognition_observations/devcog-[0-9a-f]{24}\\.json|inference-custody/receipts/lmrec-[0-9a-f]{24}\\.json)$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "size_bytes": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 67108864
+                  }
+                }
+              }
+            },
+            "file_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8192
+            },
+            "total_size_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 67108864
+            },
+            "completed_tick_bindings": {
+              "type": "array",
+              "maxItems": 4096
+            },
+            "incomplete_tick_bindings": {
+              "type": "array",
+              "maxItems": 4096
+            },
+            "atomic_snapshot": {
+              "const": false
+            },
+            "boundary_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "runtimeAdmissionBoundary": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "sha256",
+            "size_bytes",
+            "admission_count",
+            "revocation_count",
+            "admission_bindings",
+            "revocation_bindings",
+            "atomic_snapshot"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "sentientos.rootless_history_campaign_admission_boundary:v1"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4194304
+            },
+            "admission_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8192
+            },
+            "revocation_count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8192
+            },
+            "admission_bindings": {
+              "type": "array",
+              "maxItems": 8192
+            },
+            "revocation_bindings": {
+              "type": "array",
+              "maxItems": 8192
+            },
+            "atomic_snapshot": {
+              "const": false
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v6"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_low_range_v6"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v7"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_wide_range_v7"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v8"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_wide_range_v7"
+          },
+          "cycle_boundaries": {
+            "items": {
+              "required": [
+                "transfer_probe_preflight_verified",
+                "transfer_probe_overlap_recomputed",
+                "transfer_probe_preflight_digest"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v9"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "initial_history_seed_bundle_digest",
+          "initial_history_seed_bundle_verified"
+        ],
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_wide_range_v7"
+          },
+          "cycle_boundaries": {
+            "items": {
+              "required": [
+                "transfer_probe_preflight_verified",
+                "transfer_probe_overlap_recomputed",
+                "transfer_probe_preflight_digest"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v10"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "initial_history_seed_bundle_digest",
+          "initial_history_seed_bundle_verified",
+          "history_transfer_precondition_snapshot_chain_verified"
+        ],
+        "properties": {
+          "cycle_boundaries": {
+            "items": {
+              "required": [
+                "history_transfer_precondition_snapshot_status",
+                "history_transfer_precondition_record_id",
+                "history_transfer_precondition_record_digest",
+                "history_transfer_precondition_snapshot_verified"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v11"
+          }
+        },
+        "required": [
+          "schema_version"
+        ]
+      },
+      "then": {
+        "required": [
+          "initial_history_seed_bundle_digest",
+          "initial_history_seed_bundle_verified",
+          "history_transfer_precondition_snapshot_chain_verified"
+        ],
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_novel_range_v8"
+          },
+          "cycle_boundaries": {
+            "items": {
+              "required": [
+                "transfer_probe_preflight_verified",
+                "transfer_probe_overlap_recomputed",
+                "transfer_probe_preflight_digest",
+                "acquisition_probe_preflight_verified",
+                "acquisition_probe_overlap_recomputed",
+                "acquisition_probe_overlap_input_count",
+                "novel_acquisition_qualified",
+                "history_transfer_precondition_snapshot_status",
+                "history_transfer_precondition_record_id",
+                "history_transfer_precondition_record_digest",
+                "history_transfer_precondition_snapshot_verified",
+                "acquisition_probe_overlap_measurement_complete"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

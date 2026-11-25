@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.invalid/schemas/historical_examples_pair_arm_result.schema.json",
+  "title": "SentientOS historical examples pair arm result with archived receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_digest", "arm", "receipt_binding", "receipt", "runtime_history_inventory", "authority", "journal_record_digest"],
+  "properties": {
+    "schema_version": {"const": "sentientos.historical_examples_pair_arm_result:v2"},
+    "protocol_digest": {"$ref": "#/$defs/digest"},
+    "arm": {"enum": ["examples_included", "examples_omitted"]},
+    "receipt_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["receipt_id", "receipt_digest", "request_id", "request_digest", "preview_request_digest", "prompt_digest", "output_digest"],
+      "properties": {
+        "receipt_id": {"type": "string", "minLength": 1},
+        "receipt_digest": {"$ref": "#/$defs/digest"},
+        "request_id": {"type": "string", "minLength": 1},
+        "request_digest": {"type": "string", "minLength": 1},
+        "preview_request_digest": {"$ref": "#/$defs/digest"},
+        "prompt_digest": {"type": "string", "minLength": 1},
+        "output_digest": {"type": "string", "minLength": 1}
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "description": "Full governed invocation receipt. Its semantics and digest are validated by sentientos.governed_local_model_invocation.validate_receipt.",
+      "required": ["receipt_id", "receipt_digest", "status", "request", "output_text", "output_digest", "generation_config", "effects"],
+      "properties": {
+        "receipt_id": {"type": "string", "minLength": 1},
+        "receipt_digest": {"$ref": "#/$defs/digest"},
+        "status": {"type": "string", "minLength": 1},
+        "request": {"type": "object"},
+        "output_text": {"type": "string"},
+        "output_digest": {"type": "string", "minLength": 1},
+        "generation_config": {"type": "object"},
+        "effects": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
+    "runtime_history_inventory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_digest", "selected_history_set_digest", "runtime_record_count", "runtime_record_set_digest", "before_record_set_digest", "after_record_set_digest", "pair_baseline_record_set_digest", "runtime_receipt_count", "runtime_receipt_set_digest", "before_receipt_set_digest", "after_receipt_set_digest", "pair_baseline_receipt_set_digest", "stable_within_arm", "selected_records_verified", "receipt_record_links_verified", "selected_record_receipts_verified", "authority", "history_inventory_digest"],
+      "properties": {
+        "schema_version": {"const": "sentientos.historical_examples_runtime_history_inventory:v2"},
+        "protocol_digest": {"$ref": "#/$defs/digest"},
+        "selected_history_set_digest": {"$ref": "#/$defs/digest"},
+        "runtime_record_count": {"type": "integer", "minimum": 1},
+        "runtime_record_set_digest": {"$ref": "#/$defs/digest"},
+        "before_record_set_digest": {"$ref": "#/$defs/digest"},
+        "after_record_set_digest": {"$ref": "#/$defs/digest"},
+        "pair_baseline_record_set_digest": {"$ref": "#/$defs/digest"},
+        "runtime_receipt_count": {"type": "integer", "minimum": 0},
+        "runtime_receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "before_receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "after_receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "pair_baseline_receipt_set_digest": {"$ref": "#/$defs/digest"},
+        "stable_within_arm": {"const": true},
+        "selected_records_verified": {"const": true},
+        "receipt_record_links_verified": {"const": true},
+        "selected_record_receipts_verified": {"const": true},
+        "authority": {"const": false},
+        "history_inventory_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "authority": {"const": false},
+    "journal_record_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

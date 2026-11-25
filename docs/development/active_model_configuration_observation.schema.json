@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SentientOS active model configuration observation",
+  "description": "Canonical digest payload bound by an active local model identity.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "configuration_digest", "payload"],
+  "properties": {
+    "schema_version": {
+      "const": "sentientos.active_model_configuration_observation:v1"
+    },
+    "configuration_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine", "options", "max_context_tokens", "generation"],
+      "properties": {
+        "engine": {
+          "const": "ollama"
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "api_base",
+            "model",
+            "manifest_sha256",
+            "num_gpu",
+            "num_thread",
+            "keep_alive",
+            "think",
+            "timeout_seconds",
+            "seed"
+          ],
+          "properties": {
+            "api_base": {
+              "const": "http://127.0.0.1:11434"
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "manifest_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "num_gpu": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 128
+            },
+            "num_thread": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16
+            },
+            "keep_alive": {
+              "enum": ["0", "5s", "5m", "15m", "-1"]
+            },
+            "think": {
+              "type": "boolean"
+            },
+            "timeout_seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 180
+            },
+            "seed": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2147483647
+            }
+          }
+        },
+        "max_context_tokens": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "generation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "max_new_tokens",
+            "temperature",
+            "top_p",
+            "top_k",
+            "repetition_penalty"
+          ],
+          "properties": {
+            "max_new_tokens": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "temperature": {
+              "type": "number",
+              "minimum": 0
+            },
+            "top_p": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1
+            },
+            "top_k": {
+              "type": ["integer", "null"],
+              "minimum": 1
+            },
+            "repetition_penalty": {
+              "type": ["number", "null"],
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

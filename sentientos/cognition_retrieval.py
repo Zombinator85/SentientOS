@@ -3,6 +3,29 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from typing import Any, Mapping
+
+
+COMPACT_CHAT_SELECTION = "sentientos.ordinary_chat_developmental_history_selection:v4"
+
+
+def ordinary_chat_history_partition(selection: Mapping[str, Any]) -> tuple[list, list]:
+    """Reconstruct ordered available and omitted refs from an ordinary chat selection."""
+    if selection.get("schema_version") != COMPACT_CHAT_SELECTION:
+        available, omitted = selection.get("available_records"), selection.get("omitted_records")
+        if not isinstance(available, list) or not isinstance(omitted, list):
+            raise ValueError("ordinary_chat_history_selection_invalid")
+        return available, omitted
+    hashes = selection.get("omitted_record_sha256")
+    selected = selection.get("selected_records")
+    if (not isinstance(selected, list) or not isinstance(hashes, list)
+            or not selected or len(selected) + len(hashes) > 16
+            or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
+                   for value in hashes)):
+        raise ValueError("ordinary_chat_history_selection_invalid")
+    omitted = [{"record_id": "devrec-" + value[:24], "record_digest": "sha256:" + value}
+               for value in hashes]
+    return selected + omitted, omitted
 
 
 _QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")
