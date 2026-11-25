@@ -1,0 +1,200 @@
+{
+  "authority": false,
+  "condition_order": [
+    "history_present",
+    "history_withheld",
+    "history_restored"
+  ],
+  "condition_task_digests_match": false,
+  "cross_target_score_bound_history_evidence_matches": true,
+  "heldout_probe_count": 12,
+  "heldout_probe_set": [
+    34363,
+    83182,
+    112813,
+    164307,
+    168828,
+    172042,
+    292635,
+    305840,
+    379324,
+    462065,
+    533200,
+    889093
+  ],
+  "inference_performed": false,
+  "learning_established": false,
+  "model_loaded": false,
+  "nonce_stripped_task_specifications_match": true,
+  "ordered_backend_seeds": [
+    1212233621,
+    1212233622
+  ],
+  "ordered_task_generation_seeds": [
+    2026112503,
+    2026112504
+  ],
+  "pair_digest": "sha256:4c17891497dbb536a5445754425b9cf2f6752fdd7caf92f087bffeddb853e386",
+  "pinned_source_runtime_preview_replay": {
+    "authority": false,
+    "bundle_manifest_digest": "sha256:54f12c1f36d7abb71ea956cb7322f5d12f05135d9999c2decbe5fcfc28b128df",
+    "inference_performed": false,
+    "launcher_sha256": "a3e7d9d7ef2d995f6285ee8cfc27d215845575f3d5647aaff57cb88b442c0906",
+    "learning_established": false,
+    "receipt_digest": "sha256:d5210bfb754da76cc81a33a416a2900a58e30de9365b06be932e6ad11b703b2f",
+    "report_origin_attested": false,
+    "runtime_preview_verifications": [
+      {
+        "authority": false,
+        "campaign_id": "rootless-history-campaign-00000000000000000087",
+        "cycle_id": "rootless-cognition-cycle-00000000000000000176",
+        "implementation_digest": "35c00488302933e09f5a478f8960d925d39bdae9f108edd07ec86a8277a8d26f",
+        "implementation_matches_current": true,
+        "inference_performed": false,
+        "learning_established": false,
+        "owner_payload_digest_verified": true,
+        "plan_digest": "1a83e3c6a397b2c648d68174a6f67a2f2a2e2de1fe2315a5701f4b830dbf2c92",
+        "preview_digest": "926249009542558f7d04f94c1e2241a3beb280624334973d0d809f3f83727d9d",
+        "report_origin_attested": false,
+        "target": "same_model_artifact_target",
+        "verification_scope": "owner_payload_digest_and_flattened_report_consistency"
+      },
+      {
+        "authority": false,
+        "campaign_id": "rootless-history-campaign-00000000000000000088",
+        "cycle_id": "rootless-cognition-cycle-00000000000000000178",
+        "implementation_digest": "35c00488302933e09f5a478f8960d925d39bdae9f108edd07ec86a8277a8d26f",
+        "implementation_matches_current": true,
+        "inference_performed": false,
+        "learning_established": false,
+        "owner_payload_digest_verified": true,
+        "plan_digest": "8dc65a5748f4e33ea51edb6a85c0d8361508071304c1e11110a1a4e3897f4330",
+        "preview_digest": "bd70ca395908bf34a529580fa4016244b073afad63dd4b9bace1fb4f70249ef1",
+        "report_origin_attested": false,
+        "target": "different_model_artifact_target",
+        "verification_scope": "owner_payload_digest_and_flattened_report_consistency"
+      }
+    ]
+  },
+  "present_and_restored_share_exact_history": true,
+  "previews": {
+    "different_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-00000000000000000088",
+      "condition_prompt_digests": {
+        "history_present": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+        "history_restored": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+        "history_withheld": "sha256:57aa100b03dc25eda76494a9c89773208ece72a80b5122b8fe1ea7d67f4978bf"
+      },
+      "condition_task_digests": {
+        "history_present": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+        "history_restored": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+        "history_withheld": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950"
+      },
+      "cycle_id": "rootless-cognition-cycle-00000000000000000178",
+      "delivered_record_digests": [
+        "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+        "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+      ],
+      "delivered_record_ids": [
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "owner_selected_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "preview_digest": "bd70ca395908bf34a529580fa4016244b073afad63dd4b9bace1fb4f70249ef1",
+      "prompt_packet_digests": {
+        "history_present": [
+          "sha256:93b419b0b4732551b7302732dccdf8da6272341f3377b2f67990ee0888af34c2",
+          "sha256:9e3208d0a1f811d925b23eb9fba70aa5fdcc75cf2380d36b585fe3f66c2a1f90"
+        ],
+        "history_restored": [
+          "sha256:93b419b0b4732551b7302732dccdf8da6272341f3377b2f67990ee0888af34c2",
+          "sha256:9e3208d0a1f811d925b23eb9fba70aa5fdcc75cf2380d36b585fe3f66c2a1f90"
+        ]
+      },
+      "target_model_identity_digest": "sha256:5a3b804f2086717dd23706a562d7347502263e3ca88a5b3653b949db8542f492"
+    },
+    "same_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-00000000000000000087",
+      "condition_prompt_digests": {
+        "history_present": "sha256:5a801594a83c1d4eb998a1c4ed40b941512143666dfd63135952416b12aeae0e",
+        "history_restored": "sha256:5a801594a83c1d4eb998a1c4ed40b941512143666dfd63135952416b12aeae0e",
+        "history_withheld": "sha256:fdada8c4383204c9be24dfb5074bde2e50f5075c8acad835183d60b1ad81fa55"
+      },
+      "condition_task_digests": {
+        "history_present": "sha256:8a2ae0afe9fe969365fe66be92a29d43407868d92b1d552f10bbd366a4481a1f",
+        "history_restored": "sha256:8a2ae0afe9fe969365fe66be92a29d43407868d92b1d552f10bbd366a4481a1f",
+        "history_withheld": "sha256:8a2ae0afe9fe969365fe66be92a29d43407868d92b1d552f10bbd366a4481a1f"
+      },
+      "cycle_id": "rootless-cognition-cycle-00000000000000000176",
+      "delivered_record_digests": [
+        "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+        "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+      ],
+      "delivered_record_ids": [
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "owner_selected_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "preview_digest": "926249009542558f7d04f94c1e2241a3beb280624334973d0d809f3f83727d9d",
+      "prompt_packet_digests": {
+        "history_present": [
+          "sha256:af5c1af725ebd596a659f02aa745b77557eb5447ea50f972b312f7002d9c4b76",
+          "sha256:28d6e0e5f642e48c60ac8d46e23151c31ed5e7a941f2e5f7be1aa8ad4d317fcd"
+        ],
+        "history_restored": [
+          "sha256:af5c1af725ebd596a659f02aa745b77557eb5447ea50f972b312f7002d9c4b76",
+          "sha256:28d6e0e5f642e48c60ac8d46e23151c31ed5e7a941f2e5f7be1aa8ad4d317fcd"
+        ]
+      },
+      "target_model_identity_digest": "sha256:adbcfffecdba65eac4c115e077fe0989d95260efe5a2596641cd7dbe15056aff"
+    }
+  },
+  "prompt_digest_parity_interpretation": "full_prompt_digest_equality_is_not_required_for_distinct_target_identities; prompt text is not exported",
+  "prompt_digests_match": false,
+  "prompt_packet_serializations_match": false,
+  "prompt_sizes_match": true,
+  "schema_version": "sentientos.rootless_matched_model_target_runtime_preview_parity:v1",
+  "seeded_task_contract_matches": true,
+  "shared_delivered_score_bound_history": [
+    {
+      "example_count": 3,
+      "examples_digest": "sha256:ab9186e1546997686cb85747715f7e65fac316bd7ba4bd227a5ca0c128bfc8e6",
+      "experience_count": 1,
+      "record_digest": "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+      "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+      "score_bound_source_run_digests": [
+        "sha256:3b83ab097055381a24c03a92440795178ef47456a37f12c5f831f10dc1f24cf3"
+      ],
+      "score_bound_source_score_digests": [
+        "sha256:cc918527b43dc1fbf7371f16ee588ca78324e06f2467f790b5f3d0a0383fa6f4"
+      ]
+    },
+    {
+      "example_count": 3,
+      "examples_digest": "sha256:9729743c2e1e4617fdc0258888e9d6011b05dca824e4cb81551c86830dea747a",
+      "experience_count": 1,
+      "record_digest": "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8",
+      "record_id": "devrec-8e71800e6cfed38978f64a31",
+      "score_bound_source_run_digests": [
+        "sha256:bf409ceb19c368b18c6c2eec26dc89cdd0a2665c4508d698340237aee25ba804"
+      ],
+      "score_bound_source_score_digests": [
+        "sha256:98ab3e1aa90192f7cb87d7ce5590826927fb5fd9283848e9d8493e29047ef497"
+      ]
+    }
+  ],
+  "task_digest_difference_posture": "public_task_digest_commits_to_each_task_private_nonce; seeded_family_and_probe_inputs_match",
+  "task_factory_source_sha256": "21623adfbf1095701a0f96e2bd7d9a8532610f47791509377b5955f3c32a367e",
+  "verification_digest": "sha256:a916b1864061b6f0e335b81dea4123bd263738d4c4b0993b6463e7ab77697085",
+  "withheld_history_empty": true
+}

@@ -1,0 +1,47 @@
+{
+  "schema_version": "sentientos.projection_aware_repeat_ask_outcome:v1",
+  "campaign_id": "rootless-history-campaign-20261124000000000004",
+  "campaign_plan_digest": "9776dbeacee0000e4f59abcec33749dd6c5357c8f04a8e86d8067024c92828e0",
+  "implementation_digest": "78ffdc6fc99bea50f5670fcb61f40d1ec6c5e1427f4dd381f9b8fedd66f1cbe3",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000007",
+  "failure_artifact": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-20261124000000000007/cycle-failure.json",
+  "failure_artifact_sha256": "0bf1db821e310755ada203419273a6accb867a93386f7d571ae2c4c4f921925d",
+  "failure_stage": "synthetic_pre_action_cognition",
+  "decision_evidence_schema": "sentientos.pre_action_decision_evidence:v5",
+  "clarification_attempt_schema": "sentientos.pre_action_clarification_attempt:v2",
+  "followup_outcome": "repeated_ask_after_new_current_projection",
+  "initial_turn": {
+    "receipt_id": "lmrec-db560e72984c779dbcc46b5e",
+    "receipt_digest": "db560e72984c779dbcc46b5e19247638b8b4069f606ae17185d794af06693875",
+    "prompt_digest": "24f8a94bccd19d329abf30c0c0f8cf9c6653739faf031c3f95d779212434cf24",
+    "current_projection_digest": "sha256:ad99f1c98735930d7bccacc75fbb5d9dc7cc2c161219d0df689b49fca96a064e",
+    "current_fact_ids": ["fact-08fb0bf1278cd23f", "fact-d95ea97ea5ca4116"],
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b"
+  },
+  "followup_turn": {
+    "receipt_id": "lmrec-f739be2f13410e59c7adb30b",
+    "receipt_digest": "f739be2f13410e59c7adb30b1659be36cea04c50dfd72f977cac6704ff6d2427",
+    "prompt_digest": "940d86a31c14bc15551fcbd0699d3f7fff3cc09e0ca1d6fed4de32ce70429de6",
+    "current_projection_digest": "sha256:8bb21b1af02d8e940631ab456bada68b6fb1657647f31209061dff51841c3109",
+    "current_fact_ids": ["fact-08fb0bf1278cd23f", "fact-d6b6efd2dcefe41b"],
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b"
+  },
+  "response_digest_unchanged": true,
+  "current_projection_changed": true,
+  "sensor_refresh": {
+    "source_id": "rootless-cognition-cycle-20261124000000000007:synthetic-current-target-refresh-2",
+    "source_digest": "sha256:e7f1664a12bd027eaa5c74de4470f38b39fbf57650cc292764b10cfcaf0e219d",
+    "provenance_class": "deterministic_synthetic_fixture",
+    "evidence_class": "sensor_observation",
+    "synthetic": true,
+    "physical_world_observation": false,
+    "authority": false
+  },
+  "persisted_cognition_observation_count": 2,
+  "synthetic_action_executed": false,
+  "raw_prompt_or_response_persisted": false,
+  "inference_performed": true,
+  "learning_established": false,
+  "causal_claim": false,
+  "authority": false
+}

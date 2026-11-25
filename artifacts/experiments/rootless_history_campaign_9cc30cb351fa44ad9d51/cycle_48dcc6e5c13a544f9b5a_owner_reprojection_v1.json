@@ -1,0 +1,35 @@
+{
+  "audit_digest": "b2b81700e13f5c57a43417c941a25e1de33f21d607b34a302ebac85373af403e",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-6a8c5606c73665926428",
+  "campaign_plan_digest": "141ad240526784f039c7be0d223600a15a3f7b15d570986b0f6b191a8bb47491",
+  "completed_tick_count": 50,
+  "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+  "family_record_count": 13,
+  "history_boundary_digest": "9bda3195d0ec5e55fe124848405beb22ed2799eef887181346d434e607806c24",
+  "history_boundary_file_count": 50,
+  "history_boundary_stable_across_read": true,
+  "inference_performed": false,
+  "interpretation": "The actual resident owner now ranks evaluator-correct input coverage before exact-probe overlap for this unchanged admitted history. Its four-record projection replaces the score-incomplete exact-overlap record with older score-verified correct sources. Downstream input-budget selection and prompt delivery were not run in this offline replay.",
+  "learning_established": false,
+  "max_retrieved_records": 4,
+  "model_attention_established": false,
+  "model_invocation_performed": false,
+  "new_projection_excludes_zero_correct_exact_overlap": true,
+  "owner_projection_recomputed": true,
+  "owner_projection_record_order": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-83bc0097864882302ae02efd"
+  ],
+  "prior_exact_prompt_included_zero_correct_exact_overlap": true,
+  "prior_exact_prompt_record_order": [
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-83bc0097864882302ae02efd"
+  ],
+  "prompt_assembled": false,
+  "schema_version": "sentientos.task_family_history_owner_reprojection:v1",
+  "task_family_history_required": true,
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+}

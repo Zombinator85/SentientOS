@@ -1,0 +1,18 @@
+{
+  "authority": false,
+  "held_out_overlap_count": 0,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "schema_version": "sentientos.fresh_pair_seed_scout:v1",
+  "seeds": [
+    {
+      "seed": 13688609,
+      "task_digest": "sha256:252c164aeeaa60922ab9b2524b902a3d8bf33b0dc33d9ed1b58b7fd7b4496c18"
+    },
+    {
+      "seed": 13688610,
+      "task_digest": "sha256:2e148664ac194f28bd9c345ed88d99b8a53bc566ede4e9b8ca0737da7698ea1e"
+    }
+  ]
+}

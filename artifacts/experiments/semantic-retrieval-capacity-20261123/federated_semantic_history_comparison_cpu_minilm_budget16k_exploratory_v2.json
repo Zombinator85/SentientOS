@@ -1,0 +1,2676 @@
+{
+  "authority": false,
+  "comparison_digest": "sha256:b57262c911215fe92c8f86c32ff63d57f7ab1848a3080b764f896b35422940cb",
+  "federated_manifest_digest": "sha256:0839f14c2cd8c2f5bd8cd008a1de8874f3d550e0632dd7a1156a8315d39e83af",
+  "gate_qualification": "not_evaluated",
+  "learning_established": false,
+  "lexical_policy_id": "ordinary_chat_query_decision_polarity_then_lexical_overlap_with_identity_bound_correction_groups_and_embodied_reports_then_recency_fill:v1:federated_global:v1:max_selected_records:8",
+  "query_results": [
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:c4a24181c09ab041b0199e9c3d52f9c73d3cb30c4da7a689853ce6bcacd695e7",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:4c678c30f40bc03f085a96734728ac10fb2bd4a24bdd7caeff4ce6eb5424148f",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+          "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:210579d0c1be725d47131d2b2a36fae01b666248516676d691ea9d952599c98e",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+          "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:5ce950e254690f736a4bacc651e492861ee387180cc59af8d34f82bd0c3e6db4",
+          "record_id": "devrec-5ce950e254690f736a4bacc6",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+          "record_id": "devrec-6cd189853e84eb74e7a7c354",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:cf34f866e23641a7bfdea720098f282f6d6526ce2fd3d35fc963b305bd9218e3",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:5ce950e254690f736a4bacc651e492861ee387180cc59af8d34f82bd0c3e6db4",
+          "record_id": "devrec-5ce950e254690f736a4bacc6",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+          "record_id": "devrec-6cd189853e84eb74e7a7c354",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+          "record_id": "devrec-6cd189853e84eb74e7a7c354",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:4789615b83fa32936c2a96f408634c677e795a5ed2d38f7944f07eb61ca2892c",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+          "record_id": "devrec-6cd189853e84eb74e7a7c354",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:41999e74b6da3a7463dbfb1ddca6bcf5127191b3add7d1ce9810150c57efab8c",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a8b299f6e721c3e800c42555009acdad623db8cb83adc02dbb4b5a62f93eb864",
+          "record_id": "devrec-a8b299f6e721c3e800c42555",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:ceffe085d03d126d40550a6c447aed714180e54de8d0d9037e86994fdee329d9",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a8b299f6e721c3e800c42555009acdad623db8cb83adc02dbb4b5a62f93eb864",
+          "record_id": "devrec-a8b299f6e721c3e800c42555",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+          "record_id": "devrec-6fde16658f35afa909982447",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d3818cf820042ede50e12466d323ccb7613e90d3fa82c5f7125a0a66eaa45bc4",
+          "record_id": "devrec-d3818cf820042ede50e12466",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:c9e087f804f06ba790e6031d5cdccce822c0bcd86b5a7ec6756762121f7ed44b",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+          "record_id": "devrec-6fde16658f35afa909982447",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d3818cf820042ede50e12466d323ccb7613e90d3fa82c5f7125a0a66eaa45bc4",
+          "record_id": "devrec-d3818cf820042ede50e12466",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:01a855cd78d8177e0372ecd537d4a254523e0ec0bf72087b2aacda163ed3e59d",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:211320d8d1bc44e3a4b7cce3c032d7925a2f5cbb676c89cde16e4ccbeb3432c0",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:0b495acac90b07f9ff97dae97b6a4ce29b6357eaa4e263aac55b722622eead50",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:80fa37778407832fca4e404abf3f884e476b104d0bcf85f10a5511e38629650f",
+          "record_id": "devrec-80fa37778407832fca4e404a",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:235c270a307c2e22c94c3eb68dd526cf8670c4c714167a825c9e60c2ba8312c6",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:80fa37778407832fca4e404abf3f884e476b104d0bcf85f10a5511e38629650f",
+          "record_id": "devrec-80fa37778407832fca4e404a",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:0b4944e4c06175db66fe979482698d6d8e48d2a3880a8e6ca21cedc125798f2e",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+          "record_id": "devrec-8905e28a74548aa7e998f6b8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:7841226cbe68c1017cab881c2958a69da0554df99c3aaf6b2f1a51e62ef9bb21",
+          "record_id": "devrec-7841226cbe68c1017cab881c",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:e5df661759ba687ac5a8a15e5579d988e03f2c00409eee3436a019e3edb4f6c8",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:7841226cbe68c1017cab881c2958a69da0554df99c3aaf6b2f1a51e62ef9bb21",
+          "record_id": "devrec-7841226cbe68c1017cab881c",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+          "record_id": "devrec-6fde16658f35afa909982447",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:4f5b230b8d8c3a74ce4981164588749c36ff4a6b8a082bf6dc6ff225a1eae5dd",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+          "record_id": "devrec-6fde16658f35afa909982447",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:89c8014e2f68d743ef60a43dba13ebc6d686a4fe3ab1f89afd950d9555f6e28a",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:be9986bb0112c57fd0d1f7bc66aae900a9fd90f124fadc041075a0abf864582d",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+          "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:b24d2c580a35e473b189b5091f2f57646541e11dbd8544ec6dcb52c0c6ace98a",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+          "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:b7c895008ce3a03af2121c0b42ecd07b1ea4cafb55b5cb817b001ef1475dd843",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:2b1f7be065cabd7823732cca12a510f806035295a3ca414aa7d9822e2462338e",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+          "record_id": "devrec-6c188224414ccd4acff54817",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+          "record_id": "devrec-7c65f971c472cafc40139e06",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:c21c3c767f90c879baa77ca4035fc56e0e3f9e88e3c5089f9d4be6b294a2d427",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+          "record_id": "devrec-7c65f971c472cafc40139e06",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+          "record_id": "devrec-5e9136f207c8a21292d0305a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:8495c36e445151f2e42af5f05bc52bce90cfb4c448445d43cc70336a896e5ed6",
+          "record_id": "devrec-8495c36e445151f2e42af5f0",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:4f6f6aa1decfb180b85d81c0cd1bca7594fde9e5dc4dec5ccb49b8a0904b02f8",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+          "record_id": "devrec-5e9136f207c8a21292d0305a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:8495c36e445151f2e42af5f05bc52bce90cfb4c448445d43cc70336a896e5ed6",
+          "record_id": "devrec-8495c36e445151f2e42af5f0",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:2f3822b398931baf77de5317824b59c0a4584ea8adcf07789a01272b7554e1ce",
+          "record_id": "devrec-2f3822b398931baf77de5317",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:c26f9ce3fa4bed8d5208c83703937a7a0247224594c14ef90a459944410192d9",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:2f3822b398931baf77de5317824b59c0a4584ea8adcf07789a01272b7554e1ce",
+          "record_id": "devrec-2f3822b398931baf77de5317",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:76fc2e31dcdb3bcb4dd051a1f47da08f22b3e82ac5bee1b4d5feceb0ac7c0dbf",
+          "record_id": "devrec-76fc2e31dcdb3bcb4dd051a1",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+          "record_id": "devrec-d44fdde4016204ea903e093c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:d5b15ba4a88346e795434093f8beff2343ac5780cb35b02011f6c7761c3726a2",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:76fc2e31dcdb3bcb4dd051a1f47da08f22b3e82ac5bee1b4d5feceb0ac7c0dbf",
+          "record_id": "devrec-76fc2e31dcdb3bcb4dd051a1",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+          "record_id": "devrec-d44fdde4016204ea903e093c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:22893cc9556c72cd41476a868d719795256e2a628840758bd49fe2faa3ef3b24",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:6c0fb1f1a1e06428c375dc61e657fd49b5585d0ec9a07cd2707f30490d6557b7",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:2d909355a498684c1adb3aaa0f4380d46ee272c70b9a019d741d397443844bf4",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:cc1ff3a3b9e8da022e33ff8304070702a96b8e30f7ae3205a145cdcc4d799b85",
+          "record_id": "devrec-cc1ff3a3b9e8da022e33ff83",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:eac0b63422d1d302ede9751025a53ca63635b16bf4bb96448e13037cb78f0bff",
+          "record_id": "devrec-eac0b63422d1d302ede97510",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        }
+      ],
+      "question_digest": "sha256:743e90a0742fc3740f4e55722656e6c9bdff54fffc559ff8db0c372db29d27ab",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:cc1ff3a3b9e8da022e33ff8304070702a96b8e30f7ae3205a145cdcc4d799b85",
+          "record_id": "devrec-cc1ff3a3b9e8da022e33ff83",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+          "record_id": "devrec-0641223365c8adfd38a1143f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:eac0b63422d1d302ede9751025a53ca63635b16bf4bb96448e13037cb78f0bff",
+          "record_id": "devrec-eac0b63422d1d302ede97510",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0d365af302c84f655f6198c5dd0caf05619b69d3019cf3a8e042e9b873294c87",
+          "record_id": "devrec-0d365af302c84f655f6198c5",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+          "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:3d0931d029fd3901ff8926f664abec9acb999d6d104e997a8eea19004048e394",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:0d365af302c84f655f6198c5dd0caf05619b69d3019cf3a8e042e9b873294c87",
+          "record_id": "devrec-0d365af302c84f655f6198c5",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+          "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:1b50482fe3661dcb54c7a5ffb0a514f8b065fce2bb8ae89526e0891d2830b56b",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+          "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:8ee828a8fedff9b0dade9ad6cda0fac2eda7dbfb755aa8a1d6ec269d319d4771",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+          "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:fed981595553a9b9f37cdb5202cdc752084c4ec1af3d66dd70294492e11c8b5b",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:82a706b8435e2c3d9262b54935d2e1bdfb57d60e6536a8aaa2da01589b96a6e3",
+          "record_id": "devrec-82a706b8435e2c3d9262b549",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:89d294006f579428fcbb244d130f1c3c7373bbf95eecb3d006003359cbe52307",
+          "record_id": "devrec-89d294006f579428fcbb244d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+          "record_id": "devrec-7c65f971c472cafc40139e06",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:fa5a0d692959623592a22bf27e07baf3c887b77687d21bf27fddc0f7e0ee5f73",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:82a706b8435e2c3d9262b54935d2e1bdfb57d60e6536a8aaa2da01589b96a6e3",
+          "record_id": "devrec-82a706b8435e2c3d9262b549",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:89d294006f579428fcbb244d130f1c3c7373bbf95eecb3d006003359cbe52307",
+          "record_id": "devrec-89d294006f579428fcbb244d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+          "record_id": "devrec-7c65f971c472cafc40139e06",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:532b7a919ae7870c56553927ad6b3570c24d90e2d19f39074393c59402253a29",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+          "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:3e6011cdbefb41774a78997393c37c4a553abbba45f850bdbc20e6ab8389e830",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+          "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+          "record_id": "devrec-d44fdde4016204ea903e093c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:2d1b509f757122acef5e4f98242b3b0d699cb5fdbb58fc74e13da3b245c2c7c7",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+          "record_id": "devrec-d44fdde4016204ea903e093c",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:1581103949635ae915924b37618be8aa59bb33baf2560fb0c4ebc4c6b2122f96",
+          "record_id": "devrec-1581103949635ae915924b37",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:1a9fe36a750c2417899e5d62ca529ba016735d5248dc6a2ca82a1852619de5fd",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+          "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+          "record_id": "devrec-5dae23fd79510dedf13950aa",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+          "record_id": "devrec-fca1b6cc39e549136f9b815f",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:1581103949635ae915924b37618be8aa59bb33baf2560fb0c4ebc4c6b2122f96",
+          "record_id": "devrec-1581103949635ae915924b37",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:cb3571d10ae048dc259ef2221a99ad2b2bd8aa40dacef8b6c1c15b3eed6ad75b",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+          "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+          "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:33011a4961d56bc335fbde9194fc892f5a27a888cce6cbcffbaa9f3fd421f06b",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+          "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+          "record_id": "devrec-7e5093f81005e5c781b2ede0",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+          "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+          "record_id": "devrec-5e9136f207c8a21292d0305a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        }
+      ],
+      "question_digest": "sha256:5828c81818f87328743964deef839eedf45f411e791559a7b3fe1dca73034a4c",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+          "record_id": "devrec-4636cead0a89f76418db624a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+          "record_id": "devrec-5e9136f207c8a21292d0305a",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:1a804abc2e1f869f567a69ff87821141b865c7e68f58356ed1f38df6bd67c898",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:656a60aa573a4ac915a45d8d681e8560669aae3e1cc91b9849f6a7ff4d91a2b5",
+          "record_id": "devrec-656a60aa573a4ac915a45d8d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:ae40c239eb821fdd3425a2e9f3d093e92cfebbe1d1355425e2b338d4f3057d71",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:656a60aa573a4ac915a45d8d681e8560669aae3e1cc91b9849f6a7ff4d91a2b5",
+          "record_id": "devrec-656a60aa573a4ac915a45d8d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:e5b4c33d6816a152b848acf7b498ab39e43513c9f67aad608920669dd8f18122",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+          "record_id": "devrec-94356f97cd3b0886c33055cc",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+          "record_id": "devrec-52324db6d60b2a38dedba25e",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+          "record_id": "devrec-83bc0097864882302ae02efd",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+          "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:bfd154dab8b9dd79c24a30747f3637e35316a58246c093a05fb5617d186af6e3",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+          "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+          "record_id": "devrec-6db704a20cd40c3a49373518",
+          "source_id": "src-fa8fea23d72bf07e090f2006"
+        },
+        {
+          "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+          "record_id": "devrec-e6c2f49089c474316c5aebf3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:f40f8489e05cd65672f4076129f438535b18fbafde945736e0416dbccc1d9e79",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:2589de024616ad6c567c7dc6f5c120fcb6c54d8b36af73e86ef39ff5c4f8efe5",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:670d0c7de415c87113f3d53fb53fea185c9ccf94ec844e145af2bc5e911e8094",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:09c88bc475a9eefcb11679a5a7c8e188478a7f8b9aefd5f289ad37ca1bbba290",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:a564b6f6083a06c5bbdaec1f16293533390cb57fdf4962bad4932413228432d1",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:e629eb1e6f258704b1fb1ff7184f255ab4246b45278f33817c6855f33f124e04",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+          "record_id": "devrec-a4efd206f7fe0637aed174a7",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:dd077d47f16f1bddf36bb602c8521d5377cba2b4c3737bca058d9a36ac7a06d9",
+          "record_id": "devrec-dd077d47f16f1bddf36bb602",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:bd8eb9649eab48042d31fdb5d6fc24cf48c1c82bcaee72ddc37e370237b47c96",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+          "record_id": "devrec-a4efd206f7fe0637aed174a7",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:dd077d47f16f1bddf36bb602c8521d5377cba2b4c3737bca058d9a36ac7a06d9",
+          "record_id": "devrec-dd077d47f16f1bddf36bb602",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:9f7317195bdb624ff43efc050232a0037844acc92ce966b23a529e959ca937a2",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:4c61e084d358d7f5932059aae03cc7e3e6f570b94b8910dedd697a52898f48f2",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+          "record_id": "devrec-a4efd206f7fe0637aed174a7",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+          "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ],
+      "question_digest": "sha256:f2ef2137b115cf5f6f57d5170eea60ebf3402568a60b5fb21b44c8cd77918f69",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+          "record_id": "devrec-a4efd206f7fe0637aed174a7",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+          "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+          "source_id": "src-4448560d5c38e73f57318253"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:5367c8405159a8fa37659ff43004fcd633c1b0af6b1b53420cef15710d3a3038",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:663bd8c30c4ac8806aef2451a31975676b695e758d72909586d096955fa816ed",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:70cad04c704fc12d7bea542afe510c70a3c969cd53074c1451bd826e905a9985",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:e61c36ce277cc13e7dbe33df0bb1ccdba90cbb335009dc1bcb19c6199b99802a",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+          "record_id": "devrec-7bab60b75b6b114cea689248",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:34f8af2cc29849b13365de40b1061fa90b06a75fb898e3af6f4326ee5bf0ec32",
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:6a931ff54e8431bc4b96a28ea45c720dd49f45149fe18e1e99c6eaf5b3b0fc04",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+          "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+          "record_id": "devrec-6420107bbb215fa3608eeccf",
+          "source_id": "src-4448560d5c38e73f57318253"
+        },
+        {
+          "record_digest": "sha256:34f8af2cc29849b13365de40b1061fa90b06a75fb898e3af6f4326ee5bf0ec32",
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    },
+    {
+      "lexical_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ],
+      "question_digest": "sha256:5d1b8a2482bce9f2e101ff531002bc443eddba1aa7a17cbbe6b5051faeeedc4e",
+      "semantic_fallback_to_lexical": true,
+      "semantic_selected_refs": [
+        {
+          "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+          "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        },
+        {
+          "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+          "record_id": "devrec-2101f0fa9196a25d009e485d",
+          "source_id": "src-c84358c790aeb0c944a38f3e"
+        }
+      ]
+    }
+  ],
+  "query_set_digest": "sha256:7d2849adb59428b019ac01c2de663d33134902de9304e9d27b94a823d984357f",
+  "query_set_id": "federated-queryset-7d2849adb59428b019ac01c2",
+  "retrieval_implementation_digest": "sha256:48383aa00dc083af5cab657bcfbcae97871136c154bbfc289abbb6a3fa4fd359",
+  "schema_version": "sentientos.federated_semantic_history_comparison:v1",
+  "semantic_embedder_identity_digest": "sha256:66d4a3809ceb363e6d521f69dd29432782bdb7eed864ad7281577e5792d4bc5d",
+  "semantic_policy_id": "ordinary_chat_global_semantic_rank:v1:sha256:66d4a3809ceb363e6d521f69dd29432782bdb7eed864ad7281577e5792d4bc5d:max_selected_records:8"
+}

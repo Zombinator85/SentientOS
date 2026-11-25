@@ -1,0 +1,72 @@
+{
+  "authority": false,
+  "bundle_archive_sha256": "b3b2ebebbceba4e04802e422a9bbe3a24ae1e0ad031caec75bf64660b0ab652c",
+  "bundle_manifest_digest": "sha256:54f12c1f36d7abb71ea956cb7322f5d12f05135d9999c2decbe5fcfc28b128df",
+  "created_at_utc": "2026-11-25T03:09:09.562704+00:00",
+  "inference_performed": false,
+  "launcher_sha256": "a3e7d9d7ef2d995f6285ee8cfc27d215845575f3d5647aaff57cb88b442c0906",
+  "learning_established": false,
+  "model_loaded": false,
+  "prior_verification_receipt_digest": "sha256:04e17e9dd6368f738a0df39a12a714e7cd7ac628e361b7313ba39c6e06f995af",
+  "receipt_digest": "sha256:d5210bfb754da76cc81a33a416a2900a58e30de9365b06be932e6ad11b703b2f",
+  "runtime_preview_verifications": [
+    {
+      "authority": false,
+      "campaign_id": "rootless-history-campaign-00000000000000000087",
+      "cycle_id": "rootless-cognition-cycle-00000000000000000176",
+      "implementation_digest": "35c00488302933e09f5a478f8960d925d39bdae9f108edd07ec86a8277a8d26f",
+      "implementation_matches_current": true,
+      "inference_performed": false,
+      "learning_established": false,
+      "owner_payload_digest_verified": true,
+      "plan_digest": "1a83e3c6a397b2c648d68174a6f67a2f2a2e2de1fe2315a5701f4b830dbf2c92",
+      "preview_digest": "926249009542558f7d04f94c1e2241a3beb280624334973d0d809f3f83727d9d",
+      "report_origin_attested": false,
+      "target": "same_model_artifact_target",
+      "verification_scope": "owner_payload_digest_and_flattened_report_consistency"
+    },
+    {
+      "authority": false,
+      "campaign_id": "rootless-history-campaign-00000000000000000088",
+      "cycle_id": "rootless-cognition-cycle-00000000000000000178",
+      "implementation_digest": "35c00488302933e09f5a478f8960d925d39bdae9f108edd07ec86a8277a8d26f",
+      "implementation_matches_current": true,
+      "inference_performed": false,
+      "learning_established": false,
+      "owner_payload_digest_verified": true,
+      "plan_digest": "8dc65a5748f4e33ea51edb6a85c0d8361508071304c1e11110a1a4e3897f4330",
+      "preview_digest": "bd70ca395908bf34a529580fa4016244b073afad63dd4b9bace1fb4f70249ef1",
+      "report_origin_attested": false,
+      "target": "different_model_artifact_target",
+      "verification_scope": "owner_payload_digest_and_flattened_report_consistency"
+    }
+  ],
+  "schema_version": "sentientos.rootless_matched_model_target_bundle_replay:v1",
+  "verification_result": {
+    "authority": false,
+    "different_model_artifact_campaign": "rootless-history-campaign-00000000000000000088",
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "matched_cycle0_transfer_probes": [
+      34363,
+      83182,
+      112813,
+      164307,
+      168828,
+      172042,
+      292635,
+      305840,
+      379324,
+      462065,
+      533200,
+      889093
+    ],
+    "pair_digest": "sha256:4c17891497dbb536a5445754425b9cf2f6752fdd7caf92f087bffeddb853e386",
+    "same_implementation_source_count": 2521,
+    "same_model_artifact_campaign": "rootless-history-campaign-00000000000000000087",
+    "shared_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "status": "verified"
+  }
+}

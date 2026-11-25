@@ -1,0 +1,32 @@
+{
+  "authority": false,
+  "correct_counts": {
+    "examples_included": 3,
+    "examples_omitted": 5
+  },
+  "independent_receipt_digests": {
+    "examples_included": "e147467ba77d3b092bec3c2b7e09cdd5cc55b155c80a7d429141e9d0f1580f20",
+    "examples_omitted": "7013bc37266f44c19cf6dc766a696f7c5fad2ce0187b6ff75056107fdaacaa38"
+  },
+  "independent_recomputed_correct_counts": {
+    "examples_included": 3,
+    "examples_omitted": 5
+  },
+  "independent_recomputed_outcomes_digest": "sha256:2d11963b88aa3fc1bb0dbddeeb25c9f11ce68668d39f896b2728d4596ae2e313",
+  "independent_scorer_attested": true,
+  "independent_scorer_implementation_digest": "sha256:43c41aaf30d459835e074fa06de77d8ee4ed71c47e3e4c2c94e260a299c36158",
+  "learning_established": false,
+  "private_answer_key_reconstructed": true,
+  "probe_count": 12,
+  "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+  "runtime_history_receipt_count": 30,
+  "runtime_history_receipt_record_links_verified": true,
+  "runtime_history_receipt_set_digest": "sha256:1ff073d9d1d08f3515edd3c236a731169078027ce2e9571995572b1940ef7b6f",
+  "runtime_history_record_count": 30,
+  "runtime_history_record_set_digest": "sha256:c7f05b3c9f4ec47c3aa5f7e88a8b48749368f43d1eff46b641604f8ea840defb",
+  "schema_version": "sentientos.historical_examples_pair_score_verification:v2",
+  "score_digest": "sha256:fdc419943d8b9fca9b45230ba66c2976e5a837a7cb28c89a8792565b718ba39d",
+  "scoring_reconstructed_from_archived_receipts": true,
+  "selected_history_record_receipts_verified": true,
+  "verification_digest": "sha256:7a6886c16574509370c6a9f46d319de9a62aab571153bc6f43047c76074cc248"
+}

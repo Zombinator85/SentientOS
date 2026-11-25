@@ -1,0 +1,255 @@
+{
+  "acquisition_history_record": {
+    "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+    "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+    "source_file_sha256": "6df7b21e8fa5b2df1fe1d03f181bb8592da1e2beab61af158dea3a1609dbd936"
+  },
+  "audit_digest": "sha256:1ab255294f6443772046416e33c75b70b65f34ccb47b22c698b8f78eb27b2d10",
+  "audit_status": "partial_persisted_behavior_audited",
+  "claims": {
+    "authority": false,
+    "behavioral_scores_persisted": true,
+    "inference_performed": true,
+    "learning_established": false,
+    "model_attention_established": false,
+    "prompt_integration_verified": true,
+    "raw_prompts_answers_or_model_outputs_included": false,
+    "transfer_established": false
+  },
+  "cycle_id": "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+  "failure_artifact": {
+    "failure_code": "developmental_history_task_score_lineage_invalid",
+    "failure_diagnostic_present": false,
+    "run_status": "incomplete",
+    "source_file_sha256": "81222628f243039b44242eec997269d09a8c01c7da47cb35d08d2bf67c9fc432",
+    "source_path": "sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-f0ba12e3ab4fce872001/cycle-failure.json",
+    "stage": "objective_task_family_transfer"
+  },
+  "limits": {
+    "campaign_cycle_completed": false,
+    "diagnostic_absent_in_historical_failure_artifact": true,
+    "score_v6_in_transfer_and_v5_in_successful_acquisition": "schema contrast is consistent with, but does not by itself prove, v6 rejection by the older writeback implementation",
+    "writeback_failed_after_transfer_scores_persisted": true
+  },
+  "observed_result": {
+    "acquisition_all_conditions_correct": true,
+    "interpretation": "The persisted acquisition scored 3/3 in every condition, including history withheld. The subsequent disjoint transfer task scored 0/3 with all probes abstained in every condition, including history present and restored. This episode shows no transfer benefit.",
+    "transfer_all_conditions_abstained": true,
+    "transfer_history_present_and_restored_used_acquisition_record": true,
+    "transfer_history_withheld_retrieved_no_records": true
+  },
+  "prompt_context_delivery": {
+    "conditions": [
+      {
+        "accumulated_strategy_digest": "sha256:2cca9ada5e27d88ede1d88b8bacda5011c2ac52861e0128ad5e998501bc6fa1f",
+        "accumulated_strategy_present": true,
+        "candidate_strategy_count": 2,
+        "condition_id": "history_present",
+        "projection_digest": "sha256:48949a9c8720e4292e166bd84a28d8881cfb135b0f483a468fe11d9e1bdd6bf3",
+        "projection_schema": "sentientos.task_family_history_prompt_projection:v33",
+        "prompt_binding_posture": "exact_governed_request_prompt_digest",
+        "receipt_id": "lmrec-6ae3e4b605a2139cd99fda0a",
+        "receipt_source_file_sha256": "5598feb50faef548fd57462026ea796ec8fb82fd8adeb3a1104f5b4105b71deb",
+        "request_prompt_digest": "5340e39ed07bc9a50eae11775b40b1dd2c43aea3c56a7893732c5b571315834d",
+        "selected_record_count": 2,
+        "task_relevant_record_count": 2,
+        "verification": {
+          "projection_digest_verified": true,
+          "raw_prompt_not_stored": true,
+          "receipt_output_digest_bound": true,
+          "request_prompt_digest_bound": true,
+          "retrieval_ids_match_condition": true
+        }
+      },
+      {
+        "accumulated_strategy_digest": null,
+        "accumulated_strategy_present": false,
+        "candidate_strategy_count": 0,
+        "condition_id": "history_withheld",
+        "projection_digest": "sha256:5ea0a4f2d9cb4062b0e1b27b578b97bbae63d51dd19427b8c65cba78b9ef50e5",
+        "projection_schema": "sentientos.task_family_history_prompt_projection:v33",
+        "prompt_binding_posture": "exact_governed_request_prompt_digest",
+        "receipt_id": "lmrec-b7bdb2fa265fce22db0e99e7",
+        "receipt_source_file_sha256": "8d5f9e6f146a89c01f2f42d4a0754f782e2d1d32f6fb5e6ac686d7bc992ef5d8",
+        "request_prompt_digest": "4f8f5802675fa0cb5bdf366be49465d417808f1a9097b2ca2cafa17a89049e7a",
+        "selected_record_count": 0,
+        "task_relevant_record_count": 0,
+        "verification": {
+          "projection_digest_verified": true,
+          "raw_prompt_not_stored": true,
+          "receipt_output_digest_bound": true,
+          "request_prompt_digest_bound": true,
+          "retrieval_ids_match_condition": true
+        }
+      },
+      {
+        "accumulated_strategy_digest": "sha256:2cca9ada5e27d88ede1d88b8bacda5011c2ac52861e0128ad5e998501bc6fa1f",
+        "accumulated_strategy_present": true,
+        "candidate_strategy_count": 2,
+        "condition_id": "history_restored",
+        "projection_digest": "sha256:ebf7a881ec727615c595b13fb4c531a1dab0748873d7f122ea0d53dd3982a058",
+        "projection_schema": "sentientos.task_family_history_prompt_projection:v33",
+        "prompt_binding_posture": "exact_governed_request_prompt_digest",
+        "receipt_id": "lmrec-e06ac743f20cf42094d978fa",
+        "receipt_source_file_sha256": "a95fe3a71d2d4160d8f8bf5cb536cb2634ebcdf5e08fca7887015d5476a0675e",
+        "request_prompt_digest": "5340e39ed07bc9a50eae11775b40b1dd2c43aea3c56a7893732c5b571315834d",
+        "selected_record_count": 2,
+        "task_relevant_record_count": 2,
+        "verification": {
+          "projection_digest_verified": true,
+          "raw_prompt_not_stored": true,
+          "receipt_output_digest_bound": true,
+          "request_prompt_digest_bound": true,
+          "retrieval_ids_match_condition": true
+        }
+      }
+    ],
+    "exact_governed_request_prompt_digest_binding_verified": true,
+    "history_present_and_restored_share_accumulated_strategy_digest": true,
+    "history_withheld_has_no_selected_records_or_accumulated_strategy": true,
+    "interpretation": "The strategy projection was included in the governed request for history-present/restored and omitted for history-withheld. The receipt binds the exact prompt digest, but does not show that the model attended to or applied the strategy.",
+    "model_attention_or_strategy_use_established": false,
+    "raw_prompts_or_outputs_included": false
+  },
+  "schema_version": "sentientos.rootless_partial_transfer_score_audit:v2",
+  "source_runs": {
+    "acquisition": {
+      "probe_count": 3,
+      "probe_set_digest": "sha256:1dede5fba51bca6b7de1654a201047718e845efe7ded03a25f94ac0c01107624",
+      "run_digest": "sha256:dc935047415908f2545982b432b84c34575bd2a090ba07e2296abf1b0bae0f85",
+      "run_id": "devexp-run-dc935047415908f2545982b4",
+      "score_rows": [
+        {
+          "abstained_count": 0,
+          "answered_count": 3,
+          "condition_id": "history_present",
+          "condition_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "correct_count": 3,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [
+            "devrec-01e35780a28a539aee7c5fb6",
+            "devrec-7e5093f81005e5c781b2ede0",
+            "devrec-a081ef3104dba90c9e19b723",
+            "devrec-8f86d70f05c0a52db9c04fc0"
+          ],
+          "score_digest": "sha256:2b97b0c5e82ace38d8cfbcc608f476c04655f1464d75c3a1d60323b11b0e3793",
+          "score_digest_verified": true,
+          "score_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "score_schema": "sentientos.objective_task_score:v5",
+          "status": "correct"
+        },
+        {
+          "abstained_count": 0,
+          "answered_count": 3,
+          "condition_id": "history_withheld",
+          "condition_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "correct_count": 3,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [],
+          "score_digest": "sha256:2b97b0c5e82ace38d8cfbcc608f476c04655f1464d75c3a1d60323b11b0e3793",
+          "score_digest_verified": true,
+          "score_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "score_schema": "sentientos.objective_task_score:v5",
+          "status": "correct"
+        },
+        {
+          "abstained_count": 0,
+          "answered_count": 3,
+          "condition_id": "history_restored",
+          "condition_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "correct_count": 3,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [
+            "devrec-01e35780a28a539aee7c5fb6",
+            "devrec-7e5093f81005e5c781b2ede0",
+            "devrec-a081ef3104dba90c9e19b723",
+            "devrec-8f86d70f05c0a52db9c04fc0"
+          ],
+          "score_digest": "sha256:2b97b0c5e82ace38d8cfbcc608f476c04655f1464d75c3a1d60323b11b0e3793",
+          "score_digest_verified": true,
+          "score_output_digest": "37b0151912c6714d9c3212ec5acb67956a7eb78265323a05145f6c2a2fdd4f4c",
+          "score_schema": "sentientos.objective_task_score:v5",
+          "status": "correct"
+        }
+      ],
+      "source_file_sha256": "873473769b1edf6876e5d8a935ed58072962dd0e945f75b9d4709bab4bf91a31",
+      "source_path": "sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-f0ba12e3ab4fce872001/resident-cognition/state/developmental_experiments/runs/devexp-run-dc935047415908f2545982b4.json",
+      "task_digest": "sha256:157e0b2e18f8498984acb56596a9663c5a70fc84d96fd09696ba3715fe763bd1",
+      "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+    },
+    "transfer": {
+      "probe_count": 3,
+      "probe_set_digest": "sha256:606eb87a0402e19d4ed555be01ed6029718fe3d2a0175ce27d7331812c388963",
+      "run_digest": "sha256:710223e2e5e1a00b220534273305e376a9dc38083f5c8ed4d4036fd120ae56cd",
+      "run_id": "devexp-run-710223e2e5e1a00b22053427",
+      "score_rows": [
+        {
+          "abstained_count": 3,
+          "answered_count": 0,
+          "condition_id": "history_present",
+          "condition_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "correct_count": 0,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [
+            "devrec-a081ef3104dba90c9e19b723",
+            "devrec-3c7fc34d08a407fbdc0a48aa"
+          ],
+          "score_digest": "sha256:84fb246c1ef8544624c31100397591a9f9f14fc25a0bc7568654ec69f97d4f83",
+          "score_digest_verified": true,
+          "score_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "score_schema": "sentientos.objective_task_score:v6",
+          "status": "selective"
+        },
+        {
+          "abstained_count": 3,
+          "answered_count": 0,
+          "condition_id": "history_withheld",
+          "condition_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "correct_count": 0,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [],
+          "score_digest": "sha256:84fb246c1ef8544624c31100397591a9f9f14fc25a0bc7568654ec69f97d4f83",
+          "score_digest_verified": true,
+          "score_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "score_schema": "sentientos.objective_task_score:v6",
+          "status": "selective"
+        },
+        {
+          "abstained_count": 3,
+          "answered_count": 0,
+          "condition_id": "history_restored",
+          "condition_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "correct_count": 0,
+          "output_digest_binding_verified": true,
+          "probe_count": 3,
+          "retrieved_record_ids": [
+            "devrec-a081ef3104dba90c9e19b723",
+            "devrec-3c7fc34d08a407fbdc0a48aa"
+          ],
+          "score_digest": "sha256:84fb246c1ef8544624c31100397591a9f9f14fc25a0bc7568654ec69f97d4f83",
+          "score_digest_verified": true,
+          "score_output_digest": "555b34af84d8bb8c95dbb5fac532180fac49a50d3fe8265343dce048ebb0e620",
+          "score_schema": "sentientos.objective_task_score:v6",
+          "status": "selective"
+        }
+      ],
+      "source_file_sha256": "3ef8131e7e1a52b4ab8ce3e105b6bb914a8e43b658aaf4b7f8cba14b60d83545",
+      "source_path": "sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-f0ba12e3ab4fce872001/resident-cognition/state/developmental_experiments/runs/devexp-run-710223e2e5e1a00b22053427.json",
+      "task_digest": "sha256:4ac7ef73c84e73c38ef735898eababc1da2e9d49c923f46054d5a71e8c15e324",
+      "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+    }
+  },
+  "task_comparison": {
+    "acquisition_probe_set_digest": "sha256:1dede5fba51bca6b7de1654a201047718e845efe7ded03a25f94ac0c01107624",
+    "different_task_commitments": true,
+    "probe_sets_disjoint": true,
+    "same_task_family": true,
+    "transfer_probe_set_digest": "sha256:606eb87a0402e19d4ed555be01ed6029718fe3d2a0175ce27d7331812c388963"
+  }
+}

@@ -1,0 +1,371 @@
+{
+  "max_input_chars": 8000,
+  "questions": [
+    "In the affine-probe study, how did accuracy change when the earlier examples were withheld and then restored?",
+    "Did bringing back the prior arithmetic examples recover the results seen with history available?",
+    "What pattern did the three context conditions show on the integer-mapping probes?",
+    "Was there evidence that the model carried the learned mapping across the history interruption?",
+    "How did the restored-history answers compare with the answers from the no-history condition?",
+    "What did the run show about relying on retained examples for new arithmetic inputs?",
+    "Did answer correctness track whether the earlier task history was present?",
+    "What changed in the probe results after the stored examples were removed from context?",
+    "When the prior context returned, did the model reproduce its earlier performance?",
+    "How consistent were the arithmetic outputs across the present, withheld, and restored states?",
+    "What did the repeated probes reveal about immediate use of past examples?",
+    "Did the experiment show a stable difference between solving with prior examples and without them?",
+    "How did the model handle unseen inputs after its task examples were hidden?",
+    "What was observed when the same mapping task was tried with history restored?",
+    "Did restoring the earlier record change the model output on the follow-up arithmetic questions?",
+    "What relationship between context availability and correctness was recorded for this run?",
+    "Were the model answers preserved through withholding and restoring the developmental history?",
+    "How did the three history states compare on the tested transfer questions?",
+    "What did the run establish about whether prior task examples affected the immediate response?",
+    "Did the measured results support a history-related change, or no observed difference?",
+    "After the avatar was asked to extend toward the marked target, what did the later observation report?",
+    "Did the body reach the intended pose, or remain idle according to the recorded consequence?",
+    "Which expected movement was contradicted by the observed state after the command?",
+    "What happened between the requested reach action and the reported physical outcome?",
+    "How did the sensed posture compare with the pose the controller expected?",
+    "Was the target-reaching goal met when the synthetic body finished the action?",
+    "What did the independent observer see after the renderer issued its movement request?",
+    "Did the reported action effect agree with the subsequent world-state observation?",
+    "Which part of the action prediction failed when the avatar was checked afterward?",
+    "What consequence followed the mismatch between the commanded pose and the observed pose?",
+    "How did the external state report differ from the agent’s expectation for the reach?",
+    "Was the attempted arm movement confirmed by observation, or did the body stay at rest?",
+    "What did the environment record about task completion after the requested motion?",
+    "When the expected posture and sensed posture disagreed, what state was actually observed?",
+    "Did the renderer’s report match the later observation of the avatar’s body?",
+    "What evidence described the gap between the planned action and its outcome?",
+    "After the movement request, was the observed state consistent with the predicted result?",
+    "What did the recorded consequence say about whether the action succeeded?",
+    "How was the prediction checked against the body state after the command?",
+    "What was the observed outcome when the system expected the avatar to reach?",
+    "What is a reliable way to remove a coffee stain from a cotton shirt?",
+    "How long should I roast broccoli at a high oven temperature?",
+    "Can you suggest a quiet weekend activity for a rainy day?",
+    "What should I check first if a bicycle chain keeps slipping?",
+    "How do I make a simple lentil soup less salty?",
+    "Which indoor plants tolerate a room with very little sunlight?",
+    "What is the difference between a debit card and a credit card?",
+    "How can I organize a small kitchen with limited cupboard space?",
+    "What are some beginner exercises for improving flexibility?",
+    "How do I choose the right size of carry-on bag for a flight?",
+    "Why might bread dough fail to rise in a cool kitchen?",
+    "What is a good method for cleaning mineral scale from a kettle?",
+    "How can I keep fresh herbs usable for more than a few days?",
+    "What should I include in a basic emergency car kit?",
+    "How do I reduce glare on a computer monitor near a window?",
+    "Can you explain the rules of chess castling in simple terms?",
+    "What is an easy vegetarian lunch that can be prepared ahead?",
+    "How do I patch a small hole in a drywall wall?",
+    "Which factors matter when comparing two internet service plans?",
+    "What is a practical way to remember a new language’s vocabulary?"
+  ],
+  "schema_version": "sentientos.federated_semantic_history_query_spec:v1",
+  "source_experience_refs": [
+    {
+      "record_id": "devrec-01e35780a28a539aee7c5fb6",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-0641223365c8adfd38a1143f",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-2101f0fa9196a25d009e485d",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-21df63d50d306c0e607fb07f",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-34f8af2cc29849b13365de40",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-4fd52036e8b17c28ac02994c",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-5ce950e254690f736a4bacc6",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-6420107bbb215fa3608eeccf",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-64c066516a0f80958e1dd4dc",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-6c188224414ccd4acff54817",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-6cd189853e84eb74e7a7c354",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-6fde16658f35afa909982447",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-7841226cbe68c1017cab881c",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-7bab60b75b6b114cea689248",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-80fa37778407832fca4e404a",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-0d365af302c84f655f6198c5",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-127c73ee74991bbcf4ef11fc",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-1581103949635ae915924b37",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-1b9228c86fda22f5c03788ec",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-2f3822b398931baf77de5317",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-32b0780f4dfe2230293877ff",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-4636cead0a89f76418db624a",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-52324db6d60b2a38dedba25e",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-5dae23fd79510dedf13950aa",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-5e9136f207c8a21292d0305a",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-656a60aa573a4ac915a45d8d",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-6db704a20cd40c3a49373518",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-75bfcccdf808c2012d472378",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-76fc2e31dcdb3bcb4dd051a1",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-7c65f971c472cafc40139e06",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-7e5093f81005e5c781b2ede0",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-82a706b8435e2c3d9262b549",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-83bc0097864882302ae02efd",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-8495c36e445151f2e42af5f0",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-8905e28a74548aa7e998f6b8",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-89d294006f579428fcbb244d",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-94356f97cd3b0886c33055cc",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-96d2b738bd45fc7992e7e890",
+      "source_id": "src-4448560d5c38e73f57318253"
+    },
+    {
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-9ba0af00c88b96a5ec03dd27",
+      "source_id": "src-fa8fea23d72bf07e090f2006"
+    },
+    {
+      "record_id": "devrec-9d9e267428c02e3c844f1d5a",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-a081ef3104dba90c9e19b723",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-a4efd206f7fe0637aed174a7",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-a8b299f6e721c3e800c42555",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    },
+    {
+      "record_id": "devrec-b2cccefb609580032166f997",
+      "source_id": "src-c84358c790aeb0c944a38f3e"
+    }
+  ],
+  "strata": [
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "paraphrased_experience",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "lexical_distractor",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history",
+    "no_applicable_history"
+  ],
+  "target_model_identity": null
+}

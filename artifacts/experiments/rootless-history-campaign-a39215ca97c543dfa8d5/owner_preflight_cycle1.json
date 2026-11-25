@@ -1,0 +1,4784 @@
+{
+  "accumulated_strategy_distinct_input_count": null,
+  "accumulated_strategy_present": false,
+  "accumulated_strategy_run_count": null,
+  "accumulated_strategy_schema_version": null,
+  "acquisition_probe_inputs": [
+    2,
+    4,
+    8
+  ],
+  "alternate_seed_sensitivity": [
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        3,
+        4,
+        7
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:8b5c5fadf45b70f8d9c72906df9fe9e0e0b0a60f57f66d43ffaab733afbfb8d8",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112603,
+      "transfer_probe_inputs": [
+        292,
+        540,
+        671
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        6,
+        8,
+        9
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:0082c72b9ec026def7907eff6f6b15443283c0655c53a6f102ceb221aee2e1e6",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112604,
+      "transfer_probe_inputs": [
+        146,
+        359,
+        666
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        3,
+        8
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:7676e0059a24b3400653e9ae01269a1d86ae3de92f3d43e7900a3a166a7919de",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112605,
+      "transfer_probe_inputs": [
+        206,
+        572,
+        696
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        3,
+        4,
+        5
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:9025977588ec5f9b03eb24609cc7c8f754e6736dd554e1e0e2b60fc7fcd290d3",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112606,
+      "transfer_probe_inputs": [
+        196,
+        212,
+        598
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        3,
+        4,
+        6
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:cc3faed67014f09f7fd65bad14d3c06f244bcfe7337fa94fed8ad0db0878c624",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112607,
+      "transfer_probe_inputs": [
+        227,
+        848,
+        980
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        4,
+        6,
+        7
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:90b8f8de27d4afbe90ce030f015eef56b9c0863fef4a22a06b4c72896940abdf",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112608,
+      "transfer_probe_inputs": [
+        179,
+        305,
+        607
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        6,
+        8
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16136,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:be712ed439f1ff641f554158ff945fad99848d979876aeaac5fc729b029adb8c",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112609,
+      "transfer_probe_inputs": [
+        69,
+        390,
+        969
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        5,
+        7,
+        9
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:6121ff42c2a116da5a1adc0dd12d3dab73d8a3ab5a3fbf2c161373c1880b564b",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112610,
+      "transfer_probe_inputs": [
+        267,
+        795,
+        814
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        5,
+        6,
+        7
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16136,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:fb56330fd06cd45b57822ab62b20c1d1661c8bf561177829617ebb868eb22f29",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112611,
+      "transfer_probe_inputs": [
+        85,
+        235,
+        291
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        4,
+        5
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:d781731a2fa40efc9d4828a829d3ff5533723bf963cf6ab9b97f43edf577b4f2",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112612,
+      "transfer_probe_inputs": [
+        291,
+        378,
+        557
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        3,
+        6
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16134,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:04f71cb82d115ab3cea50b3078416e9cfa89a2eb137236cf41e16e4d4c2f9192",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112613,
+      "transfer_probe_inputs": [
+        30,
+        57,
+        336
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        4,
+        5,
+        7
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:17352c658d255119d86f4eafe956282773c901e1aaaa6c3dc9ab17a6023b7db8",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112614,
+      "transfer_probe_inputs": [
+        611,
+        806,
+        959
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        6,
+        9
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:e81bf296c2a76e3a0cdaa1e9b50b00d09b8c4c7ed9429a139e610171156cd871",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112615,
+      "transfer_probe_inputs": [
+        174,
+        395,
+        398
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        4,
+        5,
+        9
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16136,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:fa3c915dbb20cb761d40dadb4579cf7538a5714a4ddde8c1753c05511bf27cec",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112616,
+      "transfer_probe_inputs": [
+        72,
+        114,
+        719
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        5,
+        6
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:b300cc92d7eb9c3b40ed252d22a97e1f0dcf9ba962eb0f00d94ae6ba2ba7ba6e",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112617,
+      "transfer_probe_inputs": [
+        309,
+        708,
+        806
+      ]
+    },
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "acquisition_probe_inputs": [
+        2,
+        3,
+        9
+      ],
+      "binder_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 2,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 3,
+          "evaluator_correct_distinct_input_count": 0,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 0
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            3,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-21df63d50d306c0e607fb07f"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+        },
+        {
+          "available_probe_inputs": [
+            6,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            4,
+            5
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-a081ef3104dba90c9e19b723"
+        }
+      ],
+      "prompt_chars": 16138,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:ede97f3c208bfda9b9ae93ca339ba3946ec7b3a1d7b1bc82ff6cf84a3a7a372b",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 2026112618,
+      "transfer_probe_inputs": [
+        468,
+        550,
+        579
+      ]
+    }
+  ],
+  "alternate_seed_sensitivity_posture": "16_alternate_deterministic_task_seeds; posthoc_owner_and_prompt_coverage_only; no_inference",
+  "alternate_seed_sensitivity_summary": {
+    "all_binder_selections_match_owner_top_ranked_records": true,
+    "all_seeds_retained_candidate_strategy": false,
+    "binder_record_sets": [
+      [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a081ef3104dba90c9e19b723"
+      ]
+    ],
+    "candidate_strategy_core_digest_count": 0,
+    "candidate_strategy_digest_count": 0,
+    "candidate_strategy_relations": [],
+    "prompt_chars_max": 16138,
+    "prompt_chars_min": 16134,
+    "seed_count": 16,
+    "supporting_distinct_input_counts": [],
+    "supporting_run_counts": [],
+    "transfer_probe_sets": [
+      [
+        30,
+        57,
+        336
+      ],
+      [
+        69,
+        390,
+        969
+      ],
+      [
+        72,
+        114,
+        719
+      ],
+      [
+        85,
+        235,
+        291
+      ],
+      [
+        146,
+        359,
+        666
+      ],
+      [
+        174,
+        395,
+        398
+      ],
+      [
+        179,
+        305,
+        607
+      ],
+      [
+        196,
+        212,
+        598
+      ],
+      [
+        206,
+        572,
+        696
+      ],
+      [
+        227,
+        848,
+        980
+      ],
+      [
+        267,
+        795,
+        814
+      ],
+      [
+        291,
+        378,
+        557
+      ],
+      [
+        292,
+        540,
+        671
+      ],
+      [
+        309,
+        708,
+        806
+      ],
+      [
+        468,
+        550,
+        579
+      ],
+      [
+        611,
+        806,
+        959
+      ]
+    ],
+    "unique_binder_record_set_count": 1,
+    "unique_owner_probe_overlap_count_vectors": [
+      [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3
+      ]
+    ],
+    "unique_top_two_usable_input_count_pairs": [
+      [
+        0,
+        0
+      ]
+    ],
+    "unique_transfer_probe_set_count": 16
+  },
+  "audit_digest": "sha256:dbd3fa4dba72b7c87e267962c3d6b1345980572aab60f3253bc5fa0fe17fa07f",
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+    "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+    "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-21df63d50d306c0e607fb07f",
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-a081ef3104dba90c9e19b723"
+  ],
+  "budget_sensitivity_padding_field": "preflight_synthetic_padding",
+  "budget_sensitivity_posture": "synthetic_extra_evidence_field; serialized_json_overhead_counted; acquisition_history_absent",
+  "campaign_id": "rootless-history-campaign-a39215ca97c543dfa8d5",
+  "composition_state_digest": "sha256:c7000bf46e79ff19a233c6f7d7dea7dd301d1d4872eee9ad99a43520c690f4bc",
+  "composition_state_digest_verified": true,
+  "current_evidence_payload_chars": 2019,
+  "current_evidence_payload_digest": "sha256:726dccb048c74e467719af11b5ff2b77b3cde29bcf5fee1c6f8cf0f0c6ed3e3f",
+  "current_evidence_posture": "runner_shared_pre_action_body_snapshot_shape_with_fixed_timestamp_placeholder",
+  "current_observation_timestamp_posture": "fixed_length_placeholder_value",
+  "current_projection_digest": "sha256:726dccb048c74e467719af11b5ff2b77b3cde29bcf5fee1c6f8cf0f0c6ed3e3f",
+  "current_snapshot_digest": "706152b0ce64c354fabf9d5089bab8d63bd48f76488c5ac1d7313402275886f9",
+  "cycle_id": "rootless-cognition-cycle-fab546753da94f5fae08",
+  "exact_cycle_prompt_limitation": "model_generated_acquisition_record_absent_and_observation_timestamp_is_placeholder",
+  "exact_cycle_prompt_reconstructed": false,
+  "experiment_implementation_sha256_digest": "6070ed274df4ef1234bd6ece7428f30b250c1dbc31653cfafb70a4b16ce1214f",
+  "inference_performed": false,
+  "input_budget_sensitivity": [
+    {
+      "additional_serialized_evidence_chars": 0,
+      "binding_status": "bound",
+      "prompt_chars": 16138,
+      "prompt_margin_chars": 8438,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 0,
+      "task_family_prompt_projection_digest": "sha256:75caf7d9e16985fb3b09ac7b5cfe183044a4a6e337a6bc28e2087d9b4f31fcf4",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 161,
+      "binding_status": "bound",
+      "prompt_chars": 16299,
+      "prompt_margin_chars": 8277,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 128,
+      "task_family_prompt_projection_digest": "sha256:e4ffcdcd02b54a346ad209f7b8a5adb71c0a9b45368ce8260bbc9e0e7169a9fd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 289,
+      "binding_status": "bound",
+      "prompt_chars": 16427,
+      "prompt_margin_chars": 8149,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 256,
+      "task_family_prompt_projection_digest": "sha256:c4da81d910abfc97730a7fd668e047bff81e23ea1cc379c0325a87560c29a89e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 353,
+      "binding_status": "bound",
+      "prompt_chars": 16491,
+      "prompt_margin_chars": 8085,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 320,
+      "task_family_prompt_projection_digest": "sha256:7a135d4954fe9fe796034762af5d9582261908a199f47503a02f823c6515a378",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 371,
+      "binding_status": "bound",
+      "prompt_chars": 16509,
+      "prompt_margin_chars": 8067,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 338,
+      "task_family_prompt_projection_digest": "sha256:b36e98574bc91e808c25c18316283b470bbde41228171ba40c36dcfa7a869dc9",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 372,
+      "binding_status": "bound",
+      "prompt_chars": 16510,
+      "prompt_margin_chars": 8066,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 339,
+      "task_family_prompt_projection_digest": "sha256:db1c9ac60fe09c24a7fd16f43f2cf0b1e5ed35c94413ce2e595e680ac39cfda9",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 373,
+      "binding_status": "bound",
+      "prompt_chars": 16511,
+      "prompt_margin_chars": 8065,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 340,
+      "task_family_prompt_projection_digest": "sha256:10ffced3c7475bb8f05e1ca6891373a416c7814616eaf6ec40eb3b1fb5681928",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 374,
+      "binding_status": "bound",
+      "prompt_chars": 16512,
+      "prompt_margin_chars": 8064,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 341,
+      "task_family_prompt_projection_digest": "sha256:7fe37bc8cd4d30634bcbd2b406b03b96222e0e25a3b186f1416cb7e9b64a98b8",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 417,
+      "binding_status": "bound",
+      "prompt_chars": 16555,
+      "prompt_margin_chars": 8021,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 384,
+      "task_family_prompt_projection_digest": "sha256:fa5fdc6d4830aee19a530b361d6108e490bd6723e5a92a05c219ad30434a3209",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 545,
+      "binding_status": "bound",
+      "prompt_chars": 16683,
+      "prompt_margin_chars": 7893,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 512,
+      "task_family_prompt_projection_digest": "sha256:b7db30e6af7ec9c5ab9cf0b3adef24f9e349a4a799f14f36a4ad0352af8b4734",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 801,
+      "binding_status": "bound",
+      "prompt_chars": 16939,
+      "prompt_margin_chars": 7637,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 768,
+      "task_family_prompt_projection_digest": "sha256:79a6d55800cb33e0aad896d90bc91648970fdf0cbd5d3e567ddaf39bf1fdeb99",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1057,
+      "binding_status": "bound",
+      "prompt_chars": 17195,
+      "prompt_margin_chars": 7381,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1024,
+      "task_family_prompt_projection_digest": "sha256:179fa744532fa826e4a07bf55d6ae392aef8a773833d87fb22c1d227992c00a0",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1569,
+      "binding_status": "bound",
+      "prompt_chars": 17707,
+      "prompt_margin_chars": 6869,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1536,
+      "task_family_prompt_projection_digest": "sha256:1d89b98d1e36d33d2f7ec476b615e77f80087e96edd96899c95298059c33c7e3",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1585,
+      "binding_status": "bound",
+      "prompt_chars": 17723,
+      "prompt_margin_chars": 6853,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1552,
+      "task_family_prompt_projection_digest": "sha256:980a932d61addd7f9156ce01f82da48f62b853b229dfae39c42caa088d10356e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1601,
+      "binding_status": "bound",
+      "prompt_chars": 17739,
+      "prompt_margin_chars": 6837,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1568,
+      "task_family_prompt_projection_digest": "sha256:49aa741c9a4fa1b7f2a836815ae92aa88559b4c6d49fc84a591df7190da75ebf",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1617,
+      "binding_status": "bound",
+      "prompt_chars": 17755,
+      "prompt_margin_chars": 6821,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1584,
+      "task_family_prompt_projection_digest": "sha256:c69a460410b24776ab982bfa511ab74ebeba9ca7716d6a300936c9d71d351d78",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1633,
+      "binding_status": "bound",
+      "prompt_chars": 17771,
+      "prompt_margin_chars": 6805,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1600,
+      "task_family_prompt_projection_digest": "sha256:d31af7b5361a69e7b116157a246b4183367ca920a52dd456785bf1bff981e83f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1649,
+      "binding_status": "bound",
+      "prompt_chars": 17787,
+      "prompt_margin_chars": 6789,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1616,
+      "task_family_prompt_projection_digest": "sha256:c3829cda3489fb17d03d6d2645e147ee437237c19a938c1da84d907fbd064531",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1665,
+      "binding_status": "bound",
+      "prompt_chars": 17803,
+      "prompt_margin_chars": 6773,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1632,
+      "task_family_prompt_projection_digest": "sha256:dffdc7d9cb9282788642734bdb59d331c00d94b1c374dff945b8955db307a261",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1681,
+      "binding_status": "bound",
+      "prompt_chars": 17819,
+      "prompt_margin_chars": 6757,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1648,
+      "task_family_prompt_projection_digest": "sha256:21d7cf8ee703723044e504c7f29f5b95842269df934cce6e17e85c91f93c3193",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1697,
+      "binding_status": "bound",
+      "prompt_chars": 17835,
+      "prompt_margin_chars": 6741,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1664,
+      "task_family_prompt_projection_digest": "sha256:5d48ce30cfe5403cf887b4a1794e77ebf40c7b9ad1396b79b7c70ca382aea4e9",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1713,
+      "binding_status": "bound",
+      "prompt_chars": 17851,
+      "prompt_margin_chars": 6725,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1680,
+      "task_family_prompt_projection_digest": "sha256:13296252d490e10bc05021599e32c72c857f2c42e2c43ecb2d3b09021014bdbf",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1729,
+      "binding_status": "bound",
+      "prompt_chars": 17867,
+      "prompt_margin_chars": 6709,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1696,
+      "task_family_prompt_projection_digest": "sha256:2b1aae2b129a5be4aba40290c1b07a66788101398a3f209448f7991b45e1054a",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1745,
+      "binding_status": "bound",
+      "prompt_chars": 17883,
+      "prompt_margin_chars": 6693,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1712,
+      "task_family_prompt_projection_digest": "sha256:110112aaea3d801c14da5433cfea5fb2ad0736f715e738bee629640e6df0fdd1",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1761,
+      "binding_status": "bound",
+      "prompt_chars": 17899,
+      "prompt_margin_chars": 6677,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1728,
+      "task_family_prompt_projection_digest": "sha256:11b0768a451446fd690bbcce6645a5fbf53b3db57a480268194b97b39405d511",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1777,
+      "binding_status": "bound",
+      "prompt_chars": 17915,
+      "prompt_margin_chars": 6661,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1744,
+      "task_family_prompt_projection_digest": "sha256:0f27a96f7953a63e416fe8aae609d465761c68f0e15296d7b4cb0de9f585b44f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1793,
+      "binding_status": "bound",
+      "prompt_chars": 17931,
+      "prompt_margin_chars": 6645,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1760,
+      "task_family_prompt_projection_digest": "sha256:2b48e6f3795556271b991a10c0257813e5de5b3015269ab0285414d4af318449",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1809,
+      "binding_status": "bound",
+      "prompt_chars": 17947,
+      "prompt_margin_chars": 6629,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1776,
+      "task_family_prompt_projection_digest": "sha256:caea7169fca0bb41e98dd8f0ff0c9b31e0e3abfab48aed9d7b627c6d2883d7cd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1825,
+      "binding_status": "bound",
+      "prompt_chars": 17963,
+      "prompt_margin_chars": 6613,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1792,
+      "task_family_prompt_projection_digest": "sha256:bda15d97154ee9473932d22cab27e20c1746a5d7ecccf6622ccdd97c4e1e060e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1841,
+      "binding_status": "bound",
+      "prompt_chars": 17979,
+      "prompt_margin_chars": 6597,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1808,
+      "task_family_prompt_projection_digest": "sha256:e9a4af2bfc29b4d215a2eada5f0964688cbb4a09cc9c53b972f9f6fd2d4a334c",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1857,
+      "binding_status": "bound",
+      "prompt_chars": 17995,
+      "prompt_margin_chars": 6581,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1824,
+      "task_family_prompt_projection_digest": "sha256:2e8fe56341b65daa9fbfe5d7ac6c53b99179d727befd1fb0b959e77671eefc67",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1873,
+      "binding_status": "bound",
+      "prompt_chars": 18011,
+      "prompt_margin_chars": 6565,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1840,
+      "task_family_prompt_projection_digest": "sha256:80a9f05db82100dab89f546d49e905c45c6fc9ab5803f2fe61b06a3de5e0e2d7",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1889,
+      "binding_status": "bound",
+      "prompt_chars": 18027,
+      "prompt_margin_chars": 6549,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1856,
+      "task_family_prompt_projection_digest": "sha256:6804e64f4e9b5206cb0c355183f3a29b37339658d9c58ab3fc76d64d79cb92bd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1905,
+      "binding_status": "bound",
+      "prompt_chars": 18043,
+      "prompt_margin_chars": 6533,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1872,
+      "task_family_prompt_projection_digest": "sha256:8b09642af857459cb6f0983bcac52041adcbffb51f38e0e2be9bd14d15bdadb7",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1921,
+      "binding_status": "bound",
+      "prompt_chars": 18059,
+      "prompt_margin_chars": 6517,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1888,
+      "task_family_prompt_projection_digest": "sha256:87be206355457db89ec0bcc9ac22da304bb9bc7e5009b792360d59540913c1c1",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1937,
+      "binding_status": "bound",
+      "prompt_chars": 18075,
+      "prompt_margin_chars": 6501,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1904,
+      "task_family_prompt_projection_digest": "sha256:e1b433d4b983eda3c3e90a545948e6a0c226c5c2a00d0472e180abb63eda60be",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1953,
+      "binding_status": "bound",
+      "prompt_chars": 18091,
+      "prompt_margin_chars": 6485,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1920,
+      "task_family_prompt_projection_digest": "sha256:1ada0a92e3dc9c7b4e320a14eeda87211f0f7c8f6946e44064a182869706ed4e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1969,
+      "binding_status": "bound",
+      "prompt_chars": 18107,
+      "prompt_margin_chars": 6469,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1936,
+      "task_family_prompt_projection_digest": "sha256:343511c241a22570bf52f66db1e017b5f643a9bc38d46c105f4c519dbcd1d0da",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1985,
+      "binding_status": "bound",
+      "prompt_chars": 18123,
+      "prompt_margin_chars": 6453,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1952,
+      "task_family_prompt_projection_digest": "sha256:7a94ef048cb54f410fc658fd05a1026a2a00f220675633a394e9c9cb26785240",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2001,
+      "binding_status": "bound",
+      "prompt_chars": 18139,
+      "prompt_margin_chars": 6437,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1968,
+      "task_family_prompt_projection_digest": "sha256:c3b5276825169f28e322ebcb905fff7d5a3e5956b04f457d93014cf06c2651f8",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2017,
+      "binding_status": "bound",
+      "prompt_chars": 18155,
+      "prompt_margin_chars": 6421,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1984,
+      "task_family_prompt_projection_digest": "sha256:06b94e40442f494cd2a10903a29504efe14d7f7b887ecb2a84e92dd2dc5e61be",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2033,
+      "binding_status": "bound",
+      "prompt_chars": 18171,
+      "prompt_margin_chars": 6405,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2000,
+      "task_family_prompt_projection_digest": "sha256:31e5423144c531ca4d9ebfc1cab5f491192ac54ad5e9338eb84a759d16addb19",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2049,
+      "binding_status": "bound",
+      "prompt_chars": 18187,
+      "prompt_margin_chars": 6389,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2016,
+      "task_family_prompt_projection_digest": "sha256:f997ca29f938310031ed1ff5ad41088cd85ef4b44b8593c98979effd3ab3afb0",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2065,
+      "binding_status": "bound",
+      "prompt_chars": 18203,
+      "prompt_margin_chars": 6373,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2032,
+      "task_family_prompt_projection_digest": "sha256:039cc35256879d53b144003cbd75879503608f14c02728311ee9482b004cc879",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2081,
+      "binding_status": "bound",
+      "prompt_chars": 18219,
+      "prompt_margin_chars": 6357,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2048,
+      "task_family_prompt_projection_digest": "sha256:f3ae54650a63cd89a4ec682f4339a0a0be35942f918604a07aa260e05535b5e9",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 3105,
+      "binding_status": "bound",
+      "prompt_chars": 19243,
+      "prompt_margin_chars": 5333,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 3072,
+      "task_family_prompt_projection_digest": "sha256:913c6665a8d6dd51fdf26eab4a037632e8b35871e055dbebda6b088e2ad43b50",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 4129,
+      "binding_status": "bound",
+      "prompt_chars": 20267,
+      "prompt_margin_chars": 4309,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 4096,
+      "task_family_prompt_projection_digest": "sha256:9c3f6e28cbb84625ba645eae227f93c027aeeab31b16ac9449afd3c9ce5ba0ff",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 6177,
+      "binding_status": "bound",
+      "prompt_chars": 22315,
+      "prompt_margin_chars": 2261,
+      "selected_record_count": 4,
+      "selected_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 6144,
+      "task_family_prompt_projection_digest": "sha256:a07d4bad2788f721f3289c58260b5541e9baae244d4cccb4327f08e2ef86b37a",
+      "task_family_prompt_projection_verified": true
+    }
+  ],
+  "instruction_template_matches_static_experiment_instruction": true,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_generated_acquisition_outputs_available": false,
+  "objective_task_descriptor_chars": 1517,
+  "objective_task_descriptor_digest": "sha256:81c484e48bbc5b22b57a12ff8ea14f7bc8d5537ac94f7f74d7d920780648645e",
+  "objective_task_descriptor_posture": "public_descriptor_shape_with_zeroed_commitment_digest_for_reproducibility",
+  "owner_ranking_trace": [
+    {
+      "checkpoint_order": 22,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 0,
+      "record_id": "devrec-a081ef3104dba90c9e19b723",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 20,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 1,
+      "record_id": "devrec-01e35780a28a539aee7c5fb6",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 19,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 2,
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 16,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 3,
+      "record_id": "devrec-21df63d50d306c0e607fb07f",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 14,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 4,
+      "record_id": "devrec-4fd52036e8b17c28ac02994c",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 13,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 5,
+      "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 10,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 6,
+      "record_id": "devrec-d5d23dd21785372394baa2a9",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 8,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 7,
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 7,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 8,
+      "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 1,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 9,
+      "record_id": "devrec-dec0f183ac5255063b0c87d8",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 2,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 2,
+      "outcome_priority": 1,
+      "rank_position": 10,
+      "record_id": "devrec-34f8af2cc29849b13365de40",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    },
+    {
+      "checkpoint_order": 17,
+      "current_probe_overlap_count": 3,
+      "evaluator_correct_distinct_input_count": 0,
+      "outcome_priority": 1,
+      "rank_position": 11,
+      "record_id": "devrec-d476d487664a5dc051c71d75",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 0
+    }
+  ],
+  "owner_ranking_trace_posture": "exact_owner_comparator_terms_for_family_records; diagnostic_metadata_only; does_not_change_selection_or_authorize_use",
+  "owner_ranking_trace_schema": "sentientos.task_family_history_ranking_trace:v1",
+  "owner_record_probe_overlap_posture": "planned_seed_owner_and_exact_binder_prompt_record_overlap_recomputed; descriptive_only; does_not_establish_model_attention_or_learning",
+  "owner_selected_record_ids": [
+    "devrec-21df63d50d306c0e607fb07f",
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-a081ef3104dba90c9e19b723"
+  ],
+  "plan_digest": "fb68823996e0454100918e7b5c4936a8721f508946da4a57369bf31c56b07ac5",
+  "planned_seed_probe_reuse": {
+    "authority": false,
+    "binder_selected_prompt_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          2,
+          3,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-21df63d50d306c0e607fb07f"
+      },
+      {
+        "available_probe_inputs": [
+          3,
+          4,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+      },
+      {
+        "available_probe_inputs": [
+          6,
+          8,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-01e35780a28a539aee7c5fb6"
+      },
+      {
+        "available_probe_inputs": [
+          2,
+          4,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-a081ef3104dba90c9e19b723"
+      }
+    ],
+    "held_out_transfer_qualified": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "owner_selected_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          2,
+          3,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-21df63d50d306c0e607fb07f"
+      },
+      {
+        "available_probe_inputs": [
+          3,
+          4,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+      },
+      {
+        "available_probe_inputs": [
+          6,
+          8,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-01e35780a28a539aee7c5fb6"
+      },
+      {
+        "available_probe_inputs": [
+          2,
+          4,
+          5
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-a081ef3104dba90c9e19b723"
+      }
+    ],
+    "posture": "planned_transfer_probe_set_disjoint_from_selected_history",
+    "prompt_projection_overlap_example_count": 0,
+    "prompt_projection_overlap_input_count": 0,
+    "prompt_projection_overlap_input_digest": "sha256:919664b0b20374fc969f27554b39c919f4a9ed9f9f7c157765711831cecf3e1e",
+    "prompt_projection_overlap_measurement_complete": true,
+    "schema_version": "sentientos.rootless_planned_cycle_probe_reuse:v1",
+    "transfer_probe_input_digest": "sha256:3c29f72d0dfbf0696832372bc95670c3610812aa6f836945d0df0567fa4a63f2",
+    "transfer_probe_inputs": [
+      754,
+      862,
+      894
+    ]
+  },
+  "prior_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+  "prior_history_root_cycle_id": "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+  "prior_recovery_state_boundary_digest": "844790f3f3e87df9cb980738f9748e7d115657a98fec3641a5a129543042a784",
+  "prior_runtime_admission_ledger_digest": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+  "prompt_chars": 16138,
+  "prompt_digest": "sha256:999a6bfc404b58870a9b08ed60cae92a6e996588c387a777c6351298c660471c",
+  "prompt_limit_chars": 24576,
+  "prompt_within_bound": true,
+  "schema_version": "sentientos.rootless_planned_cycle_owner_preflight:v12",
+  "strategy_retention_transition": {
+    "first_lost_strategy_prompt_chars": 17723,
+    "first_lost_strategy_prompt_margin_chars": 6853,
+    "first_observed_padding_without_strategy": 1552,
+    "largest_observed_padding_with_strategy": null,
+    "largest_observed_serialized_evidence_delta_with_strategy": null,
+    "observed_padding_resolution_chars": 16,
+    "strategy_reappeared_after_first_observed_loss": false
+  },
+  "target_model_identity_digest": "f79b64e29894e1465c6c4b3f712e9966b1d618fd34fafeb8a9fe9d0fd7f26c5a",
+  "target_model_identity_matches_plan": true,
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_family_prompt_projection_digest": "sha256:75caf7d9e16985fb3b09ac7b5cfe183044a4a6e337a6bc28e2087d9b4f31fcf4",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "task_generation_seed": 2026112602,
+  "task_generator": "rootless_integer_affine_transfer_task_pair:v1",
+  "transfer_probe_inputs": [
+    754,
+    862,
+    894
+  ]
+}

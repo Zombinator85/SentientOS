@@ -1,0 +1,38 @@
+{
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:8d4bdcc40d2e871887858499fe1af412760563a40e6944bf8e6c4ae4029951e9",
+    "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-8d4bdcc40d2e871887858499",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "cycle_id": "rootless-cognition-cycle-00000000000000000150",
+  "expectation_source": "verified_acquisition_and_cross_range_source_record_ids",
+  "inference_performed": false,
+  "learning_established": false,
+  "objective_history_record_allowlist": [
+    "devrec-8d4bdcc40d2e871887858499",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "plan_digest": "df2b1c6a91a815dc3c6a336b09915f2b8beb221e34653089fbddc2a641055e5a",
+  "schema_version": "sentientos.current_source_owner_preview_input:v1",
+  "transfer_probe_inputs": [
+    23,
+    49,
+    80,
+    361,
+    485,
+    552,
+    629,
+    655,
+    760,
+    905,
+    940,
+    998
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "arm_protocol_digests": {
+    "strategy_included": "sha256:5061c0667ec8141fafbb06ff88b32e5bd8c7621d851404d215a6efa7f0355b98",
+    "strategy_omitted": "sha256:1d0bf5b4f83e28d8e3a45e85925b17f188f2c5369711090ff185cc8ec8ecffdb"
+  },
+  "audit_digest": "747c7907768688e405bd37f619bfb98bda7b7ce35c18e0679bd970dc9e6704e1",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000057",
+  "cross_range_three_condition_protocol_exercised": false,
+  "cycle_id": "rootless-cognition-cycle-20261124000000000117",
+  "cycle_index": 0,
+  "full_prompt_text_included": false,
+  "history_record_digests": [
+    "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+  ],
+  "history_record_ids": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "implementation_digest": "6165bbc140d198fda45f8dd8265f65c4d20c2ac8adb6ebe8a90b3c1befdfefef",
+  "inference_performed": false,
+  "invocation_prompt_digests": {
+    "strategy_included": "sha256:af91e17902ab3b8834f78c8f0d6e864a43372860e7a6eaa518e70bd4ec76bf5b",
+    "strategy_omitted": "sha256:344a9b8a678ebfa444d31852dd69a8cc52b1d96ffdd7953b8b36f17facb96bd3"
+  },
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_outputs_included": false,
+  "objective_arm_request_count": 2,
+  "owner_state_mutated": false,
+  "owner_to_binder_path_exercised": true,
+  "plan_digest": "1347b39eaddcfc7a74332b822a0af203edc945c8498e75118addf9706d1ae29b",
+  "request_count": 4,
+  "request_digests": {
+    "strategy_included": "sha256:cff8702fb99dadfeb5c325963b3453ad1e13d45a3b2d359ddb218453421abdd7",
+    "strategy_omitted": "sha256:fd3c67ca9ec0540caa8b99b2886c0809c7bcc08be5e0a498debd341fd1ee231b"
+  },
+  "runtime_owner_preview_digest": "sha256:0ae4bc8aaaea0a55926b354c3b715995f2b95f8473cc531efec860dbce653435",
+  "schema_version": "sentientos.rootless_planned_cycle_runtime_owner_preview:v1",
+  "snapshot_digest": "4b664e4e53ced2503fe891ab85978fb7729127dd39b261b9754d4a99923a3fec",
+  "source_history_boundary_digest": "996d7c5bce70a9040d25c70208505e8e93dd1116d3d1a21cdceea3756a5c3728",
+  "target_model_identity_digest": "sha256:0ee44598655cfce448f2ec859f72db3eac2028f211c20602f5fd63eb7ae52fdd",
+  "target_task_digest": "sha256:f68309192c3a26e5499f9663d7f6919b07131e2e3327923dfe90922e4098077d",
+  "target_task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+}

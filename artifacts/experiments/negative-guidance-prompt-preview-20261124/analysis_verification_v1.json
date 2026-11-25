@@ -1,0 +1,35 @@
+{
+  "analysis_digest": "sha256:b3e9c3467ead3ad73330fbf793f8374be3bf8329febe18adaca497e64e4c033f",
+  "authority": false,
+  "causal_effect_established": false,
+  "correctness_and_response_change_reconciled_separately": true,
+  "cross_report_probe_bindings_reconciled": true,
+  "improvement_established": false,
+  "independent_scorer_attested": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "planned_pair_count": 3,
+  "primary_outcome_digest": "sha256:382f56834222ec4c180e5c8f296114b1d9e70c7108f023d9c211c2e1eafcb3ad",
+  "response_dynamics_file_sha256": "sha256:bc522bee0ffb784d6e084c4275917bb8d8a605bd635161754d3fcbdb556004d5",
+  "schema_version": "sentientos.negative_guidance_replication_series_analysis_verification:v1",
+  "series_id": "negative-guidance-replication-20261124-01",
+  "series_plan_digest": "sha256:9bd2bcf7c111a7b37c9da6f50a174d48d4834d04e417185b6e4f0e53fd0e47e7",
+  "verified_answered_counts": {
+    "negative_guidance_omitted": 7,
+    "negative_guidance_present": 9
+  },
+  "verified_changed_answer_or_abstention_count": 8,
+  "verified_correct_counts": {
+    "negative_guidance_omitted": 0,
+    "negative_guidance_present": 0
+  },
+  "verified_probe_count": 9,
+  "verified_response_relation_counts": {
+    "both_abstained": 0,
+    "different_answers": 6,
+    "omitted_only_answered": 0,
+    "present_only_answered": 2,
+    "same_answer": 1
+  }
+}

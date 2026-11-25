@@ -1,0 +1,54 @@
+{
+  "authority": false,
+  "cohort_digest": "sha256:43299a69485139eabf4f9c5140f5278ed49e05db8b9d6999e68213baa062d3d3",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "schema_version": "sentientos.historical_examples_preflight_cohort_audit:v1",
+  "shared_boundary": {
+    "cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+    "generation_budget_digest": "sha256:20a03797d74d623129f5e181c13046f66d07155427b1a453ff5134a894ec37b3",
+    "generation_config_digest": "sha256:5b9e795a90601fe2f626a1c9fc594ab293f9fe518dd9a90a6387ceceff3b4b86",
+    "history_prompt_identity_policy": "matched_cross_model_identity_omitted:v1",
+    "history_set_digest": "sha256:d4d757dbefd967b9dd6a7cef4b77f2138ad56f3267c5d0716be8cadfab875d96",
+    "model_identity_backend_seed": 42,
+    "snapshot_digest": "sha256:00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+    "snapshot_id": "world-state-00e8c547cf6caa7f",
+    "source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+    "source_receipt_id": "lmrec-d14f3d9870e9dbc64f5812f5",
+    "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "trial_count": 2,
+  "trials": [
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "arm_order_seed_digest": "sha256:4bab3623a149b31014b03f64f0071a5a2d91d0a3b9ebe4019978a8cb3d834010",
+      "probe_binding_set_digest": "sha256:7775b423340726b3027dc8f03223d932885dc542109d9c1e692c07e9c5a6dc28",
+      "probe_count": 12,
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "report_digest": "sha256:6fd776b4cb923c8e1f0209dad94ae44c00c3652b6f0b0d4e42fad046c2b29980",
+      "task_digest": "sha256:fd8543c156ed81236ed8f56ce9a339df3a84200144f7043b3665f26be140f4ee",
+      "task_generation_seed": 13688801,
+      "verification_digest": "sha256:c9489b459ec13e53e581cb1b97ef8170deb25fbf7123c7a3573ba895300dc8a4"
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "arm_order_seed_digest": "sha256:0315f8e8c29c8be1bc0571c7b925293199b4b6b40862126950fcbbe361b2bedc",
+      "probe_binding_set_digest": "sha256:86d82eb77798c03466686c40b8aea5bdb4d72f2db6c467d30a2b750d35f2290d",
+      "probe_count": 12,
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "report_digest": "sha256:35976ce00d440fed0fdcf0fd0fb88824d5f2600124851abb81a446fc26349059",
+      "task_digest": "sha256:14a17b925dad093bd39a8cba4f55d71b35024ac2a5286302db89392a109d07ab",
+      "task_generation_seed": 13688803,
+      "verification_digest": "sha256:d346a1a5748c12464533b6ce0f69c05968d4ca19765c2e6720092e556fed2fdd"
+    }
+  ],
+  "unique_probe_input_count": 24
+}

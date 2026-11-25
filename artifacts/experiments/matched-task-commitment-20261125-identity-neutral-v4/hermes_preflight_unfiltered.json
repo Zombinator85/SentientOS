@@ -1,0 +1,190 @@
+{
+  "answer_key_digest": "sha256:7c6831e4869b0fc72262c7c17b25b60680339e6b463de0de799f4654288a42f0",
+  "arm_order_policy": "independent_os_random_seed_v1",
+  "arm_order_seed": "c51a35f9b7fa58ce5688c6f11cae2043fc829557ce05d5a3791c50b0884dd0b5",
+  "authority": false,
+  "cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+  "generation_config_digest": "sha256:5e93da5919107f5108842f3add410ce256faff76a9f928d4c34d24abc21d5168",
+  "held_out_probe_overlap_audit": {
+    "authority": false,
+    "history_probe_input_occurrence_count": 212,
+    "history_probe_input_set_digest": "sha256:8eed1dc8b1ff879eb36265f99c6db10884ea29abd87abbe22d040aec9b0dec3b",
+    "history_record_count": 30,
+    "inference_performed": false,
+    "learning_established": false,
+    "measurement_complete": true,
+    "no_exact_overlap_detected": true,
+    "overlapping_probe_input_count": 0,
+    "overlapping_probe_input_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "schema_version": "sentientos.historical_examples_probe_history_overlap_audit:v1",
+    "scope": "all_recursive_input_and_probe_fields_in_all_history_records",
+    "task_probe_count": 3,
+    "task_probe_input_digest": "sha256:d356f7bd62af6c26a649e2e4fae33aa05e6cd672ba7ff46e3d18dea99d776504"
+  },
+  "historical_examples_protocol": {
+    "accumulated_strategy_unchanged": true,
+    "answer_key_digest": "sha256:7c6831e4869b0fc72262c7c17b25b60680339e6b463de0de799f4654288a42f0",
+    "authority": false,
+    "changed_context_fields": [
+      "developmental_history"
+    ],
+    "conditions": [
+      "examples_omitted",
+      "examples_included"
+    ],
+    "exact_pair_verified": true,
+    "generation_budget_digest": "sha256:20a03797d74d623129f5e181c13046f66d07155427b1a453ff5134a894ec37b3",
+    "generation_config_digest": "sha256:5e93da5919107f5108842f3add410ce256faff76a9f928d4c34d24abc21d5168",
+    "held_out_probe_overlap_audit_digest": "sha256:d23d64579d68eba1e43bb2eb5dc33dd589afc688156efd05d17f753b048a0322",
+    "historical_examples_prompt_ablation": {
+      "ablated_prompt_chars": 22562,
+      "ablated_prompt_digest": "sha256:db16033115b02d0df81f694c2d4ad4f82a36838ffa347b1a1b601a79d36ae87a",
+      "accumulated_strategy_unchanged": true,
+      "authority": false,
+      "baseline_prompt_chars": 23092,
+      "baseline_prompt_digest": "sha256:651bd6c591cadb04ba9061db4682a276eb310b5210760a8f078919593d88f207",
+      "changed_context_fields": [
+        "developmental_history"
+      ],
+      "inference_performed": false,
+      "intervention": "remove_examples_arrays_from_selected_history_experiences",
+      "learning_established": false,
+      "per_record_strategies_unchanged": true,
+      "retained_per_record_strategy_count": 3,
+      "schema_version": "sentientos.objective_historical_examples_prompt_ablation:v1",
+      "selected_record_digests": [
+        "sha256:095db5c28b1520756285120a2316a7c58d335f265f728e5348606466e9148e04",
+        "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+        "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+      ],
+      "selected_record_ids": [
+        "devrec-095db5c28b1520756285120a",
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3"
+      ],
+      "selected_record_set_digest": "sha256:d5c8a4924bae42a87edf42ad5c8ad0df0458772dab3e58629dc62d3329aa8f3c",
+      "withheld_example_count": 6,
+      "withheld_examples_digest": "sha256:8ca9a07f6d78cdc2b923d0206e077f1952aae3e5a1456fc1637cd84193cade4c"
+    },
+    "history_record_digests": [
+      "sha256:095db5c28b1520756285120a2316a7c58d335f265f728e5348606466e9148e04",
+      "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+    ],
+    "history_record_ids": [
+      "devrec-095db5c28b1520756285120a",
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "history_set_digest": "sha256:d5c8a4924bae42a87edf42ad5c8ad0df0458772dab3e58629dc62d3329aa8f3c",
+    "inference_performed": false,
+    "intervention": "remove_raw_history_examples_only",
+    "invocation_prompt_digests": {
+      "examples_included": "sha256:651bd6c591cadb04ba9061db4682a276eb310b5210760a8f078919593d88f207",
+      "examples_omitted": "sha256:db16033115b02d0df81f694c2d4ad4f82a36838ffa347b1a1b601a79d36ae87a"
+    },
+    "learning_established": false,
+    "owner_execution_tick_ids": {
+      "examples_included": "historical-examples-cpu-preflight-13688478:raw_examples-preview:examples_included",
+      "examples_omitted": "historical-examples-cpu-preflight-13688478:raw_examples-preview:examples_omitted"
+    },
+    "owner_prompt_pair_composition_verified": true,
+    "owner_prompt_pair_preview_digest": "sha256:18ef9f6efa109da0de99636bd9a44c59cdb4e66ce4c1173faf0cb7c91928a9a3",
+    "owner_prompt_pair_preview_schema": "sentientos.objective_historical_examples_prompt_pair_preview:v1",
+    "owner_protocol_digests": {
+      "examples_included": "sha256:0c3ecb8c7665f043c8027e8fee005a55fa44fcc455b8af20479d975f3e4d4e8c",
+      "examples_omitted": "sha256:0c3ecb8c7665f043c8027e8fee005a55fa44fcc455b8af20479d975f3e4d4e8c"
+    },
+    "owner_task_plan_digests": {
+      "examples_included": "sha256:8c71c8b4fb65b148db21cf387c84fa69ec7ece07cd45413e11ea1bcca15ffa46",
+      "examples_omitted": "sha256:8c71c8b4fb65b148db21cf387c84fa69ec7ece07cd45413e11ea1bcca15ffa46"
+    },
+    "per_record_strategies_unchanged": true,
+    "preview_request_digests": {
+      "examples_included": "sha256:c6624808916a3a3ee02ecd5e815f328254e8f27527ba971993c65cc97eb501ad",
+      "examples_omitted": "sha256:7244a9774cd5e40bd77feb286da40680afcfcf620d4267f7993d27fa07c0c38e"
+    },
+    "private_task_plan_digest": "sha256:b67b6f0b3b71649ce2b1ae83eff7a219f999020dc1998c08b1b4fb16ff045c6a",
+    "probe_binding_digests": [
+      "sha256:6b9f6b6f1e9369181ab25ce6a209e03049f2fa4d0dfc924bf8f3e5432beb78bf",
+      "sha256:70b7a42af48e94ba3021c3d9a71e70852f912bfae676321347af44e619c55083",
+      "sha256:6c757b14856b198809ead17f7bfc64e58247d59760a4cbe3721ef89b6f8c644c"
+    ],
+    "protocol_digest": "sha256:6a6be334728b7c49ad2e2fc1e67b0adcecf000dd6ff5242a8bc7209dbbed4511",
+    "retained_per_record_strategy_count": 3,
+    "schema_version": "sentientos.historical_examples_intervention_protocol:v2",
+    "snapshot_digest": "sha256:00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+    "snapshot_id": "world-state-00e8c547cf6caa7f",
+    "target_model_identity_digest": "sha256:625d80e58ee6cacf5423186e28356b852dd19831919317ab28704b66a2d7ce94",
+    "task_digest": "sha256:7b0c285d7735e8906312b23e0df125adb1afa761a336137623e788241febd031",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+    "withheld_example_count": 6,
+    "withheld_examples_digest": "sha256:8ca9a07f6d78cdc2b923d0206e077f1952aae3e5a1456fc1637cd84193cade4c"
+  },
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "objective_request_bindings_by_arm": {
+    "examples_included": {
+      "request_digest": "sha256:2b912b4479ccfa20eb47f299b39adcbc0cc1d86ed4d49a03665a255fa3aa08c7",
+      "request_id": "historical-examples:6a6be334728b7c49ad2e2fc1e67b0adcecf000dd6ff5242a8bc7209dbbed4511:examples_included"
+    },
+    "examples_omitted": {
+      "request_digest": "sha256:4a2ad359e4611654e39183ad678256d0ea46e71a894f72977c0ae918f11305f5",
+      "request_id": "historical-examples:6a6be334728b7c49ad2e2fc1e67b0adcecf000dd6ff5242a8bc7209dbbed4511:examples_omitted"
+    }
+  },
+  "objective_request_bindings_digest": "sha256:8e905fc3b506d6e34c22451cdf5fca850f5d4b7c331dc47c301718d4c63bbb7f",
+  "owner_prompt_pair_preview_digest": "sha256:18ef9f6efa109da0de99636bd9a44c59cdb4e66ce4c1173faf0cb7c91928a9a3",
+  "plan_binding": {
+    "authority_map_digest": "0c50a377d8128363b164293cfbd2366dee806db6fc082a915124014945723c7e",
+    "campaign_id": "rootless-history-campaign-0e68855964bb43179daf",
+    "cycle_id": "rootless-cognition-cycle-e0b1e5425b5e44f18bf4",
+    "cycle_index": 0,
+    "identity_recipe_evidence": {
+      "identity_count": 2,
+      "identity_digests_verified": true,
+      "implementation_pin_posture": "campaign_source_pin_mismatch_replayed_against_current_identity_outputs",
+      "inference_performed": false,
+      "manifest_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "model_identity_recipe_digest": "806e9cee722ef30c3519e06e2b71ce8f4d58fdd09ca376b3bee6cdbcd1aa8ffb",
+      "pinned_identity_implementation_sha256": {
+        "sentientos/local_model.py": "49d08957bdebb518c8dcd3a4910cd846e826eeb40cb375c90fd30d26f6c1a2e8",
+        "sentientos/rootless_experimental_local_model.py": "f792f8402ca0b4a12b816f2767a32f4f6975b261af66eecb9e4a2704667830a2",
+        "sentientos/rootless_experimental_ollama_epistemic_session.py": "10c213515b81d28c9df1d414ae6c7167d262e77c85439f24c611f593d039c18a",
+        "work/rootless_history_boundary_campaign.py": "a44e0b26e186ace9ca097467744cc7c783331f57bd9b6368b40e485294fa554b"
+      },
+      "replay_identity_implementation_sha256": {
+        "sentientos/local_model.py": "49d08957bdebb518c8dcd3a4910cd846e826eeb40cb375c90fd30d26f6c1a2e8",
+        "sentientos/rootless_experimental_local_model.py": "f792f8402ca0b4a12b816f2767a32f4f6975b261af66eecb9e4a2704667830a2",
+        "sentientos/rootless_experimental_ollama_epistemic_session.py": "fc9425064eeb86eaaf3631773465afb0ee3ad28f35c01a1dcf2214ede8f2e917",
+        "work/rootless_history_boundary_campaign.py": "20ab7a97f126ea1d28f02b08a158eecaae1ba3554bab4344fe25ab81296bd1c4"
+      }
+    },
+    "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "model_id": "lma-0ebed951635de5893d1da040",
+    "plan_digest": "aa1b4d20973803221517993341c938dcd881fb4e45bb17d9432e92a316ee7290",
+    "planned_model_identity_digest": "c2ee58996154031690dd35ebdcfa3bcf0bc54b46d2c446d38af4e98fc4a11261"
+  },
+  "preflight_source_sha256": "sha256:03cca0f48e9a02770eb0f5b21c05c559a843b25664ff3d5f1c51a8d6132f783c",
+  "private_task_plan_digest": "sha256:b67b6f0b3b71649ce2b1ae83eff7a219f999020dc1998c08b1b4fb16ff045c6a",
+  "protocol_digest": "sha256:6a6be334728b7c49ad2e2fc1e67b0adcecf000dd6ff5242a8bc7209dbbed4511",
+  "protocol_persisted": true,
+  "resident_cognition_source_sha256": "sha256:60fe48d14ae3e8bd260cc3dfd872db8d78d1c02907b8412a4a9df8a2ae5452ae",
+  "runtime_condition_created": false,
+  "schema_version": "sentientos.resident_historical_examples_cpu_preflight:v7",
+  "snapshot_digest": "00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+  "snapshot_id": "world-state-00e8c547cf6caa7f",
+  "source_history_mutated": false,
+  "source_identity_posture": "reconstructed_from_verified_campaign_plan",
+  "source_model_identity_digest": "sha256:625d80e58ee6cacf5423186e28356b852dd19831919317ab28704b66a2d7ce94",
+  "source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "source_receipt_id": "lmrec-d14f3d9870e9dbc64f5812f5",
+  "task_commitment_key_file_sha256": "sha256:5247a06476eaf582349db0cc50793621651addb2a69af632b6ddf1a84342eae5",
+  "task_commitment_nonce_pair_digest": "sha256:703284b98a95fd2919d6cb45bb34f721df9a7f959c92aaf94530f95dee398041",
+  "task_digest": "sha256:7b0c285d7735e8906312b23e0df125adb1afa761a336137623e788241febd031",
+  "task_factory_source_sha256": "sha256:97c5d6674cfd38476c3aedab526bcef02ee5bcf85c49ad9fb18e902ae37aa25d",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 13688478
+}

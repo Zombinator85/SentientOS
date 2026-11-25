@@ -1,0 +1,2212 @@
+{
+  "authority": false,
+  "completed_state_record_receipt_match_count": 477,
+  "completed_state_record_reference_count": 477,
+  "completed_state_unmatched_count": 0,
+  "cycle_count": 56,
+  "cycles": [
+    {
+      "completed_state_record_receipt_match_count": 15,
+      "completed_state_record_reference_count": 15,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+      "orphan_record_count": 0,
+      "receipt_count": 15,
+      "receipt_record_lineage_count": 15,
+      "record_count": 15,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 15,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-0cfa1c47de4d49bea4cd",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1e3f877fb56242c5b2c0",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-2b4c31c1011a779adfab",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-308199e124b045538667",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-334cf5be6f3a415e9ce8",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 12,
+      "completed_state_record_reference_count": 12,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+      "orphan_record_count": 0,
+      "receipt_count": 12,
+      "receipt_record_lineage_count": 12,
+      "record_count": 12,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 12,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-3d7bb2cef5654d258030",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 28,
+      "completed_state_record_reference_count": 28,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+      "orphan_record_count": 0,
+      "receipt_count": 28,
+      "receipt_record_lineage_count": 28,
+      "record_count": 28,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 28,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-455a60d4a21e426d8e25",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4aaf822a6dd2454d8b9e",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-4bf0d7a61c3e9582a104",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4d83d0e99c704fa2af92",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 4,
+      "completed_state_record_reference_count": 4,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-510329c126e2c0004cb5",
+      "orphan_record_count": 0,
+      "receipt_count": 4,
+      "receipt_record_lineage_count": 4,
+      "record_count": 4,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 4,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-515800da0a8749fb8ffc",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-5e4a16a9eb9bd38b8bc8",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-67dbf145cc02fa716a95",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-69e99a518087c2c61623",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-724d354bc544461b80f6",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-75d63a4655604c88ac3a",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-77117c5cfe9f4b639d78",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 18,
+      "completed_state_record_reference_count": 18,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+      "orphan_record_count": 0,
+      "receipt_count": 18,
+      "receipt_record_lineage_count": 18,
+      "record_count": 18,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 18,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7a737477009d4d7bbe58",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7b5eca6905ce473aafef",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7f0158832349222ca4b8",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-8aee6d5feda2a653409a",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-9d350b2d8bc96d934f12",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 21,
+      "completed_state_record_reference_count": 21,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "orphan_record_count": 0,
+      "receipt_count": 21,
+      "receipt_record_lineage_count": 21,
+      "record_count": 21,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 21,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 6,
+      "completed_state_record_reference_count": 6,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+      "orphan_record_count": 0,
+      "receipt_count": 6,
+      "receipt_record_lineage_count": 6,
+      "record_count": 6,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 6,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-abb770979813482c9361",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-ac48f9a8d8b94536b8a1",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-b7953e0a5a6849e0ad10",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-c8492c84cc794a82a2c6",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 9,
+      "completed_state_record_reference_count": 9,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+      "orphan_record_count": 0,
+      "receipt_count": 9,
+      "receipt_record_lineage_count": 9,
+      "record_count": 9,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 9,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-e0d11de9dc7640259f3a",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-e87d203b64a1c5f83970",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-ef04c326e1b94df08661",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-f02e96bfcd254463b7e7",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-f67d90a2d098ac136b6e",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-fc801d38eb324274bf32",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-fe2270380dd09739d86f",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    }
+  ],
+  "inference_performed": false,
+  "phase_a_eligibility_established": false,
+  "phase_a_minimum_distinct_source_ids": 60,
+  "receipt_record_lineage_count": 498,
+  "record_count": 498,
+  "runtime_admission_partial_cycle_count": 0,
+  "runtime_admission_rejected_cycle_count": 4,
+  "runtime_admission_revalidated": true,
+  "runtime_admission_verified_record_count": 486,
+  "schema_version": "sentientos.semantic_retrieval_owner_lineage_audit:v1",
+  "structural_source_capacity_shortfall": 0,
+  "unique_fully_admitted_state_receipt_matched_record_count": 71,
+  "unique_state_receipt_matched_record_count": 71,
+  "verified_record_refs": [
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+      "record_id": "devrec-01e35780a28a539aee7c5fb6",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd"
+      ],
+      "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+      "record_id": "devrec-0641223365c8adfd38a1143f",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-fc801d38eb324274bf32"
+      ],
+      "record_digest": "sha256:0d365af302c84f655f6198c5dd0caf05619b69d3019cf3a8e042e9b873294c87",
+      "record_id": "devrec-0d365af302c84f655f6198c5",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-e0d11de9dc7640259f3a"
+      ],
+      "record_digest": "sha256:127c73ee74991bbcf4ef11fc935a5fc9ab7e154a590968d39fd98d8212b0f919",
+      "record_id": "devrec-127c73ee74991bbcf4ef11fc",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:1581103949635ae915924b37618be8aa59bb33baf2560fb0c4ebc4c6b2122f96",
+      "record_id": "devrec-1581103949635ae915924b37",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-1e3f877fb56242c5b2c0"
+      ],
+      "record_digest": "sha256:1b9228c86fda22f5c03788ec692d848f8eaacbfb3603ce0cf4e67c4187802a63",
+      "record_id": "devrec-1b9228c86fda22f5c03788ec",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b"
+      ],
+      "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+      "record_id": "devrec-2101f0fa9196a25d009e485d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+      "record_id": "devrec-21df63d50d306c0e607fb07f",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-ac48f9a8d8b94536b8a1"
+      ],
+      "record_digest": "sha256:2f3822b398931baf77de5317824b59c0a4584ea8adcf07789a01272b7554e1ce",
+      "record_id": "devrec-2f3822b398931baf77de5317",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-77117c5cfe9f4b639d78"
+      ],
+      "record_digest": "sha256:32b0780f4dfe2230293877ffecd07cbba8e1e1d515c3e411c91be9d9debdd6b6",
+      "record_id": "devrec-32b0780f4dfe2230293877ff",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-2b4c31c1011a779adfab",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-510329c126e2c0004cb5",
+        "rootless-cognition-cycle-515800da0a8749fb8ffc",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-69e99a518087c2c61623",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-ef04c326e1b94df08661",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:34f8af2cc29849b13365de40b1061fa90b06a75fb898e3af6f4326ee5bf0ec32",
+      "record_id": "devrec-34f8af2cc29849b13365de40",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b"
+      ],
+      "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+      "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+      "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-2b4c31c1011a779adfab",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-510329c126e2c0004cb5",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-69e99a518087c2c61623",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+      "record_id": "devrec-4636cead0a89f76418db624a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-7a737477009d4d7bbe58"
+      ],
+      "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+      "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+      "record_id": "devrec-4fd52036e8b17c28ac02994c",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd"
+      ],
+      "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+      "record_id": "devrec-52324db6d60b2a38dedba25e",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-455a60d4a21e426d8e25"
+      ],
+      "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+      "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-334cf5be6f3a415e9ce8"
+      ],
+      "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+      "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7"
+      ],
+      "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+      "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-fc801d38eb324274bf32"
+      ],
+      "record_digest": "sha256:5ce950e254690f736a4bacc651e492861ee387180cc59af8d34f82bd0c3e6db4",
+      "record_id": "devrec-5ce950e254690f736a4bacc6",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4aaf822a6dd2454d8b9e"
+      ],
+      "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+      "record_id": "devrec-5dae23fd79510dedf13950aa",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7"
+      ],
+      "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+      "record_id": "devrec-5e9136f207c8a21292d0305a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4aaf822a6dd2454d8b9e"
+      ],
+      "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+      "record_id": "devrec-6420107bbb215fa3608eeccf",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-7b5eca6905ce473aafef"
+      ],
+      "record_digest": "sha256:64c066516a0f80958e1dd4dced68818a5e591cf4a429a0c9041eaf27a63df185",
+      "record_id": "devrec-64c066516a0f80958e1dd4dc",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:656a60aa573a4ac915a45d8d681e8560669aae3e1cc91b9849f6a7ff4d91a2b5",
+      "record_id": "devrec-656a60aa573a4ac915a45d8d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+      "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4aaf822a6dd2454d8b9e"
+      ],
+      "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+      "record_id": "devrec-6c188224414ccd4acff54817",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-724d354bc544461b80f6"
+      ],
+      "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+      "record_id": "devrec-6cd189853e84eb74e7a7c354",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-724d354bc544461b80f6"
+      ],
+      "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+      "record_id": "devrec-6db704a20cd40c3a49373518",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd"
+      ],
+      "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+      "record_id": "devrec-6fde16658f35afa909982447",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-75d63a4655604c88ac3a"
+      ],
+      "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+      "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-0cfa1c47de4d49bea4cd"
+      ],
+      "record_digest": "sha256:75bfcccdf808c2012d472378bea30e1187c429230c23cf148596b4e044dbb08f",
+      "record_id": "devrec-75bfcccdf808c2012d472378",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-abb770979813482c9361"
+      ],
+      "record_digest": "sha256:76fc2e31dcdb3bcb4dd051a1f47da08f22b3e82ac5bee1b4d5feceb0ac7c0dbf",
+      "record_id": "devrec-76fc2e31dcdb3bcb4dd051a1",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-7b5eca6905ce473aafef"
+      ],
+      "record_digest": "sha256:7841226cbe68c1017cab881c2958a69da0554df99c3aaf6b2f1a51e62ef9bb21",
+      "record_id": "devrec-7841226cbe68c1017cab881c",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7"
+      ],
+      "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+      "record_id": "devrec-7bab60b75b6b114cea689248",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-2b4c31c1011a779adfab",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-69e99a518087c2c61623",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+      "record_id": "devrec-7c65f971c472cafc40139e06",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+      "record_id": "devrec-7e5093f81005e5c781b2ede0",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-abb770979813482c9361"
+      ],
+      "record_digest": "sha256:80fa37778407832fca4e404abf3f884e476b104d0bcf85f10a5511e38629650f",
+      "record_id": "devrec-80fa37778407832fca4e404a",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:82a706b8435e2c3d9262b54935d2e1bdfb57d60e6536a8aaa2da01589b96a6e3",
+      "record_id": "devrec-82a706b8435e2c3d9262b549",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a"
+      ],
+      "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+      "record_id": "devrec-83bc0097864882302ae02efd",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-334cf5be6f3a415e9ce8"
+      ],
+      "record_digest": "sha256:8495c36e445151f2e42af5f05bc52bce90cfb4c448445d43cc70336a896e5ed6",
+      "record_id": "devrec-8495c36e445151f2e42af5f0",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7"
+      ],
+      "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+      "record_id": "devrec-8905e28a74548aa7e998f6b8",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:89d294006f579428fcbb244d130f1c3c7373bbf95eecb3d006003359cbe52307",
+      "record_id": "devrec-89d294006f579428fcbb244d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4d83d0e99c704fa2af92"
+      ],
+      "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+      "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-4d83d0e99c704fa2af92"
+      ],
+      "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+      "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+      "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+      "record_id": "devrec-94356f97cd3b0886c33055cc",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+      "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-455a60d4a21e426d8e25"
+      ],
+      "record_digest": "sha256:96d2b738bd45fc7992e7e8902ae31286790998c80f138ac99e6cb9cffc08b14c",
+      "record_id": "devrec-96d2b738bd45fc7992e7e890",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-724d354bc544461b80f6"
+      ],
+      "record_digest": "sha256:9ba0af00c88b96a5ec03dd2789fe35810159285be0df3677d7cf23e0c623bee7",
+      "record_id": "devrec-9ba0af00c88b96a5ec03dd27",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-2b4c31c1011a779adfab",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-510329c126e2c0004cb5",
+        "rootless-cognition-cycle-515800da0a8749fb8ffc",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-69e99a518087c2c61623",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-ef04c326e1b94df08661",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:9d9e267428c02e3c844f1d5a79353a082c622f7e1ec2069c8e02ad253b6d43d8",
+      "record_id": "devrec-9d9e267428c02e3c844f1d5a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:a01a0e1ea877194d4d2fcb4d15acdb44d89f6d585139d1cd6ab5bb1c091d88c2",
+      "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+      "record_id": "devrec-a081ef3104dba90c9e19b723",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11"
+      ],
+      "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+      "record_id": "devrec-a4efd206f7fe0637aed174a7",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7"
+      ],
+      "record_digest": "sha256:a8b299f6e721c3e800c42555009acdad623db8cb83adc02dbb4b5a62f93eb864",
+      "record_id": "devrec-a8b299f6e721c3e800c42555",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11"
+      ],
+      "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+      "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7"
+      ],
+      "record_digest": "sha256:b2cccefb609580032166f99713b8e06e3a9c77a0ccb2323563b6de739f1ce074",
+      "record_id": "devrec-b2cccefb609580032166f997",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a"
+      ],
+      "record_digest": "sha256:bf02579302e99cd0e1da13271c98af021b60bc79b3de3cfcce6dbd76acf84f65",
+      "record_id": "devrec-bf02579302e99cd0e1da1327",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-0cfa1c47de4d49bea4cd"
+      ],
+      "record_digest": "sha256:cc1ff3a3b9e8da022e33ff8304070702a96b8e30f7ae3205a145cdcc4d799b85",
+      "record_id": "devrec-cc1ff3a3b9e8da022e33ff83",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-1e3f877fb56242c5b2c0"
+      ],
+      "record_digest": "sha256:d3818cf820042ede50e12466d323ccb7613e90d3fa82c5f7125a0a66eaa45bc4",
+      "record_id": "devrec-d3818cf820042ede50e12466",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-c8492c84cc794a82a2c6"
+      ],
+      "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+      "record_id": "devrec-d44fdde4016204ea903e093c",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:d476d487664a5dc051c71d752d095954979f28a1244612e0dc24e8545b9b2e4c",
+      "record_id": "devrec-d476d487664a5dc051c71d75",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+      "record_id": "devrec-d5d23dd21785372394baa2a9",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-455a60d4a21e426d8e25"
+      ],
+      "record_digest": "sha256:dd077d47f16f1bddf36bb602c8521d5377cba2b4c3737bca058d9a36ac7a06d9",
+      "record_id": "devrec-dd077d47f16f1bddf36bb602",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+        "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+        "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+        "rootless-cognition-cycle-2b4c31c1011a779adfab",
+        "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-510329c126e2c0004cb5",
+        "rootless-cognition-cycle-515800da0a8749fb8ffc",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-69e99a518087c2c61623",
+        "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+        "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+        "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-ef04c326e1b94df08661",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+        "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+        "rootless-cognition-cycle-fe2270380dd09739d86f"
+      ],
+      "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+      "record_id": "devrec-dec0f183ac5255063b0c87d8",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+        "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+        "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+        "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+        "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+        "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+        "rootless-cognition-cycle-7f0158832349222ca4b8",
+        "rootless-cognition-cycle-8aee6d5feda2a653409a",
+        "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+        "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+        "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+        "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+        "rootless-cognition-cycle-f0ba12e3ab4fce872001"
+      ],
+      "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+      "record_id": "devrec-e6c2f49089c474316c5aebf3",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-7b5eca6905ce473aafef"
+      ],
+      "record_digest": "sha256:eac0b63422d1d302ede9751025a53ca63635b16bf4bb96448e13037cb78f0bff",
+      "record_id": "devrec-eac0b63422d1d302ede97510",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "cycle_ids": [
+        "rootless-cognition-cycle-334cf5be6f3a415e9ce8"
+      ],
+      "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+      "record_id": "devrec-fca1b6cc39e549136f9b815f",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    }
+  ]
+}

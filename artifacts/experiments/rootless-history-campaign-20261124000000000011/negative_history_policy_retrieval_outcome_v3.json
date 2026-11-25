@@ -1,0 +1,115 @@
+{
+  "acquisition_prompt_delivery": {
+    "binder_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ],
+    "heldout_disjoint": false,
+    "historical_probe_overlap_input_count": 1,
+    "incorrect_example_count": 3,
+    "inference_performed": false,
+    "no_imitation_instruction_present": true,
+    "probe_inputs": [
+      3,
+      5,
+      6
+    ],
+    "record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ]
+  },
+  "alternate_seed_delivery": {
+    "acquisition_prompt_binder_count": 5,
+    "heldout_transfer_probe_overlap_count_vectors": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "inference_performed": false,
+    "seed_count": 16,
+    "transfer_prompt_binder_count": 16,
+    "unique_transfer_binder_record_set_count": 1
+  },
+  "campaign_id": "rootless-history-campaign-20261124000000000011",
+  "inference_performed": false,
+  "initial_history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+  "interpretation": "The plan and preflight verifier reconstruct the same owner ranking and prompt projection. The planned transfer prompt contains all three score-bound incorrect examples from the 0/3 record, with the no-imitation instruction. All 16 alternate transfer seeds bind that record with zero historical-probe overlap. The acquisition prompt also binds the negative record for the preregistered seed, but across the 16 alternate seeds this occurs in 5; the preregistered acquisition probes overlap historical input 3. These are delivery results only; no inference or learning claim is supported.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "performance_improvement_established": false,
+  "plan_digest": "ab1ed14dd087e29a78ce9a57b46ed2d93d7fdc6d1fb7784275e998bd004bccd1",
+  "plan_sha256": "2d370af67ad5160345160f9ff81797104ecfcb9e436e2894f9914227241ca72a",
+  "plan_verification": {
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "status": "verified"
+  },
+  "positive_example_ablation_status": "historical_examples_not_present",
+  "preflight_digest": "sha256:3f71be558cee21e1e0463b674173093be4bea557899dc4954a734336edc5db74",
+  "preflight_path": "owner_preflight_cycle0_v1.json",
+  "preflight_sha256": "03154d869e8fe6a5255e4ed8af5b17f1047896763ca5e955b2eecb5af0e6c438",
+  "preflight_verification": {
+    "authority": false,
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "model_identity_verified": true,
+    "negative_delivery_reconstructed": true,
+    "ranking_trace_reconstructed": true,
+    "report_schema": "sentientos.rootless_planned_cycle_owner_preflight:v19",
+    "source_preflight_reconstructed": true,
+    "status": "verified"
+  },
+  "retrieval_policy": {
+    "failed_record_correct_coverage": 0,
+    "failed_record_scored_coverage": 3,
+    "id": "task_family_outcome_then_scored_example_coverage_then_model_probe_overlap_recency:v10",
+    "legacy_v9_history_selection_remains_readable": true,
+    "owner_selected": true,
+    "rank_position_zero_based": 0,
+    "ranking_trace_schema": "sentientos.task_family_history_ranking_trace:v2",
+    "transfer_binder_selected": true
+  },
+  "schema_version": "sentientos.score_bound_negative_history_delivery_outcome:v3",
+  "source_failure_record": {
+    "correct": 0,
+    "incorrect": 3,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "score_bound": true,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "transfer_prompt_delivery": {
+    "authority": false,
+    "current_truth": false,
+    "heldout_transfer_probe_inputs": [
+      478,
+      609,
+      850
+    ],
+    "heldout_transfer_probe_set_disjoint": true,
+    "historical_only": true,
+    "historical_probe_overlap_input_count": 0,
+    "incorrect_example_count": 3,
+    "no_imitation_instruction_present": true,
+    "prompt_chars": 23704,
+    "prompt_limit_chars": 24576,
+    "prompt_within_bound": true,
+    "record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ]
+  }
+}

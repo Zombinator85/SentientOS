@@ -1,0 +1,91 @@
+{
+  "authority": false,
+  "campaigns": [
+    {
+      "attempts": [
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000047",
+          "status": "completed",
+          "summary": "../rootless-history-campaign-20261124000000000022/47_cycle_summary_v1.json"
+        },
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000048",
+          "failure_code": "source_provenance_incomplete_or_changed_before_inference",
+          "status": "incomplete_before_inference",
+          "summary": "../rootless-history-campaign-20261124000000000022/48_cycle_summary_v1.json"
+        }
+      ],
+      "campaign_id": "rootless-history-campaign-20261124000000000022",
+      "chain_audit_digest": "e2445f14b9e26cdf40e5065ff83cf58ae82ff6ec1a2d86266183cf9693efa47e",
+      "chain_audit_status": "not_fully_verified",
+      "plan_digest": "dd82160517d9942956a54fcfb1e3baef1dc6f92475b5e660ae2ac453c64df74b"
+    },
+    {
+      "attempts": [
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000049",
+          "failure_code": "history_campaign_transfer_probe_reuse_in_prior_history",
+          "inference_performed": false,
+          "status": "rejected_by_cpu_preflight"
+        },
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000050",
+          "inference_performed": false,
+          "status": "not_run_after_preflight_rejection"
+        }
+      ],
+      "campaign_id": "rootless-history-campaign-20261124000000000023",
+      "plan_digest": "cce59446fd6940a510a36963ffabce9c9cd32ec08bfa7d1a667ae16876989a42"
+    },
+    {
+      "attempts": [
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000051",
+          "failure_code": "ollama_model_digest_unverified",
+          "failure_stage": "model_and_runtime_preflight",
+          "inference_performed": false,
+          "status": "incomplete_before_task_inference"
+        },
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000052",
+          "inference_performed": false,
+          "status": "not_run_after_first_slot_failure"
+        }
+      ],
+      "campaign_id": "rootless-history-campaign-20261124000000000024",
+      "plan_digest": "e6b0318ff198b61cf58f6983be51193af816dc1be2f39c43827453c83997255c"
+    },
+    {
+      "attempts": [
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000053",
+          "status": "completed",
+          "summary": "53_cycle_summary_v1.json"
+        },
+        {
+          "cycle_id": "rootless-cognition-cycle-20261124000000000054",
+          "status": "completed",
+          "summary": "54_cycle_summary_v1.json"
+        }
+      ],
+      "campaign_id": "rootless-history-campaign-20261124000000000025",
+      "chain_audit_digest": "c0e30f0d6a4dbed78917bcb0ba319f4389d21e601a9b291fe74bca727ae64774",
+      "chain_audit_status": "verified",
+      "original_transfer_preflight_scope_complete": false,
+      "plan_digest": "fddb4ad3372cf0e52da80581af75c9c4b8eb06ec0cca006c8cf237cc398dcf71",
+      "retrospective_registered_family_overlap_audit": {
+        "digest": "61f3a4656eeea3622d869390f412e1d872df1755a21af39a9016b79c3023d233",
+        "overlap_inputs_per_cycle": [
+          0,
+          0
+        ],
+        "path": "registered_history_family_overlap_audit_v1.json",
+        "preregistered_claim_upgraded": false
+      }
+    }
+  ],
+  "inference_performed_by_registry": false,
+  "learning_established": false,
+  "schema_version": "sentientos.rootless_history_campaign_attempt_registry:v1",
+  "scope": "answer_free_campaign_attempt_record"
+}

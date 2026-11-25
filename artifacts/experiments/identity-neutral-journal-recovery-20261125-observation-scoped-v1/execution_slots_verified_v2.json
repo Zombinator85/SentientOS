@@ -1,0 +1,41 @@
+{
+  "all_slots_verified": true,
+  "authority": false,
+  "cohort_digest": "sha256:19b01d95aced19a02886a83acea59029cdd8d1428b079140c9d409ea75d57259",
+  "execution_plan_digest": "sha256:97a4f1f069e57d1d113af0696743dc7fe57b4abe6aeea4296032a1d0dc8bf80a",
+  "learning_established": false,
+  "model_invoked": false,
+  "schema_version": "sentientos.historical_examples_pair_execution_slot_audit:v1",
+  "trial_count": 2,
+  "verification_digest": "sha256:ebcff215ca49bdbae2be305229ad7578a5925bd003b30580ef33672af5c46d2b",
+  "verified_slots": [
+    {
+      "authority": false,
+      "backend_seed": 42,
+      "learning_established": false,
+      "model_invoked": false,
+      "probe_binding_set_digest": "sha256:d60ecb6f81a9b25e24b03863a03718561a7a30872a59168dd0d080ad998720c4",
+      "probe_count": 3,
+      "protocol_digest": "sha256:e8dc96b714d1e617a68fc7d629fb7e45663922fe5dfb5103017914ea492a7ea4",
+      "runner_cycle_id": "rootless-cognition-cycle-0b93d6a2e41c7f80513a",
+      "snapshot_id": "world-state-00e8c547cf6caa7f",
+      "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "task_digest": "sha256:252c164aeeaa60922ab9b2524b902a3d8bf33b0dc33d9ed1b58b7fd7b4496c18",
+      "trial_index": 0
+    },
+    {
+      "authority": false,
+      "backend_seed": 42,
+      "learning_established": false,
+      "model_invoked": false,
+      "probe_binding_set_digest": "sha256:0c86f468c83627cb7c9c5ebdd39f87116a98d17973663219495eac914c23f2a2",
+      "probe_count": 3,
+      "protocol_digest": "sha256:f2485f1a274f8c17fc156c51060e5e4fff7ce2b84668010fd3ae3019ed97f5d7",
+      "runner_cycle_id": "rootless-cognition-cycle-9fd2037bc84ea1650c72",
+      "snapshot_id": "world-state-00e8c547cf6caa7f",
+      "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "task_digest": "sha256:2e148664ac194f28bd9c345ed88d99b8a53bc566ede4e9b8ca0737da7698ea1e",
+      "trial_index": 1
+    }
+  ]
+}

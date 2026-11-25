@@ -1,0 +1,1092 @@
+{
+  "authority": false,
+  "completed_state_record_receipt_match_count": 477,
+  "completed_state_record_reference_count": 477,
+  "completed_state_unmatched_count": 0,
+  "cycle_count": 56,
+  "cycles": [
+    {
+      "completed_state_record_receipt_match_count": 15,
+      "completed_state_record_reference_count": 15,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+      "orphan_record_count": 0,
+      "receipt_count": 15,
+      "receipt_record_lineage_count": 15,
+      "record_count": 15,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 15,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-0cfa1c47de4d49bea4cd",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1e3f877fb56242c5b2c0",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-2b4c31c1011a779adfab",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-308199e124b045538667",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-334cf5be6f3a415e9ce8",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 12,
+      "completed_state_record_reference_count": 12,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+      "orphan_record_count": 0,
+      "receipt_count": 12,
+      "receipt_record_lineage_count": 12,
+      "record_count": 12,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 12,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-3d7bb2cef5654d258030",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 28,
+      "completed_state_record_reference_count": 28,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+      "orphan_record_count": 0,
+      "receipt_count": 28,
+      "receipt_record_lineage_count": 28,
+      "record_count": 28,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 28,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-455a60d4a21e426d8e25",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4aaf822a6dd2454d8b9e",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-4bf0d7a61c3e9582a104",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4d83d0e99c704fa2af92",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 4,
+      "completed_state_record_reference_count": 4,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-510329c126e2c0004cb5",
+      "orphan_record_count": 0,
+      "receipt_count": 4,
+      "receipt_record_lineage_count": 4,
+      "record_count": 4,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 4,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-515800da0a8749fb8ffc",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-5e4a16a9eb9bd38b8bc8",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 26,
+      "completed_state_record_reference_count": 26,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+      "orphan_record_count": 0,
+      "receipt_count": 26,
+      "receipt_record_lineage_count": 26,
+      "record_count": 26,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 26,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-67dbf145cc02fa716a95",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 5,
+      "completed_state_record_reference_count": 5,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-69e99a518087c2c61623",
+      "orphan_record_count": 0,
+      "receipt_count": 5,
+      "receipt_record_lineage_count": 5,
+      "record_count": 5,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 5,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-724d354bc544461b80f6",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-75d63a4655604c88ac3a",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-77117c5cfe9f4b639d78",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 18,
+      "completed_state_record_reference_count": 18,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+      "orphan_record_count": 0,
+      "receipt_count": 18,
+      "receipt_record_lineage_count": 18,
+      "record_count": 18,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 18,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7a737477009d4d7bbe58",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7b5eca6905ce473aafef",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-7f0158832349222ca4b8",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-8aee6d5feda2a653409a",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-9d350b2d8bc96d934f12",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 21,
+      "completed_state_record_reference_count": 21,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "orphan_record_count": 0,
+      "receipt_count": 21,
+      "receipt_record_lineage_count": 21,
+      "record_count": 21,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 21,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 6,
+      "completed_state_record_reference_count": 6,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+      "orphan_record_count": 0,
+      "receipt_count": 6,
+      "receipt_record_lineage_count": 6,
+      "record_count": 6,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 6,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-abb770979813482c9361",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-ac48f9a8d8b94536b8a1",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-b7953e0a5a6849e0ad10",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 23,
+      "completed_state_record_reference_count": 23,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "orphan_record_count": 0,
+      "receipt_count": 23,
+      "receipt_record_lineage_count": 23,
+      "record_count": 23,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 23,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-c8492c84cc794a82a2c6",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 9,
+      "completed_state_record_reference_count": 9,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+      "orphan_record_count": 0,
+      "receipt_count": 9,
+      "receipt_record_lineage_count": 9,
+      "record_count": 9,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 9,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 1,
+      "completed_state_record_reference_count": 1,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-e0d11de9dc7640259f3a",
+      "orphan_record_count": 0,
+      "receipt_count": 1,
+      "receipt_record_lineage_count": 1,
+      "record_count": 1,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 1,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-e87d203b64a1c5f83970",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 3,
+      "runtime_admission_failure_reasons": {
+        "recorded_admission_missing_or_ambiguous": 3
+      },
+      "runtime_admission_status": "rejected",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 3,
+      "completed_state_record_reference_count": 3,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-ef04c326e1b94df08661",
+      "orphan_record_count": 0,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-f02e96bfcd254463b7e7",
+      "orphan_record_count": 0,
+      "receipt_count": 0,
+      "receipt_record_lineage_count": 0,
+      "record_count": 0,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 0,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 25,
+      "completed_state_record_reference_count": 25,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+      "orphan_record_count": 0,
+      "receipt_count": 25,
+      "receipt_record_lineage_count": 25,
+      "record_count": 25,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 25,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 0,
+      "completed_state_record_reference_count": 0,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": false,
+      "composition_state_present": false,
+      "cycle_id": "rootless-cognition-cycle-f67d90a2d098ac136b6e",
+      "orphan_record_count": 3,
+      "receipt_count": 3,
+      "receipt_record_lineage_count": 3,
+      "record_count": 3,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 3,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 2,
+      "completed_state_record_reference_count": 2,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-fc801d38eb324274bf32",
+      "orphan_record_count": 0,
+      "receipt_count": 2,
+      "receipt_record_lineage_count": 2,
+      "record_count": 2,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 2,
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "completed_state_record_receipt_match_count": 11,
+      "completed_state_record_reference_count": 11,
+      "completed_state_unmatched_count": 0,
+      "composition_state_digest_verified": true,
+      "composition_state_present": true,
+      "cycle_id": "rootless-cognition-cycle-fe2270380dd09739d86f",
+      "orphan_record_count": 0,
+      "receipt_count": 11,
+      "receipt_record_lineage_count": 11,
+      "record_count": 11,
+      "runtime_admission_failed_record_count": 0,
+      "runtime_admission_failure_reasons": {},
+      "runtime_admission_status": "verified",
+      "runtime_admission_verified_record_count": 11,
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    }
+  ],
+  "inference_performed": false,
+  "phase_a_eligibility_established": false,
+  "receipt_record_lineage_count": 498,
+  "record_count": 498,
+  "runtime_admission_partial_cycle_count": 0,
+  "runtime_admission_rejected_cycle_count": 4,
+  "runtime_admission_revalidated": true,
+  "runtime_admission_verified_record_count": 486,
+  "schema_version": "sentientos.semantic_retrieval_owner_lineage_audit:v1",
+  "unique_fully_admitted_state_receipt_matched_record_count": 71,
+  "unique_state_receipt_matched_record_count": 71
+}

@@ -1,0 +1,68 @@
+{
+  "authority": false,
+  "cycle_root_id": "rootless-cognition-cycle-20261124000000000037",
+  "generation_config_digest": "sha256:30fb08776fb227a95de0387ff70fdd066c806b2013c3feed182f913c825ce4cc",
+  "held_out_probe_overlap_audit": {
+    "authority": false,
+    "history_probe_input_occurrence_count": 238,
+    "history_probe_input_set_digest": "sha256:c8da17edeca2b462478a679a1e7b9ce80d6847406e67065ad6e965c58797357f",
+    "history_record_count": 32,
+    "inference_performed": false,
+    "learning_established": false,
+    "measurement_complete": true,
+    "no_exact_overlap_detected": true,
+    "overlapping_probe_input_count": 0,
+    "overlapping_probe_input_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "schema_version": "sentientos.historical_examples_probe_history_overlap_audit:v1",
+    "scope": "all_recursive_input_and_probe_fields_in_all_history_records",
+    "task_probe_count": 3,
+    "task_probe_input_digest": "sha256:96488e98b9cd33f93e459da2c60684654a8f402fcc3e9b940ca0b44fa75ca9d1"
+  },
+  "historical_negative_guidance_ablation": {
+    "ablated_prompt_chars": 20372,
+    "ablated_prompt_digest": "sha256:50d558ab251314e575cb61551757242a5c97c5a9ca919b9159d204d27b1c6611",
+    "accumulated_strategy_unchanged": true,
+    "authority": false,
+    "baseline_prompt_chars": 20790,
+    "baseline_prompt_digest": "sha256:b4ceb75eeb5a03c409e5c2510cd2152b8c9e52c376b4e9635f9e2a3b019c7953",
+    "changed_context_fields": [
+      "developmental_history"
+    ],
+    "inference_performed": false,
+    "intervention": "remove_only_prior_incorrect_examples_from_selected_history",
+    "learning_established": false,
+    "no_imitation_instruction_unchanged": true,
+    "per_record_strategies_unchanged": true,
+    "removed_evidence_digest": "sha256:833ecd8e62f6d86ffbcf535c8d146c7725f2d5db33b81229e56732caa08e2cdf",
+    "removed_example_count": 3,
+    "removed_packet_count": 1,
+    "retained_per_record_strategy_count": 1,
+    "schema_version": "sentientos.objective_negative_guidance_prompt_ablation:v1",
+    "selected_record_digests": [
+      "sha256:35daa61bd7ae08a81416b0d6e6285742949048ed16ef7508a609d18dcc78575c"
+    ],
+    "selected_record_ids": [
+      "devrec-35daa61bd7ae08a81416b0d6"
+    ],
+    "selected_record_set_digest": "sha256:f5bb015e5e06457053d6c087ae4a9bd607ac1681100887ece439a0eae8cff46f"
+  },
+  "history_record_digests": [
+    "sha256:35daa61bd7ae08a81416b0d6e6285742949048ed16ef7508a609d18dcc78575c"
+  ],
+  "history_record_ids": [
+    "devrec-35daa61bd7ae08a81416b0d6"
+  ],
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "pair_preview_digest": "sha256:04c58bf6eca87d481c828854233e8e8c1cb5d86cdd44014f24e6449ddc3fd3a3",
+  "runtime_condition_created": false,
+  "schema_version": "sentientos.resident_negative_guidance_prompt_preview:v1",
+  "source_model_identity_digest": "sha256:c5a3f3c3c20096fca817a0a4ef784b467d9695b5f568d3a41716aeed2cb2a233",
+  "source_receipt_digest": "f31a9875396e2594f25a4b85f766e8d5f893e362e9d7bffc5fd5244d06693d55",
+  "source_receipt_id": "lmrec-f31a9875396e2594f25a4b85",
+  "task_digest": "sha256:dd08c052c3e8dc28ebec8061d2cb6ca119c169d7e7db7591bfc6ec6be7a6b340",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 151
+}

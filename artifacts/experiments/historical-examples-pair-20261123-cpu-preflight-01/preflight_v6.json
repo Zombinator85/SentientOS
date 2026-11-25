@@ -1,0 +1,149 @@
+{
+  "answer_key_digest": "sha256:b17e96863236702ec6e47f7b5963b98d3d0b81a63d4bface9a48cd6bc6e24059",
+  "arm_order_policy": "independent_os_random_seed_v1",
+  "arm_order_seed": "46649fdd026f01c90657188daa80bdb5ee590c779b0e2b238623d31d2a70d0ad",
+  "authority": false,
+  "cycle_root_id": "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+  "generation_config_digest": "sha256:294cc9bc9c77d67ae16a61af74593dd72932dd3152a0563176ebe4d1e15a6500",
+  "held_out_probe_overlap_audit": {
+    "authority": false,
+    "history_probe_input_occurrence_count": 158,
+    "history_probe_input_set_digest": "sha256:6c301cda718f48575f1c55c0f3ae8b643bad3d8a7967046ce3f8fad0abde4343",
+    "history_record_count": 23,
+    "inference_performed": false,
+    "learning_established": false,
+    "measurement_complete": true,
+    "no_exact_overlap_detected": true,
+    "overlapping_probe_input_count": 0,
+    "overlapping_probe_input_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+    "schema_version": "sentientos.historical_examples_probe_history_overlap_audit:v1",
+    "scope": "all_recursive_input_and_probe_fields_in_all_history_records",
+    "task_probe_count": 3,
+    "task_probe_input_digest": "sha256:d4a7f3b6d755af82f58f80247e9640f4c674a32eeb1a1542113a9e2e3e39959e"
+  },
+  "historical_examples_protocol": {
+    "accumulated_strategy_unchanged": true,
+    "answer_key_digest": "sha256:b17e96863236702ec6e47f7b5963b98d3d0b81a63d4bface9a48cd6bc6e24059",
+    "authority": false,
+    "changed_context_fields": [
+      "developmental_history"
+    ],
+    "conditions": [
+      "examples_omitted",
+      "examples_included"
+    ],
+    "exact_pair_verified": true,
+    "generation_budget_digest": "sha256:20a03797d74d623129f5e181c13046f66d07155427b1a453ff5134a894ec37b3",
+    "generation_config_digest": "sha256:294cc9bc9c77d67ae16a61af74593dd72932dd3152a0563176ebe4d1e15a6500",
+    "historical_examples_prompt_ablation": {
+      "ablated_prompt_chars": 21582,
+      "ablated_prompt_digest": "sha256:a8fb756118d30966c96234e949709a34bfe172c2d6ae6217c75e58699b3125e2",
+      "accumulated_strategy_unchanged": true,
+      "authority": false,
+      "baseline_prompt_chars": 22098,
+      "baseline_prompt_digest": "sha256:3d65786847697be21cb703b50655c1ca2511521c5604b6beca25dd28e8bd9be4",
+      "changed_context_fields": [
+        "developmental_history"
+      ],
+      "inference_performed": false,
+      "intervention": "remove_examples_arrays_from_selected_history_experiences",
+      "learning_established": false,
+      "per_record_strategies_unchanged": true,
+      "retained_per_record_strategy_count": 2,
+      "schema_version": "sentientos.objective_historical_examples_prompt_ablation:v1",
+      "selected_record_digests": [
+        "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+        "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad"
+      ],
+      "selected_record_ids": [
+        "devrec-956964ba0b0ce781f8a6b2ad",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "selected_record_set_digest": "sha256:35334216c7d623670627fc34696955540dd897e4c492b581b96ac937542e4263",
+      "withheld_example_count": 6,
+      "withheld_examples_digest": "sha256:a4d1652dd5cc524fa542bc39b5feccf30abbcdb738a076facccb304a797ddcc8"
+    },
+    "history_record_digests": [
+      "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+      "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad"
+    ],
+    "history_record_ids": [
+      "devrec-956964ba0b0ce781f8a6b2ad",
+      "devrec-4fd52036e8b17c28ac02994c"
+    ],
+    "history_set_digest": "sha256:35334216c7d623670627fc34696955540dd897e4c492b581b96ac937542e4263",
+    "inference_performed": false,
+    "intervention": "remove_raw_history_examples_only",
+    "invocation_prompt_digests": {
+      "examples_included": "sha256:3d65786847697be21cb703b50655c1ca2511521c5604b6beca25dd28e8bd9be4",
+      "examples_omitted": "sha256:a8fb756118d30966c96234e949709a34bfe172c2d6ae6217c75e58699b3125e2"
+    },
+    "learning_established": false,
+    "owner_execution_tick_ids": {
+      "examples_included": "historical-examples-cpu-preflight-2026112341:examples-preview:examples_included",
+      "examples_omitted": "historical-examples-cpu-preflight-2026112341:examples-preview:examples_omitted"
+    },
+    "owner_prompt_pair_composition_verified": true,
+    "owner_prompt_pair_preview_digest": "sha256:338beecf74aded43ada74b2e17737801221a95d9354a34f78783a914cadee44b",
+    "owner_prompt_pair_preview_schema": "sentientos.objective_historical_examples_prompt_pair_preview:v1",
+    "owner_protocol_digests": {
+      "examples_included": "sha256:89e293fd8dda0f4bd76ac4e3f8ea1708c24f2cb72e86ddc1aef1893910ed48ed",
+      "examples_omitted": "sha256:89e293fd8dda0f4bd76ac4e3f8ea1708c24f2cb72e86ddc1aef1893910ed48ed"
+    },
+    "owner_task_plan_digests": {
+      "examples_included": "sha256:d00bd36e13d1c1bcbb7c0c8a8d4b3dff5650be116043dff4fd891e25b1e8e98a",
+      "examples_omitted": "sha256:d00bd36e13d1c1bcbb7c0c8a8d4b3dff5650be116043dff4fd891e25b1e8e98a"
+    },
+    "per_record_strategies_unchanged": true,
+    "preview_request_digests": {
+      "examples_included": "sha256:35b73fe5a63b8bf7c5b073c68f0f8b713a65160dafc45d15ded854165885d11a",
+      "examples_omitted": "sha256:40e785c7cc369b3483d33d9ef04339657a68cc35c348c97c8198f51eb0d1b7e7"
+    },
+    "private_task_plan_digest": "sha256:6cfb5a656ca6715d3f1fa338f8da79bfc62d2347b5f3715745ceabab98ce2fa0",
+    "probe_binding_digests": [
+      "sha256:9a18d01a8789c66e646a28035f11c918a5565b959af652bdc5b7edec9d21723b",
+      "sha256:90bab595c8d711209d72d67c522e71343be0a3d8c9bb41db0c1ca6a55ff22afb",
+      "sha256:49615b0db71b4c2c2bec1986f73841dee0b60df18cbe4d9848bfdfba0a7dc6ff"
+    ],
+    "protocol_digest": "sha256:119d9a68107856af73be2ecb17ca73ba38e0bddda2d8cd9b97b2c973840eaf92",
+    "retained_per_record_strategy_count": 2,
+    "schema_version": "sentientos.historical_examples_intervention_protocol:v1",
+    "snapshot_digest": "sha256:00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+    "snapshot_id": "world-state-00e8c547cf6caa7f",
+    "target_model_identity_digest": "sha256:ac5acdf45d34cca6abf7844503bd4cb0d4dcf4287e49905923b3a2ae187d368a",
+    "task_digest": "sha256:5bb366be514243ff166a89361deaf22a778346d12cc5b46b8b21e760be472e3c",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+    "withheld_example_count": 6,
+    "withheld_examples_digest": "sha256:a4d1652dd5cc524fa542bc39b5feccf30abbcdb738a076facccb304a797ddcc8"
+  },
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "objective_request_bindings_by_arm": {
+    "examples_included": {
+      "request_digest": "sha256:ad9954815a782ec39b9fe90980218c2cb0b9df2a90b734726ba9084ef12046fc",
+      "request_id": "historical-examples:119d9a68107856af73be2ecb17ca73ba38e0bddda2d8cd9b97b2c973840eaf92:examples_included"
+    },
+    "examples_omitted": {
+      "request_digest": "sha256:0dba1caf4b72e082a09645728b861f0bc106fbd124004b6628b554051774fdaa",
+      "request_id": "historical-examples:119d9a68107856af73be2ecb17ca73ba38e0bddda2d8cd9b97b2c973840eaf92:examples_omitted"
+    }
+  },
+  "objective_request_bindings_digest": "sha256:b66a80cea6294ad5a84d5e4342e2cdeac823849cbec57dfc6a0f97868b98957c",
+  "owner_prompt_pair_preview_digest": "sha256:338beecf74aded43ada74b2e17737801221a95d9354a34f78783a914cadee44b",
+  "plan_binding": null,
+  "private_task_plan_digest": "sha256:6cfb5a656ca6715d3f1fa338f8da79bfc62d2347b5f3715745ceabab98ce2fa0",
+  "protocol_digest": "sha256:119d9a68107856af73be2ecb17ca73ba38e0bddda2d8cd9b97b2c973840eaf92",
+  "protocol_persisted": true,
+  "schema_version": "sentientos.resident_historical_examples_cpu_preflight:v5",
+  "snapshot_digest": "00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+  "snapshot_id": "world-state-00e8c547cf6caa7f",
+  "source_history_mutated": false,
+  "source_identity_posture": "reconstructed_from_verified_historical_receipt",
+  "source_model_identity_digest": "sha256:ac5acdf45d34cca6abf7844503bd4cb0d4dcf4287e49905923b3a2ae187d368a",
+  "source_receipt_digest": "ec9754fc5fd3a974ed1f0fdf9e22c638ce4bd77f32ee562ef10bb054dffc0884",
+  "source_receipt_id": "lmrec-ec9754fc5fd3a974ed1f0fdf",
+  "task_digest": "sha256:5bb366be514243ff166a89361deaf22a778346d12cc5b46b8b21e760be472e3c",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 2026112341
+}

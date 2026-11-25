@@ -1,0 +1,219 @@
+{
+  "authority": false,
+  "campaign_sequence": {
+    "cycle0_added_record_ids": [
+      "devrec-095db5c28b1520756285120a",
+      "devrec-0d48b70fcc04b16e0e397886"
+    ],
+    "cycle0_added_records_selected_by_preflight": [],
+    "cycle0_history_boundary_digest": "aaf28bea6b1be91ef1c071f8d1e9fee96b75f4d549a432659ae87c24a588a7d0",
+    "initial_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+    "initial_plan_digest": "59cabac4ecb18901a302afc62471dbd1cc1d8f32f3d78bc96cbb0e5ca3852933",
+    "post_cycle0_owner_preflight_selected_record_ids": [
+      "devrec-01e35780a28a539aee7c5fb6",
+      "devrec-a081ef3104dba90c9e19b723"
+    ],
+    "post_cycle0_plan_digest": "52806ee5f0bb062c44f44b5a7bc72321965330b75be4e518b2a65d2b562ef34e"
+  },
+  "cycles": [
+    {
+      "acquisition": {
+        "baseline_competence_qualified": false,
+        "baseline_effect_classification": "baseline_competence_not_demonstrated",
+        "condition_correct_counts": [
+          0,
+          0,
+          0
+        ],
+        "history_present_minus_withheld_correct_count": 0,
+        "restored_minus_present_correct_count": 0
+      },
+      "acquisition_probe_count": 3,
+      "acquisition_status": "incorrect",
+      "active_configuration_digest": "7edfa2d480ee68190fc834d06dcb88908de49f6bdf2c71d15e5c6156b8121e43",
+      "backend_seed": 1091674980,
+      "campaign_plan_digest": "59cabac4ecb18901a302afc62471dbd1cc1d8f32f3d78bc96cbb0e5ca3852933",
+      "campaign_plan_path": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/rootless-history-campaign-eb7864354ba05c7c6721-hermes/plan_v4.json",
+      "companion_history_intervention": {
+        "all_decisions_validated": false,
+        "causal_claim_made": false,
+        "classification": "history_presence_associated_stable_difference",
+        "response_classification": "one_or_more_condition_outputs_rejected",
+        "same_history_replay": {
+          "active_model_identity_matches": true,
+          "generation_config_matches": true,
+          "output_digest_matches": true,
+          "prompt_digest_matches": true
+        },
+        "validity": "valid_controlled_observation",
+        "withheld_error_codes": [
+          "companion_interaction_history_id_not_allowed"
+        ]
+      },
+      "cycle_id": "rootless-cognition-cycle-f7b0d61539a541b8a320",
+      "history_to_new_action": {
+        "action_executed": false,
+        "authority": false,
+        "classification": "history_evidence_precondition_not_met",
+        "precondition_reason": "retained_history_observation_provenance_unverified",
+        "provenance_failure_codes": [
+          "same_process_synthetic_observer_not_independent_history"
+        ]
+      },
+      "integrity": {
+        "authority": false,
+        "governed_unload": "governed_release_completed",
+        "residency_status": "target_model_not_resident",
+        "source_provenance_fingerprint_complete": true,
+        "source_provenance_stable_for_run": true,
+        "status": "completed"
+      },
+      "learning_established": false,
+      "model_artifact_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "owner_preflight_path": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/rootless-history-campaign-eb7864354ba05c7c6721-hermes/owner_preflight_cycle0_v4.json",
+      "owner_preflight_report_digest": "sha256:3e1272b1609077ca6a0c95e10907f3787632bb6207a4498a783a2c8dcd0267d4",
+      "performance_improvement_established": false,
+      "result_artifact_path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-f7b0d61539a541b8a320/cycle-result.json",
+      "result_sha256": "0adc6ccbc5afe2739832a6ef6cc9f8cf3d9bd66e80348e45c0673444bc3cf600",
+      "source_history_seed": {
+        "copied_into_run_store": true,
+        "model_attention_verified": false,
+        "receipt_count": 23,
+        "record_count": 23,
+        "source_boundary_digest": "43efb96ab270e5036d7b42cd3384ab11461b05edd090d11de4b7ead49ee2ad5d"
+      },
+      "synthetic_embodiment": {
+        "consequence_classification": "expectation_contradicted",
+        "effect_proven": false,
+        "physical_observation_established": false,
+        "predicted_pose": "reach"
+      },
+      "task_family_transfer": {
+        "condition_correct_counts": null,
+        "learning_established": null,
+        "performance_improvement_established": false,
+        "probe_answerability_counts": {
+          "history_present": 0,
+          "history_restored": 0,
+          "history_withheld": 0
+        },
+        "probe_correct_counts": {
+          "history_present": 0,
+          "history_restored": 0,
+          "history_withheld": 0
+        },
+        "status": "skipped_history_withheld_baseline_competence_not_demonstrated"
+      },
+      "task_generation_seed": 13688478
+    },
+    {
+      "acquisition": {
+        "baseline_competence_qualified": true,
+        "baseline_effect_classification": "history_associated_acquisition_gain_restored",
+        "condition_correct_counts": [
+          3,
+          2,
+          3
+        ],
+        "history_present_minus_withheld_correct_count": 1,
+        "restored_minus_present_correct_count": 0
+      },
+      "acquisition_probe_count": 3,
+      "acquisition_status": "correct",
+      "active_configuration_digest": "91a075196709289706db6c671729168c8289acd4f5309c5f9df0efd815c761ab",
+      "backend_seed": 63362724,
+      "campaign_plan_digest": "52806ee5f0bb062c44f44b5a7bc72321965330b75be4e518b2a65d2b562ef34e",
+      "campaign_plan_path": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/rootless-history-campaign-eb7864354ba05c7c6721-hermes/plan_after_cycle0_v1.json",
+      "companion_history_intervention": {
+        "all_decisions_validated": false,
+        "causal_claim_made": false,
+        "classification": "history_presence_associated_stable_difference",
+        "response_classification": "one_or_more_condition_outputs_rejected",
+        "same_history_replay": {
+          "active_model_identity_matches": true,
+          "generation_config_matches": true,
+          "output_digest_matches": true,
+          "prompt_digest_matches": true
+        },
+        "validity": "valid_controlled_observation",
+        "withheld_error_codes": [
+          "companion_interaction_history_id_not_allowed"
+        ]
+      },
+      "cycle_id": "rootless-cognition-cycle-622e5f90ab23477080cd",
+      "history_to_new_action": {
+        "action_executed": false,
+        "authority": false,
+        "classification": "history_evidence_precondition_not_met",
+        "precondition_reason": "retained_history_observation_provenance_unverified",
+        "provenance_failure_codes": [
+          "same_process_synthetic_observer_not_independent_history"
+        ]
+      },
+      "integrity": {
+        "authority": false,
+        "governed_unload": "governed_release_completed",
+        "residency_status": "target_model_not_resident",
+        "source_provenance_fingerprint_complete": true,
+        "source_provenance_stable_for_run": true,
+        "status": "completed"
+      },
+      "learning_established": false,
+      "model_artifact_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "owner_preflight_path": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/rootless-history-campaign-eb7864354ba05c7c6721-hermes/owner_preflight_after_cycle0_v1.json",
+      "owner_preflight_report_digest": "sha256:f16ff4f73d509ac7656f50df1f67af363834b48b8998f9e891773b814cb28a83",
+      "performance_improvement_established": false,
+      "result_artifact_path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-622e5f90ab23477080cd/cycle-result.json",
+      "result_sha256": "caf3eba2ec78c2a9a783869c1421a5d2f23f1840bbec45a84fa08d0b6a2f2b6b",
+      "source_history_seed": {
+        "copied_into_run_store": true,
+        "model_attention_verified": false,
+        "receipt_count": 25,
+        "record_count": 25,
+        "source_boundary_digest": "9c520f79995c862e91d93ee31612b71c8f1c9509bfbcec8410def592179ea045"
+      },
+      "synthetic_embodiment": {
+        "consequence_classification": "expectation_contradicted",
+        "effect_proven": false,
+        "physical_observation_established": false,
+        "predicted_pose": "reach"
+      },
+      "task_family_transfer": {
+        "condition_correct_counts": [
+          0,
+          0,
+          0
+        ],
+        "learning_established": null,
+        "performance_improvement_established": false,
+        "probe_answerability_counts": {
+          "history_present": 1,
+          "history_restored": 3,
+          "history_withheld": 1
+        },
+        "probe_correct_counts": {
+          "history_present": 0,
+          "history_restored": 0,
+          "history_withheld": 0
+        },
+        "status": "completed_scored_intervention"
+      },
+      "task_generation_seed": 1931189252
+    }
+  ],
+  "interpretation": {
+    "bounded_finding": "Cycle 1 showed a same-seed, same-model history-present acquisition score of 3/3, compared with 2/3 when history was withheld, and restoration returned to 3/3. This is a single-run, oracle-scored history-associated acquisition difference.",
+    "limits": [
+      "No learning or durable performance improvement is established.",
+      "The two cycles used different task-generation seeds, so their 0/3 versus 3/3 acquisition scores are not a controlled between-cycle improvement comparison.",
+      "The owner preflight for cycle 1 selected older records and did not select either record newly written by cycle 0; attribution to cycle 0's specific experience is not established.",
+      "The companion-response intervention rejected its history-withheld output, so it provides no valid response-level history effect.",
+      "The transfer task in cycle 1 produced no correct held-out probes and left two conditions unanswerable; the separate new-action history gate rejected the synthetic same-process observer provenance.",
+      "Embodiment was synthetic and its independent fixture contradicted the predicted reach; no physical action effect or operator observation was established."
+    ]
+  },
+  "learning_established": false,
+  "performance_improvement_established": false,
+  "schema_version": "sentientos.hermes_sequential_history_observation_summary:v1",
+  "summary_digest": "sha256:cf64a67345e6abb3489c4970775ef6504203586c7b94513116661f2d1f83dc7c"
+}

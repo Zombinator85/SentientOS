@@ -1,0 +1,133 @@
+{
+  "comparison_status": "matched_preflight_verified",
+  "equivalence_checks": {
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "hermes_sources_share_hermes_artifact": true,
+    "qwen_sources_from_different_artifact": true,
+    "same_backend_seeds": true,
+    "same_cycle0_transfer_probes": true,
+    "same_history_boundary": true,
+    "same_implementation_pin": true,
+    "same_selected_history_records": true,
+    "same_task_family": true,
+    "same_task_generation_seeds": true
+  },
+  "limits": {
+    "authority": false,
+    "cycle1_preflight_posture": "rebuild_after_cycle0_history_changes",
+    "inference_performed": false,
+    "learning_established": false,
+    "transfer_established": false
+  },
+  "members": {
+    "different_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-00000000000000000086",
+      "cycle0_transfer_probe_inputs": [
+        46132,
+        165850,
+        279375,
+        342302,
+        345476,
+        364290,
+        466690,
+        539328,
+        564426,
+        674393,
+        750437,
+        881299
+      ],
+      "cycle_id": "rootless-cognition-cycle-00000000000000000174",
+      "model_artifact_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "model_name": "qwen3:8b",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:bc4c7f250163385785afe56c4128a27181c08f8e3c595bd683dad7a3379771c1",
+      "owner_report_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign86-v8-qwen-12probe/cycle174_owner_preflight_v1.json",
+        "sha256": "2f5c7a0bd176f1a5cc45cd24a7eaffd3bb57263bfd980978e57b1cdb719b0d38"
+      },
+      "plan_digest": "cf6a6493f7b1764cc8019fb3a5c640b1bedd52cae811bf9eed78d711ee0a0e96",
+      "plan_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign86-v8-qwen-12probe/plan_v1.json",
+        "sha256": "79fc195c2415a34de87c54a6ffefbd6fc22bada059063ca0866eed2cee038c95"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "target_model_identity_digest": "392b331ba3a8facefc5401a863aec98cc4f82f773abe1d34fffcbc28c4ea12b7"
+    },
+    "same_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-00000000000000000085",
+      "cycle0_transfer_probe_inputs": [
+        46132,
+        165850,
+        279375,
+        342302,
+        345476,
+        364290,
+        466690,
+        539328,
+        564426,
+        674393,
+        750437,
+        881299
+      ],
+      "cycle_id": "rootless-cognition-cycle-00000000000000000172",
+      "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "model_name": "sentientos-hermes4:14b-q4km",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:de28d0574fbd63be7c98ba23d3afc18f48a0650a84078d201669d315f7268c5f",
+      "owner_report_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign85-v8-hermes-12probe/cycle172_owner_preflight_v1.json",
+        "sha256": "1fd21587ef86eb9f2f757d2e96177bc6f9e7969b4b910a784405fb7b6bb8165d"
+      },
+      "plan_digest": "b8b845dd39cb9b84765d5d39e417971da4669b329762cdcc25ed770d5a727b8d",
+      "plan_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign85-v8-hermes-12probe/plan_v1.json",
+        "sha256": "470a124233d3540b118e407b597d24aeabe8f2bf399fc9860f9bbd57efd4f96c"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "target_model_identity_digest": "7174f168ba0c545509029f365574a79b0dea9530f25bc4d907b43832c5c1f259"
+    }
+  },
+  "pair_digest": "sha256:c36178686cfd728fa3dfe98601fb0aa80e1a17cd3333359ccde57d10d44462f2",
+  "schema_version": "sentientos.rootless_matched_model_target_pair:v2",
+  "shared": {
+    "heldout_probe_set": [
+      46132,
+      165850,
+      279375,
+      342302,
+      345476,
+      364290,
+      466690,
+      539328,
+      564426,
+      674393,
+      750437,
+      881299
+    ],
+    "implementation_digest": "7169f3ad4a9e7cef906eb65238883698c772a2693eb10f73b4ae72da80195821",
+    "implementation_source_count": 2521,
+    "initial_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "ordered_backend_seeds": [
+      1212233611,
+      1212233612
+    ],
+    "ordered_task_generation_seeds": [
+      2026112501,
+      2026112502
+    ],
+    "task_family_id": "rootless_integer_affine_transfer_novel_range_v8"
+  }
+}

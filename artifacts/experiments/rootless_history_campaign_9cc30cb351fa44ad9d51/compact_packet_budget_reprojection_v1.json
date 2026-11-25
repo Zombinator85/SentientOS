@@ -1,0 +1,105 @@
+{
+  "alternate_compact_mode_packet_chars": [
+    {
+      "compact_packet_chars": 4876,
+      "record_id": "devrec-97839cfc90a8bd497154936a"
+    },
+    {
+      "compact_packet_chars": 4876,
+      "record_id": "devrec-4fd52036e8b17c28ac02994c"
+    },
+    {
+      "compact_packet_chars": 3986,
+      "record_id": "devrec-d476d487664a5dc051c71d75"
+    },
+    {
+      "compact_packet_chars": 4846,
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+    }
+  ],
+  "alternate_compact_mode_sizes_match_primary_mode": true,
+  "artifact_digest": "sha256:43f9373f0857eb9e87dd141b5fef8788bc20c8c57d27d7d69c140b9f29a712d2",
+  "authority": false,
+  "current_compact_packets": [
+    {
+      "compact_packet_chars": 4876,
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "record_id": "devrec-97839cfc90a8bd497154936a"
+    },
+    {
+      "compact_packet_chars": 4876,
+      "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+      "record_id": "devrec-4fd52036e8b17c28ac02994c"
+    },
+    {
+      "compact_packet_chars": 3986,
+      "record_digest": "sha256:d476d487664a5dc051c71d752d095954979f28a1244612e0dc24e8545b9b2e4c",
+      "record_id": "devrec-d476d487664a5dc051c71d75"
+    },
+    {
+      "compact_packet_chars": 4846,
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+    }
+  ],
+  "estimated_newest_suffix_selected_count": 2,
+  "exact_prompt_assembled": false,
+  "fixed_prompt_remainder_estimate_chars": 14334,
+  "fixed_remainder_estimate_method": "owner_prompt_chars_minus_prechange_selected_compact_packet_chars",
+  "history_selection_digest": "sha256:dfb46ac47ff4a192b86cb3aa6f493077fb7523c700e4af75f90678ff53fefcc8",
+  "inference_performed": false,
+  "learning_established": false,
+  "owner_receipt_after_change_observed": false,
+  "owner_receipt_digest": "61e79ae1e1777a744d728a104a5a894a6c0a61e0d08dc37b29bc1ac8beb211b1",
+  "owner_receipt_id": "lmrec-61e79ae1e1777a744d728a10",
+  "prechange_available_record_count": 4,
+  "prechange_omission_reason": "inference_input_budget",
+  "prechange_owner_prompt_chars": 20270,
+  "prechange_selected_compact_packet_chars": 5936,
+  "prechange_selected_record_count": 1,
+  "prompt_input_limit_chars": 24576,
+  "runtime_compact_packet_modes": [
+    {
+      "compact_for_input_budget": true,
+      "include_source_evidence_context": false,
+      "omit_historical_embodiment_details": false
+    },
+    {
+      "compact_for_input_budget": true,
+      "include_source_evidence_context": false,
+      "omit_historical_embodiment_details": true
+    }
+  ],
+  "schema_version": "sentientos.compact_history_packet_budget_reprojection:v1",
+  "suffix_budget_estimates": [
+    {
+      "estimated_prompt_chars": 19180,
+      "fits": true,
+      "newest_complete_suffix_record_count": 1,
+      "packet_chars": 4846,
+      "remaining_chars": 5396
+    },
+    {
+      "estimated_prompt_chars": 23166,
+      "fits": true,
+      "newest_complete_suffix_record_count": 2,
+      "packet_chars": 8832,
+      "remaining_chars": 1410
+    },
+    {
+      "estimated_prompt_chars": 28042,
+      "fits": false,
+      "newest_complete_suffix_record_count": 3,
+      "packet_chars": 13708,
+      "remaining_chars": -3466
+    },
+    {
+      "estimated_prompt_chars": 32918,
+      "fits": false,
+      "newest_complete_suffix_record_count": 4,
+      "packet_chars": 18584,
+      "remaining_chars": -8342
+    }
+  ],
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+}

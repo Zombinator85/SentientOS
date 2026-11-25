@@ -1,0 +1,319 @@
+{
+  "accumulated_strategy_distinct_input_count": 4,
+  "accumulated_strategy_present": true,
+  "accumulated_strategy_run_count": 2,
+  "accumulated_strategy_schema_version": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "acquisition_probe_inputs": [
+    2,
+    3,
+    4
+  ],
+  "audit_digest": "sha256:a6607ffcd9de5cc21db34ddc9f71d6f5510372cfab5d26c953c2bc2e930562bb",
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+    "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-4fd52036e8b17c28ac02994c"
+  ],
+  "budget_sensitivity_posture": "additional_characters_on_fixture_only_not_actual_runner_context",
+  "campaign_id": "rootless-history-campaign-9cc30cb351fa44ad9d51",
+  "composition_state_digest": "sha256:c7000bf46e79ff19a233c6f7d7dea7dd301d1d4872eee9ad99a43520c690f4bc",
+  "composition_state_digest_verified": true,
+  "current_evidence_posture": "deterministic_task_fixture_not_actual_cycle_context",
+  "cycle_id": "rootless-cognition-cycle-c4e8743bad34018ac728",
+  "exact_cycle_prompt_reconstructed": false,
+  "inference_performed": false,
+  "input_budget_sensitivity": [
+    {
+      "additional_evidence_chars": 0,
+      "binding_status": "bound",
+      "prompt_chars": 21131,
+      "prompt_margin_chars": 3445,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:aaa92af6a2e35e2449f08eb1135c9a3f1df06aca3e2da11c8512167e9b19c1fd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 128,
+      "binding_status": "bound",
+      "prompt_chars": 21259,
+      "prompt_margin_chars": 3317,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:09f7615e9348c455309dffb28ee1bb33dcda7259fc7d814e3d9afb112700208d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 256,
+      "binding_status": "bound",
+      "prompt_chars": 21387,
+      "prompt_margin_chars": 3189,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:4e5e8c27ffe900b54860970392c15bb4110d1ebcc365f37deb0db4c94ea18d5e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 320,
+      "binding_status": "bound",
+      "prompt_chars": 21451,
+      "prompt_margin_chars": 3125,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:997990b73488f8654708dca12db0a6272ca603457d78028917620403a0271588",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 338,
+      "binding_status": "bound",
+      "prompt_chars": 21469,
+      "prompt_margin_chars": 3107,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:4434fce8e43972c158ca3a48a25306849ea41702a71bb1b4b82d85b7cb65ae5f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 339,
+      "binding_status": "bound",
+      "prompt_chars": 21470,
+      "prompt_margin_chars": 3106,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:c3a58519e0959df9e8c6d2c0343fbf4cf2b45461fc78d56cd353285752c26afb",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 340,
+      "binding_status": "bound",
+      "prompt_chars": 21471,
+      "prompt_margin_chars": 3105,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:8858569d62ee3f322143ff8a3c9c9f2f4e71a7cb9dd459728e17f3375a4060a6",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 341,
+      "binding_status": "bound",
+      "prompt_chars": 21472,
+      "prompt_margin_chars": 3104,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:5b783c6283690a189bfa46897b6eb72fa9058b8bd0ffacde09346c9e9e86f88e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 384,
+      "binding_status": "bound",
+      "prompt_chars": 21515,
+      "prompt_margin_chars": 3061,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:9a03ba4dfaf4e4bbc471c1ffd8d82a7cb37edca5fab0100731a35b1631d8bfef",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 512,
+      "binding_status": "bound",
+      "prompt_chars": 21643,
+      "prompt_margin_chars": 2933,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:aed5d84866fd6d9cce2584b4afdde04c5a80690436d2c5a96b5043f7cc171aee",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 768,
+      "binding_status": "bound",
+      "prompt_chars": 21899,
+      "prompt_margin_chars": 2677,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:760910487b3bd91c81f9ca2c953dee02f188b04bf7f422cccabe88e16cd36330",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 1024,
+      "binding_status": "bound",
+      "prompt_chars": 22155,
+      "prompt_margin_chars": 2421,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:443cb22d734a98bf8f78a2a9678d8b52f6f13f1e6adeb86caafae904d03a1061",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 1536,
+      "binding_status": "bound",
+      "prompt_chars": 22667,
+      "prompt_margin_chars": 1909,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:fc8b7e3cd8cd13c88c7a290a4203f0fa656d3b53db014b427c85255aa8bda85b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 2048,
+      "binding_status": "bound",
+      "prompt_chars": 23179,
+      "prompt_margin_chars": 1397,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:0041180b7a82bc116248042eeb70ba9bc1b034c661b1798f46b96a1d0ab68b6f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 3072,
+      "binding_status": "bound",
+      "prompt_chars": 24203,
+      "prompt_margin_chars": 373,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "task_family_prompt_projection_digest": "sha256:a95c31a0836e045554a78b7572226e44d9d0070620ed7c5e9b572d9e643a603d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 4096,
+      "binding_status": "bound",
+      "prompt_chars": 19893,
+      "prompt_margin_chars": 4683,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "task_family_prompt_projection_digest": "sha256:4406967124861cbc14bc39e30e8b6d2c88a6e899cce0fad6cf89e1d5510df85d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_evidence_chars": 6144,
+      "binding_status": "bound",
+      "prompt_chars": 21941,
+      "prompt_margin_chars": 2635,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "task_family_prompt_projection_digest": "sha256:3b943409b1df6d6aec5dd0823888da0571aa93c6172a2dc0bd40ea86d19a4636",
+      "task_family_prompt_projection_verified": true
+    }
+  ],
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_generated_acquisition_outputs_available": false,
+  "objective_task_descriptor_chars": 1239,
+  "objective_task_descriptor_digest": "sha256:cd060b4a7ace9250da3b8bea14ac6514f70275781a58cba57355f2f562529c57",
+  "objective_task_descriptor_posture": "public_descriptor_shape_with_zeroed_commitment_digest_for_reproducibility",
+  "owner_selected_record_ids": [
+    "devrec-a081ef3104dba90c9e19b723",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-4fd52036e8b17c28ac02994c"
+  ],
+  "plan_digest": "f556ffcf65946c122fc561e781fc40fc746471a33d6a128a37112ece3272ba91",
+  "prior_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+  "prior_history_root_cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+  "prior_recovery_state_boundary_digest": "844790f3f3e87df9cb980738f9748e7d115657a98fec3641a5a129543042a784",
+  "prior_runtime_admission_ledger_digest": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+  "prompt_chars": 21131,
+  "prompt_digest": "sha256:640c285220d4366cd549e51105ffd407bb8f954e34e48139deb66c22c66bd144",
+  "prompt_limit_chars": 24576,
+  "prompt_within_bound": true,
+  "schema_version": "sentientos.rootless_planned_cycle_owner_preflight:v2",
+  "target_model_identity_digest": "e4e765408c78bfe42cfb15003bb16a63efafa132cbfc89a14d1fba69a8369cdf",
+  "target_model_identity_matches_plan": true,
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_family_prompt_projection_digest": "sha256:aaa92af6a2e35e2449f08eb1135c9a3f1df06aca3e2da11c8512167e9b19c1fd",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "task_generation_seed": 2026112211,
+  "task_generator": "rootless_integer_affine_transfer_task_pair:v1",
+  "transfer_probe_inputs": [
+    6,
+    7,
+    8
+  ]
+}

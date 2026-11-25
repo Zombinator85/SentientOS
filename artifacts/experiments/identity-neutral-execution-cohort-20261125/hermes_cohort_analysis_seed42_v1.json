@@ -1,0 +1,46 @@
+{
+  "analysis_plan_digest": "sha256:6b505c193af33e5884b31b97158240a9f399bc29ce93a773b41ef73c317a3e69",
+  "analysis_timing": "after_cohort_freeze_before_any_model_inference",
+  "analysis_unit": "task_seed_pair_not_individual_probe",
+  "authority": false,
+  "claim_limits": {
+    "authority": false,
+    "durable_learning_established": false,
+    "general_transfer_established": false,
+    "immediate_response_difference_only": true,
+    "model_attention_established": false,
+    "model_independence_established": false
+  },
+  "cohort_digest": "sha256:cea26a079e82c6e0e7c4ccaee09138d3822aec1400c48d80245ab1d4ecdf746e",
+  "incomplete_trial_policy": {
+    "cohort_mean_reportable": false,
+    "exclude_incomplete_trial_and_recompute_mean": false,
+    "replace_trial": false,
+    "retry_ambiguous_invocation": false
+  },
+  "inferential_statistics": "none; report descriptive results only",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "outcomes_observed": false,
+  "pooled_probe_counts_posture": "supplementary_descriptive_only; probes_are_nested_within_task",
+  "primary_outcome": {
+    "cohort_summary": "unweighted arithmetic mean of per_task_accuracy_difference",
+    "condition_difference": "examples_included_minus_examples_omitted",
+    "name": "per_task_accuracy_difference",
+    "per_task_formula": "correct_count / probe_count per arm; subtract omitted accuracy from included accuracy",
+    "requires_all_frozen_pairs_complete": true
+  },
+  "required_reporting": [
+    "per_trial_correct_counts_by_arm",
+    "per_trial_accuracy_difference",
+    "per_trial_probe_outcomes",
+    "arm_order_by_trial",
+    "number_of_complete_trials",
+    "whether_any_trial_is_incomplete"
+  ],
+  "schema_version": "sentientos.historical_examples_pair_cohort_analysis_plan:v1",
+  "scoring_posture": "same_process_answer_key_and_arm_labeled_receipts; independent scorer not attested",
+  "trial_count": 2,
+  "unique_probe_input_count": 6
+}

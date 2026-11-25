@@ -1,0 +1,167 @@
+{
+  "artifact_digest": "sha256:5081f3184d9608853f8e0f20ccbaaf9d36e49c276f3268d8612ee8799d91fd58",
+  "authority": false,
+  "binder_prompt_chars_with_cycle_evidence_summary_superseded_postcycle": 20289,
+  "binder_selected_with_cycle_evidence_summary_superseded_postcycle": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6"
+  ],
+  "compact_accumulated_strategy_chars": 1184,
+  "compact_packet_chars": 9722,
+  "compact_schema_v1_chars": 1184,
+  "compact_schema_v2_exact_source_payload_measured": false,
+  "compact_schema_v2_representative_chars": 925,
+  "corrected_pretransfer_candidate_distinct_inputs": 6,
+  "corrected_pretransfer_candidate_run_count": 2,
+  "corrected_pretransfer_prompt_chars": 20312,
+  "corrected_pretransfer_selected_record_ids": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "current_binder_replay_chars": 19659,
+  "current_binder_replay_compact_aggregate_delivered": true,
+  "current_binder_replay_compact_aggregate_schema": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "current_binder_replay_context_scope": "CPU-only binder replay with current instruction, exact persisted source records and target identity; empty current_evidence placeholder; no exact cycle prompt reconstruction",
+  "current_binder_replay_learning_established": false,
+  "current_binder_replay_limit_chars": 24576,
+  "current_binder_replay_selected_record_ids": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "current_compact_strategy_chars": 856,
+  "current_compact_strategy_schema": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "current_owner_reprojection_record_ids_superseded_postcycle": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6"
+  ],
+  "current_owner_reprojection_uses_semantic_encoder": false,
+  "current_packet_char_counts": [
+    {
+      "chars": 4862,
+      "record_id": "devrec-97839cfc90a8bd497154936a"
+    },
+    {
+      "chars": 4862,
+      "record_id": "devrec-4fd52036e8b17c28ac02994c"
+    },
+    {
+      "chars": 3981,
+      "record_id": "devrec-d476d487664a5dc051c71d75"
+    },
+    {
+      "chars": 4860,
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+    }
+  ],
+  "current_positive_pair_candidate_distinct_correct_inputs": 6,
+  "current_positive_pair_candidate_source_runs": 2,
+  "current_positive_pair_packet_char_counts": [
+    4433,
+    4408
+  ],
+  "current_positive_pair_packet_chars": 8841,
+  "current_positive_pair_record_ids": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "cycle_evidence_summary_chars": 777,
+  "estimated_margin_after_instruction_trim": 78,
+  "estimated_margin_with_current_packets_and_summary": 545,
+  "estimated_overage_after_compaction_chars": 405,
+  "estimated_overage_before_instruction_trim": 336,
+  "estimated_overage_chars": 664,
+  "estimated_prompt_chars": 25240,
+  "estimated_prompt_chars_after_compaction": 24981,
+  "estimated_prompt_with_current_packets_and_summary": 24031,
+  "estimated_total_after_instruction_trim": 24498,
+  "estimated_total_with_prior_fixed_remainder": 24912,
+  "exact_governed_prompt_reconstructed": false,
+  "exact_owner_prompt_reconstructed": false,
+  "exact_prompt_assembled": false,
+  "experiment_context_instruction_chars_after_this_turn": 8097,
+  "experiment_context_instruction_chars_before_this_turn": 8511,
+  "experiment_context_instruction_chars_reduced": 414,
+  "fixed_prompt_remainder_estimate_chars": 14334,
+  "fixed_remainder_is_exact": false,
+  "full_current_evidence_reconstructed": false,
+  "inference_performed": false,
+  "input_limit_chars": 24576,
+  "instruction_delta_applies_to_saved_prompt_exactly": false,
+  "interpretation": "A first retrospective owner replay used composition state after the cycle and selected transfer writeback record devrec-01e35780a28a539aee7c5fb6, creating temporal leakage. That replay is superseded. The corrected CPU reprojection restricts history to the four record IDs in the saved pretransfer request selection (digest sha256:dfb46ac47ff4a192b86cb3aa6f493077fb7523c700e4af75f90678ff53fefcc8), which excludes the transfer writeback and retains the acquisition record. With actual transfer probes [6,8,9], the current selector orders four admitted records and the current prompt binder selects the two independent positive runs devrec-4fd52036e8b17c28ac02994c and devrec-6e3f64dbeb9ae7ae911631c3. It assembles 20,312 characters and a provisional six-input/two-run aggregate when using the cycle evidence summary as a 777-character current-evidence surrogate. The raw current evidence was not persisted; this is not an exact prompt reconstruction and establishes no model attention or learning.",
+  "learning_established": false,
+  "measured_pair_record_ids": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "owner_projection_recomputed": true,
+  "owner_reprojection": "cycle_48dcc6e5c13a544f9b5a_owner_reprojection_v1.json",
+  "owner_reprojection_digest": "sha256:b2b81700e13f5c57a43417c941a25e1de33f21d607b34a302ebac85373af403e",
+  "owner_reprojection_target_model_identity_digest": "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1",
+  "owner_reprojection_task_probe_inputs": [
+    6,
+    8,
+    9
+  ],
+  "per_run_strategy_chars_after_compaction": 546,
+  "per_run_strategy_chars_before_compaction": 1051,
+  "per_run_strategy_chars_saved_each": 505,
+  "per_run_strategy_schema": "sentientos.candidate_integer_affine_strategy_compact:v2",
+  "persisted_cycle_available_packet_count": 4,
+  "persisted_cycle_input_limit_chars": 24576,
+  "persisted_cycle_prompt_chars": 20270,
+  "persisted_cycle_receipt_id": "lmrec-61e79ae1e1777a744d728a10",
+  "persisted_cycle_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "persisted_owner_completed_tick_count": 42,
+  "persisted_owner_state_digest_valid": true,
+  "postcycle_binder_candidate_compact_schema_superseded": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "postcycle_binder_candidate_correct_input_count_superseded": 6,
+  "postcycle_binder_candidate_run_count_superseded": 2,
+  "postcycle_binder_prompt_margin_superseded": 4287,
+  "postcycle_replay_superseded_record_id": "devrec-01e35780a28a539aee7c5fb6",
+  "postcycle_replay_superseded_selection": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6"
+  ],
+  "postcycle_replay_temporal_leakage_detected": true,
+  "pretransfer_allowlist_from_saved_receipt": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "pretransfer_allowlist_selection_digest": "sha256:dfb46ac47ff4a192b86cb3aa6f493077fb7523c700e4af75f90678ff53fefcc8",
+  "pretransfer_binder_selected": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "pretransfer_candidate_contains_transfer_writeback": false,
+  "pretransfer_candidate_correct_input_count": 6,
+  "pretransfer_candidate_runs": 2,
+  "pretransfer_owner_order_under_current_policy": [
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "pretransfer_prompt_chars_with_cycle_evidence_summary": 20312,
+  "pretransfer_selected_pair_is_binder_suffix": true,
+  "prior_audit_diagnostic_pair_was_current_owner_suffix": false,
+  "representative_compaction_saved_chars": 259,
+  "reproducible_preflight_artifact": "pretransfer_owner_prompt_preflight_v2.json",
+  "reproducible_preflight_artifact_digest": "sha256:1dc00538f68a7551a36f59093ec3cfd65a207bc1fd60ac0b7eeb4d04af6c1a3a",
+  "reproducible_preflight_script": "work/replay_task_family_owner_prompt_preflight.py",
+  "schema_version": "sentientos.compact_history_budget_followup_audit:v1",
+  "source_report": "compact_packet_budget_reprojection_v2.json",
+  "source_report_digest": "sha256:31617c37e8a255da5d007960f62bf23abd24d695723ecf0863b8d8839bbdde50",
+  "task_family_prompt_projection_digest": "sha256:15fa59b738b00f7d6f1d59400fe606c283449ab70cd4cee3bea8f588d2883d6a",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "validator_reprojection_candidate_count": 2,
+  "validator_reprojection_candidate_run_count": 2,
+  "validator_reprojection_distinct_correct_input_count": 6,
+  "validator_reprojection_of_current_compact_packets": true
+}

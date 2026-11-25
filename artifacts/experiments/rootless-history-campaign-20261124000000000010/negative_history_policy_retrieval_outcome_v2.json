@@ -1,0 +1,77 @@
+{
+  "acquisition_prompt_delivery": {
+    "binder_record_ids": [
+      "devrec-a2447a4bc199ed7f439a37e3"
+    ],
+    "incorrect_example_count": 0,
+    "no_imitation_instruction_present": true,
+    "record_ids": []
+  },
+  "campaign_id": "rootless-history-campaign-20261124000000000010",
+  "inference_performed": false,
+  "initial_history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+  "interpretation": "The CPU preflight and its verifier reconstruct the same owner ranking and prompt projection. The planned transfer prompt contains all three score-bound incorrect examples from the 0/3 record, and the existing no-imitation instruction is present. The planned acquisition prompt still selects a positive-history record. These are delivery results only; no inference or learning claim is supported.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "performance_improvement_established": false,
+  "plan_digest": "086c612f2fd6fdace5b9b3625220be68cbe276b1298215e83907467ab5aee900",
+  "plan_sha256": "28a300333f181a1013395f032eb30d1f859587ff80a98e558983a901d13d9bae",
+  "plan_verification": {
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "status": "verified"
+  },
+  "positive_example_ablation_status": "historical_examples_not_present",
+  "preflight_digest": "sha256:097f7de7a465bfc05297a08fc74a0d94701b4864ebf56c7e1c93330befc6fe45",
+  "preflight_path": "owner_preflight_cycle0_v1.json",
+  "preflight_sha256": "9ccb0aa12b79e1db17b8e0cd6d7a71db94b47aad67f2d90419a5de727c0a9c02",
+  "preflight_verification": {
+    "authority": false,
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "model_identity_verified": true,
+    "negative_delivery_reconstructed": true,
+    "ranking_trace_reconstructed": true,
+    "report_schema": "sentientos.rootless_planned_cycle_owner_preflight:v19",
+    "source_preflight_reconstructed": true,
+    "status": "verified"
+  },
+  "retrieval_policy": {
+    "failed_record_correct_coverage": 0,
+    "failed_record_scored_coverage": 3,
+    "id": "task_family_outcome_then_scored_example_coverage_then_model_probe_overlap_recency:v10",
+    "owner_selected": true,
+    "rank_position": 0,
+    "ranking_trace_schema": "sentientos.task_family_history_ranking_trace:v2",
+    "transfer_binder_selected": true
+  },
+  "schema_version": "sentientos.score_bound_negative_history_delivery_outcome:v2",
+  "source_failure_record": {
+    "correct": 0,
+    "incorrect": 3,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "score_bound": true,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "transfer_prompt_delivery": {
+    "authority": false,
+    "current_truth": false,
+    "heldout_transfer_probe_inputs": [
+      37,
+      735,
+      911
+    ],
+    "heldout_transfer_probe_set_disjoint": true,
+    "historical_only": true,
+    "historical_probe_overlap_input_count": 0,
+    "incorrect_example_count": 3,
+    "no_imitation_instruction_present": true,
+    "prompt_chars": 23702,
+    "prompt_limit_chars": 24576,
+    "prompt_within_bound": true,
+    "record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ]
+  }
+}

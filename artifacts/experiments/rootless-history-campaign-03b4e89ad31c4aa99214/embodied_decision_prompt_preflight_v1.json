@@ -1,0 +1,58 @@
+{
+  "authority": false,
+  "backend_entry_performed": false,
+  "campaign_binding": {
+    "campaign_id": "rootless-history-campaign-03b4e89ad31c4aa99214",
+    "campaign_plan_digest": "b9ee957b17078a6a16dab9cfd6ea4e0fc5b61743f5ceb19d2819892ad2eec3e8",
+    "cycle_id": "rootless-cognition-cycle-03b4e89ad31c4aa99214",
+    "cycle_index": 0,
+    "target_model_identity_digest": "6e8965269d92134835f7704a3ef54aec82b04d0abddd72339cd1e82eeeb0f49e",
+    "task_generation_seed": 799940892
+  },
+  "clarification_ask_bound": {
+    "question_char_limit": 1200,
+    "question_chars": 1190,
+    "source_bytes": 104,
+    "worst_case_json_escaped_unicode": true
+  },
+  "inference_performed": false,
+  "initial_decision": {
+    "current_fact_ids": [
+      "fact-263785867b3ab472",
+      "fact-e08d6d697c8363d7"
+    ],
+    "current_projection_digest": "sha256:637f89712784c2c10faac6c2d942c29edc36bcc5e2f05df13f0693c27395fdfd",
+    "history_record_ids": [],
+    "history_withheld": true,
+    "max_input_chars": 24576,
+    "prompt_bytes": 23451,
+    "prompt_chars": 23451,
+    "prompt_sha256": "1239c0bddcff7ac8d9ff40ccbc04923b40cb08f8002eb3ced75873d186947626",
+    "snapshot_digest": "e28172ebd824c7c030089a10f00e47494098e2f98598f9fe9a01e286f4177897",
+    "within_owner_limit": true
+  },
+  "learning_established": false,
+  "maximum_bounded_clarification": {
+    "current_fact_ids": [
+      "fact-263785867b3ab472",
+      "fact-e08d6d697c8363d7"
+    ],
+    "current_projection_digest": "sha256:637f89712784c2c10faac6c2d942c29edc36bcc5e2f05df13f0693c27395fdfd",
+    "history_record_ids": [],
+    "history_withheld": true,
+    "max_input_chars": 24576,
+    "prompt_bytes": 23581,
+    "prompt_chars": 23581,
+    "prompt_sha256": "bc00bc377437113e3273bdaa7947e1134e044c4c4e9301519d72bc80bbbf4d06",
+    "snapshot_digest": "e28172ebd824c7c030089a10f00e47494098e2f98598f9fe9a01e286f4177897",
+    "within_owner_limit": true
+  },
+  "model_output_persisted": false,
+  "observed_at": "2026-11-24T07:22:18.755609+00:00",
+  "raw_prompt_persisted": false,
+  "report_digest": "b075d8926686d97a1a24cdffe82c049c78203d8adc401457ccd3b110459c560b",
+  "schema_version": "sentientos.rootless_embodied_decision_prompt_preflight:v1",
+  "source_provenance_stable_during_preview": true,
+  "source_worktree_content_digest": "2477a21af4e8fab1eddd27ef099954239715202f182e72247e9134213c54ef72",
+  "synthetic_action_simulated": false
+}

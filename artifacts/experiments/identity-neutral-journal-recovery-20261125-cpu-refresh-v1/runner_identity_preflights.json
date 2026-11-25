@@ -1,0 +1,40 @@
+{
+  "all_identity_preflights_matched": true,
+  "authority": false,
+  "execution_plan_digest": "sha256:6375a16156c91e59645549e4dcfe7974c3b6463fd5c1541c35873235441de864",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "run_root_allocated": false,
+  "schema_version": "sentientos.historical_examples_pair_model_identity_preflight_cohort:v1",
+  "slots": [
+    {
+      "evidence_file_sha256": "sha256:a9a9b95db9ed1a0f636e960531f2f4a8f5565aacd902186008df5e4aecbf372b",
+      "evidence_path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/preflight-failures/rootless-cognition-cycle-b760d151071a42c799b1-model-identity-13b61a42eff2f357.json",
+      "model_invoked": false,
+      "model_loaded": false,
+      "predicted_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "run_root_allocated": false,
+      "runner_cycle_id": "rootless-cognition-cycle-b760d151071a42c799b1",
+      "status": "matched_without_model_load",
+      "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "task_generation_seed": 13688505,
+      "trial_index": 0
+    },
+    {
+      "evidence_file_sha256": "sha256:618762feb6724399a863940cf0108380625fde0e3777d3b770f9d63a709922c4",
+      "evidence_path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/preflight-failures/rootless-cognition-cycle-2afe5c4a5b854650b872-model-identity-10f07b6bd5afde2d.json",
+      "model_invoked": false,
+      "model_loaded": false,
+      "predicted_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "run_root_allocated": false,
+      "runner_cycle_id": "rootless-cognition-cycle-2afe5c4a5b854650b872",
+      "status": "matched_without_model_load",
+      "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+      "task_generation_seed": 13688506,
+      "trial_index": 1
+    }
+  ],
+  "summary_digest": "sha256:73f1a984dff52a95c56dc9b0e7c31d2c1536e3d9ef6c60622a0f35db128ec525",
+  "trial_count": 2
+}

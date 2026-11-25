@@ -1,0 +1,71 @@
+{
+  "audit_digest": "0c2656611650381ecadc854dbec3b37beb1f2f3c306126b4b152e067cd35c1ea",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-975971fcfac690515967",
+  "campaign_plan_digest": "31a4b780c3dd5d0cb7ac7d7d4eccaf3976a2664c7f56347c05da6695b208aa4c",
+  "condition_scores": {
+    "history_present": 3,
+    "history_restored": 3,
+    "history_withheld": 0,
+    "maximum": 3
+  },
+  "conditions": [
+    {
+      "accumulated_strategy_delivery_status": "no_candidate_in_projection",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_present",
+      "historical_probe_overlap_posture": "no_exact_historical_probe_overlap",
+      "projection_digest": "sha256:261998083fecb84b3d3b7215c9e9995aa3568e3db510a17efa0d83e2fb8fec31",
+      "request_digest": "ecbbac35f0b3a383554b558a36cbcdf560bbe802978cebaee52777da3591c329",
+      "request_id": "lmreq-ecbbac35f0b3a383554b558a",
+      "selected_record_count": 1,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_ids": [
+        "devrec-0641223365c8adfd38a1143f"
+      ]
+    },
+    {
+      "accumulated_strategy_delivery_status": "withheld_condition_candidate_absent",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_withheld",
+      "historical_probe_overlap_posture": "no_exact_historical_probe_overlap",
+      "projection_digest": "sha256:0b291d1ecc9d3716a80aa26cb75b4a7271c03470f8e2c5ad4d2663243be2a6f5",
+      "request_digest": "59863a573779532bee0eb4e1911caa1f4f2e0fa79bc1cedc43198d176a1e3f43",
+      "request_id": "lmreq-59863a573779532bee0eb4e1",
+      "selected_record_count": 0,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 0,
+      "task_relevant_record_ids": []
+    },
+    {
+      "accumulated_strategy_delivery_status": "no_candidate_in_projection",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_restored",
+      "historical_probe_overlap_posture": "no_exact_historical_probe_overlap",
+      "projection_digest": "sha256:1540ff4515ef8f9b2670dc5d1bff2ffcbdb81574483ac3a27b3b3b42883412af",
+      "request_digest": "9e35392694c16c3b7a4f8bb40386a9afb11ba2516598cec49bf1e23acc8e7b55",
+      "request_id": "lmreq-9e35392694c16c3b7a4f8bb4",
+      "selected_record_count": 1,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_ids": [
+        "devrec-0641223365c8adfd38a1143f"
+      ]
+    }
+  ],
+  "cycle_completed": false,
+  "cycle_id": "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+  "failure_stage": "objective_task_family_transfer",
+  "interpretation": "Within-cycle history-associated score pattern with prompt-bound present/restored exposure and withheld absence. No accumulated multi-run candidate was delivered; no replication, durable learning, model attention, or authority established.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "preregistration_timing_independently_attested": false,
+  "schema_version": "sentientos.rootless_history_transfer_prompt_audit:v1",
+  "source_cycle_inference_performed": true,
+  "terminal_failure_code": "objective_family_transfer_prompt_projection_binding_invalid",
+  "validator_reprojection_performed_offline": true
+}

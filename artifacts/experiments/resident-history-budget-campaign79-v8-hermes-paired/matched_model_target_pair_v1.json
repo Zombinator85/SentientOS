@@ -1,0 +1,106 @@
+{
+  "comparison_status": "matched_preflight_verified",
+  "equivalence_checks": {
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "hermes_sources_share_hermes_artifact": true,
+    "qwen_sources_from_different_artifact": true,
+    "same_backend_seeds": true,
+    "same_cycle0_transfer_probes": true,
+    "same_history_boundary": true,
+    "same_implementation_pin": true,
+    "same_selected_history_records": true,
+    "same_task_family": true,
+    "same_task_generation_seeds": true
+  },
+  "limits": {
+    "authority": false,
+    "cycle1_preflight_posture": "rebuild_after_cycle0_history_changes",
+    "inference_performed": false,
+    "learning_established": false,
+    "transfer_established": false
+  },
+  "members": {
+    "different_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-efbb2c0d975843fdb0c8",
+      "cycle0_transfer_probe_inputs": [
+        67514,
+        728285,
+        839755
+      ],
+      "cycle_id": "rootless-cognition-cycle-00000000000000000162",
+      "model_artifact_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "model_name": "qwen3:8b",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:cc78aefbdca48a6f09f7be51334da273b9634150706cd6affff5f641b2ce2d4a",
+      "owner_report_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign80-v8-qwen-paired/cycle162_owner_preflight_v1.json",
+        "sha256": "6640d89346226894946f60880c77a5bb66eae274ffefd79a5aa69bf3bdd53a40"
+      },
+      "plan_digest": "56482960b75ca1e1fe9a4498c6858637cb5d49885271ad4337175a517602149e",
+      "plan_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign80-v8-qwen-paired/plan_v1.json",
+        "sha256": "6805fb67bb7d4b466903d0cdbc843995feb852b0451cdbe46d9a1e214f9f9d68"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "target_model_identity_digest": "d6f8f4f0fb9b44360dcf952642861168839f06fc135a3a055be0300c1ef61cb9"
+    },
+    "same_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-92f1a06855da4e8aa102",
+      "cycle0_transfer_probe_inputs": [
+        67514,
+        728285,
+        839755
+      ],
+      "cycle_id": "rootless-cognition-cycle-00000000000000000160",
+      "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "model_name": "sentientos-hermes4:14b-q4km",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:60a9da22ad74299e0a17ec4fd52f57d0919e7d2831efe65657f27151ba3ed865",
+      "owner_report_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign79-v8-hermes-paired/cycle160_owner_preflight_v1.json",
+        "sha256": "316c58ed6242ab9c4550eabdc1be21975c155933a65669a6bbf9596478db26b3"
+      },
+      "plan_digest": "7e2ddf0cb38c47be9a5160f75b1f7e06bac5cd3b4556bdb4fc53925ce0b22677",
+      "plan_file": {
+        "path": "artifacts/experiments/resident-history-budget-campaign79-v8-hermes-paired/plan_v1.json",
+        "sha256": "06357df55b9a6d2962670be181892cde36a9a5282af9c971aeff685cb75b22d0"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-97839cfc90a8bd497154936a",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-a2447a4bc199ed7f439a37e3",
+        "devrec-8e71800e6cfed38978f64a31"
+      ],
+      "target_model_identity_digest": "ddfa85c4e344598513019f9f0855fa0b9cc0350e46ef1430308ef9de36ed3442"
+    }
+  },
+  "pair_digest": "sha256:88c7b5c88e476da311d5a8ef5e0aab323d35aa1a07ecfd6af9e03d15cb396ff2",
+  "schema_version": "sentientos.rootless_matched_model_target_pair:v1",
+  "shared": {
+    "heldout_probe_set": [
+      67514,
+      728285,
+      839755
+    ],
+    "implementation_digest": "7e69dd838d93e9d3409a70a1f0b46b43b26e1379b53f3bb43528f3352bf22cfa",
+    "implementation_source_count": 2520,
+    "initial_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "ordered_backend_seeds": [
+      1212233601,
+      1212233602
+    ],
+    "ordered_task_generation_seeds": [
+      2026112401,
+      2026112402
+    ],
+    "task_family_id": "rootless_integer_affine_transfer_novel_range_v8"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "authority": false,
+  "backend_entry_performed": false,
+  "campaign_id": "rootless-history-campaign-d1ed9c4eb2bb4ff0a056",
+  "campaign_plan_digest": "44813b826d9c9052b5ab2129d3cf888eb8520919d2a71d64fa47d25a2852e9a9",
+  "destination_recovery_state_boundary_matches": true,
+  "learning_established": false,
+  "matching_persisted_ask_observations": [
+    {
+      "authority": false,
+      "current_fact_ids": [
+        "fact-4deed06efb22d3d0",
+        "fact-607d18b85907b4b0"
+      ],
+      "current_truth": false,
+      "inference_receipt_digest": "1e3ba13aac13f3dbff2eb552945303cda3d503acc7840df088b2be07e8aabe10",
+      "inference_receipt_id": "lmrec-1e3ba13aac13f3dbff2eb552",
+      "observation_digest": "sha256:43148e3425d58f851b32bbca087cea109b55c5e19156c683b3eed4bc7ac1456b",
+      "observation_id": "devcog-43148e3425d58f851b32bbca",
+      "observed_at": "2026-11-24T06:51:25.085976+00:00",
+      "output_digest": "d8c872458a5b48d1c0b597c24bc0321f6f27191bf28e679681ff9c587b2c4d14",
+      "policy": false
+    },
+    {
+      "authority": false,
+      "current_fact_ids": [
+        "fact-4deed06efb22d3d0",
+        "fact-607d18b85907b4b0"
+      ],
+      "current_truth": false,
+      "inference_receipt_digest": "86c22c29240b5e8fb5cf8593aaed2225cf9a477d30ff61b30cfaac06ebf6ee44",
+      "inference_receipt_id": "lmrec-86c22c29240b5e8fb5cf8593",
+      "observation_digest": "sha256:215888a14d7bf247255abfc3bc2076f66698286edb0d3cbbf68a60c0bc5d4279",
+      "observation_id": "devcog-215888a14d7bf247255abfc3",
+      "observed_at": "2026-11-24T06:51:45.038490+00:00",
+      "output_digest": "d8c872458a5b48d1c0b597c24bc0321f6f27191bf28e679681ff9c587b2c4d14",
+      "policy": false
+    }
+  ],
+  "model_inference_performed": false,
+  "recovery_state_copy_returned": true,
+  "report_digest": "af5acc18e68e09ecc53c896e71e9b10fe830364d31318fa411f84254e38d9377",
+  "schema_version": "sentientos.rootless_cognition_recovery_seed_copy_verification:v1",
+  "source_history_boundary_digest": "c26d130fa0d546417f432454decabe35cd1f68365e9e036a4a8ad1261d9664aa",
+  "source_recovery_state_boundary_digest": "f9ea855992989712469fb4954cbb2dffa8f293dc86b71a9d5a8c613fd7d43f74",
+  "source_recovery_state_file_count": 399,
+  "source_run_id": "rootless-cognition-cycle-31b89d7944a44d9db137"
+}

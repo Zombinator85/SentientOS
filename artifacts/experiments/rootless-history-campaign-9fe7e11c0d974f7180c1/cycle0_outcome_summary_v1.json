@@ -1,0 +1,39 @@
+{
+  "schema_version": "sentientos.rootless_cognition_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-9fe7e11c0d974f7180c1",
+  "cycle_id": "rootless-cognition-cycle-b37abc0e17bd4f29a555",
+  "task_generation_seed": 799940834,
+  "plan_digest": "9b7251a914b7b00c27cf840c40a9e80ff1dc4505827f51b39543d1c788c8e427",
+  "owner_preflight_report_digest": "sha256:51685d0cf14c5efdc76cc73a12d28a66524c8868f4cc777a96a048c698229f49",
+  "owner_preflight_verified": true,
+  "inference_performed": true,
+  "model_id": "hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M",
+  "model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+  "status": "incomplete",
+  "stage": "synthetic_pre_action_cognition",
+  "failure_code": "RootlessExperimentalError",
+  "failure_diagnostic_code": "pre_action_cognition_proposal_unverified",
+  "pre_action_decision": {
+    "classification": "owner_admitted_ask_no_action",
+    "disposition": "ask",
+    "interaction_status": "admitted_completed",
+    "response_lineage_verified": true,
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b",
+    "evidence_ids": ["fact-46a2b909d0e9418a"],
+    "history_record_ids": [],
+    "authority": false,
+    "action_executed": false,
+    "synthetic_action_simulated": false,
+    "raw_response_included": false
+  },
+  "failure_artifact": {
+    "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-b37abc0e17bd4f29a555/cycle-failure.json",
+    "sha256": "7139fd504ab9d4701e14c3a61d749c3f83c4ae5e45d9cdb887c4717168faf804",
+    "source_provenance_stable": true,
+    "source_provenance_fingerprint_complete": true
+  },
+  "model_release_status": "target_model_not_resident",
+  "causal_or_learning_claim_made": false,
+  "task_performance_claimed": false,
+  "preregistration_timing_independently_attested": false
+}

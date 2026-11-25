@@ -1,0 +1,78 @@
+{
+  "acquisition": {
+    "abstained_count": 2,
+    "correct_count": 0,
+    "history_record_id": "devrec-f951666025924dd5e2b3be23",
+    "incorrect_count": 1,
+    "learning_established": false,
+    "performance_improvement_established": false,
+    "probe_result_count": 3,
+    "projection_audit_status": "projectable_score_bound_history_available",
+    "score_binding_status": "verified_exact_source_run_score_to_history_binding",
+    "score_binding_verified": true,
+    "score_status": "selective",
+    "source_run_id": "devexp-run-1d38bdb974ea682ded5074a8",
+    "status": "objective_intervention_completed"
+  },
+  "backend_seed": 1257089175,
+  "campaign_id": "rootless-history-campaign-20261124000000000022",
+  "campaign_plan_digest": "dd82160517d9942956a54fcfb1e3baef1dc6f92475b5e660ae2ac453c64df74b",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000047",
+  "cycle_index": 0,
+  "failure_code": null,
+  "failure_stage": null,
+  "inference_performed": true,
+  "learning_established": false,
+  "model_manifest_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+  "performance_improvement_established": false,
+  "registered_history_overlap_audit": {
+    "audit_digest": "db806e8957b8dfe8baa6134bcc6d4d9279e05833b8362d5acc3733a1fc43fcd6",
+    "family_projection_counts": {
+      "rootless_integer_affine_transfer_low_range_v6": {
+        "example_count": 36,
+        "record_count": 12
+      },
+      "rootless_integer_affine_transfer_wide_range_v7": {
+        "example_count": 30,
+        "record_count": 10
+      }
+    },
+    "original_preflight_scope_complete": false,
+    "posture": "retrospective_cpu_recomputation_not_preregistered_preflight",
+    "preregistered_claim_upgraded": false,
+    "prior_history_record_count": 36,
+    "projected_record_union_count": 22,
+    "registered_history_task_family_ids": [
+      "rootless_integer_affine_transfer_low_range_v6",
+      "rootless_integer_affine_transfer_wide_range_v7"
+    ],
+    "retrospective_measurement_complete": true,
+    "retrospective_overlap_input_count": 0,
+    "retrospective_zero_overlap": true
+  },
+  "schema_version": "sentientos.rootless_history_cycle_summary:v1",
+  "source_provenance": {
+    "repository_revision": "97a8f04aed6eede5ea926fcbaee3fbbf3e86bb4b",
+    "worktree_clean": true,
+    "worktree_content_status": "complete",
+    "worktree_status_entry_count": 0
+  },
+  "source_provenance_fingerprint_complete": true,
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 799941225,
+  "terminal_artifact": "cycle-result.json",
+  "terminal_status": "completed",
+  "transfer_probe_preflight": {
+    "held_out_transfer_qualified": null,
+    "historical_probe_overlap_example_count": null,
+    "historical_probe_overlap_input_count": null,
+    "inference_performed": null,
+    "original_scope_complete": false,
+    "preflight_digest": null,
+    "prior_history_boundary_digest": null,
+    "projected_record_count": 0,
+    "registered_history_families_checked_by_original_preflight": null,
+    "scope_note": "Original preflight omitted the low-range v6 family declared by the transfer task."
+  },
+  "transfer_status": "skipped_insufficient_accurate_acquisition_examples"
+}

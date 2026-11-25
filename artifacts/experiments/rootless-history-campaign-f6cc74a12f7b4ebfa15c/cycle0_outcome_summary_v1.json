@@ -1,0 +1,54 @@
+{
+  "schema_version": "sentientos.rootless_cognition_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-f6cc74a12f7b4ebfa15c",
+  "cycle_id": "rootless-cognition-cycle-abb8de1e944f44139061",
+  "task_generation_seed": 799940847,
+  "plan_digest": "c472a3470ed6fa8a1ad3f1643c0a6ea62067b205bd898dda26fc3ff1943223dd",
+  "owner_preflight_report_digest": "sha256:abc12f7d53f583fa70a2ce2cb2d4e1d40839992b34e5ab6c707bfc4f97865812",
+  "owner_preflight_verified": true,
+  "inference_performed": true,
+  "model_id": "hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M",
+  "model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+  "status": "incomplete",
+  "stage": "synthetic_pre_action_cognition",
+  "failure_code": "RootlessExperimentalError",
+  "failure_diagnostic_code": "pre_action_cognition_proposal_unverified",
+  "pre_action_decision": {
+    "classification": "owner_admitted_ask_no_action",
+    "disposition": "ask",
+    "interaction_status": "admitted_completed",
+    "response_lineage_verified": true,
+    "initial_prompt_digest": "54a3943900777dfadb74bcbaa599966bcd57350e81ff4a8e4dec68ea0b8ec8b6",
+    "followup_prompt_digest": "25940c01792e1c8f484e781aa94a4e52ba0f6b2eadb7b16bd770f1581331097d",
+    "initial_output_digest": "ab428688092f06ec6760f88210686555842aa4ab8f90f3ba3213efe26bb95220",
+    "followup_output_digest": "ab428688092f06ec6760f88210686555842aa4ab8f90f3ba3213efe26bb95220",
+    "initial_and_followup_outputs_identical": true,
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b",
+    "evidence_ids": ["fact-4e7f2bf5f89bbaa2"],
+    "history_record_ids": [],
+    "inference_receipts": [
+      {
+        "receipt_id": "lmrec-dc934fa3ae3d23fc502021f5",
+        "receipt_digest": "dc934fa3ae3d23fc502021f58be1f53af3060a2b931fdac0bbf33f1c45046b9f"
+      },
+      {
+        "receipt_id": "lmrec-cb1128adc182c1513469993d",
+        "receipt_digest": "cb1128adc182c1513469993dd82ced39353ebfe5cc1a97af263f18528b9be4e0"
+      }
+    ],
+    "authority": false,
+    "action_executed": false,
+    "synthetic_action_simulated": false,
+    "raw_response_included": false
+  },
+  "failure_artifact": {
+    "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-abb8de1e944f44139061/cycle-failure.json",
+    "sha256": "2623e0c37780ec5cb2a19673084d8cbd48aac8be6c8f4b0d72f65854e624d4dd",
+    "source_provenance_stable": true,
+    "source_provenance_fingerprint_complete": true
+  },
+  "model_release_status": "target_model_not_resident",
+  "causal_or_learning_claim_made": false,
+  "task_performance_claimed": false,
+  "preregistration_timing_independently_attested": false
+}

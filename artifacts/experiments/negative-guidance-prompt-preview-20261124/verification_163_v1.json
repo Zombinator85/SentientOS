@@ -1,0 +1,15 @@
+{
+  "authority": false,
+  "execution_protocol_verified": true,
+  "held_out_probe_overlap_verified": true,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "owner_prompt_pair_reconstructed": true,
+  "pair_preview_digest": "sha256:e521e6f97227a42ccf6477161b4b6a3ae012ce6e321b1a4a1a97baa887f48b9f",
+  "preflight_report_digest": "sha256:ebd953af93b56a606238b23f73fff53912c71a647ccc0f6c1acc24f94bc246ac",
+  "resident_arm_bindings_verified": true,
+  "schema_version": "sentientos.negative_guidance_prompt_preview_verification:v1",
+  "source_history_reconstructed": true
+}

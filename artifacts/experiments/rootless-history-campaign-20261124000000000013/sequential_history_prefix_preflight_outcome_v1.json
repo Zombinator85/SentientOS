@@ -1,0 +1,36 @@
+{
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000013",
+  "current_plan_cycle0": {
+    "cycle_id": "rootless-cognition-cycle-20261124000000000029",
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "prior_boundary_status": "plan_initial_boundary_match",
+    "prior_history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+    "status": "verified"
+  },
+  "learning_established": false,
+  "plan_digest": "295c7617a3bcaddc365540f0177f293ef080d65fa85c3fead00ff8b395b9d63a",
+  "prefix_audit": {
+    "append_only_history_chain_verified": true,
+    "audit_digest": "bff0a96c5f9c8244795d9afe9b8abc504430ac4dd54370aa7913b2ad8f5a53be",
+    "boundary_matches_current_plan_seed": true,
+    "campaign_binding_verified": true,
+    "cognition_recovery_state_append_only": true,
+    "cognition_recovery_state_chain_verified": true,
+    "cycle_ids": [
+      "rootless-cognition-cycle-20261124000000000009"
+    ],
+    "history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+    "history_seed_boundary_verified": true,
+    "runtime_admission_chain_verified": true,
+    "runtime_admission_ledger_append_only": true,
+    "seed_boundary_chain_verified": true,
+    "source_campaign_id": "rootless-history-campaign-20261124000000000005",
+    "source_campaign_plan_digest": "df66d9cdcb354d2db071df705bf9147249896f547c211027f039a61b73ddf744",
+    "terminal_status": "completed"
+  },
+  "schema_version": "sentientos.sequential_history_prefix_preflight_outcome:v1",
+  "sequential_preflight_change": "Cycle-index>0 preflight now requires the supplied history root to belong to the immediately previous planned cycle, then validates the complete prior plan prefix across history files, campaign bindings, runtime admission ledger, and cognition recovery state before owner retrieval.",
+  "unverified_next_step": "The same-plan cycle-index>0 preflight cannot be exercised until planned cycle root rootless-cognition-cycle-20261124000000000029 exists. No model inference was run because GPU testing remains paused."
+}

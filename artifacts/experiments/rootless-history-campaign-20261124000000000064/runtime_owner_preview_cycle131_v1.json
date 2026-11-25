@@ -1,0 +1,88 @@
+{
+  "audit_digest": "22a1ebde1dbaf19313ae0d2ca55374f2abed8ea240982a41df5a0a2197437fcf",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000064",
+  "condition_history_treatments": {
+    "history_present": "present",
+    "history_restored": "present",
+    "history_withheld": "withheld"
+  },
+  "condition_order": [
+    "history_present",
+    "history_withheld",
+    "history_restored"
+  ],
+  "condition_prompt_digests": {
+    "history_present": "sha256:82ee9e3ff47d50a293907d3c66c1fc7eed2bae9de9fec58b6fbdddd42ce13a0d",
+    "history_restored": "sha256:82ee9e3ff47d50a293907d3c66c1fc7eed2bae9de9fec58b6fbdddd42ce13a0d",
+    "history_withheld": "sha256:d58dd009c724b199ef6fb6a4148a81ed0c47805fb23506609d65e2a67c4c0239"
+  },
+  "condition_protocol_digest": "sha256:f7b67668e210851a166e81593943ecffe8c71fa66b762bc2215cad09577a0686",
+  "condition_request_digests": {
+    "history_present": "sha256:1393bf85f345bb63e6c5fdc04592b268960c9ed43946ed0dffe350db83185ba5",
+    "history_restored": "sha256:e40b6b6e0fae9fc842b34de954ae8a82a32a1355abc00ab8991deafc8cba5825",
+    "history_withheld": "sha256:ef074dcd4e10db1f85ea2d5171703625e23ec5e33d155be8c416426410902d18"
+  },
+  "condition_selected_record_digests": {
+    "history_present": [
+      "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+    ],
+    "history_restored": [
+      "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+    ],
+    "history_withheld": []
+  },
+  "condition_selected_record_ids": {
+    "history_present": [
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "history_restored": [
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "history_withheld": []
+  },
+  "condition_task_digests": {
+    "history_present": "sha256:8f09008e52ec881a69d54a957d83c1b25df7ef5a1808e7c7ddd59c6c634401dc",
+    "history_restored": "sha256:8f09008e52ec881a69d54a957d83c1b25df7ef5a1808e7c7ddd59c6c634401dc",
+    "history_withheld": "sha256:8f09008e52ec881a69d54a957d83c1b25df7ef5a1808e7c7ddd59c6c634401dc"
+  },
+  "cross_range_three_condition_prompt_protocol_exercised": true,
+  "cross_range_three_condition_runtime_experiment_exercised": false,
+  "cycle_id": "rootless-cognition-cycle-20261124000000000131",
+  "cycle_index": 0,
+  "full_prompt_text_included": false,
+  "history_record_digests": [
+    "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+  ],
+  "history_record_ids": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "implementation_digest": "e378e1c7232627f83d46b1eadd23bedb846a7846de54dfc489aafc5be6a839bd",
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_outputs_included": false,
+  "objective_condition_request_count": 3,
+  "owner_state_mutated": false,
+  "owner_to_binder_path_exercised": true,
+  "plan_digest": "882ac1741138e8eaeccf3ae774001eb3c8e738c6efc20dc19278f21a88671697",
+  "request_count": 4,
+  "runtime_owner_preview_digest": "sha256:f7650504afceae7ad56bb296765402b539b5c27d32a14c91536bc3064fa5d1ed",
+  "schema_version": "sentientos.rootless_planned_cycle_runtime_owner_preview:v1",
+  "snapshot_digest": "b818db30d38dd950b05b9b36e68bad44f516c372a61d40216ebe17c766fb2c0f",
+  "source_history_boundary_digest": "996d7c5bce70a9040d25c70208505e8e93dd1116d3d1a21cdceea3756a5c3728",
+  "target_model_identity_digest": "sha256:e000399d4ad4ebbb0db9f5f63a24ab48f92a75f4894cb02117b69973f0ee211c",
+  "target_task_digest": "sha256:8f09008e52ec881a69d54a957d83c1b25df7ef5a1808e7c7ddd59c6c634401dc",
+  "target_task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "target_task_probe_inputs": [
+    316,
+    369,
+    461
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "audit_digest": "sha256:461ed6bd1bae2898799f1efaacabda26c374ca825ff1837ce1ad60a979b3fc64",
+  "campaign_id": "rootless-history-campaign-20261124000000000021",
+  "campaign_plan_digest": "2ac843a5977c240af326ee851436e37151e843e268c5b347bd6e5bd47c9a39c9",
+  "causal_claim_made": false,
+  "condition_results": [
+    {
+      "abstained_count": 0,
+      "answered_count": 3,
+      "condition_id": "history_present",
+      "correct_count": 0,
+      "output_digest": "sha256:2a234b1dc9c9e2f6cbe4a677b77d05d3b3da0e19b97f6d0802716a920f43b974",
+      "probe_count": 3,
+      "receipt_digest": "sha256:abe49905ec3a88f3998b678d4e05b93a41bbe01dee24e20ec39ceb79a17f4b8d",
+      "receipt_file_sha256": "48450993e15076a67f2ccaeacf760f1188cae9005a052fd1830779f5a321929c",
+      "receipt_id": "lmrec-abe49905ec3a88f3998b678d",
+      "request_digest": "sha256:64a564c1fd98f6377b76ae25c7316ae227b9da9bd6e1946ac1fe5524ca158616",
+      "retrieved_record_ids": [
+        "devrec-b061076a6225145e5bd9970a"
+      ],
+      "score_digest": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+      "score_schema": "sentientos.objective_task_score:v6",
+      "score_status": "incorrect"
+    },
+    {
+      "abstained_count": 1,
+      "answered_count": 2,
+      "condition_id": "history_withheld",
+      "correct_count": 0,
+      "output_digest": "sha256:15056226bd4627317946627d06d80d1ed79d7f5ec4cd4141b7def129dcaecb9f",
+      "probe_count": 3,
+      "receipt_digest": "sha256:270fccdec990eaa85c8b91dd12f7ac112560f33c06ffcf954663161d5f8a7f5b",
+      "receipt_file_sha256": "6d1ebe486f906b34506fdb93d9c7351356ac2b6e8df3194440cd0fac85b95e5e",
+      "receipt_id": "lmrec-270fccdec990eaa85c8b91dd",
+      "request_digest": "sha256:5e822075840fc8ad6506e507d718cedc85d1b0ec7b82f0bc8d8386958e1e6856",
+      "retrieved_record_ids": [],
+      "score_digest": "sha256:b63b403c2ab35db80119d14cc18a3294471b3c38900e013ffe0c14a8d1b244b5",
+      "score_schema": "sentientos.objective_task_score:v6",
+      "score_status": "selective"
+    },
+    {
+      "abstained_count": 0,
+      "answered_count": 3,
+      "condition_id": "history_restored",
+      "correct_count": 0,
+      "output_digest": "sha256:2a234b1dc9c9e2f6cbe4a677b77d05d3b3da0e19b97f6d0802716a920f43b974",
+      "probe_count": 3,
+      "receipt_digest": "sha256:433fe74fe1a4e263eafbb28d7b2753012f8961e7e987c6b0f86c2d59fb6cff48",
+      "receipt_file_sha256": "a7fd1ee880911a97906fcc364fb935a209e9957afc3cc5fbd7ec25f1525a1ac0",
+      "receipt_id": "lmrec-433fe74fe1a4e263eafbb28d",
+      "request_digest": "sha256:f4f8d1d63864ee8536d8aeb32cd125e96929f51b0645e2116c2ac6a33401d90f",
+      "retrieved_record_ids": [
+        "devrec-b061076a6225145e5bd9970a"
+      ],
+      "score_digest": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+      "score_schema": "sentientos.objective_task_score:v6",
+      "score_status": "incorrect"
+    }
+  ],
+  "condition_score_digests": {
+    "history_present": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+    "history_restored": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+    "history_withheld": "sha256:b63b403c2ab35db80119d14cc18a3294471b3c38900e013ffe0c14a8d1b244b5"
+  },
+  "cross_range_protocol_v2_present": false,
+  "current_source_reproduction_attested": false,
+  "cycle_id": "rootless-cognition-cycle-20261124000000000046",
+  "cycle_index": 1,
+  "cycle_result_sha256": "7c761a01c39ae11cda92d25b96f25b9d81546b62e87054a855d38e461e3c87a2",
+  "cycle_transfer_status": "completed_scored_intervention",
+  "historical_plan_schema_version": "sentientos.rootless_history_boundary_campaign_plan:v8",
+  "history_present_vs_withheld_answerability_transition_counts": {
+    "history_associated_answerability_gain": 1,
+    "no_answerability_change": 2
+  },
+  "history_present_vs_withheld_correctness_transition_counts": {
+    "no_correctness_change": 2,
+    "unscoreable": 1
+  },
+  "inference_origin_attested": false,
+  "learning_established": false,
+  "preregistration_timing_independently_attested": false,
+  "probe_inputs": [
+    422,
+    730,
+    935
+  ],
+  "recomputed_probe_level_outcomes": {
+    "condition_order": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "condition_score_digests": {
+      "history_present": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+      "history_restored": "sha256:c21443f560d70f2eaa9d22130a75a1a9b2fbfb73f43574a408c3c31acbc9608e",
+      "history_withheld": "sha256:b63b403c2ab35db80119d14cc18a3294471b3c38900e013ffe0c14a8d1b244b5"
+    },
+    "posture": "independent_oracle_correctness_only_answer_values_omitted",
+    "probe_outcomes": [
+      {
+        "abstention_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": false
+        },
+        "answerability_by_condition": {
+          "history_present": true,
+          "history_restored": true,
+          "history_withheld": true
+        },
+        "correctness_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": false
+        },
+        "history_present_vs_withheld": "no_correctness_change",
+        "history_present_vs_withheld_answerability": "no_answerability_change",
+        "probe_index": 0,
+        "probe_input": 422,
+        "restoration_answerability_vs_present": "matches_history_present",
+        "restoration_vs_present": "matches_history_present"
+      },
+      {
+        "abstention_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": false
+        },
+        "answerability_by_condition": {
+          "history_present": true,
+          "history_restored": true,
+          "history_withheld": true
+        },
+        "correctness_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": false
+        },
+        "history_present_vs_withheld": "no_correctness_change",
+        "history_present_vs_withheld_answerability": "no_answerability_change",
+        "probe_index": 1,
+        "probe_input": 730,
+        "restoration_answerability_vs_present": "matches_history_present",
+        "restoration_vs_present": "matches_history_present"
+      },
+      {
+        "abstention_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": true
+        },
+        "answerability_by_condition": {
+          "history_present": true,
+          "history_restored": true,
+          "history_withheld": false
+        },
+        "correctness_by_condition": {
+          "history_present": false,
+          "history_restored": false,
+          "history_withheld": null
+        },
+        "history_present_vs_withheld": "unscoreable",
+        "history_present_vs_withheld_answerability": "history_associated_answerability_gain",
+        "probe_index": 2,
+        "probe_input": 935,
+        "restoration_answerability_vs_present": "matches_history_present",
+        "restoration_vs_present": "matches_history_present"
+      }
+    ],
+    "task_digest": "sha256:5adda61e1702e4382fc426b931cc4125a34176898d1b80da762b5d247e36e205",
+    "unscoreable_condition_ids": []
+  },
+  "restoration_vs_present_correctness_transition_counts": {
+    "matches_history_present": 3
+  },
+  "schema_version": "sentientos.historical_single_cycle_history_transfer_score_audit:v1",
+  "scope": "one completed cycle; synthetic wide-range task; same-model history-present/withheld/restored comparison; answer values omitted; current-source reproduction not established",
+  "score_run_digest": "sha256:615bbc31bee620e984dac817933cfe45b51603288f29101aacc563a0367e15e5",
+  "score_run_file_sha256": "5957398d1349b66783952d46d3f06c4578abf4934777479acc817e530b747fec",
+  "score_run_id": "devexp-run-615bbc31bee620e984dac817",
+  "status": "verified_internal_consistency",
+  "task_digest": "sha256:5adda61e1702e4382fc426b931cc4125a34176898d1b80da762b5d247e36e205",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+}

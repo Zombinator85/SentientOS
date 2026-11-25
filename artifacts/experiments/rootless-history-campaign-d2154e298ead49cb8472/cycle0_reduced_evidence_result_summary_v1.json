@@ -1,0 +1,35 @@
+{
+  "schema_version": "sentientos.rootless_cognition_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-d2154e298ead49cb8472",
+  "campaign_plan_digest": "98826be1ec64c3d3f4e80036555462f9a1e3b2136bd8e187c52834ee05618e1b",
+  "cycle_id": "rootless-cognition-cycle-31b89d7944a44d9db137",
+  "seed": 799940857,
+  "transfer_probe_inputs": [184, 815, 970],
+  "acquisition_probe_inputs": [4, 5, 8],
+  "run_status": "incomplete",
+  "classification": "owner_admitted_ask_no_action",
+  "model": "hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M",
+  "source_provenance_stable_for_run": true,
+  "source_worktree_content_digest": "cc3b236170b39dd58d2dacbf3a70cae6d216b581819ec2eb54dbee959fdaeb32",
+  "preflight_digest": "3044bca871f99b6518633b020f0374022a925a84c90a2fb6bd6ebc60f1fd3eff",
+  "preflight_validates_final_decision_evidence_source": false,
+  "preflight_note": "The preflight predates the final removal of redundant proprioception from decision-time evidence; regenerate the plan and preflight before another inference run.",
+  "clarification": {
+    "attempted_once": true,
+    "model_authored_question": "I do not have a fresh, cited observation that establishes the current condition. Could you provide a fresh observation?",
+    "question_text_untrusted": true,
+    "followup_prompt_digest": "4b07e8fe0194efaf4deeb5113ab6e24cef4854268758e029226c0f77fddbcfe0",
+    "followup_output_digest": "d8c872458a5b48d1c0b597c24bc0321f6f27191bf28e679681ff9c587b2c4d14",
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b",
+    "initial_and_followup_response_digest_equal": true,
+    "raw_answer_text_persisted": false
+  },
+  "action_authorized": false,
+  "action_simulated": false,
+  "learning_claimed": false,
+  "model_unload_status": "target_model_not_resident",
+  "external_failure_artifact": {
+    "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-31b89d7944a44d9db137/cycle-failure.json",
+    "sha256": "86b9da9fb7edbfc08af8918e8ceb6905c6adf46dc39fcd35631123a827ec55b8"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schema_version": "sentientos.rootless_cognition_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-419ff8619cb74e4abc2b",
+  "cycle_id": "rootless-cognition-cycle-46e62de5533c477e8d63",
+  "task_generation_seed": 799940840,
+  "plan_digest": "4a4349f9293c285eb667a9dedf6c9fd76304f8f6945a4b1078c4b18c263cf2e4",
+  "owner_preflight_report_digest": "sha256:d08b7c43193b6c4b17f735cf7d421fa607c2ba89804a3c522ce7c5d4fbee3f84",
+  "owner_preflight_verified": true,
+  "inference_performed": true,
+  "model_id": "hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M",
+  "model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+  "status": "incomplete",
+  "stage": "synthetic_pre_action_cognition",
+  "failure_code": "RootlessExperimentalError",
+  "failure_diagnostic_code": "pre_action_cognition_proposal_unverified",
+  "pre_action_decision": {
+    "classification": "owner_admitted_ask_no_action",
+    "disposition": "ask",
+    "interaction_status": "admitted_completed",
+    "response_lineage_verified": true,
+    "response_digest": "35f8c13ae05ef3cec378247fc79dcbb9a2c707c9461e4e9f3fea64fc9cdd143b",
+    "response_digest_matches_seed_799940834": true,
+    "evidence_ids": ["fact-083e69f373738ac3"],
+    "history_record_ids": [],
+    "authority": false,
+    "action_executed": false,
+    "synthetic_action_simulated": false,
+    "raw_response_included": false
+  },
+  "failure_artifact": {
+    "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-46e62de5533c477e8d63/cycle-failure.json",
+    "sha256": "363f80e115c074fc11ffb6d114667bd88d524a061098c117563d4ceda0fbabb2",
+    "source_provenance_stable": true,
+    "source_provenance_fingerprint_complete": true
+  },
+  "model_release_status": "target_model_not_resident",
+  "causal_or_learning_claim_made": false,
+  "task_performance_claimed": false,
+  "preregistration_timing_independently_attested": false
+}

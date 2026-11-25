@@ -1,0 +1,826 @@
+{
+  "accumulated_strategy_distinct_input_count": 4,
+  "accumulated_strategy_present": true,
+  "accumulated_strategy_run_count": 2,
+  "accumulated_strategy_schema_version": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "acquisition_probe_inputs": [
+    2,
+    3,
+    4
+  ],
+  "audit_digest": "sha256:8d2b02c4d61d315634c1cda179fa288e211cf676148d986aa4484eb9abc45524",
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+    "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-4fd52036e8b17c28ac02994c"
+  ],
+  "budget_sensitivity_padding_field": "preflight_synthetic_padding",
+  "budget_sensitivity_posture": "synthetic_extra_evidence_field; serialized_json_overhead_counted; acquisition_history_absent",
+  "campaign_id": "rootless-history-campaign-9cc30cb351fa44ad9d51",
+  "composition_state_digest": "sha256:c7000bf46e79ff19a233c6f7d7dea7dd301d1d4872eee9ad99a43520c690f4bc",
+  "composition_state_digest_verified": true,
+  "current_evidence_payload_chars": 2019,
+  "current_evidence_payload_digest": "sha256:215aa7a2f9fadca4d0c29d99d4341e75517bb6ee80c8892c82cea867337da8cf",
+  "current_evidence_posture": "runner_shared_pre_action_body_snapshot_shape_with_fixed_timestamp_placeholder",
+  "current_observation_timestamp_posture": "fixed_length_placeholder_value",
+  "current_projection_digest": "sha256:215aa7a2f9fadca4d0c29d99d4341e75517bb6ee80c8892c82cea867337da8cf",
+  "current_snapshot_digest": "b18d27b4c4f9214899dd8bdc208ee2736c1559af1eccca7bcdd4ea9bfde55107",
+  "cycle_id": "rootless-cognition-cycle-c4e8743bad34018ac728",
+  "exact_cycle_prompt_limitation": "model_generated_acquisition_record_absent_and_observation_timestamp_is_placeholder",
+  "exact_cycle_prompt_reconstructed": false,
+  "inference_performed": false,
+  "input_budget_sensitivity": [
+    {
+      "additional_serialized_evidence_chars": 0,
+      "binding_status": "bound",
+      "prompt_chars": 22836,
+      "prompt_margin_chars": 1740,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 0,
+      "task_family_prompt_projection_digest": "sha256:01ba4dac02f2092bee589f7a65bbaee0133499cc80e66753809c6dfbcfcec09f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 161,
+      "binding_status": "bound",
+      "prompt_chars": 22997,
+      "prompt_margin_chars": 1579,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 128,
+      "task_family_prompt_projection_digest": "sha256:eb4111353e5d7533ffafa84680cd3e21bca341132d1d5d52826032c75d96f1f2",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 289,
+      "binding_status": "bound",
+      "prompt_chars": 23125,
+      "prompt_margin_chars": 1451,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 256,
+      "task_family_prompt_projection_digest": "sha256:8e6ee16913797e96e345fe747120d92b2c7914ecd51a6cc27b08f949f44cb83d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 353,
+      "binding_status": "bound",
+      "prompt_chars": 23189,
+      "prompt_margin_chars": 1387,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 320,
+      "task_family_prompt_projection_digest": "sha256:f716db6ffd559200cf1a788e1681f167a2ccf7d06715ff1a51ced1568dc81e38",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 371,
+      "binding_status": "bound",
+      "prompt_chars": 23207,
+      "prompt_margin_chars": 1369,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 338,
+      "task_family_prompt_projection_digest": "sha256:98307e6af521fed4643e2348d22acb92820f89b9b76486875d6e7a8e88ecd288",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 372,
+      "binding_status": "bound",
+      "prompt_chars": 23208,
+      "prompt_margin_chars": 1368,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 339,
+      "task_family_prompt_projection_digest": "sha256:aede006d562f48637b3569fade097d4575386c5bd433bc9441aec311097b8bfe",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 373,
+      "binding_status": "bound",
+      "prompt_chars": 23209,
+      "prompt_margin_chars": 1367,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 340,
+      "task_family_prompt_projection_digest": "sha256:10e6f83c5b182bf5738faefae27b37c1cdba343424b5cec9103c7d27fcef11af",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 374,
+      "binding_status": "bound",
+      "prompt_chars": 23210,
+      "prompt_margin_chars": 1366,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 341,
+      "task_family_prompt_projection_digest": "sha256:7ef1530354a71881dd46cb0b74f025b676357a333892f75a2598a2745923e887",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 417,
+      "binding_status": "bound",
+      "prompt_chars": 23253,
+      "prompt_margin_chars": 1323,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 384,
+      "task_family_prompt_projection_digest": "sha256:e8c7cdde13093f9af92b76d3558c098e5242554316135d1c12f7bf60d4399827",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 545,
+      "binding_status": "bound",
+      "prompt_chars": 23381,
+      "prompt_margin_chars": 1195,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 512,
+      "task_family_prompt_projection_digest": "sha256:fe070cc324bbf2ad8c3513a47e9cf299c8f3fc5136d8ae5a109e7f6e4ba64f0c",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 801,
+      "binding_status": "bound",
+      "prompt_chars": 23637,
+      "prompt_margin_chars": 939,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 768,
+      "task_family_prompt_projection_digest": "sha256:f25354188b61e0670ec054899f297314ed30d8e442703815bc81ec8694b976cd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1057,
+      "binding_status": "bound",
+      "prompt_chars": 23893,
+      "prompt_margin_chars": 683,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1024,
+      "task_family_prompt_projection_digest": "sha256:17344900c92c0330865ef47d334edc1e7f33bab08db4f3c7645eadec775bfb52",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1569,
+      "binding_status": "bound",
+      "prompt_chars": 24405,
+      "prompt_margin_chars": 171,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1536,
+      "task_family_prompt_projection_digest": "sha256:230d1c24f152c48191017928a2c9009069830257630265f6c28083293e87dd0d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1585,
+      "binding_status": "bound",
+      "prompt_chars": 24421,
+      "prompt_margin_chars": 155,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1552,
+      "task_family_prompt_projection_digest": "sha256:e1bb3ae104b9648b79d94cc9ee2ee88859f1844ff5d3b0a0b3490397a9c36b85",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1601,
+      "binding_status": "bound",
+      "prompt_chars": 24437,
+      "prompt_margin_chars": 139,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1568,
+      "task_family_prompt_projection_digest": "sha256:c2765f38d5f459e40ad9ade4dbf6d60f9e1aa2c3d587f6e00e89a95be3f98d59",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1617,
+      "binding_status": "bound",
+      "prompt_chars": 24453,
+      "prompt_margin_chars": 123,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1584,
+      "task_family_prompt_projection_digest": "sha256:7d41668a30a143ada851dd633e391555faccf4cb12c5262a0ad336ef40df1346",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1633,
+      "binding_status": "bound",
+      "prompt_chars": 24469,
+      "prompt_margin_chars": 107,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1600,
+      "task_family_prompt_projection_digest": "sha256:894a64c8379e45394ff16153ae207540b33080d4041efc90ffba9504a13e4ae6",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1649,
+      "binding_status": "bound",
+      "prompt_chars": 24485,
+      "prompt_margin_chars": 91,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1616,
+      "task_family_prompt_projection_digest": "sha256:7b39f2a95b51b777fbbbe8c1d79ffa935ffd283a5b4f3d373e0dd2d366052ad1",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1665,
+      "binding_status": "bound",
+      "prompt_chars": 24501,
+      "prompt_margin_chars": 75,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1632,
+      "task_family_prompt_projection_digest": "sha256:97bc7c88fea884d155e5930fd406721a75cd7a71d3f291ba09b3d454cc6615ff",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1681,
+      "binding_status": "bound",
+      "prompt_chars": 24517,
+      "prompt_margin_chars": 59,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1648,
+      "task_family_prompt_projection_digest": "sha256:d88f7d60c2406b1b6b92bfc41611fb0fe11f044b2998fa74a8c934b77028011e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1697,
+      "binding_status": "bound",
+      "prompt_chars": 24533,
+      "prompt_margin_chars": 43,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1664,
+      "task_family_prompt_projection_digest": "sha256:ac04c2427278845d226c2aa1613b7e35503dd0bd0eefc25035bc0c2f08dda090",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1713,
+      "binding_status": "bound",
+      "prompt_chars": 24549,
+      "prompt_margin_chars": 27,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1680,
+      "task_family_prompt_projection_digest": "sha256:3914093582b00d0503fa27d50b81e373120b1e33e5b30a16bb87c6c67d59fb47",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1729,
+      "binding_status": "bound",
+      "prompt_chars": 24565,
+      "prompt_margin_chars": 11,
+      "selected_record_count": 2,
+      "selected_record_ids": [
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": 4,
+      "strategy_run_count": 2,
+      "synthetic_padding_string_chars": 1696,
+      "task_family_prompt_projection_digest": "sha256:bb41735f5c41a083c692c321fffca2bab14a7ce58021364f02c6ef59593a3df6",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1745,
+      "binding_status": "bound",
+      "prompt_chars": 19247,
+      "prompt_margin_chars": 5329,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1712,
+      "task_family_prompt_projection_digest": "sha256:ea37edf09d4b2f441b197dbb6ab3522997fae93cd739c23307ad64f5b1fc0eb2",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1761,
+      "binding_status": "bound",
+      "prompt_chars": 19263,
+      "prompt_margin_chars": 5313,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1728,
+      "task_family_prompt_projection_digest": "sha256:78b173deb4c269bd5bde38f5ccd352cc3dd27ceb7b1ecafd9f049e0517f411ee",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1777,
+      "binding_status": "bound",
+      "prompt_chars": 19279,
+      "prompt_margin_chars": 5297,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1744,
+      "task_family_prompt_projection_digest": "sha256:a93b42f994667bb27ae89bb84de97540bc16147980d4b2504f136d304c9ae7cd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1793,
+      "binding_status": "bound",
+      "prompt_chars": 19295,
+      "prompt_margin_chars": 5281,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1760,
+      "task_family_prompt_projection_digest": "sha256:68c41a690954102ce44a950925e22ce05a02917e781f12e28bd1105806df3f48",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1809,
+      "binding_status": "bound",
+      "prompt_chars": 19311,
+      "prompt_margin_chars": 5265,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1776,
+      "task_family_prompt_projection_digest": "sha256:26449af3f73ca52f53378beda30f0607031a8fe63b9b25b053ab85ad17ba8ac8",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1825,
+      "binding_status": "bound",
+      "prompt_chars": 19327,
+      "prompt_margin_chars": 5249,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1792,
+      "task_family_prompt_projection_digest": "sha256:e03c742b7bb5c3540b70c42c506bf86503a899e61986961ba1acab50ceed2010",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1841,
+      "binding_status": "bound",
+      "prompt_chars": 19343,
+      "prompt_margin_chars": 5233,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1808,
+      "task_family_prompt_projection_digest": "sha256:671d0edf747b3220d798a6accf2f50ea1b5b3444bae52cf04101ae4ac0399357",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1857,
+      "binding_status": "bound",
+      "prompt_chars": 19359,
+      "prompt_margin_chars": 5217,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1824,
+      "task_family_prompt_projection_digest": "sha256:8adcb3f44b91552a5024741617f3e59a1069f171cadf455a7056973f9600ea87",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1873,
+      "binding_status": "bound",
+      "prompt_chars": 19375,
+      "prompt_margin_chars": 5201,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1840,
+      "task_family_prompt_projection_digest": "sha256:0abf2c5a8519da93d994e3a2a1b40522551d2bcce725f2e6a72a514463cb59c0",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1889,
+      "binding_status": "bound",
+      "prompt_chars": 19391,
+      "prompt_margin_chars": 5185,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1856,
+      "task_family_prompt_projection_digest": "sha256:1ba46fce35ed1aff0e7fc82a17f49bd93e2db13961083aa2781c7ddc249e8542",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1905,
+      "binding_status": "bound",
+      "prompt_chars": 19407,
+      "prompt_margin_chars": 5169,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1872,
+      "task_family_prompt_projection_digest": "sha256:4814063a8711172c9cb650403255bcdf9ffe3bdb6b86848644266a0cb26cfc5d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1921,
+      "binding_status": "bound",
+      "prompt_chars": 19423,
+      "prompt_margin_chars": 5153,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1888,
+      "task_family_prompt_projection_digest": "sha256:c70516726d5382c11d32f93dd301cc3e105917824383696a1b377cf94b1a5168",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1937,
+      "binding_status": "bound",
+      "prompt_chars": 19439,
+      "prompt_margin_chars": 5137,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1904,
+      "task_family_prompt_projection_digest": "sha256:0258f5beff0560353949f2ac2cd045740744e6fa1c9cdfeffab6191bfb0fcadc",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1953,
+      "binding_status": "bound",
+      "prompt_chars": 19455,
+      "prompt_margin_chars": 5121,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1920,
+      "task_family_prompt_projection_digest": "sha256:311c001c1032425965548b9380b6ba8408ba1a3cf0a5e3fe800f8addbbd7e57c",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1969,
+      "binding_status": "bound",
+      "prompt_chars": 19471,
+      "prompt_margin_chars": 5105,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1936,
+      "task_family_prompt_projection_digest": "sha256:08debee8c7994fac097059b871e0ea3d674dd8a43a7e91fe1e65a4a3a53aa45d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1985,
+      "binding_status": "bound",
+      "prompt_chars": 19487,
+      "prompt_margin_chars": 5089,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1952,
+      "task_family_prompt_projection_digest": "sha256:4f8b67f8287b2a326c059a3e3603e76c165eac319bc516f31b58e24ce5de76fc",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2001,
+      "binding_status": "bound",
+      "prompt_chars": 19503,
+      "prompt_margin_chars": 5073,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1968,
+      "task_family_prompt_projection_digest": "sha256:4527b07d267193ceac87e1c542fd3902d1536bbd2615ae328f12e7c52008f2e4",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2017,
+      "binding_status": "bound",
+      "prompt_chars": 19519,
+      "prompt_margin_chars": 5057,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1984,
+      "task_family_prompt_projection_digest": "sha256:3d1369756004b4aed9d993b4fd2611c5b48372ca47aabbc14bb24ba0f7aa0092",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2033,
+      "binding_status": "bound",
+      "prompt_chars": 19535,
+      "prompt_margin_chars": 5041,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2000,
+      "task_family_prompt_projection_digest": "sha256:876b17ea43ac930d93576002a5294fa99c8bf48cbe23c5a6f7911fd44a34c309",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2049,
+      "binding_status": "bound",
+      "prompt_chars": 19551,
+      "prompt_margin_chars": 5025,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2016,
+      "task_family_prompt_projection_digest": "sha256:0363bd6f8a5de727e8abb6bc358d07df4f0258fc1031e049879286db7b92a41b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2065,
+      "binding_status": "bound",
+      "prompt_chars": 19567,
+      "prompt_margin_chars": 5009,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2032,
+      "task_family_prompt_projection_digest": "sha256:287ba874ca3c2ce724c55e19bf44c50995509e1129bf45963c0dd11a13ed1dea",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2081,
+      "binding_status": "bound",
+      "prompt_chars": 19583,
+      "prompt_margin_chars": 4993,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2048,
+      "task_family_prompt_projection_digest": "sha256:4533a5b2d4a2ccc5d5e9eefc8aa2c6d0647701b8fe25b554eaeb705657310039",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 3105,
+      "binding_status": "bound",
+      "prompt_chars": 20607,
+      "prompt_margin_chars": 3969,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 3072,
+      "task_family_prompt_projection_digest": "sha256:e5aa06786556ba32c842dffdb5f3f27cd1c1c34049bdd036c2d47d2319d3aef5",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 4129,
+      "binding_status": "bound",
+      "prompt_chars": 21631,
+      "prompt_margin_chars": 2945,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 4096,
+      "task_family_prompt_projection_digest": "sha256:e630a17cd23f6a5b8293f116c1560f13f0c1e23ce4a8a68ce73e6a49ca3bf0ea",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 6177,
+      "binding_status": "bound",
+      "prompt_chars": 23679,
+      "prompt_margin_chars": 897,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-4fd52036e8b17c28ac02994c"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 6144,
+      "task_family_prompt_projection_digest": "sha256:7a44132573af199d9ff0496847340a50f890bec961c2854967741468dbe140d6",
+      "task_family_prompt_projection_verified": true
+    }
+  ],
+  "instruction_template_matches_static_experiment_instruction": true,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_generated_acquisition_outputs_available": false,
+  "objective_task_descriptor_chars": 1239,
+  "objective_task_descriptor_digest": "sha256:cd060b4a7ace9250da3b8bea14ac6514f70275781a58cba57355f2f562529c57",
+  "objective_task_descriptor_posture": "public_descriptor_shape_with_zeroed_commitment_digest_for_reproducibility",
+  "owner_selected_record_ids": [
+    "devrec-a081ef3104dba90c9e19b723",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-4fd52036e8b17c28ac02994c"
+  ],
+  "plan_digest": "f556ffcf65946c122fc561e781fc40fc746471a33d6a128a37112ece3272ba91",
+  "prior_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+  "prior_history_root_cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+  "prior_recovery_state_boundary_digest": "844790f3f3e87df9cb980738f9748e7d115657a98fec3641a5a129543042a784",
+  "prior_runtime_admission_ledger_digest": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+  "prompt_chars": 22836,
+  "prompt_digest": "sha256:ebfbe601d53db4b7ec48935c53e024d5ab139738c5e15b432d410c8573301abe",
+  "prompt_limit_chars": 24576,
+  "prompt_within_bound": true,
+  "schema_version": "sentientos.rootless_planned_cycle_owner_preflight:v5",
+  "strategy_retention_transition": {
+    "first_lost_strategy_prompt_chars": 19247,
+    "first_lost_strategy_prompt_margin_chars": 5329,
+    "first_observed_padding_without_strategy": 1712,
+    "largest_observed_padding_with_strategy": 1696,
+    "largest_observed_serialized_evidence_delta_with_strategy": 1729,
+    "observed_padding_resolution_chars": 16,
+    "strategy_reappeared_after_first_observed_loss": false
+  },
+  "target_model_identity_digest": "e4e765408c78bfe42cfb15003bb16a63efafa132cbfc89a14d1fba69a8369cdf",
+  "target_model_identity_matches_plan": true,
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_family_prompt_projection_digest": "sha256:01ba4dac02f2092bee589f7a65bbaee0133499cc80e66753809c6dfbcfcec09f",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "task_generation_seed": 2026112211,
+  "task_generator": "rootless_integer_affine_transfer_task_pair:v1",
+  "transfer_probe_inputs": [
+    6,
+    7,
+    8
+  ]
+}

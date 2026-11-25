@@ -1,0 +1,40 @@
+{
+  "authority": false,
+  "bundle_archive_sha256": "b3b2ebebbceba4e04802e422a9bbe3a24ae1e0ad031caec75bf64660b0ab652c",
+  "bundle_manifest_digest": "sha256:54f12c1f36d7abb71ea956cb7322f5d12f05135d9999c2decbe5fcfc28b128df",
+  "created_at_utc": "2026-11-25T02:44:34.500084+00:00",
+  "inference_performed": false,
+  "launcher_sha256": "61a30f78bb2b90bcad68418ca2578c8f4229ce1bad5a0efdb0ef2e2fb8d9a353",
+  "learning_established": false,
+  "model_loaded": false,
+  "prior_verification_receipt_digest": "sha256:04e17e9dd6368f738a0df39a12a714e7cd7ac628e361b7313ba39c6e06f995af",
+  "receipt_digest": "sha256:8aaff70ff7dd9229872c16763d3ea109e681de50f0eb0723ff55179256a5ea08",
+  "schema_version": "sentientos.rootless_matched_model_target_bundle_replay:v1",
+  "verification_result": {
+    "authority": false,
+    "different_model_artifact_campaign": "rootless-history-campaign-00000000000000000088",
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "matched_cycle0_transfer_probes": [
+      34363,
+      83182,
+      112813,
+      164307,
+      168828,
+      172042,
+      292635,
+      305840,
+      379324,
+      462065,
+      533200,
+      889093
+    ],
+    "pair_digest": "sha256:4c17891497dbb536a5445754425b9cf2f6752fdd7caf92f087bffeddb853e386",
+    "same_implementation_source_count": 2521,
+    "same_model_artifact_campaign": "rootless-history-campaign-00000000000000000087",
+    "shared_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "status": "verified"
+  }
+}

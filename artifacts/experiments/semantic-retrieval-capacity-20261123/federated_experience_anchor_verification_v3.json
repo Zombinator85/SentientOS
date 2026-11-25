@@ -1,0 +1,16 @@
+{
+  "anchored_record_count": 71,
+  "audit_digest": "sha256:65a4f6b2204646f873ce3fd192fee52536ee97a54cff57e14eef84cedbe55017",
+  "authority": false,
+  "corpus_freeze_id": "devexp-retrieval-freeze-bda164f2a7eb0c44889b016a",
+  "distinct_experience_anchor_count": 71,
+  "distinct_experience_shortfall": 0,
+  "independence_established": false,
+  "inference_performed": false,
+  "phase_a_eligibility_established": false,
+  "schema_version": "sentientos.federated_experience_anchor_verification:v2",
+  "source_snapshot_count": 47,
+  "source_snapshot_digest": "sha256:98ff65b8574ac0cd8a5de8758cb7a93fc988a1f29e6111d731f96f3de2a277a3",
+  "status": "verified",
+  "verification_digest": "sha256:a9aa918fe22ad8b72bc0efdbf4073a403945c43089ba28c88a5750417417a8e3"
+}

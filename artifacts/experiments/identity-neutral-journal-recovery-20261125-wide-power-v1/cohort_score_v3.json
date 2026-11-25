@@ -1,0 +1,389 @@
+{
+  "analysis_plan_digest": "sha256:4894b4079cb7f71e94e1bc50b90234225b19e8bc90a9ddf1848d4704fc949deb",
+  "analysis_unit": "task_seed_pair_not_individual_probe",
+  "arm_order_by_trial": [
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "task_generation_seed": 13688801
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "task_generation_seed": 13688803
+    }
+  ],
+  "authority": false,
+  "cohort_digest": "sha256:43299a69485139eabf4f9c5140f5278ed49e05db8b9d6999e68213baa062d3d3",
+  "cohort_mean_accuracy_difference": {
+    "decimal_rounded_6": -0.125,
+    "denominator": 8,
+    "numerator": -1
+  },
+  "cohort_score_digest": "sha256:deb3f09fdf49136f8ca3c7577d0f5b5f6dbb9202be127948389cdad3c36b7b47",
+  "complete_trial_count": 2,
+  "durable_learning_established": false,
+  "general_transfer_established": false,
+  "independent_scorer_attested": true,
+  "inference_scope": "immediate_response_difference_only",
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_independence_established": false,
+  "number_of_complete_trials": 2,
+  "per_trial_accuracy_difference": [
+    {
+      "accuracy_difference": {
+        "denominator": 12,
+        "numerator": -1
+      },
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "task_generation_seed": 13688801
+    },
+    {
+      "accuracy_difference": {
+        "denominator": 12,
+        "numerator": -2
+      },
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "task_generation_seed": 13688803
+    }
+  ],
+  "per_trial_correct_counts_by_arm": [
+    {
+      "correct_counts": {
+        "examples_included": 0,
+        "examples_omitted": 1
+      },
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "task_generation_seed": 13688801
+    },
+    {
+      "correct_counts": {
+        "examples_included": 3,
+        "examples_omitted": 5
+      },
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "task_generation_seed": 13688803
+    }
+  ],
+  "per_trial_probe_outcomes": [
+    {
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:6e31eba017341c547d605656d10177f18bb847d27a0b22cfe3a99038b09203cc"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:c7ed8700b9dd763afeb234ca3dd15aded27d06725ecc4d7f6c2b279ed845deb8"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:440ac68d0055d063583cf14f60ec559fe70b20adaf18dfcbf24ac0c7e40c14c9"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:4bf4d00b0c3378b71c3da35e0139ff20f49b62a4a9d8a5b7965b86b54da3eb3d"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:d5ea5dc11bb780573d25765770564dab62561ba9f2cbc7e07a37d125fca8a654"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:8f8744ea478cc2ee24de23c4a46f843cbab727c081c7c924a817d925cbc832e0"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:0444832dd60fa886fece362d9d34d3db46bc8b8eb7fd5ee082b3849721e0db75"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:7216716beaa092e3bab6b198cf92fdda886bae82876b84080ca2cd6f40f71f90"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:edf6582f64a7f1759f2c93c0e0c79f0cb51902a416bfa274feebc02083d8dba7"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:69eb5d0504dc1f55bf1360df18ff8a0eccd2cbd8a0a5e43f89efd45c320f1457"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:f265bcf86dcd5f56cd27612272b3a4760d216b0caf160408ad4e0975981435ef"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:7afdb7fa5f894cf61126f6b21f86a548f696ad7a51e64e0d7bfb543bc95d7c2f"
+        }
+      ],
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "task_generation_seed": 13688801
+    },
+    {
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:4598835579c37365b2f7c0efdde1caf9cebba711f4cfefffebe48cab867f0c2c"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:f8b65d21d231ad01a4b1db16c131c56a4fb331292bf89437c1d604dafb979460"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:f917db2f35c7b299bcf3bc595a315107ef7af2c8f036abefbab1227368d89ff0"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:ee70f074161eb7d4786ba6785a2cdaec5c25d8d3781c1c0734e5f76748ec7157"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:9d5ae49ce051a1bffe3dd80b7b2add432673d54db5d5160fa7acae191c45da9b"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:961e06c494fa53be9a53903320795890b04181033ee66bb8724faaef2252eb7a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:d516a243ecef1b281091009b1f2ef8129343a2e3fdac56ec924859e0eba6f48a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:86dd7325d4c3d8127ca2d6437589d45bfc5d444388f78f853e181f86c04bac1b"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:2f0f63504ba3b02073817dfdd48137c94ab0782f65c5974fd734a9f5077e70d2"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:99e58f2b671522c5bdcd3aa66ee657cfdecd82e58492023a79d0373d04c73c7b"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:6f8d2d51829d4bddf8653be800d1b83bbdb2b9d9eb7625d2f019616d08b6ef2d"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:653af63a0275d513129982c90e048cc804544fc2b7d8cff6b0ec894667713550"
+        }
+      ],
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "task_generation_seed": 13688803
+    }
+  ],
+  "per_trial_results": [
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "correct_counts": {
+        "examples_included": 0,
+        "examples_omitted": 1
+      },
+      "independent_score_verification_digest": "sha256:8d8b99abb27f2cf8145879c8cbbb74463ea7f1fe9ce1c41935429347477cf49c",
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:6e31eba017341c547d605656d10177f18bb847d27a0b22cfe3a99038b09203cc"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:c7ed8700b9dd763afeb234ca3dd15aded27d06725ecc4d7f6c2b279ed845deb8"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:440ac68d0055d063583cf14f60ec559fe70b20adaf18dfcbf24ac0c7e40c14c9"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:4bf4d00b0c3378b71c3da35e0139ff20f49b62a4a9d8a5b7965b86b54da3eb3d"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:d5ea5dc11bb780573d25765770564dab62561ba9f2cbc7e07a37d125fca8a654"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:8f8744ea478cc2ee24de23c4a46f843cbab727c081c7c924a817d925cbc832e0"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:0444832dd60fa886fece362d9d34d3db46bc8b8eb7fd5ee082b3849721e0db75"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:7216716beaa092e3bab6b198cf92fdda886bae82876b84080ca2cd6f40f71f90"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:edf6582f64a7f1759f2c93c0e0c79f0cb51902a416bfa274feebc02083d8dba7"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:69eb5d0504dc1f55bf1360df18ff8a0eccd2cbd8a0a5e43f89efd45c320f1457"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:f265bcf86dcd5f56cd27612272b3a4760d216b0caf160408ad4e0975981435ef"
+        },
+        {
+          "examples_included": "abstained",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:7afdb7fa5f894cf61126f6b21f86a548f696ad7a51e64e0d7bfb543bc95d7c2f"
+        }
+      ],
+      "per_task_accuracy_difference": {
+        "denominator": 12,
+        "numerator": -1
+      },
+      "probe_count": 12,
+      "protocol_digest": "sha256:69376895ceb60b5cf79439076ef1585f6bb08ca4cbf9a2edacb62cadcfd0d886",
+      "runtime_history_receipt_count": 30,
+      "runtime_history_receipt_record_links_verified": true,
+      "runtime_history_receipt_set_digest": "sha256:1ff073d9d1d08f3515edd3c236a731169078027ce2e9571995572b1940ef7b6f",
+      "runtime_history_record_count": 30,
+      "runtime_history_record_set_digest": "sha256:c7f05b3c9f4ec47c3aa5f7e88a8b48749368f43d1eff46b641604f8ea840defb",
+      "score_digest": "sha256:76d753efb6023b0d347526a2f34f90be084b53176ff5f66f87a2954b380416de",
+      "selected_history_record_receipts_verified": true,
+      "task_generation_seed": 13688801
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "correct_counts": {
+        "examples_included": 3,
+        "examples_omitted": 5
+      },
+      "independent_score_verification_digest": "sha256:7a6886c16574509370c6a9f46d319de9a62aab571153bc6f43047c76074cc248",
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:4598835579c37365b2f7c0efdde1caf9cebba711f4cfefffebe48cab867f0c2c"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:f8b65d21d231ad01a4b1db16c131c56a4fb331292bf89437c1d604dafb979460"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:f917db2f35c7b299bcf3bc595a315107ef7af2c8f036abefbab1227368d89ff0"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:ee70f074161eb7d4786ba6785a2cdaec5c25d8d3781c1c0734e5f76748ec7157"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:9d5ae49ce051a1bffe3dd80b7b2add432673d54db5d5160fa7acae191c45da9b"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:961e06c494fa53be9a53903320795890b04181033ee66bb8724faaef2252eb7a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:d516a243ecef1b281091009b1f2ef8129343a2e3fdac56ec924859e0eba6f48a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:86dd7325d4c3d8127ca2d6437589d45bfc5d444388f78f853e181f86c04bac1b"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:2f0f63504ba3b02073817dfdd48137c94ab0782f65c5974fd734a9f5077e70d2"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:99e58f2b671522c5bdcd3aa66ee657cfdecd82e58492023a79d0373d04c73c7b"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:6f8d2d51829d4bddf8653be800d1b83bbdb2b9d9eb7625d2f019616d08b6ef2d"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:653af63a0275d513129982c90e048cc804544fc2b7d8cff6b0ec894667713550"
+        }
+      ],
+      "per_task_accuracy_difference": {
+        "denominator": 12,
+        "numerator": -2
+      },
+      "probe_count": 12,
+      "protocol_digest": "sha256:004b426bf5a26740f33b5a519258721745f3fe4e561ec3be4b241b771f032942",
+      "runtime_history_receipt_count": 30,
+      "runtime_history_receipt_record_links_verified": true,
+      "runtime_history_receipt_set_digest": "sha256:1ff073d9d1d08f3515edd3c236a731169078027ce2e9571995572b1940ef7b6f",
+      "runtime_history_record_count": 30,
+      "runtime_history_record_set_digest": "sha256:c7f05b3c9f4ec47c3aa5f7e88a8b48749368f43d1eff46b641604f8ea840defb",
+      "score_digest": "sha256:fdc419943d8b9fca9b45230ba66c2976e5a837a7cb28c89a8792565b718ba39d",
+      "selected_history_record_receipts_verified": true,
+      "task_generation_seed": 13688803
+    }
+  ],
+  "schema_version": "sentientos.historical_examples_pair_cohort_score:v3",
+  "source_score_artifact_verification": "reconstructed_from_private_task_plan_archived_verified_arm_receipts_and_stable_record_and_receipt_inventory:v2",
+  "trial_count": 2,
+  "whether_any_trial_is_incomplete": false
+}

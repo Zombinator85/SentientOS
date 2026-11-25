@@ -1,0 +1,264 @@
+{
+  "audit_digest": "bd70ca395908bf34a529580fa4016244b073afad63dd4b9bace1fb4f70249ef1",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-00000000000000000088",
+  "condition_history_treatments": {
+    "history_present": "present",
+    "history_restored": "present",
+    "history_withheld": "withheld"
+  },
+  "condition_order": [
+    "history_present",
+    "history_withheld",
+    "history_restored"
+  ],
+  "condition_prompt_digests": {
+    "history_present": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+    "history_restored": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+    "history_withheld": "sha256:57aa100b03dc25eda76494a9c89773208ece72a80b5122b8fe1ea7d67f4978bf"
+  },
+  "condition_prompt_size_binding_digests": {
+    "history_present": "sha256:373b63786d30686bf400dd23ba013088fda2f316e46f076ab5fcc2a70d8073e2",
+    "history_restored": "sha256:5de4b6e911835f5143f003591f74fa9c032068648618a11d53c60449bb24bbfa",
+    "history_withheld": "sha256:a0658c91d87618bbae08fc4753ef32461d716498052aaebd5d9bb7e857108b60"
+  },
+  "condition_prompt_sizes": {
+    "history_present": {
+      "prompt_chars": 22999,
+      "prompt_utf8_bytes": 22999
+    },
+    "history_restored": {
+      "prompt_chars": 22999,
+      "prompt_utf8_bytes": 22999
+    },
+    "history_withheld": {
+      "prompt_chars": 14156,
+      "prompt_utf8_bytes": 14156
+    }
+  },
+  "condition_protocol_digest": "sha256:05eb5ed00327c1b9ff66d65f089b05ad5af0916c3750fe841c2e235a4912f01c",
+  "condition_request_digests": {
+    "history_present": "sha256:b8c4cc6257b279ee6eb1c4196790942f6ebd7a98240af4d39ccbb67d504a2f84",
+    "history_restored": "sha256:93df156fe2e5bd9563fd9bb812efa5066e295657d8e0f744c71dd94a5adb8ab1",
+    "history_withheld": "sha256:328e54c9faee8f0d4a3ce277d79b325e8c27e2994b103f13c10764a6d4b65f62"
+  },
+  "condition_selected_record_digests": {
+    "history_present": [
+      "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+      "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+    ],
+    "history_restored": [
+      "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+      "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+    ],
+    "history_withheld": []
+  },
+  "condition_selected_record_ids": {
+    "history_present": [
+      "devrec-a2447a4bc199ed7f439a37e3",
+      "devrec-8e71800e6cfed38978f64a31"
+    ],
+    "history_restored": [
+      "devrec-a2447a4bc199ed7f439a37e3",
+      "devrec-8e71800e6cfed38978f64a31"
+    ],
+    "history_withheld": []
+  },
+  "condition_task_digests": {
+    "history_present": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+    "history_restored": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+    "history_withheld": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950"
+  },
+  "cross_range_three_condition_prompt_protocol_exercised": true,
+  "cross_range_three_condition_runtime_experiment_exercised": false,
+  "cycle_id": "rootless-cognition-cycle-00000000000000000178",
+  "cycle_index": 0,
+  "full_prompt_text_included": false,
+  "history_record_digests": [
+    "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+    "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+  ],
+  "history_record_ids": [
+    "devrec-a2447a4bc199ed7f439a37e3",
+    "devrec-8e71800e6cfed38978f64a31"
+  ],
+  "implementation_digest": "35c00488302933e09f5a478f8960d925d39bdae9f108edd07ec86a8277a8d26f",
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_outputs_included": false,
+  "objective_condition_request_count": 3,
+  "owner_preview_evidence": {
+    "authority": false,
+    "condition_order": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "conditions": {
+      "history_present": {
+        "history_projection_digest": "sha256:e4f36a841fdcdc3a2f3f45a4ea381e9b66b37648baa342545461c67ae7a8f45a",
+        "history_treatment": "present",
+        "objective_task_digest": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+        "projected_example_count": 6,
+        "projected_records": [
+          {
+            "example_count": 3,
+            "examples_digest": "sha256:ab9186e1546997686cb85747715f7e65fac316bd7ba4bd227a5ca0c128bfc8e6",
+            "experience_count": 1,
+            "prompt_packet_digest": "sha256:93b419b0b4732551b7302732dccdf8da6272341f3377b2f67990ee0888af34c2",
+            "prompt_packet_serialization_present": true,
+            "record_digest": "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+            "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+            "score_bound_source_run_digests": [
+              "sha256:3b83ab097055381a24c03a92440795178ef47456a37f12c5f831f10dc1f24cf3"
+            ],
+            "score_bound_source_score_digests": [
+              "sha256:cc918527b43dc1fbf7371f16ee588ca78324e06f2467f790b5f3d0a0383fa6f4"
+            ]
+          },
+          {
+            "example_count": 3,
+            "examples_digest": "sha256:9729743c2e1e4617fdc0258888e9d6011b05dca824e4cb81551c86830dea747a",
+            "experience_count": 1,
+            "prompt_packet_digest": "sha256:9e3208d0a1f811d925b23eb9fba70aa5fdcc75cf2380d36b585fe3f66c2a1f90",
+            "prompt_packet_serialization_present": true,
+            "record_digest": "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8",
+            "record_id": "devrec-8e71800e6cfed38978f64a31",
+            "score_bound_source_run_digests": [
+              "sha256:bf409ceb19c368b18c6c2eec26dc89cdd0a2665c4508d698340237aee25ba804"
+            ],
+            "score_bound_source_score_digests": [
+              "sha256:98ab3e1aa90192f7cb87d7ce5590826927fb5fd9283848e9d8493e29047ef497"
+            ]
+          }
+        ],
+        "prompt_chars": 22999,
+        "prompt_digest": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+        "prompt_utf8_bytes": 22999,
+        "request_digest": "b8c4cc6257b279ee6eb1c4196790942f6ebd7a98240af4d39ccbb67d504a2f84",
+        "selected_record_count": 2,
+        "selected_record_digests": [
+          "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+          "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+        ],
+        "selected_record_ids": [
+          "devrec-a2447a4bc199ed7f439a37e3",
+          "devrec-8e71800e6cfed38978f64a31"
+        ]
+      },
+      "history_restored": {
+        "history_projection_digest": "sha256:a09e052b0a1f3dee110fbf373de66f29f0ab155cd7bc3aae22dfdc2871b719ce",
+        "history_treatment": "present",
+        "objective_task_digest": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+        "projected_example_count": 6,
+        "projected_records": [
+          {
+            "example_count": 3,
+            "examples_digest": "sha256:ab9186e1546997686cb85747715f7e65fac316bd7ba4bd227a5ca0c128bfc8e6",
+            "experience_count": 1,
+            "prompt_packet_digest": "sha256:93b419b0b4732551b7302732dccdf8da6272341f3377b2f67990ee0888af34c2",
+            "prompt_packet_serialization_present": true,
+            "record_digest": "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+            "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+            "score_bound_source_run_digests": [
+              "sha256:3b83ab097055381a24c03a92440795178ef47456a37f12c5f831f10dc1f24cf3"
+            ],
+            "score_bound_source_score_digests": [
+              "sha256:cc918527b43dc1fbf7371f16ee588ca78324e06f2467f790b5f3d0a0383fa6f4"
+            ]
+          },
+          {
+            "example_count": 3,
+            "examples_digest": "sha256:9729743c2e1e4617fdc0258888e9d6011b05dca824e4cb81551c86830dea747a",
+            "experience_count": 1,
+            "prompt_packet_digest": "sha256:9e3208d0a1f811d925b23eb9fba70aa5fdcc75cf2380d36b585fe3f66c2a1f90",
+            "prompt_packet_serialization_present": true,
+            "record_digest": "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8",
+            "record_id": "devrec-8e71800e6cfed38978f64a31",
+            "score_bound_source_run_digests": [
+              "sha256:bf409ceb19c368b18c6c2eec26dc89cdd0a2665c4508d698340237aee25ba804"
+            ],
+            "score_bound_source_score_digests": [
+              "sha256:98ab3e1aa90192f7cb87d7ce5590826927fb5fd9283848e9d8493e29047ef497"
+            ]
+          }
+        ],
+        "prompt_chars": 22999,
+        "prompt_digest": "sha256:db17e4f69917d6e9933c98a35424635d3cf8c19e0eed8c4a1eb2ef136b4bf819",
+        "prompt_utf8_bytes": 22999,
+        "request_digest": "93df156fe2e5bd9563fd9bb812efa5066e295657d8e0f744c71dd94a5adb8ab1",
+        "selected_record_count": 2,
+        "selected_record_digests": [
+          "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+          "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+        ],
+        "selected_record_ids": [
+          "devrec-a2447a4bc199ed7f439a37e3",
+          "devrec-8e71800e6cfed38978f64a31"
+        ]
+      },
+      "history_withheld": {
+        "history_projection_digest": "sha256:115343c9cbac8dfa1b86098471744971d5e9ae5a3c01e409f5792534846f9e9a",
+        "history_treatment": "withheld",
+        "objective_task_digest": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+        "projected_example_count": 0,
+        "projected_records": [],
+        "prompt_chars": 14156,
+        "prompt_digest": "sha256:57aa100b03dc25eda76494a9c89773208ece72a80b5122b8fe1ea7d67f4978bf",
+        "prompt_utf8_bytes": 14156,
+        "request_digest": "328e54c9faee8f0d4a3ce277d79b325e8c27e2994b103f13c10764a6d4b65f62",
+        "selected_record_count": 0,
+        "selected_record_digests": [],
+        "selected_record_ids": []
+      }
+    },
+    "history_restoration_exact": true,
+    "history_withheld_empty": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "objective_task_digest": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+    "protocol_digest": "sha256:05eb5ed00327c1b9ff66d65f089b05ad5af0916c3750fe841c2e235a4912f01c",
+    "protocol_record_digests": [
+      "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+      "sha256:8e71800e6cfed38978f64a31237096557ebf337f2c0c9c7de0cfbd0e8c06d9f8"
+    ],
+    "protocol_record_ids": [
+      "devrec-a2447a4bc199ed7f439a37e3",
+      "devrec-8e71800e6cfed38978f64a31"
+    ],
+    "schema_version": "sentientos.objective_history_conditions_owner_preview:v3",
+    "snapshot_digest": "8920fee886375d1162e58180b3f737d2a54dd52a01296012155564a553bf2d21",
+    "snapshot_id": "world-state-8920fee886375d11",
+    "task_family_id": "rootless_integer_affine_transfer_novel_range_v8",
+    "tick_id": "cross-range-owner-preview-0"
+  },
+  "owner_state_mutated": false,
+  "owner_to_binder_path_exercised": true,
+  "plan_digest": "8dc65a5748f4e33ea51edb6a85c0d8361508071304c1e11110a1a4e3897f4330",
+  "prompt_limit_chars": 24576,
+  "report_origin_attested": false,
+  "request_count": 4,
+  "runtime_owner_preview_digest": "sha256:ae2a6772c0b34f02378f724ff3667972e78fba4ec282949358af0032847b7272",
+  "schema_version": "sentientos.rootless_planned_cycle_runtime_owner_preview:v5",
+  "snapshot_digest": "8920fee886375d1162e58180b3f737d2a54dd52a01296012155564a553bf2d21",
+  "source_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+  "target_model_identity_digest": "sha256:5a3b804f2086717dd23706a562d7347502263e3ca88a5b3653b949db8542f492",
+  "target_task_digest": "sha256:3db1a8c529e45d26589872324a2d3a3c357b69ff0929b3cb09ba88c2c7306950",
+  "target_task_family_id": "rootless_integer_affine_transfer_novel_range_v8",
+  "target_task_probe_inputs": [
+    34363,
+    83182,
+    112813,
+    164307,
+    168828,
+    172042,
+    292635,
+    305840,
+    379324,
+    462065,
+    533200,
+    889093
+  ],
+  "verification_scope": "owner_payload_digest_and_flattened_report_consistency"
+}

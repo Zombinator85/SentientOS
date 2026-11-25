@@ -1,0 +1,22 @@
+{
+  "audit_digest": "ff8051c140ddc1ff75acaaa8bd568193806a12f93f53d9a8b9bc137530a8f95e",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-90de3f4e019c6f0c9f95",
+  "family_example_input_counts": {
+    "rootless_integer_affine_transfer_low_range_v6": 8,
+    "rootless_integer_affine_transfer_wide_range_v7": 17
+  },
+  "family_overlap_counts": {
+    "rootless_integer_affine_transfer_low_range_v6": 0,
+    "rootless_integer_affine_transfer_wide_range_v7": 0
+  },
+  "initial_history_boundary_digest": "49f0b001d84585daf78be0fda7384d86af0b7e26ef06751a5a88d957433c48b1",
+  "learning_established": false,
+  "model_inference_performed": false,
+  "plan_digest": "230951b6cd4562e3a834375a65d9e4120e0a643f22499d4551e3abf344248732",
+  "schema_version": "sentientos.rootless_history_seed_bundle_transfer_overlap_audit:v1",
+  "seed_bundle_digest": "25dce9a338951c7acb21cf33edbd1243b67731e02c3d18ef1585e440d76c4ea6",
+  "source_record_count": 39,
+  "transfer_probe_count": 12,
+  "transfer_probe_digest": "sha256:6c3708d3292e8a767bf178010d09568ff003a0c924dfe819bac2f6761c811ac9"
+}

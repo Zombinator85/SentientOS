@@ -1,0 +1,135 @@
+{
+  "all_shared_record_digests_equal": true,
+  "audit_digest": "sha256:ad33f0cf958d2517cf25476a17a7a271409d5158836eeb8e51db77c7cc548f96",
+  "authority": false,
+  "cross_model_prompt_comparison_ready": false,
+  "inference_performed": false,
+  "interpretation_limit": "digest_parity_only_no_prompt_content_or_model_attention_claim",
+  "learning_established": false,
+  "left_only_selected_record_ids": [
+    "devrec-095db5c28b1520756285120a"
+  ],
+  "left_preflight_sha256": "sha256:e5e17a3a3c8fbeb9438d88f40a868c7eb64ac734495a3e1fa84ddf395564e981",
+  "left_preflight_verification_sha256": "sha256:efb6f3efb95b85e8fe1f6fc00dcdfcb901f353867e4cab051b16b7e95bb76bec",
+  "left_prompt_digests": {
+    "examples_included": "sha256:651bd6c591cadb04ba9061db4682a276eb310b5210760a8f078919593d88f207",
+    "examples_omitted": "sha256:db16033115b02d0df81f694c2d4ad4f82a36838ffa347b1a1b601a79d36ae87a"
+  },
+  "left_selected_record_count": 3,
+  "left_selected_record_ids": [
+    "devrec-095db5c28b1520756285120a",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "left_target_model_identity_digest": "sha256:625d80e58ee6cacf5423186e28356b852dd19831919317ab28704b66a2d7ce94",
+  "left_withheld_example_count": 6,
+  "left_withheld_examples_digest": "sha256:8ca9a07f6d78cdc2b923d0206e077f1952aae3e5a1456fc1637cd84193cade4c",
+  "pair_verification_file_sha256": "sha256:016e06fe34dc16cc947586974cc89146032d18019d7865faa076b3ae8fbe716e",
+  "prompt_comparison_readiness_posture": "blocked_selected_history_set_mismatch",
+  "prompt_digests_equal_by_arm": {
+    "examples_included": false,
+    "examples_omitted": false
+  },
+  "right_only_selected_record_ids": [],
+  "right_preflight_sha256": "sha256:d550aee6e40342c4bc32188fbaaff7132ee274a4d2d44c877cde70353a739398",
+  "right_preflight_verification_sha256": "sha256:04f8f6447acf33f7316f40eb6439497714ee504cd18d0a96c4d02da08ca567bf",
+  "right_prompt_digests": {
+    "examples_included": "sha256:4fb9fc94d55e497c3bb66fae9c3c813c8c1d6b6a2a322a6489c7f1792895a505",
+    "examples_omitted": "sha256:18a8378f1b1487bfc1bd0c2177e972fb937aa90285912c9279279c53725ebd75"
+  },
+  "right_selected_record_count": 2,
+  "right_selected_record_ids": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "right_target_model_identity_digest": "sha256:a2a8c3f4f925b74c9b33dec03f9a6d3dcabbe58efc37b29ef676f75140c33a63",
+  "right_withheld_example_count": 6,
+  "right_withheld_examples_digest": "sha256:8ca9a07f6d78cdc2b923d0206e077f1952aae3e5a1456fc1637cd84193cade4c",
+  "schema_version": "sentientos.matched_task_preflight_prompt_parity:v4",
+  "selected_history_applicability_relations_equal": false,
+  "selected_record_provenance": {
+    "devrec-095db5c28b1520756285120a": {
+      "objective_task_families": [
+        "rootless_integer_affine_transfer_wide_range_v7"
+      ],
+      "record_digest": "sha256:095db5c28b1520756285120a2316a7c58d335f265f728e5348606466e9148e04",
+      "selected_by_left_target": true,
+      "selected_by_right_target": false,
+      "source_fact_bindings": [
+        {
+          "objective_task_family": "rootless_integer_affine_transfer_wide_range_v7",
+          "source_active_model_identity_digest": "sha256:625d80e58ee6cacf5423186e28356b852dd19831919317ab28704b66a2d7ce94",
+          "source_fact_id": "fact-b72c1d5a8da03241",
+          "source_task_digest": "sha256:966b778bc47d48fb746ac7a565f1a25186be16d32b61f678340d284f7f5dded3"
+        }
+      ],
+      "source_identity_matches_left_target": true,
+      "source_identity_matches_right_target": false,
+      "source_identity_relation_equal_across_targets": false,
+      "source_model_identity_digests": [
+        "sha256:625d80e58ee6cacf5423186e28356b852dd19831919317ab28704b66a2d7ce94"
+      ]
+    },
+    "devrec-6e3f64dbeb9ae7ae911631c3": {
+      "objective_task_families": [
+        "rootless_integer_affine_transfer_low_range_v6"
+      ],
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "selected_by_left_target": true,
+      "selected_by_right_target": true,
+      "source_fact_bindings": [
+        {
+          "objective_task_family": "rootless_integer_affine_transfer_low_range_v6",
+          "source_active_model_identity_digest": "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1",
+          "source_fact_id": "fact-80379ad996fd46ee",
+          "source_task_digest": "sha256:0f2232ca2ce7c5c30f2662479d02669796e6448e9f989f3873448f1b357d6d79"
+        }
+      ],
+      "source_identity_matches_left_target": false,
+      "source_identity_matches_right_target": false,
+      "source_identity_relation_equal_across_targets": true,
+      "source_model_identity_digests": [
+        "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1"
+      ]
+    },
+    "devrec-97839cfc90a8bd497154936a": {
+      "objective_task_families": [
+        "rootless_integer_affine_transfer_low_range_v6"
+      ],
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "selected_by_left_target": true,
+      "selected_by_right_target": true,
+      "source_fact_bindings": [
+        {
+          "objective_task_family": "rootless_integer_affine_transfer_low_range_v6",
+          "source_active_model_identity_digest": "sha256:22f54bd286f3ab07bd415f6e7987359cef9aaa33121106012046ec1399d07e1f",
+          "source_fact_id": "fact-3de1680932a8ec0e",
+          "source_task_digest": "sha256:ce9363e0037b0ae128a18c08a4245051b7de5abcfc0426351a39d4996d773887"
+        }
+      ],
+      "source_identity_matches_left_target": false,
+      "source_identity_matches_right_target": false,
+      "source_identity_relation_equal_across_targets": true,
+      "source_model_identity_digests": [
+        "sha256:22f54bd286f3ab07bd415f6e7987359cef9aaa33121106012046ec1399d07e1f"
+      ]
+    }
+  },
+  "selected_record_sets_equal": false,
+  "selected_record_source_reconstructed": true,
+  "shared_cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+  "shared_selected_record_digests": {
+    "devrec-6e3f64dbeb9ae7ae911631c3": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+    "devrec-97839cfc90a8bd497154936a": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606"
+  },
+  "shared_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "shared_source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "task_commitment_nonce_pair_digest": "sha256:703284b98a95fd2919d6cb45bb34f721df9a7f959c92aaf94530f95dee398041",
+  "task_digest": "sha256:7b0c285d7735e8906312b23e0df125adb1afa761a336137623e788241febd031",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 13688478,
+  "withheld_examples_equal_by_count_and_digest": true
+}

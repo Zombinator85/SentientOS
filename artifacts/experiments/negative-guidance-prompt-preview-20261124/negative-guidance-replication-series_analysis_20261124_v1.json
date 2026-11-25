@@ -1,0 +1,112 @@
+{
+  "all_shadow_scores_match_owner_scores": true,
+  "analysis_digest": "sha256:b3e9c3467ead3ad73330fbf793f8374be3bf8329febe18adaca497e64e4c033f",
+  "authority": false,
+  "changed_answer_or_abstention_count": 8,
+  "exploratory_response_dynamics_file_sha256": "sha256:bc522bee0ffb784d6e084c4275917bb8d8a605bd635161754d3fcbdb556004d5",
+  "exploratory_response_dynamics_path": "response_dynamics_seed169_173_179_v1.json",
+  "exploratory_response_relation_counts": {
+    "both_abstained": 0,
+    "different_answers": 6,
+    "omitted_only_answered": 0,
+    "present_only_answered": 2,
+    "same_answer": 1
+  },
+  "improvement_established": false,
+  "independent_scorer_attested": false,
+  "inference_performed": true,
+  "interpretation": "Across nine held-out probes, negative-guidance omission changed answer/abstention behavior on eight probes (six different numeric answers and two present-only answers), but neither arm answered any probe correctly. The response analysis was post hoc and does not establish causality, learning, or improvement.",
+  "learning_established": false,
+  "primary_outcome_digest": "sha256:382f56834222ec4c180e5c8f296114b1d9e70c7108f023d9c211c2e1eafcb3ad",
+  "primary_outcome_path": "negative-guidance-replication-series_outcome_20261124_v1.json",
+  "primary_outcomes": {
+    "answered_counts": {
+      "negative_guidance_omitted": 7,
+      "negative_guidance_present": 9
+    },
+    "confidence_brier_squared_error_sums": {
+      "negative_guidance_omitted": 672250000,
+      "negative_guidance_present": 900000000
+    },
+    "confidence_scored_counts": {
+      "negative_guidance_omitted": 7,
+      "negative_guidance_present": 9
+    },
+    "correct_counts": {
+      "negative_guidance_omitted": 0,
+      "negative_guidance_present": 0
+    },
+    "coverage_basis_points": {
+      "negative_guidance_omitted": 7777,
+      "negative_guidance_present": 10000
+    },
+    "paired_correctness_transition_counts": {
+      "both_correct": 0,
+      "neither_correct": 9,
+      "omitted_only_correct": 0,
+      "present_only_correct": 0
+    },
+    "paired_probe_outcomes": [
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:51c652a783aba3f889ea2474470db87c60a984960c1bce02375e1609651be108",
+        "task_generation_seed": 169
+      },
+      {
+        "negative_guidance_omitted": "abstained",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:dcabfe1ebf24741de32075952523ea161065c8200819e4a8e382138bae09bc3e",
+        "task_generation_seed": 169
+      },
+      {
+        "negative_guidance_omitted": "abstained",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:179f10fbd382f5eaf974387e67ed56ae618a055ec2bcb2ebab437cf9faa44d7a",
+        "task_generation_seed": 169
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:7db06cba3ed19f396ca89f268a6e8d03b99ba9ca7c42ab49888a932c844a6b29",
+        "task_generation_seed": 173
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:b81cf85e0fb9a57ff710026e9ac4d8848b9c684aba082b64679db89284126fe0",
+        "task_generation_seed": 173
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:ee1ba4184abfb85c0e9f2fb943bfaa323660ff7b8bbc8e58dd75b5b604f26e56",
+        "task_generation_seed": 173
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:c747a12a095baee0524b7faafbe4096c0820d7a31c76b4868540eb2416a85dd4",
+        "task_generation_seed": 179
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:0d11d15a150ae21d8d0cf45611f1b79008f77495cc4a2ccfa826942eb8bb7c1c",
+        "task_generation_seed": 179
+      },
+      {
+        "negative_guidance_omitted": "incorrect",
+        "negative_guidance_present": "incorrect",
+        "probe_binding_digest": "sha256:09b30a939905014c86a59bcf9041974a3a5899424b2cdc415fe16dbe01d9ca1b",
+        "task_generation_seed": 179
+      }
+    ],
+    "pooled_interpretation": "descriptive_across_preregistered_task_instances; no inferential or causal claim",
+    "probe_count": 9
+  },
+  "raw_prompts_and_model_outputs_excluded": true,
+  "schema_version": "sentientos.negative_guidance_replication_series_analysis:v1",
+  "series_id": "negative-guidance-replication-20261124-01",
+  "series_plan_digest": "sha256:9bd2bcf7c111a7b37c9da6f50a174d48d4834d04e417185b6e4f0e53fd0e47e7"
+}

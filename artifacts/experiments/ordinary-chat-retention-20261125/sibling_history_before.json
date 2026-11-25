@@ -1,0 +1,565 @@
+{
+  "arms": {
+    "left": {
+      "acquisition_seed": 537803611,
+      "addition": {
+        "examples": [
+          {
+            "abstained": false,
+            "evaluator_correct": false,
+            "observed_answer": 26,
+            "probe_input": 6
+          },
+          {
+            "abstained": true,
+            "evaluator_correct": null,
+            "observed_answer": null,
+            "probe_input": 7
+          },
+          {
+            "abstained": true,
+            "evaluator_correct": null,
+            "observed_answer": null,
+            "probe_input": 8
+          }
+        ],
+        "receipt_digest": "sha256:ec55c6ef1eb314e9fd3940fe6036a08a2c4c16a3369d4d297815cdaa8dc7a877",
+        "record_digest": "sha256:9fee6e3b29076a60f8c01bf21ef9fe8dc1b826f6f69c87d376146fc2e0ec1abe",
+        "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+        "source_run_digest": "sha256:1efd94846000ffb091c9efcd8f4633731a7d767fc26d1e03b850c01e2c299ed5",
+        "source_run_id": "devexp-run-1efd94846000ffb091c9efcd",
+        "source_score_digest": "sha256:c3215938526d7916e3b36f26719e57453ee0b215a5bdf04fc82cee0d25f03bb8",
+        "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+      },
+      "admission_ledger_digest": "b603f015fedaafb77cd5071d1df9c2d791dda20906e23a02a20454232102fe63",
+      "admitted_boundary_digest": "c1e48057903aa65bf1b82befad9df7430d14e5ae657ca8a6ca7793d1bf9746b8",
+      "cycle": "rootless-cognition-cycle-1a8cb8d5e3b704c159ef",
+      "failure_code": "developmental_history_projection_over_bound",
+      "preregistration_digest": "73839779f794f3a759a2841669e062cb77e9a8154f9a7f91f2fd5cc00b065fa6",
+      "record_count": 40,
+      "recovery_boundary_digest": "a89f112978cc1df4d1398a5a30965492d419dff18cab33ccfd6d737ad3aaf0b9",
+      "source_configuration_digest": "e5620526050577485075f8fc9523936ce11bd474abae9f7ef8a8a00aafd74324",
+      "source_model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "stopped_at": "objective_cross_range_history_enabled_competence_writeback",
+      "terminal_status": "incomplete"
+    },
+    "parent": {
+      "acquisition_seed": 799941274,
+      "admission_ledger_digest": "8ac6c365d3d46303c0bf334cfad95a59bd065f9f6883fee70601d4503fdbd5a8",
+      "admitted_boundary_digest": "53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b",
+      "cycle": "rootless-cognition-cycle-20261124000000000054",
+      "failure_code": null,
+      "preregistration_digest": "72225fb1abce783d6daa287857e99d572165ffbc45c9542b3a8ac52a67984e1b",
+      "record_count": 39,
+      "recovery_boundary_digest": "349b26bf844e84bacbac7cc7a38d284a8149df918ed6123cd77e34765a8df39c",
+      "source_configuration_digest": "69c38faeb6e8040fa946bc798ebb5f2d6ab964b10cd0e5bfc93f1d1b9848c324",
+      "source_model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "stopped_at": null,
+      "terminal_status": "completed"
+    },
+    "right": {
+      "acquisition_seed": 799941295,
+      "addition": {
+        "examples": [
+          {
+            "abstained": false,
+            "evaluator_correct": false,
+            "observed_answer": 26,
+            "probe_input": 5
+          },
+          {
+            "abstained": true,
+            "evaluator_correct": null,
+            "observed_answer": null,
+            "probe_input": 7
+          },
+          {
+            "abstained": true,
+            "evaluator_correct": null,
+            "observed_answer": null,
+            "probe_input": 9
+          }
+        ],
+        "receipt_digest": "sha256:068884ad01b917a08988b7474e25c2bdf9f382401289877eedfbeb849feba550",
+        "record_digest": "sha256:ea97ca95f0c73de28d117b4fce7468210deaf717d6657c469fe5820f609796cc",
+        "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+        "source_run_digest": "sha256:2d5c2c4de0e779c19777c539d79ce9ab1ba0b7469c89871edf8c925b37c1a1a1",
+        "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+        "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+        "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+      },
+      "admission_ledger_digest": "042a6acdf977a948d4a35eb7fcdb42036230490ad7cc563af3a58ff813d474a8",
+      "admitted_boundary_digest": "e565b78dcf014b013b9b9e993d434210a3a9be6fda27ed0469e7653382055f3c",
+      "cycle": "rootless-cognition-cycle-20261124000000000057",
+      "failure_code": null,
+      "preregistration_digest": "0c2834a824de67b014ae57af95b99e32d7d8288fb9de01184e43e5d52c4d4cf8",
+      "record_count": 40,
+      "recovery_boundary_digest": "a8fb57a0ce98aa7c31d49e2c51f46bf629b45e31dd7a288ee8b814061dd71f1e",
+      "source_configuration_digest": "4667ba743a21e0eebb9bf07b1e8ee51ab8c3e3dfc2386d69aa9f95d7891f25dc",
+      "source_model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "stopped_at": null,
+      "terminal_status": "completed"
+    }
+  },
+  "evaluation_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "generative_model_invoked": false,
+  "questions": {
+    "latest_low": {
+      "captures": {
+        "left": {
+          "history_block_digest": "e123420b0560d85a71c59a93099b81672717369661b828f06ad3b1ca41876b55",
+          "prompt_chars": 7461,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "cbcfe2880eaeaaa9010451ed8024934afd90bf29df3ddd03b0da5db1b4940600"
+        },
+        "parent": {
+          "history_block_digest": "ff73a7f82608db58800af930173978411dcc6b0710980962d533bd137d324331",
+          "prompt_chars": 7461,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "865be15939c8b7b65e610424f91e235964256ec35931cf05d0b01271c7325729"
+        },
+        "right": {
+          "history_block_digest": "a808dff78a64a06052d4f618f06d0c3b3882919a7fce93f396feb0754c20ab72",
+          "prompt_chars": 7461,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "e6192951fb1d3541089df5127c145bf7bee6fbfa52063c62da89557ede5ce227"
+        }
+      },
+      "matched_base_sha256": "0cbe3a0edb50b46ad6056b096cf9574e32e629c25ba8a966e2172fb6bab70955",
+      "text": "On our most recent scored low-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so."
+    },
+    "latest_wide": {
+      "captures": {
+        "left": {
+          "history_block_digest": "264085dfa2788318d53a0a5996f9233896361dd9169e2a8f9520ddd1e8feef54",
+          "prompt_chars": 7462,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "3b051bfc2998637fc6e3dc7652e24e8ff6d11d5e374198969a7f9bf20d68ed08"
+        },
+        "parent": {
+          "history_block_digest": "ff73a7f82608db58800af930173978411dcc6b0710980962d533bd137d324331",
+          "prompt_chars": 7462,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "0e58fb8cd917384b1c74d98a4e98a54eb7b5d28b033c15b34729345a54ae1ce5"
+        },
+        "right": {
+          "history_block_digest": "62fef79b5aa3ab109613a2e28af33c216f9d7adcc456fce7099c6da7b6670439",
+          "prompt_chars": 7462,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 503,
+                  "probe_input": 23
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 394
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 499
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-e0fd5583befc8730aca572d8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-06997a33b621d1e2",
+              "source_run_id": "devexp-run-2c540541da5cefef9a03800a",
+              "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "4ccd0b43864f98425dfdb8542a56c7cab9ad10193f3e86dae9777c3d65a0b851"
+        }
+      },
+      "matched_base_sha256": "1f67a022b6fd420d3b48c41adab5bf0bae6568993c872e45782d223d12bfe3e9",
+      "text": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so."
+    },
+    "paraphrase": {
+      "captures": {
+        "left": {
+          "history_block_digest": "21de6d242e4d984a851afd8db1fd59f7350030afdb8d04693c5cbf28cf02701f",
+          "prompt_chars": 7382,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-b061076a6225145e5bd9970a",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-f09e8c6bfd3e0e7a",
+              "source_run_id": "devexp-run-13e8206bf1cd6371fd459e2a",
+              "source_score_digest": "sha256:acff1d01c71820e1b6be5c6882a5b0418dfde890035a82d4b5a3936a91158148",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "c160acc916c31e88170c2279fe9c45fba3f61357be7ae7f1f3a92e503e387b66"
+        },
+        "parent": {
+          "history_block_digest": "dfe125c0f23e8ecf257f1a0d4e76e72137ba5cac3e17786b31d99e0cf86bb5b2",
+          "prompt_chars": 7382,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-b061076a6225145e5bd9970a",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-f09e8c6bfd3e0e7a",
+              "source_run_id": "devexp-run-13e8206bf1cd6371fd459e2a",
+              "source_score_digest": "sha256:acff1d01c71820e1b6be5c6882a5b0418dfde890035a82d4b5a3936a91158148",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "4a6ead4cd819f473890b3f201b27ed804ec8c8a9f0f5e6846e0e5e7d7f9fdb5e"
+        },
+        "right": {
+          "history_block_digest": "7eb351c93d608e7c31dfdbb64cac32ac5c0842e5ed41d359e191fafe44928e56",
+          "prompt_chars": 7387,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 26,
+                  "probe_input": 5
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 7
+                },
+                {
+                  "abstained": true,
+                  "evaluator_correct": null,
+                  "observed_answer": null,
+                  "probe_input": 9
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-99b0e5c9dff7bde0",
+              "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+              "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "8da1a62d854799e400308053527745c56791a6291983d771243a1c973fd91653"
+        }
+      },
+      "matched_base_sha256": "c055ccc957991d75d57e54df1dd6dae58d827c1b13f4cb5e234d2acef9e00549",
+      "text": "We tried an arithmetic exercise earlier. Given inputs 101, 257, 811, what outputs follow? Say when the evidence is insufficient."
+    },
+    "prediction": {
+      "captures": {
+        "left": {
+          "history_block_digest": "550751ed59e5874f7c22ea4d482afacae7db5440ff56bb8f89ec5afb4d4c949a",
+          "prompt_chars": 7418,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 10,
+                  "probe_input": 3
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 13,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 28,
+                  "probe_input": 9
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-638ad203da1410b5cf1a49b8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-bc939e74265b10db",
+              "source_run_id": "devexp-run-75c55a6950388346004d25c9",
+              "source_score_digest": "sha256:c2a9b78874b172a84f0c6635df2506be3d48854e930456ccb76d4ea099649f83",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "aa4d8dfe5ec27069209e22d252246853b7c27e3b443b52a51085c7a9c142bc50"
+        },
+        "parent": {
+          "history_block_digest": "f6ba0dab81eb5b3ae967111a8d8ca3abeaae5ffed081f7fa2d7278da52ed2ae4",
+          "prompt_chars": 7418,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 10,
+                  "probe_input": 3
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 13,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 28,
+                  "probe_input": 9
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-638ad203da1410b5cf1a49b8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-bc939e74265b10db",
+              "source_run_id": "devexp-run-75c55a6950388346004d25c9",
+              "source_score_digest": "sha256:c2a9b78874b172a84f0c6635df2506be3d48854e930456ccb76d4ea099649f83",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "826fe76dafafa0ee90d1ce0f05ed24481f64ff5423e40fcc99196178f10e9b5d"
+        },
+        "right": {
+          "history_block_digest": "76cd1919bc2ac793ce43bc1c398ae2b81ca45746d78b52744c1baec035d089fa",
+          "prompt_chars": 7418,
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 10,
+                  "probe_input": 3
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 13,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": false,
+                  "observed_answer": 28,
+                  "probe_input": 9
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-638ad203da1410b5cf1a49b8",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-bc939e74265b10db",
+              "source_run_id": "devexp-run-75c55a6950388346004d25c9",
+              "source_score_digest": "sha256:c2a9b78874b172a84f0c6635df2506be3d48854e930456ccb76d4ea099649f83",
+              "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+            }
+          ],
+          "prompt_sha256": "cf523b78d352d41ef82ed59bc62a6aca5447564889ac444f915545edff5a9bcb"
+        }
+      },
+      "matched_base_sha256": "6c44f2852d9a594a7bca7febdeb91e9dc79446c098e21d9c9bca8a7578684039",
+      "text": "For the same number-prediction task we worked on before, what outputs would you predict for inputs 367, 619, 883? If you don't have enough information, say so."
+    }
+  },
+  "schema_version": "sentientos.ordinary_chat_sibling_history_exposure:v1"
+}

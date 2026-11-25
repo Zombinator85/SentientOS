@@ -1,0 +1,367 @@
+{
+  "archived_correct_inputs": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "archived_projected_inputs": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    23,
+    394,
+    499
+  ],
+  "archived_store": {
+    "binder_selected_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25",
+      "devrec-a081ef3104dba90c9e19b723"
+    ],
+    "candidate_prompt_chars": 7541,
+    "delivered_prompt_chars": 7541,
+    "delivered_prompt_sha256": "66e091d53cbf48808b980c4149965963d79538681832afbba04d24ea51b63567",
+    "history_block_digest": "b0527d3da87e94b41fbe09fdf4d752dccf1c6e547f1c1775e317d108dfceaaf4",
+    "history_budget_chars": 4365,
+    "inventory_count": 30,
+    "inventory_digest": "sha256:1754727aa7bf333e55d248989d64d3946d185b82b864976e80e7ae72f0259867",
+    "prompt_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25",
+      "devrec-a081ef3104dba90c9e19b723"
+    ],
+    "prompt_task_experience_count": 2,
+    "ranked_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25",
+      "devrec-a081ef3104dba90c9e19b723",
+      "devrec-01e35780a28a539aee7c5fb6",
+      "devrec-dec0f183ac5255063b0c87d8",
+      "devrec-095db5c28b1520756285120a",
+      "devrec-6e3f64dbeb9ae7ae911631c3",
+      "devrec-4fd52036e8b17c28ac02994c",
+      "devrec-d5d23dd21785372394baa2a9"
+    ],
+    "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+    "retrieval_posture": "selected"
+  },
+  "audited_task_families": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "chat_service_requests": {
+    "archived": {
+      "history_block_digest": "2a2ec0614c68a046adcd33a8ec74d12d1d03e32c0f346b0b79dd077203de6a60",
+      "prompt_chars": 7410,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 4,
+              "probe_input": 3
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 5,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 9,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "same_active_model_identity",
+          "record_id": "devrec-ccd62c925ff71eed431c3d25",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-b120736f50b7ee3a",
+          "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+          "source_score_digest": "sha256:e6a5ac8dab51e72a2df0398add54dd3096cc7254f406f05466d8495248b0c2fd",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "bb186a1ff1dc7d216cd92ca6d150720d40aa89fb1e19b20a93bcdd43ce1daca4"
+    },
+    "empty": {
+      "history_block_digest": null,
+      "prompt_chars": 3949,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "6c44f2852d9a594a7bca7febdeb91e9dc79446c098e21d9c9bca8a7578684039"
+    },
+    "matched_non_history_prompt_sha256": "6c44f2852d9a594a7bca7febdeb91e9dc79446c098e21d9c9bca8a7578684039",
+    "reopened": {
+      "history_block_digest": "2a2ec0614c68a046adcd33a8ec74d12d1d03e32c0f346b0b79dd077203de6a60",
+      "prompt_chars": 7410,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 4,
+              "probe_input": 3
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 5,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 9,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "same_active_model_identity",
+          "record_id": "devrec-ccd62c925ff71eed431c3d25",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-b120736f50b7ee3a",
+          "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+          "source_score_digest": "sha256:e6a5ac8dab51e72a2df0398add54dd3096cc7254f406f05466d8495248b0c2fd",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "bb186a1ff1dc7d216cd92ca6d150720d40aa89fb1e19b20a93bcdd43ce1daca4"
+    }
+  },
+  "crossed_queries": {
+    "original_wording_new_inputs": {
+      "archived": {
+        "history_block_digest": "2a2ec0614c68a046adcd33a8ec74d12d1d03e32c0f346b0b79dd077203de6a60",
+        "prompt_chars": 7410,
+        "prompt_score_evidence": [
+          {
+            "examples": [
+              {
+                "abstained": false,
+                "evaluator_correct": false,
+                "observed_answer": 4,
+                "probe_input": 3
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": false,
+                "observed_answer": 5,
+                "probe_input": 4
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": false,
+                "observed_answer": 9,
+                "probe_input": 8
+              }
+            ],
+            "model_identity_relation": "same_active_model_identity",
+            "record_id": "devrec-ccd62c925ff71eed431c3d25",
+            "source_condition": "history_present",
+            "source_fact_id": "fact-b120736f50b7ee3a",
+            "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+            "source_score_digest": "sha256:e6a5ac8dab51e72a2df0398add54dd3096cc7254f406f05466d8495248b0c2fd",
+            "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+          }
+        ],
+        "prompt_sha256": "3cb044bb03b2da2a58fc0c25f3123637ba478d09cf37223176533998e3ab89ff"
+      },
+      "empty": {
+        "history_block_digest": null,
+        "prompt_chars": 3949,
+        "prompt_score_evidence": [],
+        "prompt_sha256": "beeea3cf93981ec0dbb2a46a390500a00086a59a763959ed32aaa50d1760dbff"
+      },
+      "question": "For the same number-prediction task we worked on before, what outputs would you predict for inputs 101, 257, 811? If you don't have enough information, say so."
+    },
+    "reworded_new_inputs": {
+      "archived": {
+        "history_block_digest": "7068f4ce86d0ac7558ab376eb5a213d886151918460a2e1c3a28329812037823",
+        "prompt_chars": 7383,
+        "prompt_score_evidence": [
+          {
+            "examples": [
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 5,
+                "probe_input": 2
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 13,
+                "probe_input": 6
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 15,
+                "probe_input": 7
+              }
+            ],
+            "model_identity_relation": "different_active_model_identity",
+            "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+            "source_condition": "history_present",
+            "source_fact_id": "fact-b6f5d165fcfe39a1",
+            "source_run_id": "devexp-run-3b83ab097055381a24c03a92",
+            "source_score_digest": "sha256:cc918527b43dc1fbf7371f16ee588ca78324e06f2467f790b5f3d0a0383fa6f4",
+            "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+          }
+        ],
+        "prompt_sha256": "e6c6512425b2e646057300822f61fbc47dc0d9f290c92224b9dba480e4cb809e"
+      },
+      "empty": {
+        "history_block_digest": null,
+        "prompt_chars": 3918,
+        "prompt_score_evidence": [],
+        "prompt_sha256": "c055ccc957991d75d57e54df1dd6dae58d827c1b13f4cb5e234d2acef9e00549"
+      },
+      "question": "We tried an arithmetic exercise earlier. Given inputs 101, 257, 811, what outputs follow? Say when the evidence is insufficient."
+    },
+    "reworded_original_inputs": {
+      "archived": {
+        "history_block_digest": "7068f4ce86d0ac7558ab376eb5a213d886151918460a2e1c3a28329812037823",
+        "prompt_chars": 7383,
+        "prompt_score_evidence": [
+          {
+            "examples": [
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 5,
+                "probe_input": 2
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 13,
+                "probe_input": 6
+              },
+              {
+                "abstained": false,
+                "evaluator_correct": true,
+                "observed_answer": 15,
+                "probe_input": 7
+              }
+            ],
+            "model_identity_relation": "different_active_model_identity",
+            "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+            "source_condition": "history_present",
+            "source_fact_id": "fact-b6f5d165fcfe39a1",
+            "source_run_id": "devexp-run-3b83ab097055381a24c03a92",
+            "source_score_digest": "sha256:cc918527b43dc1fbf7371f16ee588ca78324e06f2467f790b5f3d0a0383fa6f4",
+            "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+          }
+        ],
+        "prompt_sha256": "694cfc3bae827252f5a461d2daf29b8c2e19aceaab2325de21612b2f9d461e75"
+      },
+      "empty": {
+        "history_block_digest": null,
+        "prompt_chars": 3918,
+        "prompt_score_evidence": [],
+        "prompt_sha256": "7e753332b3e0e57180022946b833f80051b3d3dd82dcb3b45041740a8de0918d"
+      },
+      "question": "We tried an arithmetic exercise earlier. Given inputs 367, 619, 883, what outputs follow? Say when the evidence is insufficient."
+    }
+  },
+  "cycle_id": "rootless-cognition-cycle-20261124000000000009",
+  "empty_store": {
+    "binder_selected_record_ids": [],
+    "candidate_prompt_chars": 3123,
+    "delivered_prompt_chars": 3123,
+    "delivered_prompt_sha256": "6dc966f21586e6f0c368e32df18e97d3b7682ecafd48b2cb2425d8953bcc9439",
+    "history_block_digest": null,
+    "history_budget_chars": 4365,
+    "inventory_count": 0,
+    "inventory_digest": "sha256:ef52ef22526b036a1bb85958f801c5be0831b174175e951f2eaddfb412e024a6",
+    "prompt_record_ids": [],
+    "prompt_task_experience_count": 0,
+    "ranked_record_ids": [],
+    "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+    "retrieval_posture": "no_records_retrieved"
+  },
+  "exact_record_projection_control": {
+    "examples": [
+      {
+        "abstained": false,
+        "evaluator_correct": false,
+        "observed_answer": 503,
+        "probe_input": 23
+      },
+      {
+        "abstained": true,
+        "evaluator_correct": null,
+        "observed_answer": null,
+        "probe_input": 394
+      },
+      {
+        "abstained": true,
+        "evaluator_correct": null,
+        "observed_answer": null,
+        "probe_input": 499
+      }
+    ],
+    "record_digest": "sha256:e0fd5583befc8730aca572d8d106b76a9ade8aec853f12ea27b26674a7cdf4c7",
+    "record_id": "devrec-e0fd5583befc8730aca572d8",
+    "source_score_digest": "sha256:60d2b971e9d1932d6430922653da74bc2bcfe224e1b6789a27ebe38932f17f65"
+  },
+  "identical_delivered_prompts": false,
+  "model_invoked": false,
+  "numeric_distractor": {
+    "archived": {
+      "history_block_digest": null,
+      "prompt_chars": 3866,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "31b91d6c9f3aeacb053df9938819a470c9da0b06dfaede2508c405d063ef1403"
+    },
+    "question": "Can you predict the number of dropped frames in a game from its title alone?"
+  },
+  "pilot_file_sha256": "961995209ec8048c3aa1c9934d20d2798537741ab48285f0f7b870198bf63e97",
+  "prior_pilot_inputs": [
+    410,
+    545,
+    577
+  ],
+  "probe_input_overlap": [],
+  "probe_inputs": [
+    367,
+    619,
+    883
+  ],
+  "question": "For the same number-prediction task we worked on before, what outputs would you predict for inputs 367, 619, 883? If you don't have enough information, say so.",
+  "schema_version": "sentientos.ordinary_chat_retention_preflight:v2",
+  "second_probe_inputs": [
+    101,
+    257,
+    811
+  ],
+  "source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "source_records_with_projected_rows": {
+    "devrec-01e35780a28a539aee7c5fb6": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+    "devrec-095db5c28b1520756285120a": "sha256:095db5c28b1520756285120a2316a7c58d335f265f728e5348606466e9148e04",
+    "devrec-21df63d50d306c0e607fb07f": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+    "devrec-34f8af2cc29849b13365de40": "sha256:34f8af2cc29849b13365de40b1061fa90b06a75fb898e3af6f4326ee5bf0ec32",
+    "devrec-4fd52036e8b17c28ac02994c": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+    "devrec-6e3f64dbeb9ae7ae911631c3": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+    "devrec-956964ba0b0ce781f8a6b2ad": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+    "devrec-97839cfc90a8bd497154936a": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+    "devrec-a01a0e1ea877194d4d2fcb4d": "sha256:a01a0e1ea877194d4d2fcb4d15acdb44d89f6d585139d1cd6ab5bb1c091d88c2",
+    "devrec-a081ef3104dba90c9e19b723": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+    "devrec-a2447a4bc199ed7f439a37e3": "sha256:a2447a4bc199ed7f439a37e30eee1bb295007aaf81e4317bb53f02e5e348d9d8",
+    "devrec-ccd62c925ff71eed431c3d25": "sha256:ccd62c925ff71eed431c3d256de079ddaefce1bcd921559a60be3e5a4fc7d7f7",
+    "devrec-d476d487664a5dc051c71d75": "sha256:d476d487664a5dc051c71d752d095954979f28a1244612e0dc24e8545b9b2e4c",
+    "devrec-d5d23dd21785372394baa2a9": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+    "devrec-dec0f183ac5255063b0c87d8": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+    "devrec-e0fd5583befc8730aca572d8": "sha256:e0fd5583befc8730aca572d8d106b76a9ade8aec853f12ea27b26674a7cdf4c7"
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "acquisition": {
+    "abstained_counts": [
+      1,
+      0,
+      1
+    ],
+    "answered_counts": [
+      2,
+      3,
+      2
+    ],
+    "contamination_assessment": {
+      "authority": false,
+      "current_projection_digest": "sha256:ebe89f2795c2ffeef553b98a579fa19c67d310e901dbcaebb10e30bd42d66a11",
+      "current_projection_id": "current-world-state-ebe89f2795c2ffeef553b98a",
+      "current_projection_shared_across_conditions": true,
+      "history_examples_absent_from_current_context": null,
+      "objective_task_digest": "sha256:d023a589bfb80687e0e8ddb656d11a5a857f4a3b58053409917c1771e419840e",
+      "oracle_answer_absent_from_current_context": null,
+      "reason_code": "task_specific_history_and_current_context_leakage_unverified",
+      "schema_version": "sentientos.objective_task_contamination_assessment:v1",
+      "status": "not_assessed"
+    },
+    "correct_counts": [
+      2,
+      2,
+      2
+    ],
+    "history_correct_probe_delta": 0,
+    "history_record_id_created": null,
+    "learning_established": false,
+    "performance_improvement_established": false,
+    "readiness_classification": "acquisition_output_not_eligible_for_task_family_history",
+    "restoration_correct_probe_delta": 0,
+    "score_status": "selective",
+    "selected_record_ids_by_condition": {
+      "history_present": [
+        "devrec-a984a1d7555045e7d051d3d5",
+        "devrec-e0fd5583befc8730aca572d8",
+        "devrec-095db5c28b1520756285120a",
+        "devrec-a2447a4bc199ed7f439a37e3"
+      ],
+      "history_restored": [
+        "devrec-a984a1d7555045e7d051d3d5",
+        "devrec-e0fd5583befc8730aca572d8",
+        "devrec-095db5c28b1520756285120a",
+        "devrec-a2447a4bc199ed7f439a37e3"
+      ],
+      "history_withheld": []
+    }
+  },
+  "authority": false,
+  "backend_seed": 1913972659,
+  "campaign_id": "rootless-history-campaign-7950cd081ae344fd89c2",
+  "campaign_plan_digest": "ed3ae819afd9bdd09acf614ab7842110b20d45c42371a9f04455246e6b786c78",
+  "companion_intervention": {
+    "all_decisions_validated": false,
+    "classification": "history_presence_associated_stable_difference",
+    "learning_claim_made": false,
+    "present_restored_response_matches": true,
+    "validity": "valid_controlled_observation",
+    "withheld_error_codes": [
+      "companion_interaction_history_id_not_allowed"
+    ],
+    "withheld_output_qualified": false,
+    "withheld_raw_history_citation_count": 1,
+    "withheld_raw_history_citations_condition_compatible": false,
+    "withheld_raw_response_matches_present": true,
+    "withheld_raw_response_matches_restored": true
+  },
+  "cycle_id": "rootless-cognition-cycle-8ce186644bf74366a1f0",
+  "cycle_index": 0,
+  "developmental_outcome_assessment": {
+    "cycle_scope": "rootless_synthetic_rehearsal",
+    "developmental_cycle_executed": true,
+    "history_associated_decision_difference_observed": false,
+    "history_change_classification": "invalid_condition_response_rejected",
+    "history_change_measurement": {
+      "classification": "invalid_condition_response_rejected",
+      "decision_difference": "not_established",
+      "history_associated_decision_difference_observed": false,
+      "history_changed_cognition": false,
+      "invalid_condition_ids": [
+        "history_withheld"
+      ],
+      "measurement_scope": "structured_historical_recall_decision_and_citation",
+      "performance_improvement_established": false,
+      "restored_decision_matches_present": false,
+      "schema_version": "sentientos.semantic_history_decision_qualification:v1"
+    },
+    "history_changed_cognition": false,
+    "history_changed_new_action_decision": false,
+    "new_action_decision_classification": "history_evidence_precondition_not_met",
+    "performance_improvement_established": false,
+    "real_action_consequence_demonstrated": false,
+    "real_operator_observation_demonstrated": false,
+    "schema_version": "sentientos.developmental_outcome_assessment:v1"
+  },
+  "initial_history_boundary_digest": "a79308444da08ee4ec545c5e9f2210f3fe5bddd494de1db830b9b44d48c011af",
+  "integrity": {
+    "authority": false,
+    "experiment_run_digest": "sha256:d33abb8f2a08f4c88ff0305fd3dc510d40fbc32007487ca82818e72361fc001b",
+    "governed_unload": "governed_release_completed",
+    "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "physical_observation_established": false,
+    "result_sha256": "891d0aa8f4495a3feaa9f259fc9fff42287f6544357a75b1e20d97feef525384",
+    "source_provenance_fingerprint_complete": true,
+    "source_provenance_stable_for_run": true,
+    "status": "completed"
+  },
+  "learning_established": false,
+  "owner_preflight_binder_selected_record_ids": [
+    "devrec-a2447a4bc199ed7f439a37e3"
+  ],
+  "owner_preflight_digest": "sha256:0fdefdd01c500b8684130eb57a6c3cfb3d304791df9158e35f6a534fb7f55bab",
+  "owner_preflight_implementation_digest": "dcd167e9eaeb7092165fc16c982eba0e94896cdf9d94b9b4f418a8532e18a9ca",
+  "owner_preflight_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-a081ef3104dba90c9e19b723",
+    "devrec-a2447a4bc199ed7f439a37e3"
+  ],
+  "performance_improvement_established": false,
+  "preaction_decision": {
+    "action_executed": false,
+    "authority": false,
+    "developmental_history_posture": "explicitly_withheld_for_synthetic_preaction_decision",
+    "retrieved_record_ids": []
+  },
+  "prior_history_seed": {
+    "model_attention_verified": false,
+    "record_count": 28,
+    "source_boundary_digest": "d21d4bb7e45788ef3747e82d025ae64b4d690c3ecd97894c90792df5ac6cdb3b"
+  },
+  "schema_version": "sentientos.hermes_cycle_outcome_summary:v1",
+  "summary_digest": "sha256:4709f4081d352eed224057ce50e34ffe7cad5d7fadf068b9e4a6dce78ecdd041",
+  "task_generation_seed": 2779904479,
+  "transfer": {
+    "acquisition_readiness_classification": "acquisition_output_not_eligible_for_task_family_history",
+    "history_correct_probe_delta": null,
+    "performance_improvement_established": false,
+    "status": "skipped_acquisition_outputs_unusable"
+  }
+}

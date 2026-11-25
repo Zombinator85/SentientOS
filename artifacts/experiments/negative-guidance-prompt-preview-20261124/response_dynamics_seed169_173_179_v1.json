@@ -1,0 +1,168 @@
+{
+  "aggregate_changed_answer_or_abstention_count": 8,
+  "aggregate_relation_counts": {
+    "both_abstained": 0,
+    "different_answers": 6,
+    "omitted_only_answered": 0,
+    "present_only_answered": 2,
+    "same_answer": 1
+  },
+  "analysis_posture": "exploratory_posthoc_secondary_outcome",
+  "answer_values_excluded": true,
+  "authority": false,
+  "causal_effect_established": false,
+  "learning_established": false,
+  "pairs": [
+    {
+      "analysis_posture": "exploratory_posthoc_response_change_summary",
+      "answer_values_excluded": true,
+      "arm_receipt_bindings": {
+        "negative_guidance_omitted": {
+          "prompt_digest": "sha256:63d20f2aa389829bdf7e448c72b37da0f5eec52e975971a8df7f0d7bfa1c4616",
+          "receipt_digest": "534d1b7a4386b0ed429da44fd1348297f34b93863f0e271798ee20c27bf51417",
+          "receipt_id": "lmrec-534d1b7a4386b0ed429da44f",
+          "request_digest": "ebe940195558b933ff03acde4b51e044fa5620f5a03016d42eaacd2011c5fa9b"
+        },
+        "negative_guidance_present": {
+          "prompt_digest": "sha256:517254cbdfd17d00567b37172f96acca74516c915f3266ddb7b4e7965948d574",
+          "receipt_digest": "ba0c07cef169497421165eaa803ec14d11688b4b247f44d9d2b7542381a6c37c",
+          "receipt_id": "lmrec-ba0c07cef169497421165eaa",
+          "request_digest": "49a57f3af7fa9c0e27ee5d5ff713e5de8ac614a9ea8f0c7660fc44b03e0f25a1"
+        }
+      },
+      "authority": false,
+      "causal_effect_established": false,
+      "changed_answer_or_abstention_count": 2,
+      "learning_established": false,
+      "per_probe_relations": [
+        {
+          "probe_binding_digest": "sha256:51c652a783aba3f889ea2474470db87c60a984960c1bce02375e1609651be108",
+          "response_relation": "same_answer"
+        },
+        {
+          "probe_binding_digest": "sha256:dcabfe1ebf24741de32075952523ea161065c8200819e4a8e382138bae09bc3e",
+          "response_relation": "present_only_answered"
+        },
+        {
+          "probe_binding_digest": "sha256:179f10fbd382f5eaf974387e67ed56ae618a055ec2bcb2ebab437cf9faa44d7a",
+          "response_relation": "present_only_answered"
+        }
+      ],
+      "primary_correctness_score_replaced": false,
+      "probe_count": 3,
+      "protocol_digest": "sha256:3a8627a43ad25a6fe4dbe2299cdf4215c93d5bf36f6bd81cb3920abcd0d7c837",
+      "raw_prompts_and_model_outputs_excluded": true,
+      "response_relation_counts": {
+        "both_abstained": 0,
+        "different_answers": 0,
+        "omitted_only_answered": 0,
+        "present_only_answered": 2,
+        "same_answer": 1
+      },
+      "schema_version": "sentientos.negative_guidance_response_dynamics:v1",
+      "task_digest": "sha256:5a044b64224f2328b0d51c0334de5652475ad67581462532e511b3f14118b8e7",
+      "task_generation_seed": 169
+    },
+    {
+      "analysis_posture": "exploratory_posthoc_response_change_summary",
+      "answer_values_excluded": true,
+      "arm_receipt_bindings": {
+        "negative_guidance_omitted": {
+          "prompt_digest": "sha256:4d463c72ad8cd2f09727ed008e04b1a9f070d0a72cdfc6f349726fe90598b084",
+          "receipt_digest": "cfe525b1c8001a24ba6f36dd9c79d4652daa38459e239b5dd4a645c289da5f28",
+          "receipt_id": "lmrec-cfe525b1c8001a24ba6f36dd",
+          "request_digest": "84144fd7f65df6da4448ba8844ccfc9747f7abcaa70cb4bb7190578b8700a687"
+        },
+        "negative_guidance_present": {
+          "prompt_digest": "sha256:2670bd4b55021d56becdb7a520ce20ff0412b7f2a4ad42182c1ad339321f588c",
+          "receipt_digest": "060c920f4756fb4e2e9004b77d552cdb8c67976c6ebb610d45adb9d7e537415a",
+          "receipt_id": "lmrec-060c920f4756fb4e2e9004b7",
+          "request_digest": "95e40575d31eb10dbd134331f12d61b2dbc7a2937a7a84c9c15578bceceffd6e"
+        }
+      },
+      "authority": false,
+      "causal_effect_established": false,
+      "changed_answer_or_abstention_count": 3,
+      "learning_established": false,
+      "per_probe_relations": [
+        {
+          "probe_binding_digest": "sha256:7db06cba3ed19f396ca89f268a6e8d03b99ba9ca7c42ab49888a932c844a6b29",
+          "response_relation": "different_answers"
+        },
+        {
+          "probe_binding_digest": "sha256:b81cf85e0fb9a57ff710026e9ac4d8848b9c684aba082b64679db89284126fe0",
+          "response_relation": "different_answers"
+        },
+        {
+          "probe_binding_digest": "sha256:ee1ba4184abfb85c0e9f2fb943bfaa323660ff7b8bbc8e58dd75b5b604f26e56",
+          "response_relation": "different_answers"
+        }
+      ],
+      "primary_correctness_score_replaced": false,
+      "probe_count": 3,
+      "protocol_digest": "sha256:75f1426a03015f3d8402cbe406cad7e948f3951653fd8d3aa48a5128c8068376",
+      "raw_prompts_and_model_outputs_excluded": true,
+      "response_relation_counts": {
+        "both_abstained": 0,
+        "different_answers": 3,
+        "omitted_only_answered": 0,
+        "present_only_answered": 0,
+        "same_answer": 0
+      },
+      "schema_version": "sentientos.negative_guidance_response_dynamics:v1",
+      "task_digest": "sha256:873307e24c3208982cecab6309bae11a32d520ec147147b111b8fbe9db8f3701",
+      "task_generation_seed": 173
+    },
+    {
+      "analysis_posture": "exploratory_posthoc_response_change_summary",
+      "answer_values_excluded": true,
+      "arm_receipt_bindings": {
+        "negative_guidance_omitted": {
+          "prompt_digest": "sha256:3493fdac2c8ef526ea77d8f039e2e790104accd46f77c9ba26cc8cc4b9eef508",
+          "receipt_digest": "d57e7e862e99e06b1cb91a5e5aa243c65f9fe90d5c354529f16b3d03c151d1a6",
+          "receipt_id": "lmrec-d57e7e862e99e06b1cb91a5e",
+          "request_digest": "595b2cd99259699ca04898e632a549d135860c4d4db922360b00dfac2bc6f577"
+        },
+        "negative_guidance_present": {
+          "prompt_digest": "sha256:4751aeb202d997a83830652dfd64a73dbd0d9a412231303ed8f143fda9664ea8",
+          "receipt_digest": "7681ba98dcf7d1ed34b1d7eafa6d370402bd023be09d8b45cadd547fe1766c78",
+          "receipt_id": "lmrec-7681ba98dcf7d1ed34b1d7ea",
+          "request_digest": "1543d66051f5acc020a5b8c8f0f494e018f04059211bf55b9da196b90eeb41fa"
+        }
+      },
+      "authority": false,
+      "causal_effect_established": false,
+      "changed_answer_or_abstention_count": 3,
+      "learning_established": false,
+      "per_probe_relations": [
+        {
+          "probe_binding_digest": "sha256:c747a12a095baee0524b7faafbe4096c0820d7a31c76b4868540eb2416a85dd4",
+          "response_relation": "different_answers"
+        },
+        {
+          "probe_binding_digest": "sha256:0d11d15a150ae21d8d0cf45611f1b79008f77495cc4a2ccfa826942eb8bb7c1c",
+          "response_relation": "different_answers"
+        },
+        {
+          "probe_binding_digest": "sha256:09b30a939905014c86a59bcf9041974a3a5899424b2cdc415fe16dbe01d9ca1b",
+          "response_relation": "different_answers"
+        }
+      ],
+      "primary_correctness_score_replaced": false,
+      "probe_count": 3,
+      "protocol_digest": "sha256:0c469a2ae77ccd46b2219cee19301a5606884dcbb8d26e99d317b56a5754bc3b",
+      "raw_prompts_and_model_outputs_excluded": true,
+      "response_relation_counts": {
+        "both_abstained": 0,
+        "different_answers": 3,
+        "omitted_only_answered": 0,
+        "present_only_answered": 0,
+        "same_answer": 0
+      },
+      "schema_version": "sentientos.negative_guidance_response_dynamics:v1",
+      "task_digest": "sha256:f2756273c94ea06f69552c4ecb0502938074c9b71721c91e434831c3915072c5",
+      "task_generation_seed": 179
+    }
+  ],
+  "schema_version": "sentientos.negative_guidance_response_dynamics_series:v1"
+}

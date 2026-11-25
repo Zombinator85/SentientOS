@@ -1,0 +1,39 @@
+{
+  "schema_version": "sentientos.rootless_history_campaign_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-e0a9fbeef91e4c04b76c",
+  "plan_digest": "77455dc114a29076a4de809fb5a0024c49c6d1f58192fa1ca5e9a1b3e1257add",
+  "preflight_report_digest": "sha256:f7279f2c4e0c596d9fb37a2c81039db053551228447e424bc5465fc0d87a46b5",
+  "cycle_id": "rootless-cognition-cycle-6935e540f9044594a48a",
+  "task_generation_seed": 799940803,
+  "backend_seed": 1342492784,
+  "status": "incomplete",
+  "failure_stage": "synthetic_pre_action_cognition",
+  "failure_code": "pre_action_cognition_proposal_unverified",
+  "owner_rejection_code": "companion_interaction_decision_invalid",
+  "model_inference_performed": true,
+  "inference_receipt_count": 1,
+  "completion_tokens": 49,
+  "raw_model_output_retained": false,
+  "source_provenance_fingerprint_complete": true,
+  "source_provenance_stable_for_run": true,
+  "learning_established": false,
+  "performance_improvement_established": false,
+  "authority_granted": false,
+  "governed_unload": "target_model_not_resident",
+  "gpu_after": {
+    "memory_used_mib": 1118,
+    "memory_total_mib": 12288,
+    "utilization_percent": 0
+  },
+  "cycle_failure_artifact": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-6935e540f9044594a48a/cycle-failure.json",
+  "cycle_failure_sha256": "39c44690a07dc828ef0711929d0a8a1d844fdf9fe19797a6f6e52ae912e5756e",
+  "failed_predecessor": {
+    "model_inference_performed": false,
+    "failure_code": "source_provenance_incomplete_or_changed_before_inference",
+    "cause": "WSL Git could not resolve the Windows worktree gitdir pointer; the retry used the configured Git provenance bridge and a fresh cycle ID.",
+    "stage": "model_and_runtime_preflight",
+    "cycle_id": "rootless-cognition-cycle-363cb575ef4e472d9b47"
+  },
+  "inference_performed": true,
+  "authority": false
+}

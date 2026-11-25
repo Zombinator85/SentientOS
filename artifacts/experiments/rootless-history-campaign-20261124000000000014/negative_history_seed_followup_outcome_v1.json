@@ -1,0 +1,80 @@
+{
+  "acquisition_prompt": {
+    "historical_probe_overlap_input_count": 1,
+    "negative_example_count": 3,
+    "negative_example_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ],
+    "no_imitation_instruction_present": true,
+    "probe_inputs": [
+      4,
+      5,
+      6
+    ],
+    "prompt_chars": 23704,
+    "prompt_within_bound": true
+  },
+  "campaign_id": "rootless-history-campaign-20261124000000000014",
+  "inference_performed": false,
+  "interpretation": "This exploratory seed was selected because CPU preflight binds the score-bound failure record in both acquisition and transfer prompts. The no-imitation instruction remains present. One acquisition input overlaps a historical negative example, while all transfer probes are disjoint. No inference or learning claim is supported.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "performance_improvement_established": false,
+  "plan_digest": "fd23944535496a3b5a9d7bb3efa5e5ab4691f1b972d8e0b87bd4f0174f67b4e1",
+  "plan_sha256": "b267dc72953288d115a7df1c015393c507d88939d43d495849bba12c02762749",
+  "plan_verification": {
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "status": "verified"
+  },
+  "preflight_digest": "sha256:3f7c4f2f3a503064eae201e8efea471912f8bde467f39bc84864aac52a1bebd9",
+  "preflight_path": "owner_preflight_cycle0_v1.json",
+  "preflight_sha256": "eb64220740254a395a6b33bb47941bd77e778bf619f86befa12a57b964165d55",
+  "preflight_verification": {
+    "authority": false,
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "model_identity_verified": true,
+    "report_schema": "sentientos.rootless_planned_cycle_owner_preflight:v20",
+    "source_preflight_reconstructed": true,
+    "status": "verified"
+  },
+  "schema_version": "sentientos.negative_history_seed_followup_outcome:v1",
+  "seed_selection": {
+    "acquisition_negative_record_bound_count": 39,
+    "screened_seed_count": 64,
+    "screened_zero_overlap_candidate_count": 0,
+    "selected_record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "selected_seed_acquisition_overlap_count_with_record": 1,
+    "selection_basis": "posthoc 64-seed CPU screen from campaign 13; exploratory follow-up, not independently attested preregistration",
+    "task_generation_seed": 799941103
+  },
+  "sequential_chain": {
+    "cycle0_initial_boundary_verified": true,
+    "cycle1_preflight_pending_until_cycle31_completes": true
+  },
+  "source_failure_record": {
+    "correct": 0,
+    "incorrect": 3,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "score_bound": true,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "transfer_prompt": {
+    "heldout_transfer_probe_set_disjoint": true,
+    "historical_probe_overlap_input_count": 0,
+    "negative_example_count": 3,
+    "negative_example_record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ],
+    "no_imitation_instruction_present": true,
+    "probe_inputs": [
+      322,
+      404,
+      591
+    ],
+    "prompt_chars": 23704,
+    "prompt_within_bound": true
+  }
+}

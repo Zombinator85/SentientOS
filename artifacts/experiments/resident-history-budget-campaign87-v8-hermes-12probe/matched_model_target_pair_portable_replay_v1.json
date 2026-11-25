@@ -1,0 +1,76 @@
+{
+  "bindings": {
+    "different_model_owner_report_digest": "sha256:43cac17920a2022449e20688ba9d8c5d37abab77cd960b2bfe82b7edd61cf06b",
+    "different_model_plan_digest": "8dc65a5748f4e33ea51edb6a85c0d8361508071304c1e11110a1a4e3897f4330",
+    "history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "history_file_count": 86,
+    "history_total_size_bytes": 1150574,
+    "model_manifest_sha256": {
+      "different_model_artifact_target": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "same_model_artifact_target": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989"
+    },
+    "pair_artifact_path": "artifacts/experiments/resident-history-budget-campaign87-v8-hermes-12probe/matched_model_target_pair_v2.json",
+    "pair_artifact_sha256": "a85ba8c96f54e1e03ee7e013799cd9620700f198c9ae2417de732ecc06c3a32e",
+    "pinned_source_file_count": 2521,
+    "restored_source_files": [
+      {
+        "path": "sentientos/durable_developmental_learning_experiment.py",
+        "sha256": "c049180a7c53490c171be577e04b0c3e3544fe48d4049dde60338afd7070e123",
+        "source_snapshot": "source-snapshots/rootless-history-fix-source-v6"
+      },
+      {
+        "path": "sentientos/windows_peer_replay_custody.py",
+        "sha256": "a0c10d62aeb4e5ec77eec903ffcb13d9b9ee2c5d6a55b5c56a4bf6d5d8793b1f",
+        "source_snapshot": "source-snapshots/rootless-history-fix-source-v6"
+      }
+    ],
+    "runtime": "WSL Ubuntu-24.04; original cognition-cycle virtual environment; jsonschema 4.10.3",
+    "same_model_owner_report_digest": "sha256:07f9547532dbe3883715c3b82362a181ceaf4b3b18d7ef781fcb2a9e635e1860",
+    "same_model_plan_digest": "1a83e3c6a397b2c648d68174a6f67a2f2a2e2de1fe2315a5701f4b830dbf2c92",
+    "source_overlay_persisted": false
+  },
+  "schema_version": "sentientos.rootless_matched_model_target_pair_portable_replay:v1",
+  "scope": {
+    "authority": false,
+    "improvement_established": false,
+    "inference_performed": false,
+    "learning_established": false,
+    "limitations": [
+      "The frozen source overlay was temporary and is not archived as a complete source bundle.",
+      "This verifies paired preflight construction and bindings only; it does not verify model behavior or learning."
+    ],
+    "model_loaded": false,
+    "owner_preflights_reconstructed": true,
+    "preregistration_timing_independently_attested": false,
+    "transfer_established": false
+  },
+  "verification_digest": "sha256:457e04f89150a91df4cf47761fd7ad6191565b2fcaf69d93488d4ee224238012",
+  "verification_result": {
+    "authority": false,
+    "different_model_artifact_campaign": "rootless-history-campaign-00000000000000000088",
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "matched_cycle0_transfer_probes": [
+      34363,
+      83182,
+      112813,
+      164307,
+      168828,
+      172042,
+      292635,
+      305840,
+      379324,
+      462065,
+      533200,
+      889093
+    ],
+    "pair_digest": "sha256:4c17891497dbb536a5445754425b9cf2f6752fdd7caf92f087bffeddb853e386",
+    "same_implementation_source_count": 2521,
+    "same_model_artifact_campaign": "rootless-history-campaign-00000000000000000087",
+    "shared_history_boundary_digest": "b07e5b0563223aef824b2bb4eae70569c7c379564aa25eed1a20f9994bce176e",
+    "status": "verified"
+  },
+  "verified_at_utc": "2026-11-25T02:30:52.932441+00:00"
+}

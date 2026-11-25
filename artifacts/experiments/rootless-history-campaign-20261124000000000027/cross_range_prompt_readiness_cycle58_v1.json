@@ -1,0 +1,1969 @@
+{
+  "accumulated_strategy_distinct_input_count": null,
+  "accumulated_strategy_model_identity_audit": {
+    "all_source_artifacts_differ_from_target": null,
+    "all_sources_bound_to_different_active_identity": null,
+    "artifact_relation_counts": [],
+    "omitted_source_count": null,
+    "present": false,
+    "relation_counts": [],
+    "schema_version": "sentientos.rootless_planned_cycle_model_identity_audit:v1",
+    "source_count": null,
+    "source_relations_digest": null,
+    "target_active_model_identity_digest": "sha256:1c3e5b9845e6848cfa9975f9b7938eb6c34d77a26d6ac6cad5cd112c00d3ebb8",
+    "target_model_artifact_identity": "sha256:ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "visible_source_count": 0
+  },
+  "accumulated_strategy_present": false,
+  "accumulated_strategy_run_count": null,
+  "accumulated_strategy_schema_version": null,
+  "accumulated_strategy_source_family_audit": {
+    "history_task_family_ids": null,
+    "present": false,
+    "relation_matches_task": null,
+    "source_count": null,
+    "source_family_counts": [],
+    "source_refs_digest": null
+  },
+  "acquisition_probe_inputs": [
+    5,
+    6,
+    8
+  ],
+  "alternate_seed_sensitivity": [
+    {
+      "accumulated_strategy_core_digest": null,
+      "accumulated_strategy_digest": null,
+      "accumulated_strategy_distinct_input_count": null,
+      "accumulated_strategy_model_identity_audit": {
+        "all_source_artifacts_differ_from_target": null,
+        "all_sources_bound_to_different_active_identity": null,
+        "artifact_relation_counts": [],
+        "omitted_source_count": null,
+        "present": false,
+        "relation_counts": [],
+        "schema_version": "sentientos.rootless_planned_cycle_model_identity_audit:v1",
+        "source_count": null,
+        "source_relations_digest": null,
+        "target_active_model_identity_digest": "sha256:1c3e5b9845e6848cfa9975f9b7938eb6c34d77a26d6ac6cad5cd112c00d3ebb8",
+        "target_model_artifact_identity": "sha256:ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+        "visible_source_count": 0
+      },
+      "accumulated_strategy_present": false,
+      "accumulated_strategy_relation": null,
+      "accumulated_strategy_run_count": null,
+      "accumulated_strategy_source_family_audit": {
+        "history_task_family_ids": null,
+        "present": false,
+        "relation_matches_task": null,
+        "source_count": null,
+        "source_family_counts": [],
+        "source_refs_digest": null
+      },
+      "acquisition_binder_selected_record_ids": [
+        "devrec-2033fab64ae54284298c3ce7"
+      ],
+      "acquisition_binder_selected_record_overlaps": [
+        {
+          "available_probe_inputs": [
+            2,
+            7,
+            8
+          ],
+          "current_probe_overlap_count": 2,
+          "current_probe_overlap_inputs": [
+            7,
+            8
+          ],
+          "projected_experience_count": 1,
+          "record_id": "devrec-2033fab64ae54284298c3ce7"
+        }
+      ],
+      "acquisition_no_exact_history_probe_overlap": false,
+      "acquisition_owner_selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f",
+        "devrec-095db5c28b1520756285120a",
+        "devrec-ccd62c925ff71eed431c3d25",
+        "devrec-2033fab64ae54284298c3ce7"
+      ],
+      "acquisition_owner_selected_record_overlaps": [
+        {
+          "available_probe_inputs": [
+            5,
+            7,
+            9
+          ],
+          "current_probe_overlap_count": 1,
+          "current_probe_overlap_inputs": [
+            7
+          ],
+          "projected_experience_count": 1,
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f"
+        },
+        {
+          "available_probe_inputs": [
+            7,
+            8,
+            9
+          ],
+          "current_probe_overlap_count": 2,
+          "current_probe_overlap_inputs": [
+            7,
+            8
+          ],
+          "projected_experience_count": 1,
+          "record_id": "devrec-095db5c28b1520756285120a"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            8
+          ],
+          "current_probe_overlap_count": 2,
+          "current_probe_overlap_inputs": [
+            4,
+            8
+          ],
+          "projected_experience_count": 1,
+          "record_id": "devrec-ccd62c925ff71eed431c3d25"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            7,
+            8
+          ],
+          "current_probe_overlap_count": 2,
+          "current_probe_overlap_inputs": [
+            7,
+            8
+          ],
+          "projected_experience_count": 1,
+          "record_id": "devrec-2033fab64ae54284298c3ce7"
+        }
+      ],
+      "acquisition_probe_inputs": [
+        4,
+        7,
+        8
+      ],
+      "acquisition_prompt_projection_overlap_input_count": 2,
+      "acquisition_prompt_projection_overlap_measurement_complete": true,
+      "acquisition_prompt_within_bound": true,
+      "binder_selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "binder_selection_matches_top_owner_ranked_records": true,
+      "owner_ranking_trace": [
+        {
+          "checkpoint_order": 39,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 0,
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 38,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 1,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 1,
+          "record_id": "devrec-2033fab64ae54284298c3ce7",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 37,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 2,
+          "record_id": "devrec-638ad203da1410b5cf1a49b8",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 36,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 3,
+          "record_id": "devrec-f951666025924dd5e2b3be23",
+          "selected_within_owner_limit": true,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 35,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 4,
+          "record_id": "devrec-ef1504a751cb64f1326d0beb",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 34,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 5,
+          "record_id": "devrec-b061076a6225145e5bd9970a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 33,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 6,
+          "record_id": "devrec-988f47d7db0d396112407df3",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 32,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 7,
+          "record_id": "devrec-349ee1c7f30b94043e763ae3",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 31,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 8,
+          "record_id": "devrec-35daa61bd7ae08a81416b0d6",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 30,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 9,
+          "record_id": "devrec-8e71800e6cfed38978f64a31",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 29,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 10,
+          "record_id": "devrec-ccd62c925ff71eed431c3d25",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 27,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 11,
+          "record_id": "devrec-e0fd5583befc8730aca572d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 26,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 12,
+          "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 24,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 13,
+          "record_id": "devrec-095db5c28b1520756285120a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 22,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 14,
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 20,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 15,
+          "record_id": "devrec-01e35780a28a539aee7c5fb6",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 19,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 16,
+          "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 17,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 0,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 17,
+          "record_id": "devrec-d476d487664a5dc051c71d75",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 16,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 18,
+          "record_id": "devrec-21df63d50d306c0e607fb07f",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 14,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 19,
+          "record_id": "devrec-4fd52036e8b17c28ac02994c",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 13,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 20,
+          "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 10,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 21,
+          "record_id": "devrec-d5d23dd21785372394baa2a9",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 8,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 22,
+          "record_id": "devrec-97839cfc90a8bd497154936a",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 7,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 23,
+          "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 2,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 2,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 24,
+          "record_id": "devrec-34f8af2cc29849b13365de40",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        },
+        {
+          "checkpoint_order": 1,
+          "current_probe_overlap_count": 0,
+          "evaluator_correct_distinct_input_count": 3,
+          "evaluator_scored_distinct_input_count": 3,
+          "outcome_priority": 1,
+          "rank_position": 25,
+          "record_id": "devrec-dec0f183ac5255063b0c87d8",
+          "selected_within_owner_limit": false,
+          "target_model_identity_match": 0,
+          "usable_distinct_input_count": 3
+        }
+      ],
+      "owner_selected_record_ids": [
+        "devrec-f951666025924dd5e2b3be23",
+        "devrec-638ad203da1410b5cf1a49b8",
+        "devrec-2033fab64ae54284298c3ce7",
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "owner_selected_record_probe_overlap": [
+        {
+          "available_probe_inputs": [
+            2,
+            6,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-f951666025924dd5e2b3be23"
+        },
+        {
+          "available_probe_inputs": [
+            3,
+            4,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-638ad203da1410b5cf1a49b8"
+        },
+        {
+          "available_probe_inputs": [
+            2,
+            7,
+            8
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-2033fab64ae54284298c3ce7"
+        },
+        {
+          "available_probe_inputs": [
+            5,
+            7,
+            9
+          ],
+          "current_probe_overlap_count": 0,
+          "current_probe_overlap_inputs": [],
+          "projected_experience_count": 1,
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f"
+        }
+      ],
+      "prompt_chars": 22465,
+      "prompt_within_bound": true,
+      "task_family_prompt_projection_digest": "sha256:7eec802279fbfc9fc3866da7e3ccbf8f78311165a917821c21486a6f95b86424",
+      "task_family_prompt_projection_verified": true,
+      "task_generation_seed": 799941303,
+      "transfer_probe_inputs": [
+        64,
+        860,
+        861
+      ]
+    }
+  ],
+  "alternate_seed_sensitivity_posture": "1_alternate_deterministic_task_seeds; posthoc_owner_and_prompt_coverage_only; no_inference",
+  "alternate_seed_sensitivity_summary": {
+    "acquisition_disjoint_candidate_count": 0,
+    "acquisition_history_disjoint_seed_candidates": [],
+    "all_binder_selections_match_owner_top_ranked_records": true,
+    "all_seed_source_active_identities_differ_from_target": false,
+    "all_seed_source_artifact_relations_audited": false,
+    "all_seed_source_artifacts_differ_from_target": false,
+    "all_seed_source_identity_relations_match_target_audit": false,
+    "all_seeds_retained_candidate_strategy": false,
+    "all_strategy_source_families_match_task": false,
+    "binder_record_sets": [
+      [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ]
+    ],
+    "candidate_strategy_core_digest_count": 0,
+    "candidate_strategy_digest_count": 0,
+    "candidate_strategy_history_family_sets": [
+      []
+    ],
+    "candidate_strategy_relations": [],
+    "prompt_chars_max": 22465,
+    "prompt_chars_min": 22465,
+    "seed_count": 1,
+    "supporting_distinct_input_counts": [],
+    "supporting_run_counts": [],
+    "transfer_probe_sets": [
+      [
+        64,
+        860,
+        861
+      ]
+    ],
+    "unique_binder_record_set_count": 1,
+    "unique_owner_probe_overlap_count_vectors": [
+      [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    ],
+    "unique_source_identity_relation_count_sets": [
+      []
+    ],
+    "unique_source_model_artifact_relation_count_sets": [
+      []
+    ],
+    "unique_top_two_usable_input_count_pairs": [
+      [
+        3,
+        3
+      ]
+    ],
+    "unique_transfer_probe_set_count": 1
+  },
+  "audit_digest": "sha256:08936a5371965893e06883f51bd88a780d45c3bc68a093db320acfdeabe9284d",
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:ea97ca95f0c73de28d117b4fce7468210deaf717d6657c469fe5820f609796cc"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-ea97ca95f0c73de28d117b4f"
+  ],
+  "budget_sensitivity_padding_field": "preflight_synthetic_padding",
+  "budget_sensitivity_posture": "synthetic_extra_evidence_field; serialized_json_overhead_counted; acquisition_history_absent",
+  "campaign_id": "rootless-history-campaign-20261124000000000027",
+  "composition_state_digest": "sha256:8aa96e2ed8404e7e051a9c1ce435f244ddeaab1715a9e356f8e32e2b5dc44b28",
+  "composition_state_digest_verified": true,
+  "current_evidence_payload_chars": 2019,
+  "current_evidence_payload_digest": "sha256:5554fcf2cd490b1978a60a0a030b4c7acce495e200d396b842dc9a4f96ee2b18",
+  "current_evidence_posture": "runner_shared_pre_action_body_snapshot_shape_with_fixed_timestamp_placeholder",
+  "current_observation_timestamp_posture": "fixed_length_placeholder_value",
+  "current_projection_digest": "sha256:5554fcf2cd490b1978a60a0a030b4c7acce495e200d396b842dc9a4f96ee2b18",
+  "current_snapshot_digest": "4876c86e8febaf7cfb4c9648b7c30f0297110a941a2fe3a4f28cfbefa750c1f5",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000058",
+  "exact_cycle_prompt_limitation": "model_generated_acquisition_record_absent_and_observation_timestamp_is_placeholder",
+  "exact_cycle_prompt_reconstructed": false,
+  "experiment_implementation_sha256_digest": "29a00bc90cb4f3d8c3a560f7ba4af9c1926379312d95bc60e53e0234e040d80c",
+  "historical_examples_ablation": {
+    "authority": false,
+    "inference_performed": false,
+    "learning_established": false,
+    "model_attention_established": false,
+    "schema_version": "sentientos.rootless_planned_cycle_historical_examples_ablation:v2",
+    "status": "historical_examples_not_present"
+  },
+  "history_task_family_ids": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "inference_performed": false,
+  "input_budget_sensitivity": [
+    {
+      "additional_serialized_evidence_chars": 0,
+      "binding_status": "bound",
+      "prompt_chars": 22467,
+      "prompt_margin_chars": 2109,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 0,
+      "task_family_prompt_projection_digest": "sha256:9ac7c30b5a66b4d61c4ec5aeb31489f925f5d24340c3c4171004f2d281c81fdf",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 161,
+      "binding_status": "bound",
+      "prompt_chars": 22628,
+      "prompt_margin_chars": 1948,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 128,
+      "task_family_prompt_projection_digest": "sha256:c0c8748f268b2e233a66ff3c918de3e34d34d6aed266c35d751b1581e872401a",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 289,
+      "binding_status": "bound",
+      "prompt_chars": 22756,
+      "prompt_margin_chars": 1820,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 256,
+      "task_family_prompt_projection_digest": "sha256:83a4c5a961bcb5d8de06b2e6be8eb0941ec742c9243ed651157c617ee6208acb",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 353,
+      "binding_status": "bound",
+      "prompt_chars": 22820,
+      "prompt_margin_chars": 1756,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 320,
+      "task_family_prompt_projection_digest": "sha256:10a68a83feb290b6e193976922753b11c45c3174fa2086e2606335f685a7a91b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 371,
+      "binding_status": "bound",
+      "prompt_chars": 22838,
+      "prompt_margin_chars": 1738,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 338,
+      "task_family_prompt_projection_digest": "sha256:215b4279f6e565a87d90970aa5d8fbfa0a5c5dfb3b319de5ee49dcbc103f20d7",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 372,
+      "binding_status": "bound",
+      "prompt_chars": 22839,
+      "prompt_margin_chars": 1737,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 339,
+      "task_family_prompt_projection_digest": "sha256:ecd2d788118c25233818a424bcd018052142359e10181d724182f83d7dc93760",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 373,
+      "binding_status": "bound",
+      "prompt_chars": 22840,
+      "prompt_margin_chars": 1736,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 340,
+      "task_family_prompt_projection_digest": "sha256:5f27b9351799002eff22d807bcfef9645f58506433756dc8141e300bbea06e83",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 374,
+      "binding_status": "bound",
+      "prompt_chars": 22841,
+      "prompt_margin_chars": 1735,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 341,
+      "task_family_prompt_projection_digest": "sha256:dc047280cacdf10a24d4e1b16d8d87a66fb60c06d52e1ca5a25d203e8119fd7e",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 417,
+      "binding_status": "bound",
+      "prompt_chars": 22884,
+      "prompt_margin_chars": 1692,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 384,
+      "task_family_prompt_projection_digest": "sha256:f77603b10da290c99bf50cf9be773244d32a38c4ebd301f79559c54cb1940d21",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 545,
+      "binding_status": "bound",
+      "prompt_chars": 23012,
+      "prompt_margin_chars": 1564,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 512,
+      "task_family_prompt_projection_digest": "sha256:ec2ab9b108a9a3807bd4c5be2c19540e56e92edcb283acbea118c27b1b19617b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 801,
+      "binding_status": "bound",
+      "prompt_chars": 23268,
+      "prompt_margin_chars": 1308,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 768,
+      "task_family_prompt_projection_digest": "sha256:ce775ded2e3cfa27383f4b1c6c10c74eb6ee8c448420c5218bf25ceb8c75c1f6",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1057,
+      "binding_status": "bound",
+      "prompt_chars": 23524,
+      "prompt_margin_chars": 1052,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1024,
+      "task_family_prompt_projection_digest": "sha256:8f47c98196fea6687564d8704a102895fa580de73f9d420458c40972a28faadd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1569,
+      "binding_status": "bound",
+      "prompt_chars": 24036,
+      "prompt_margin_chars": 540,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1536,
+      "task_family_prompt_projection_digest": "sha256:22e128cadfcb7c5e64f8487f0e2055cb14aa774ece7360c966f766fb2032f338",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1585,
+      "binding_status": "bound",
+      "prompt_chars": 24052,
+      "prompt_margin_chars": 524,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1552,
+      "task_family_prompt_projection_digest": "sha256:98596a2190fc3bdf76c1cc71c449c73b8b5b2717ecd3892fcd21bb698b189b1b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1601,
+      "binding_status": "bound",
+      "prompt_chars": 24068,
+      "prompt_margin_chars": 508,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1568,
+      "task_family_prompt_projection_digest": "sha256:0c29e494bfbff374d25d04355ca0ac47717488afedc504f5198cf5c89e53b94d",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1617,
+      "binding_status": "bound",
+      "prompt_chars": 24084,
+      "prompt_margin_chars": 492,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1584,
+      "task_family_prompt_projection_digest": "sha256:099f8e07e009f83d8428e4bc920577ba8383f816a7672c7c25ac065815e75ac8",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1633,
+      "binding_status": "bound",
+      "prompt_chars": 24100,
+      "prompt_margin_chars": 476,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1600,
+      "task_family_prompt_projection_digest": "sha256:54682859d696e0f290dfd4de544c73ac6733cd2c3b6153997adb5ad8df71f7b1",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1649,
+      "binding_status": "bound",
+      "prompt_chars": 24116,
+      "prompt_margin_chars": 460,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1616,
+      "task_family_prompt_projection_digest": "sha256:e0a4799da9ea81d130fe8408061e4287f0518d0c869d424e36b6dbc3d7b2364b",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1665,
+      "binding_status": "bound",
+      "prompt_chars": 24132,
+      "prompt_margin_chars": 444,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1632,
+      "task_family_prompt_projection_digest": "sha256:dde8b685db8b329ca30f0acd0238c45a5f62ca9939210bf93bde3b219de719fd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1681,
+      "binding_status": "bound",
+      "prompt_chars": 24148,
+      "prompt_margin_chars": 428,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1648,
+      "task_family_prompt_projection_digest": "sha256:dc549e0be59be130a8e1576513fef97004ff1e05e98e6af031b2e5a638c76482",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1697,
+      "binding_status": "bound",
+      "prompt_chars": 24164,
+      "prompt_margin_chars": 412,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1664,
+      "task_family_prompt_projection_digest": "sha256:6d1b020ef356824aca8f7bf97a64c41de47feade8539a5b03fed4a27fc7cde2f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1713,
+      "binding_status": "bound",
+      "prompt_chars": 24180,
+      "prompt_margin_chars": 396,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1680,
+      "task_family_prompt_projection_digest": "sha256:9a3beab694a141edc12a8c6477566b4613ad67b777b2c30aa2e7c033dfa6a414",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1729,
+      "binding_status": "bound",
+      "prompt_chars": 24196,
+      "prompt_margin_chars": 380,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1696,
+      "task_family_prompt_projection_digest": "sha256:7a13b9757dbcbc6f829f70e8dba084ccb2b41e0cea23d78eedce70485c1c31a0",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1745,
+      "binding_status": "bound",
+      "prompt_chars": 24212,
+      "prompt_margin_chars": 364,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1712,
+      "task_family_prompt_projection_digest": "sha256:e156e1d395e76fff9cf7eb8647da2d46da1ad0a4b28b89d5685069a72f265af4",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1761,
+      "binding_status": "bound",
+      "prompt_chars": 24228,
+      "prompt_margin_chars": 348,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1728,
+      "task_family_prompt_projection_digest": "sha256:0039b86baed6b5296506b6dc9ab1d0fc272bc8a33d414a2624bc77af9e971366",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1777,
+      "binding_status": "bound",
+      "prompt_chars": 24244,
+      "prompt_margin_chars": 332,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1744,
+      "task_family_prompt_projection_digest": "sha256:81154a5d8f9930895c6d3f16db8c8e7b7c84ddaabc3a3e8dd8ef172925ea05b7",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1793,
+      "binding_status": "bound",
+      "prompt_chars": 24260,
+      "prompt_margin_chars": 316,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1760,
+      "task_family_prompt_projection_digest": "sha256:a6a58ee2f2dcee5e43baad0a73f5d8c2d22bff4910c4ff15b7578ba744270b1f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1809,
+      "binding_status": "bound",
+      "prompt_chars": 24276,
+      "prompt_margin_chars": 300,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1776,
+      "task_family_prompt_projection_digest": "sha256:0a887106b6efc59a7df5211025e3f45e779fd9da6c98aa602dce19288ca3cacf",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1825,
+      "binding_status": "bound",
+      "prompt_chars": 24292,
+      "prompt_margin_chars": 284,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1792,
+      "task_family_prompt_projection_digest": "sha256:1d959e68dc0190b6e27cdf9b770b3e10388ab409adfb6a95bbb496e83d3f4da3",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1841,
+      "binding_status": "bound",
+      "prompt_chars": 24308,
+      "prompt_margin_chars": 268,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1808,
+      "task_family_prompt_projection_digest": "sha256:0d1e70768347d96c8d89a4d686d6bc63a08bfe3c6f49934a62b4bf2d73203f56",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1857,
+      "binding_status": "bound",
+      "prompt_chars": 24324,
+      "prompt_margin_chars": 252,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1824,
+      "task_family_prompt_projection_digest": "sha256:f8ce442a6e2d1f513294ee7339312bde36c14e3508733a4262ac81a1d32a7fa1",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1873,
+      "binding_status": "bound",
+      "prompt_chars": 24340,
+      "prompt_margin_chars": 236,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1840,
+      "task_family_prompt_projection_digest": "sha256:2d0087ec5311af9854c75c930f2a1019586a693ff16c0b6b8210d3797aafa51f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1889,
+      "binding_status": "bound",
+      "prompt_chars": 24356,
+      "prompt_margin_chars": 220,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1856,
+      "task_family_prompt_projection_digest": "sha256:ac5cd96296ec2c9232afd0766463d38ac094c717be6c0a4f6333b8afb7eafe4f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1905,
+      "binding_status": "bound",
+      "prompt_chars": 24372,
+      "prompt_margin_chars": 204,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1872,
+      "task_family_prompt_projection_digest": "sha256:bb9f93a9490aa9de5d6964a76786626b77aedccf2ebf3b681b12c1bdaf2ba392",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1921,
+      "binding_status": "bound",
+      "prompt_chars": 24388,
+      "prompt_margin_chars": 188,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1888,
+      "task_family_prompt_projection_digest": "sha256:57d15e66b1421736a8af6a573ee28553988eaf9502df279ef3438be66002a3a2",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1937,
+      "binding_status": "bound",
+      "prompt_chars": 24404,
+      "prompt_margin_chars": 172,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1904,
+      "task_family_prompt_projection_digest": "sha256:433f2c33854be8fd1e8d5c6bb769a864dfb4c5166952cc7bc48253d6d2967c3f",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1953,
+      "binding_status": "bound",
+      "prompt_chars": 24420,
+      "prompt_margin_chars": 156,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1920,
+      "task_family_prompt_projection_digest": "sha256:6da44a9349c9864aaef16f4320ad067ac92c98c5ea221c0ed36100a07fff14c9",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1969,
+      "binding_status": "bound",
+      "prompt_chars": 24436,
+      "prompt_margin_chars": 140,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1936,
+      "task_family_prompt_projection_digest": "sha256:de44ace3b248f1efe607c7df2eeebe535308d79b78c8d12ce6c9e73ca0f85201",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 1985,
+      "binding_status": "bound",
+      "prompt_chars": 24452,
+      "prompt_margin_chars": 124,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1952,
+      "task_family_prompt_projection_digest": "sha256:879b61a754de891e079f71bb9b3c71e977d1f990a7fd98786f6612240d51f130",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2001,
+      "binding_status": "bound",
+      "prompt_chars": 24468,
+      "prompt_margin_chars": 108,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1968,
+      "task_family_prompt_projection_digest": "sha256:b00bcc9ed852ab4960ad5793d6907a8b26d9af58e8ef8125956e2de8101eae97",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2017,
+      "binding_status": "bound",
+      "prompt_chars": 24484,
+      "prompt_margin_chars": 92,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 1984,
+      "task_family_prompt_projection_digest": "sha256:e1ca72fe5e416b245ffb886456f18a5484fa3fdff69db3f8374f062fd962aa10",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2033,
+      "binding_status": "bound",
+      "prompt_chars": 24500,
+      "prompt_margin_chars": 76,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2000,
+      "task_family_prompt_projection_digest": "sha256:a0f834340896c7f446d142b4b1b27c55e1f40f963c3bfc4d7554ae005e79e2f0",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2049,
+      "binding_status": "bound",
+      "prompt_chars": 24516,
+      "prompt_margin_chars": 60,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2016,
+      "task_family_prompt_projection_digest": "sha256:ff125a1a91e4c8911766e85156e0b543e0869584abad9a4eef5ac5e2cb10e7cd",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2065,
+      "binding_status": "bound",
+      "prompt_chars": 24532,
+      "prompt_margin_chars": 44,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2032,
+      "task_family_prompt_projection_digest": "sha256:3b963b6ea75ebf22b3daa391768fc156d9cdc9a71a36d9b6725a865cb725ee96",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 2081,
+      "binding_status": "bound",
+      "prompt_chars": 24548,
+      "prompt_margin_chars": 28,
+      "selected_record_count": 1,
+      "selected_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 2048,
+      "task_family_prompt_projection_digest": "sha256:aa1f5a65c2a583e826509b1eed0ae9617e727d43741a5f68c856fb9f6582b2b7",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 3105,
+      "binding_status": "bound",
+      "prompt_chars": 16960,
+      "prompt_margin_chars": 7616,
+      "selected_record_count": 0,
+      "selected_record_ids": [],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 3072,
+      "task_family_prompt_projection_digest": "sha256:7dec65ba3e352d23003cd9bee127e8fe5bc018958812be1b544546d5452e8bb4",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 4129,
+      "binding_status": "bound",
+      "prompt_chars": 17984,
+      "prompt_margin_chars": 6592,
+      "selected_record_count": 0,
+      "selected_record_ids": [],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 4096,
+      "task_family_prompt_projection_digest": "sha256:556c57b29974dc647ff47d7757e99de4b757e8ef3868e07a5401890ff5275653",
+      "task_family_prompt_projection_verified": true
+    },
+    {
+      "additional_serialized_evidence_chars": 6177,
+      "binding_status": "bound",
+      "prompt_chars": 20032,
+      "prompt_margin_chars": 4544,
+      "selected_record_count": 0,
+      "selected_record_ids": [],
+      "strategy_distinct_input_count": null,
+      "strategy_run_count": null,
+      "synthetic_padding_string_chars": 6144,
+      "task_family_prompt_projection_digest": "sha256:d8447ef2f65db7576a5f14a4d8f49be96307b89883cff9755c524f4f6e70fcfe",
+      "task_family_prompt_projection_verified": true
+    }
+  ],
+  "instruction_template_matches_static_experiment_instruction": true,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_generated_acquisition_outputs_available": false,
+  "negative_example_ablation": {
+    "ablated_prompt_chars": 22222,
+    "ablated_prompt_digest": "sha256:9e866c27fd6bd5693aae8ffe8bf0a31a797be2bfb70020a4dc9949d9524ea099",
+    "authority": false,
+    "baseline_prompt_chars": 22467,
+    "baseline_prompt_digest": "sha256:4e5491289b599f96e5e0081faeefe6bf306e9c67be89c3104d442ce33a6e0354",
+    "changed_context_fields": [
+      "developmental_history"
+    ],
+    "exact_cycle_prompt_reconstructed": false,
+    "heldout_probe_count": 3,
+    "heldout_probe_digest": "sha256:340ba9e344243d566fd1dbca304d34e3fbd8cc62c3cf7c8e34d71add08a63a85",
+    "inference_performed": false,
+    "intervention": "remove_only_prior_incorrect_examples_from_selected_history",
+    "learning_established": false,
+    "model_attention_established": false,
+    "negative_example_count": 1,
+    "no_imitation_guidance_unchanged": true,
+    "removed_negative_example_digest": "sha256:fec30ce0f1b81266c929a0c126ae30e4685c84576ffbf9c34225580a428d0578",
+    "removed_negative_example_packet_count": 1,
+    "runtime_condition_created": false,
+    "schema_version": "sentientos.rootless_planned_cycle_negative_example_ablation:v1",
+    "selected_record_digests": [
+      "sha256:ea97ca95f0c73de28d117b4fce7468210deaf717d6657c469fe5820f609796cc"
+    ],
+    "selected_record_ids": [
+      "devrec-ea97ca95f0c73de28d117b4f"
+    ],
+    "source_record_binding_unchanged": true,
+    "status": "paired_prompt_reconstruction_verified"
+  },
+  "negative_example_delivery": {
+    "acquisition": {
+      "example_count": 3,
+      "no_imitation_instruction_present": true,
+      "record_ids": [
+        "devrec-349ee1c7f30b94043e763ae3"
+      ]
+    },
+    "authority": false,
+    "current_truth": false,
+    "historical_only": true,
+    "transfer": {
+      "example_count": 1,
+      "no_imitation_instruction_present": true,
+      "record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ]
+    }
+  },
+  "objective_task_descriptor_chars": 1517,
+  "objective_task_descriptor_digest": "sha256:d3f1025ef48f93d0476671554acdb3be94f757f7fbec7e87bfbcaa40cc2a3909",
+  "objective_task_descriptor_posture": "public_descriptor_shape_with_zeroed_commitment_digest_for_reproducibility",
+  "owner_ranking_trace": [
+    {
+      "checkpoint_order": 39,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 0,
+      "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 38,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 1,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 1,
+      "record_id": "devrec-2033fab64ae54284298c3ce7",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 37,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 2,
+      "record_id": "devrec-638ad203da1410b5cf1a49b8",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 36,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 3,
+      "record_id": "devrec-f951666025924dd5e2b3be23",
+      "selected_within_owner_limit": true,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 35,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 4,
+      "record_id": "devrec-ef1504a751cb64f1326d0beb",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 34,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 5,
+      "record_id": "devrec-b061076a6225145e5bd9970a",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 33,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 6,
+      "record_id": "devrec-988f47d7db0d396112407df3",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 32,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 7,
+      "record_id": "devrec-349ee1c7f30b94043e763ae3",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 31,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 8,
+      "record_id": "devrec-35daa61bd7ae08a81416b0d6",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 30,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 9,
+      "record_id": "devrec-8e71800e6cfed38978f64a31",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 29,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 10,
+      "record_id": "devrec-ccd62c925ff71eed431c3d25",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 27,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 11,
+      "record_id": "devrec-e0fd5583befc8730aca572d8",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 26,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 12,
+      "record_id": "devrec-a2447a4bc199ed7f439a37e3",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 24,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 13,
+      "record_id": "devrec-095db5c28b1520756285120a",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 22,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 14,
+      "record_id": "devrec-a081ef3104dba90c9e19b723",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 20,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 15,
+      "record_id": "devrec-01e35780a28a539aee7c5fb6",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 19,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 16,
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 17,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 0,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 17,
+      "record_id": "devrec-d476d487664a5dc051c71d75",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 16,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 18,
+      "record_id": "devrec-21df63d50d306c0e607fb07f",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 14,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 19,
+      "record_id": "devrec-4fd52036e8b17c28ac02994c",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 13,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 20,
+      "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 10,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 21,
+      "record_id": "devrec-d5d23dd21785372394baa2a9",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 8,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 22,
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 7,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 23,
+      "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 2,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 2,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 24,
+      "record_id": "devrec-34f8af2cc29849b13365de40",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    },
+    {
+      "checkpoint_order": 1,
+      "current_probe_overlap_count": 0,
+      "evaluator_correct_distinct_input_count": 3,
+      "evaluator_scored_distinct_input_count": 3,
+      "outcome_priority": 1,
+      "rank_position": 25,
+      "record_id": "devrec-dec0f183ac5255063b0c87d8",
+      "selected_within_owner_limit": false,
+      "target_model_identity_match": 0,
+      "usable_distinct_input_count": 3
+    }
+  ],
+  "owner_ranking_trace_posture": "score_bound_coverage_then_model_probe_recency_comparator; diagnostic_metadata_only; labels_remain_unchanged; no_learning_claim",
+  "owner_ranking_trace_schema": "sentientos.task_family_history_ranking_trace:v2",
+  "owner_record_probe_overlap_posture": "planned_seed_owner_and_exact_binder_prompt_record_overlap_recomputed; descriptive_only; does_not_establish_model_attention_or_learning",
+  "owner_selected_record_ids": [
+    "devrec-f951666025924dd5e2b3be23",
+    "devrec-638ad203da1410b5cf1a49b8",
+    "devrec-2033fab64ae54284298c3ce7",
+    "devrec-ea97ca95f0c73de28d117b4f"
+  ],
+  "plan_digest": "a3ecf1b5eb02e4c359fbce6d3bfbc9593ed8fb549688cef1f7b250b04622aab8",
+  "planned_acquisition_probe_reuse": {
+    "acquisition_probe_input_digest": "sha256:88a2505a4c593eaebacb120c68805a835c466914ec9893cc6b9e92a18489ecc5",
+    "acquisition_probe_inputs": [
+      5,
+      6,
+      8
+    ],
+    "authority": false,
+    "binder_selected_prompt_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          5,
+          6,
+          7
+        ],
+        "current_probe_overlap_count": 2,
+        "current_probe_overlap_inputs": [
+          5,
+          6
+        ],
+        "projected_experience_count": 1,
+        "record_id": "devrec-349ee1c7f30b94043e763ae3"
+      }
+    ],
+    "binder_selected_record_ids": [
+      "devrec-349ee1c7f30b94043e763ae3"
+    ],
+    "inference_performed": false,
+    "learning_established": false,
+    "no_exact_history_probe_overlap": false,
+    "owner_selected_record_ids": [
+      "devrec-f951666025924dd5e2b3be23",
+      "devrec-2033fab64ae54284298c3ce7",
+      "devrec-ea97ca95f0c73de28d117b4f",
+      "devrec-349ee1c7f30b94043e763ae3"
+    ],
+    "owner_selected_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          2,
+          6,
+          9
+        ],
+        "current_probe_overlap_count": 1,
+        "current_probe_overlap_inputs": [
+          6
+        ],
+        "projected_experience_count": 1,
+        "record_id": "devrec-f951666025924dd5e2b3be23"
+      },
+      {
+        "available_probe_inputs": [
+          2,
+          7,
+          8
+        ],
+        "current_probe_overlap_count": 1,
+        "current_probe_overlap_inputs": [
+          8
+        ],
+        "projected_experience_count": 1,
+        "record_id": "devrec-2033fab64ae54284298c3ce7"
+      },
+      {
+        "available_probe_inputs": [
+          5,
+          7,
+          9
+        ],
+        "current_probe_overlap_count": 1,
+        "current_probe_overlap_inputs": [
+          5
+        ],
+        "projected_experience_count": 1,
+        "record_id": "devrec-ea97ca95f0c73de28d117b4f"
+      },
+      {
+        "available_probe_inputs": [
+          5,
+          6,
+          7
+        ],
+        "current_probe_overlap_count": 2,
+        "current_probe_overlap_inputs": [
+          5,
+          6
+        ],
+        "projected_experience_count": 1,
+        "record_id": "devrec-349ee1c7f30b94043e763ae3"
+      }
+    ],
+    "prompt_projection_overlap_example_count": 2,
+    "prompt_projection_overlap_input_count": 2,
+    "prompt_projection_overlap_input_digest": "sha256:d678826bca2c012511a63e59035f7358887ace61c57c0d6f67360dcf8a2d9db6",
+    "prompt_projection_overlap_measurement_complete": true,
+    "schema_version": "sentientos.rootless_planned_cycle_acquisition_probe_reuse:v1"
+  },
+  "planned_seed_probe_reuse": {
+    "authority": false,
+    "binder_selected_prompt_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          5,
+          7,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-ea97ca95f0c73de28d117b4f"
+      }
+    ],
+    "held_out_transfer_qualified": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "owner_selected_record_overlaps": [
+      {
+        "available_probe_inputs": [
+          2,
+          6,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-f951666025924dd5e2b3be23"
+      },
+      {
+        "available_probe_inputs": [
+          3,
+          4,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-638ad203da1410b5cf1a49b8"
+      },
+      {
+        "available_probe_inputs": [
+          2,
+          7,
+          8
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-2033fab64ae54284298c3ce7"
+      },
+      {
+        "available_probe_inputs": [
+          5,
+          7,
+          9
+        ],
+        "current_probe_overlap_count": 0,
+        "current_probe_overlap_inputs": [],
+        "projected_experience_count": 1,
+        "record_id": "devrec-ea97ca95f0c73de28d117b4f"
+      }
+    ],
+    "posture": "planned_transfer_probe_set_disjoint_from_selected_history",
+    "prompt_projection_overlap_example_count": 0,
+    "prompt_projection_overlap_input_count": 0,
+    "prompt_projection_overlap_input_digest": "sha256:919664b0b20374fc969f27554b39c919f4a9ed9f9f7c157765711831cecf3e1e",
+    "prompt_projection_overlap_measurement_complete": true,
+    "schema_version": "sentientos.rootless_planned_cycle_probe_reuse:v1",
+    "transfer_probe_input_digest": "sha256:340ba9e344243d566fd1dbca304d34e3fbd8cc62c3cf7c8e34d71add08a63a85",
+    "transfer_probe_inputs": [
+      590,
+      833,
+      910
+    ]
+  },
+  "prior_history_boundary_digest": "882a0bceac2e0860bed73d4d8ceb98157ee6109fdfe64d968012b237a95d98e6",
+  "prior_history_boundary_verification": {
+    "append_only_history_chain_verified": true,
+    "boundary_digest": "882a0bceac2e0860bed73d4d8ceb98157ee6109fdfe64d968012b237a95d98e6",
+    "prefix_audit_digest": "3cd18497e9cf31cd3ebb5af117b278a1f655696c0bf6a0484eedca3db75ea9f1",
+    "status": "append_only_campaign_prefix_verified",
+    "verified_prefix_cycle_ids": [
+      "rootless-cognition-cycle-20261124000000000057"
+    ]
+  },
+  "prior_history_root_cycle_id": "rootless-cognition-cycle-20261124000000000057",
+  "prior_recovery_state_boundary_digest": "a8fb57a0ce98aa7c31d49e2c51f46bf629b45e31dd7a288ee8b814061dd71f1e",
+  "prior_runtime_admission_ledger_digest": "042a6acdf977a948d4a35eb7fcdb42036230490ad7cc563af3a58ff813d474a8",
+  "prompt_chars": 22467,
+  "prompt_digest": "sha256:4e5491289b599f96e5e0081faeefe6bf306e9c67be89c3104d442ce33a6e0354",
+  "prompt_limit_chars": 24576,
+  "prompt_within_bound": true,
+  "schema_version": "sentientos.rootless_planned_cycle_owner_preflight:v21",
+  "strategy_inclusion_ablation": {
+    "authority": false,
+    "inference_performed": false,
+    "learning_established": false,
+    "schema_version": "sentientos.rootless_planned_cycle_strategy_inclusion_ablation:v1",
+    "status": "accumulated_strategy_not_present"
+  },
+  "strategy_retention_transition": {
+    "first_lost_strategy_prompt_chars": null,
+    "first_lost_strategy_prompt_margin_chars": null,
+    "first_observed_padding_without_strategy": null,
+    "largest_observed_padding_with_strategy": null,
+    "largest_observed_serialized_evidence_delta_with_strategy": null,
+    "observed_padding_resolution_chars": 16,
+    "strategy_reappeared_after_first_observed_loss": false
+  },
+  "target_model_identity_digest": "91ab8519c3004c0a954a5d51ca8d94d6b3e1d9416f831ed55703d9066fbb9881",
+  "target_model_identity_matches_plan": true,
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_family_prompt_projection_digest": "sha256:9ac7c30b5a66b4d61c4ec5aeb31489f925f5d24340c3c4171004f2d281c81fdf",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "task_generation_seed": 799941302,
+  "task_generator": "rootless_integer_affine_transfer_task_pair:v1",
+  "transfer_probe_inputs": [
+    590,
+    833,
+    910
+  ]
+}

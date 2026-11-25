@@ -1,0 +1,78 @@
+{
+  "acquisition_record_id": "devrec-83bc0097864882302ae02efd",
+  "audit_digest": "2c29d19261cc6b33f577230a972b40ea4823480f7e75af39436f6cd0d77918b6",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-6a8c5606c73665926428",
+  "campaign_plan_digest": "141ad240526784f039c7be0d223600a15a3f7b15d570986b0f6b191a8bb47491",
+  "condition_scores": {
+    "history_present": 0,
+    "history_restored": 0,
+    "history_withheld": 0,
+    "maximum": 3
+  },
+  "conditions": [
+    {
+      "accumulated_strategy_delivery_status": "no_candidate_in_projection",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_present",
+      "inference_prompt_digest": "5d92961a12a620588ec5198259c0f145478ff7341a6e85be6c7f167eb0bb777e",
+      "projection_digest": "sha256:8ecdd4aebc6d6949f71e6c5a0ca4916306bbd60dcbcc1ff0fa4d5beb97255fe7",
+      "request_digest": "05213f607b0f7c341298261395b00923216303dae0cca468bb6c50c79eb62dc9",
+      "request_id": "lmreq-05213f607b0f7c3412982613",
+      "selected_record_count": 2,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_ids": [
+        "devrec-d476d487664a5dc051c71d75",
+        "devrec-83bc0097864882302ae02efd"
+      ]
+    },
+    {
+      "accumulated_strategy_delivery_status": "withheld_condition_candidate_absent",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_withheld",
+      "inference_prompt_digest": "b853a5d09b88157a193630dc0526899dad6a13e5e8e8e0ae68ad300b42ed5714",
+      "projection_digest": "sha256:fdf10b228d4222b9d11e18ad5f33e5555bf09d03ec459decd1e0702db9e236c7",
+      "request_digest": "1291b3e67cf3cfa69beaa5bd93147b0e9dd1b54caf442efa7435b400c67e17fd",
+      "request_id": "lmreq-1291b3e67cf3cfa69beaa5bd",
+      "selected_record_count": 0,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 0,
+      "task_relevant_record_ids": []
+    },
+    {
+      "accumulated_strategy_delivery_status": "no_candidate_in_projection",
+      "accumulated_strategy_supporting_run_count": null,
+      "answer_values_included": false,
+      "condition_id": "history_restored",
+      "inference_prompt_digest": "5d92961a12a620588ec5198259c0f145478ff7341a6e85be6c7f167eb0bb777e",
+      "projection_digest": "sha256:7aadc170a7644aa2ecfa03d4d767056ff943e78e2f4c5e235206562a2fc8ba88",
+      "request_digest": "ef1c14b2055909b4f3022cadee13d25c2f60bc85a4484e80e25d0bacd8fe8fa4",
+      "request_id": "lmreq-ef1c14b2055909b4f3022cad",
+      "selected_record_count": 2,
+      "status": "verified_projection_bound_to_governed_request",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_ids": [
+        "devrec-d476d487664a5dc051c71d75",
+        "devrec-83bc0097864882302ae02efd"
+      ]
+    }
+  ],
+  "cycle_completed": false,
+  "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+  "failure_check_reclassified_after_offline_projection_audit": "present_and_restored_must_include_acquisition_record_and_have_equal_selection_sets; additional retained records are permitted",
+  "failure_stage": "objective_task_family_transfer",
+  "interpretation": "Present and restored delivered the acquisition record plus one older record; withheld delivered none. All three condition scores were 0/3, and no accumulated multi-run candidate was delivered. The old strict check rejected the additional retained record despite matching present/restored selections. No history-associated advantage, replicated transfer, durable learning, model attention, or authority established.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "preregistration_timing_independently_attested": false,
+  "schema_version": "sentientos.rootless_history_transfer_prompt_audit:v1",
+  "source_cycle_inference_performed": true,
+  "task_probe_count": 3,
+  "terminal_failure_code": "objective_family_transfer_history_not_retrieved",
+  "transfer_run_digest": "sha256:4dec71bc8791466676a14299eaf314cdd1e3c6e3c0254fe49ca71bfe0c0d6b2f",
+  "transfer_run_id": "devexp-run-4dec71bc8791466676a14299",
+  "validator_reprojection_performed_offline": true
+}

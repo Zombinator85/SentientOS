@@ -1,0 +1,33 @@
+{
+  "schema_version": "sentientos.rootless_cognition_cycle_outcome_summary:v1",
+  "campaign_id": "rootless-history-campaign-2b9af50fd98c4cd0a129",
+  "plan_digest": "b3435c0786dce46fa78a0318ad75a90a99e7e397c51f73dd347bd8f337677eaf",
+  "owner_preflight_digest": "sha256:6ee5f7d9ae097a4f66233be305bb6be2483fda361340f78a404939c2c8f797f5",
+  "cycle_id": "rootless-cognition-cycle-fed0267a31d44e5d86ce",
+  "task_generation_seed": 799940824,
+  "status": "incomplete",
+  "failure_stage": "synthetic_pre_action_cognition",
+  "owner_status": "admitted_completed",
+  "owner_disposition": "ask",
+  "owner_evidence_ids": [
+    "fact-534701e4415ca628"
+  ],
+  "model_inference_performed": true,
+  "completion_tokens": 71,
+  "model_output_digest": "c3d17682c58cde1a6055ed974a62b3534bcdd83d2906c1a3f158e0b394e43975",
+  "model_receipt_id": "lmrec-02b3ca8dac1fa9cc6d1923ee",
+  "model_receipt_digest": "02b3ca8dac1fa9cc6d1923eea61e037fcb47046045fbcc8f95b09a1c5df92d29",
+  "raw_model_output_in_artifact": false,
+  "raw_model_output_emitted_in_runner_exception": true,
+  "action_executed": false,
+  "synthetic_action_simulated": false,
+  "source_provenance_complete": true,
+  "source_provenance_stable": true,
+  "learning_established": false,
+  "performance_improvement_established": false,
+  "authority": false,
+  "governed_unload": "target_model_not_resident",
+  "final_gpu_utilization_percent": 0,
+  "cycle_failure_artifact": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-fed0267a31d44e5d86ce/cycle-failure.json",
+  "cycle_failure_sha256": "aca63fe82236fb6fc23af6bf4dbaaaedea09e8d19042425eb54b7f118ac59a68"
+}

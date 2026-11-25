@@ -1,0 +1,416 @@
+{
+  "authority": false,
+  "binding_digest": "sha256:7e5a786e1bf35d0a1f50896f6a258e0873b4290db4cbc57e7899e7fbbf156e21",
+  "experience_anchor_audit_digest": "sha256:96680f405dd2b239fc50b0665c6609eb665e30440a34b29d33f33180bf1a5aaa",
+  "experience_anchor_verification_digest": "sha256:4400dafd890d39f33fea07b0a470912717bdb04fdf1b2be152d851d71ee52c45",
+  "federated_manifest_digest": "sha256:0839f14c2cd8c2f5bd8cd008a1de8874f3d550e0632dd7a1156a8315d39e83af",
+  "learning_established": false,
+  "model_invoked": false,
+  "schema_version": "sentientos.federated_archive_source_binding:v2",
+  "source_snapshot_count": 47,
+  "source_snapshot_digest": "sha256:98ff65b8574ac0cd8a5de8758cb7a93fc988a1f29e6111d731f96f3de2a277a3",
+  "source_snapshots": [
+    {
+      "composition_state_sha256": "5382ed35566ed61b8e51335952912d6e5d7c0d1fceef501ef58565d6bcc2770e",
+      "cycle_id": "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+      "receipt_inventory_digest": "sha256:28fa80d52fe6c5495d856e403d7a44a0953506ecd44b0bb293bf8b290a3328fa",
+      "record_inventory_digest": "sha256:724541d0312131c63ae79936ac04aadb76f0f9aca5f5606b10aaa5151b28c27c",
+      "runtime_admission_ledger_sha256": "e83628bb5da279b4dca6c818c58af0c171c8eb98228dbfb9dc80f2df4d50e827",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "a4c40fd92cca0119a69340b2a856f282fd989304e1488d98bd7198a236c67c0f",
+      "cycle_id": "rootless-cognition-cycle-1b3e9ad0475268c1e621",
+      "receipt_inventory_digest": "sha256:50d110b867d7fb18a53098123a00c4f42ca431451f1d6101eca9203760166ac8",
+      "record_inventory_digest": "sha256:5d04211bf54c99db261cdf4b20ad3e7539d65bbf730f1e909a447df7caad94e1",
+      "runtime_admission_ledger_sha256": "9661d02d70b49e041e371856bc4e8f2dce6229ee333647179e9e06a0f7bc6099",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "cae52011d9deb25ac79964fa5a36dd549bc6b2795e101e2a78d2f233f5695324",
+      "cycle_id": "rootless-cognition-cycle-1ee929b84c3e9c39278a",
+      "receipt_inventory_digest": "sha256:7851f18d5580bf023f4ee79ef706a403fc3572f6b9744ff972bc2399055005f9",
+      "record_inventory_digest": "sha256:11c0a1f06590815274354d71626604d449c4cc103b40fa1206c6d32db4605af9",
+      "runtime_admission_ledger_sha256": "5c9ad361f769a7c3b2482e8d8e71cfc3b86e0e77f763d9dbc2f0ab123c93aad3",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "d9a88f71e665ca9193f9f61ea58559f9b5be53d2335a491594616f9b08b7b185",
+      "cycle_id": "rootless-cognition-cycle-2b4c31c1011a779adfab",
+      "receipt_inventory_digest": "sha256:50d110b867d7fb18a53098123a00c4f42ca431451f1d6101eca9203760166ac8",
+      "record_inventory_digest": "sha256:5d04211bf54c99db261cdf4b20ad3e7539d65bbf730f1e909a447df7caad94e1",
+      "runtime_admission_ledger_sha256": "9661d02d70b49e041e371856bc4e8f2dce6229ee333647179e9e06a0f7bc6099",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "2b2fd0de2dfd4077f238d7b2907b4d4ab2993d2e0d71e0f081dc0b39797102f0",
+      "cycle_id": "rootless-cognition-cycle-34f3af0dc5546816a3a1",
+      "receipt_inventory_digest": "sha256:71c05a7af9a74a76e20b88ecf1072aa99c6313b09fde7d456d21d5832b92c0a3",
+      "record_inventory_digest": "sha256:e916b36d39c19e8df80ea46cc0e2cc91cfa26d29a9640961d0b8551ea0ae718e",
+      "runtime_admission_ledger_sha256": "94d1709a111b55f9305b5cd61e190e92e27ed99a06ca5df9e55055ad764a8c61",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "7eca85649d75ac9d0c144ccd3ca5f41186aac9a40c5a4b9e704a31a717baa90c",
+      "cycle_id": "rootless-cognition-cycle-36d6607e2ca2eeb45e61",
+      "receipt_inventory_digest": "sha256:952ad3b4c57f1a13ad8f6632e3f73a85acfe07a0dddcfa75fb0ea846880c7659",
+      "record_inventory_digest": "sha256:019ce7e3c8f65c9a99cee6b7a6473f84572c51ab1b56b92932017fc4bbcaeb11",
+      "runtime_admission_ledger_sha256": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "0da470f680e209039f6912169337dc4547323a54417ebbb2a45a1ee6d8b65ba4",
+      "cycle_id": "rootless-cognition-cycle-3f1cd7832e9a4ba7aa11",
+      "receipt_inventory_digest": "sha256:7c51dc66760eb85bf5a5d934f3f9567bd832fe52cab0f542f08a5a4bc77aa993",
+      "record_inventory_digest": "sha256:b1358cbb6a1f611d09be54d07f0a015e310f5621be5a6752ce04ac4413a48dcc",
+      "runtime_admission_ledger_sha256": "e4e8f50505531b4c32e8187b30006c339a9bf335a240b21f5754f73491a56ae2",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "bcf1b51e3ec14da4fccdf40dbfed0c931d7a5e8c959e7d9ee18efabcc561cc85",
+      "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+      "receipt_inventory_digest": "sha256:fa7be943a0399e9b8e936c81d1e22d00e0d6a8a9105796febb3d8ea73f4e3177",
+      "record_inventory_digest": "sha256:509435c385bb4972e4e98a1cbb1ea143d5e35255967c54ac8e987cdb8b815307",
+      "runtime_admission_ledger_sha256": "f425226f80068d47e44d0de6140051922f55a651f57de5c1abb649f713d4d2fc",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "a4c40fd92cca0119a69340b2a856f282fd989304e1488d98bd7198a236c67c0f",
+      "cycle_id": "rootless-cognition-cycle-4ce05c05e331ea124e2c",
+      "receipt_inventory_digest": "sha256:50d110b867d7fb18a53098123a00c4f42ca431451f1d6101eca9203760166ac8",
+      "record_inventory_digest": "sha256:5d04211bf54c99db261cdf4b20ad3e7539d65bbf730f1e909a447df7caad94e1",
+      "runtime_admission_ledger_sha256": "9661d02d70b49e041e371856bc4e8f2dce6229ee333647179e9e06a0f7bc6099",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "4b10fe3b703f18d59455f30c37a9225bcfe443f44697edfca3489553618ff06f",
+      "cycle_id": "rootless-cognition-cycle-4fa5cff57a10536b01f7",
+      "receipt_inventory_digest": "sha256:3ed85063037f11fc425b15c935bc9723901c543e7dc0ed78fa3b60ab3168fc85",
+      "record_inventory_digest": "sha256:921bdc47a68c39d325c71cf6e1c5a82d308fa59561c11c5df067c4266459b025",
+      "runtime_admission_ledger_sha256": "08b3bc19df1b1180e82d72d8207eb0c1187f7d907ae245f49d33e8008a4dcde2",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "04f35bf94460aee0658eec2ea498ac634347fe07f28d0f27ad44658ee610501d",
+      "cycle_id": "rootless-cognition-cycle-510329c126e2c0004cb5",
+      "receipt_inventory_digest": "sha256:dda9666c5679109bb65cb71d21248dd85c614c0b666729b13e21cf9e1da00968",
+      "record_inventory_digest": "sha256:79b67a865e058922afc0267e431768fd69474d767946a65712bc4856a20f496e",
+      "runtime_admission_ledger_sha256": "c7037b8adb8ea26c12e5b948682fa640d759194aa33291f280debef56b9753da",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "618812444340f4163afaa0095cc542c589a42913eab138ae8ecc4c1967ee55bb",
+      "cycle_id": "rootless-cognition-cycle-515800da0a8749fb8ffc",
+      "receipt_inventory_digest": "sha256:47f15be930dcc39c772a56cda6cde5883100ad4fb174e4c7b7eee41643becf32",
+      "record_inventory_digest": "sha256:a596bfa5e80f37cebc47f35a6460e6955bbf4d0b0008889fb16e9e648c3419fe",
+      "runtime_admission_ledger_sha256": "652e400df173fe5d485a5bbcf5b0e5f9de4fd9c781b9b0587464c0b9353046e5",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "71b6df93c39a9ae0b44152558fe35ad8a57598c70fa147e0fc0d332297adae1d",
+      "cycle_id": "rootless-cognition-cycle-63d115b84ec6036b2bdd",
+      "receipt_inventory_digest": "sha256:5d7384598e024c1a95b116f324306380dc1456693a97820e3927e19da94bf702",
+      "record_inventory_digest": "sha256:c0d36b16f9b19b9903c0a05ec3852f970a5987167e224ec7608d7a2bb3fa8023",
+      "runtime_admission_ledger_sha256": "813863402cba767f55e1700588e91608e0cac4cee95e36a0062249226abf5c5a",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "2f6fc6ceac36361c5e3d83fda3dea118490fda5ed59bf00f2a216062d4f27354",
+      "cycle_id": "rootless-cognition-cycle-64e9e8a2bb1b4b6995f7",
+      "receipt_inventory_digest": "sha256:75150c9335a69494a2d44c5f4999f07d1330d1be928dc993895012c06b1b56e8",
+      "record_inventory_digest": "sha256:76a3f8aaf2a22376f0dfd0a11e62bf256c303373f760fd5efe642cb7c2dd7315",
+      "runtime_admission_ledger_sha256": "ea03538a3a4a5366489622ab4ca046092d1227489c0f6478861fe6d18b4a89c2",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "d9a88f71e665ca9193f9f61ea58559f9b5be53d2335a491594616f9b08b7b185",
+      "cycle_id": "rootless-cognition-cycle-69e99a518087c2c61623",
+      "receipt_inventory_digest": "sha256:50d110b867d7fb18a53098123a00c4f42ca431451f1d6101eca9203760166ac8",
+      "record_inventory_digest": "sha256:5d04211bf54c99db261cdf4b20ad3e7539d65bbf730f1e909a447df7caad94e1",
+      "runtime_admission_ledger_sha256": "9661d02d70b49e041e371856bc4e8f2dce6229ee333647179e9e06a0f7bc6099",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "96f90db6b6b5d7c40ee13ab8537dddc377cabbd12f2026341991e791911b054b",
+      "cycle_id": "rootless-cognition-cycle-75d63a4655604c88ac3a",
+      "receipt_inventory_digest": "sha256:4ee64bb7846d5a5c85a13634c3b9fb7f75a806f31ed8bcf611cdabed41ffc177",
+      "record_inventory_digest": "sha256:287b6e4a13ff58aaa38cc523d496b057bc1530a6f11595a217496520698c573b",
+      "runtime_admission_ledger_sha256": "bd9475a8e3f60a904c6663f623a74ad2af40c75afd2e71043824ccbe0c56dca1",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "e2387a5b8b2c3d1f4f35749e0377cfa3d8b9c07bfe7e0f80f0c5379d1b4c6b61",
+      "cycle_id": "rootless-cognition-cycle-77117c5cfe9f4b639d78",
+      "receipt_inventory_digest": "sha256:b5a245f3cda155512fac3384edaf17924c406c21f5e1b54ec76c5569080f5057",
+      "record_inventory_digest": "sha256:f6471de805ecc7baf988fcb5305f8d68b18cbcf1a298408505ada91e7d665750",
+      "runtime_admission_ledger_sha256": "00c0128615f7756cd6b629fc561e4440646b77d242539671ae1be44029898278",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "12617f6a3a0a91913df7e35292cee7dba05c273cbf4cad0ec85e18f308ec5e39",
+      "cycle_id": "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+      "receipt_inventory_digest": "sha256:b748c47a5a2657377615d0648a6198105e1027c015e2aeac1487aae9611841be",
+      "record_inventory_digest": "sha256:daf11ab71c56e67b85ac6a0bb73c57a8f495391250e5965315b31ac72fc59de2",
+      "runtime_admission_ledger_sha256": "66860810fe3645936c1c13d423ddc90fa276167bc6a4b1ad68df207b1cb1568b",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "7eca85649d75ac9d0c144ccd3ca5f41186aac9a40c5a4b9e704a31a717baa90c",
+      "cycle_id": "rootless-cognition-cycle-7f0158832349222ca4b8",
+      "receipt_inventory_digest": "sha256:952ad3b4c57f1a13ad8f6632e3f73a85acfe07a0dddcfa75fb0ea846880c7659",
+      "record_inventory_digest": "sha256:019ce7e3c8f65c9a99cee6b7a6473f84572c51ab1b56b92932017fc4bbcaeb11",
+      "runtime_admission_ledger_sha256": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "7eca85649d75ac9d0c144ccd3ca5f41186aac9a40c5a4b9e704a31a717baa90c",
+      "cycle_id": "rootless-cognition-cycle-8aee6d5feda2a653409a",
+      "receipt_inventory_digest": "sha256:952ad3b4c57f1a13ad8f6632e3f73a85acfe07a0dddcfa75fb0ea846880c7659",
+      "record_inventory_digest": "sha256:019ce7e3c8f65c9a99cee6b7a6473f84572c51ab1b56b92932017fc4bbcaeb11",
+      "runtime_admission_ledger_sha256": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "7eca85649d75ac9d0c144ccd3ca5f41186aac9a40c5a4b9e704a31a717baa90c",
+      "cycle_id": "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+      "receipt_inventory_digest": "sha256:952ad3b4c57f1a13ad8f6632e3f73a85acfe07a0dddcfa75fb0ea846880c7659",
+      "record_inventory_digest": "sha256:019ce7e3c8f65c9a99cee6b7a6473f84572c51ab1b56b92932017fc4bbcaeb11",
+      "runtime_admission_ledger_sha256": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "6596e50ff64982d79863ca9139a6344567e2f3fd9f0ec7ce39f45351efe7451b",
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "receipt_inventory_digest": "sha256:3ba674fa6cb2aa093ceddf845ce48e547581cd85574047d8dfd196344fb84025",
+      "record_inventory_digest": "sha256:20a7c1016518c1fc28ea58a89bc86e0af0d9e5aa23a01c0e57143a72ae6636ff",
+      "runtime_admission_ledger_sha256": "3fec9aa673da4bf6ca75620bb3e0e7146e210b7acf991e9ca399a526aae398a6",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "902354bbdb25c5d4a6b75c9a5d817eb6c1a4a8f356fcf7dece1745c85ee0b812",
+      "cycle_id": "rootless-cognition-cycle-a4509d783fc512b0d1e7",
+      "receipt_inventory_digest": "sha256:bd30d651e67580227a0b1f8ffb016a0a1b930f43297ba6d9e1e932de06c9967e",
+      "record_inventory_digest": "sha256:78291c13710ad14dfa7dffa14ff7894f57264cf9864dd68e4551e1f29ea1c277",
+      "runtime_admission_ledger_sha256": "5e15c40011c22d72dda89141d7c916e3de9146b90c2d906656a0a65f641817a8",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "618812444340f4163afaa0095cc542c589a42913eab138ae8ecc4c1967ee55bb",
+      "cycle_id": "rootless-cognition-cycle-a91f3c5d0e6b7a82c190",
+      "receipt_inventory_digest": "sha256:47f15be930dcc39c772a56cda6cde5883100ad4fb174e4c7b7eee41643becf32",
+      "record_inventory_digest": "sha256:a596bfa5e80f37cebc47f35a6460e6955bbf4d0b0008889fb16e9e648c3419fe",
+      "runtime_admission_ledger_sha256": "652e400df173fe5d485a5bbcf5b0e5f9de4fd9c781b9b0587464c0b9353046e5",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "7eca85649d75ac9d0c144ccd3ca5f41186aac9a40c5a4b9e704a31a717baa90c",
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "receipt_inventory_digest": "sha256:952ad3b4c57f1a13ad8f6632e3f73a85acfe07a0dddcfa75fb0ea846880c7659",
+      "record_inventory_digest": "sha256:019ce7e3c8f65c9a99cee6b7a6473f84572c51ab1b56b92932017fc4bbcaeb11",
+      "runtime_admission_ledger_sha256": "3f35a86825fc4aa8f7f00c8d8f5e4aede49fa6c0d48959bf2ef3b9617c8fe330",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "618812444340f4163afaa0095cc542c589a42913eab138ae8ecc4c1967ee55bb",
+      "cycle_id": "rootless-cognition-cycle-c5b2d88e1e84474b6d0a",
+      "receipt_inventory_digest": "sha256:47f15be930dcc39c772a56cda6cde5883100ad4fb174e4c7b7eee41643becf32",
+      "record_inventory_digest": "sha256:a596bfa5e80f37cebc47f35a6460e6955bbf4d0b0008889fb16e9e648c3419fe",
+      "runtime_admission_ledger_sha256": "652e400df173fe5d485a5bbcf5b0e5f9de4fd9c781b9b0587464c0b9353046e5",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "f4c05154f09778e72a5a0c3db79a29a96fed81d96e2c1937197e6e9c5108e113",
+      "cycle_id": "rootless-cognition-cycle-c8492c84cc794a82a2c6",
+      "receipt_inventory_digest": "sha256:ca31daca6a2e9ae529dad43c056829903d75429a53b11aac032fc1099a6338c0",
+      "record_inventory_digest": "sha256:fcc927b1a7ed38adaeda6667c6f04d90977a39933ce905b2023ffc5234a92f93",
+      "runtime_admission_ledger_sha256": "a077008e8ad4e9966f51e158a4387bacc7539d4cb99f69349a3c7ffb48ea3b4b",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "e503a391a5f97ee42612c6a7dbdcdb956eb69ffd04ef4de52e360c8cbab80d77",
+      "cycle_id": "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+      "receipt_inventory_digest": "sha256:dbec76c139be53a30679329a277ba7e04ad49e7556784d954c12b8c775c7f95c",
+      "record_inventory_digest": "sha256:41880c15e04a3c99b315dd68b0dfbebb570cb653d10efe7198430d8ca82522d2",
+      "runtime_admission_ledger_sha256": "354fedc8bee8e6d993bb968e7163aebba1845cb1b15c9ea7b774d6765ede4e27",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "05650caab4bc6e23aeb7e9ccfbce238707190b4ec22acc806648f9d4891d0a88",
+      "cycle_id": "rootless-cognition-cycle-e18b37a9c6196dbe643b",
+      "receipt_inventory_digest": "sha256:a843a81db9e3366117407deb70967f3eb18204bfa60284e817fc70910794dd7f",
+      "record_inventory_digest": "sha256:e4f7a7bfb9b7a4b2325371084c4ff6ddaab8815d51b8d18da61d161acf6d8578",
+      "runtime_admission_ledger_sha256": "59415b6997a5ed214b57fefa18c631b65668290873e9e36c2d402a06b065aed0",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "618812444340f4163afaa0095cc542c589a42913eab138ae8ecc4c1967ee55bb",
+      "cycle_id": "rootless-cognition-cycle-ef04c326e1b94df08661",
+      "receipt_inventory_digest": "sha256:47f15be930dcc39c772a56cda6cde5883100ad4fb174e4c7b7eee41643becf32",
+      "record_inventory_digest": "sha256:a596bfa5e80f37cebc47f35a6460e6955bbf4d0b0008889fb16e9e648c3419fe",
+      "runtime_admission_ledger_sha256": "652e400df173fe5d485a5bbcf5b0e5f9de4fd9c781b9b0587464c0b9353046e5",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "da729f0c9f193dc9c96375a91f5c0a0107514da7654ef95d7a1073b69e3f7d1f",
+      "cycle_id": "rootless-cognition-cycle-f0ba12e3ab4fce872001",
+      "receipt_inventory_digest": "sha256:6c5ce588bac3107bafcfbfb94c61f6f2a7e7f803d9258b4f0032e501e36dc209",
+      "record_inventory_digest": "sha256:561caa298c94addb8f04e342a6c77e26a95838ffcb5ad730f0808b3ca96dfde5",
+      "runtime_admission_ledger_sha256": "446f14d0b9928dfe50c587641525bf4eb89ffbb02e038ad412fc97b1f588414a",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "cae52011d9deb25ac79964fa5a36dd549bc6b2795e101e2a78d2f233f5695324",
+      "cycle_id": "rootless-cognition-cycle-f29a8b1c7d4e6305a2c8",
+      "receipt_inventory_digest": "sha256:7851f18d5580bf023f4ee79ef706a403fc3572f6b9744ff972bc2399055005f9",
+      "record_inventory_digest": "sha256:11c0a1f06590815274354d71626604d449c4cc103b40fa1206c6d32db4605af9",
+      "runtime_admission_ledger_sha256": "5c9ad361f769a7c3b2482e8d8e71cfc3b86e0e77f763d9dbc2f0ab123c93aad3",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "cae52011d9deb25ac79964fa5a36dd549bc6b2795e101e2a78d2f233f5695324",
+      "cycle_id": "rootless-cognition-cycle-fe2270380dd09739d86f",
+      "receipt_inventory_digest": "sha256:7851f18d5580bf023f4ee79ef706a403fc3572f6b9744ff972bc2399055005f9",
+      "record_inventory_digest": "sha256:11c0a1f06590815274354d71626604d449c4cc103b40fa1206c6d32db4605af9",
+      "runtime_admission_ledger_sha256": "5c9ad361f769a7c3b2482e8d8e71cfc3b86e0e77f763d9dbc2f0ab123c93aad3",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+    },
+    {
+      "composition_state_sha256": "d5835cfcdf08e44d35b2bef46d445ea25b114f1aa5c584fd277e23e156cb306f",
+      "cycle_id": "rootless-cognition-cycle-0cfa1c47de4d49bea4cd",
+      "receipt_inventory_digest": "sha256:01a8775463b925fa38699460ec4491e2b17e59ec33c6f8988a519446d9c8fcbc",
+      "record_inventory_digest": "sha256:d22d0fc2797ff597fa0fefdd0af07ddbc4ed66db70e2da4b0a90cea2e220751c",
+      "runtime_admission_ledger_sha256": "4d008eaa370c39f0a82b1a805f8c08b03686e0bc35e9c6a9477b66980e21f4bd",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "42a216b9ceae8455df70d4904661dddba6cf22407f0f2f3c8e4866d7eed13244",
+      "cycle_id": "rootless-cognition-cycle-1e3f877fb56242c5b2c0",
+      "receipt_inventory_digest": "sha256:02c5af26ff20b22937644ceb980616084537b0746cca9a0b60d9c98e27f071ca",
+      "record_inventory_digest": "sha256:4c9e69c8688bb1f12e3d78160791e8d502dd870be7432e7b0b296bf525696d0e",
+      "runtime_admission_ledger_sha256": "1763ddb751a720005d8d602de2131a82373f70a5af005caaa16306c281d7cd81",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "075ee01f8ea6e4962ffa0de0f015721fb3e447b29ca0d3fa3ed89aa5ec8f488e",
+      "cycle_id": "rootless-cognition-cycle-308199e124b045538667",
+      "receipt_inventory_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_inventory_digest": "sha256:4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "runtime_admission_ledger_sha256": null,
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "60be935f217082734c077e4f3bd542f191550476f6433a742fcdca80a80d2131",
+      "cycle_id": "rootless-cognition-cycle-334cf5be6f3a415e9ce8",
+      "receipt_inventory_digest": "sha256:f86cf06c31b6772abd601ccb0641010ffde4a7ec2f3d3870ebea5cfc504aff4f",
+      "record_inventory_digest": "sha256:1e234a889850a1a1bb29be48ff9164e9eba62790a748a34fd72b04b0cb55c9d9",
+      "runtime_admission_ledger_sha256": "47aa3d8b83f57f89eb77edbede06c71c2393cacca2e4e229d15200ae2a568408",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "7e9c2215a79fa8b67bcd9949c28f19be5fd56af50228ed1ceaf49f8622d31537",
+      "cycle_id": "rootless-cognition-cycle-455a60d4a21e426d8e25",
+      "receipt_inventory_digest": "sha256:46d135430226384d2a200a7454a9ee1363d5afae4fc0f9bea180bd32b2d48ac8",
+      "record_inventory_digest": "sha256:a7198f7bdf4f05d66f9588e9f0114a8e181d8bf1b51020178394b15208b2868b",
+      "runtime_admission_ledger_sha256": "4ec896959246386e4af2152c6512bd35f8a07cf13b800adf93e6e5be171993ac",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "eb2fe0bc5d7bc7d5a12c6cbe4a04f34a92c043b748724b8c43e0d17bbc67e02d",
+      "cycle_id": "rootless-cognition-cycle-4aaf822a6dd2454d8b9e",
+      "receipt_inventory_digest": "sha256:42aeedf8e2f58a48f0031bf4576dea979950b95e832a95adefc7cb86026a213d",
+      "record_inventory_digest": "sha256:10160f4d47121fee80726923bd80617c40f12bdfc3095fc032122f4987e509d6",
+      "runtime_admission_ledger_sha256": "81b36d6f30f496ccb5a075aba3d95e9dfb606596e9f26d639e869916a08f8fd1",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "ff4f555fe8ac67d9deff636ba4c96de9d657189da08f41fbe22ab8abe16b4f2a",
+      "cycle_id": "rootless-cognition-cycle-4d83d0e99c704fa2af92",
+      "receipt_inventory_digest": "sha256:8eb4f98ce8d143e023cf6802c5c36641ebe07d9c9dc4f26e14f0f8099b221a72",
+      "record_inventory_digest": "sha256:aa8d99409c16d784825026ae61020b2e1fc6e0bde2fd9b825767f88c0a6651cd",
+      "runtime_admission_ledger_sha256": "d9714ea28e6b20eb055cb4479b206f959ae4950c0a283f7eadac07a8f0d001f6",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "745401619fdafa4be5645fbb04c50410c9fec19801cc0ac96d994681bebab678",
+      "cycle_id": "rootless-cognition-cycle-7a737477009d4d7bbe58",
+      "receipt_inventory_digest": "sha256:52d1edaff3abb5a1312211726c449fc924217bc94af50fdc13162b3a0bd4d53d",
+      "record_inventory_digest": "sha256:309fe6f2532b193cea08847615e22141ba36c342c3210849b45caa85bc6dcda8",
+      "runtime_admission_ledger_sha256": "e5236faebc6fff8314bf5de6b365e0c84d9b555f29b471b87a604d373e278a9e",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "ffddf0adc37f7497342967f9026ed4623ab1b89fb4ffd91f2a1ee393bff6c5de",
+      "cycle_id": "rootless-cognition-cycle-e0d11de9dc7640259f3a",
+      "receipt_inventory_digest": "sha256:ca012b87ae7622e390a0dab96e4e9dadf9fd9ef1374bd7fd0f6fcb516b293405",
+      "record_inventory_digest": "sha256:be1cbd9e01fe85ccbe13e4b87e351b5dadd730aadc436894d6c3c26cbed76ead",
+      "runtime_admission_ledger_sha256": "abb8ea0d995f668cf15b8d1a330c44bfc296f93a3550cd1aa123a526811e91c6",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "637b9cdeabed0c9a57e7cb2f037a57b4b2c4daf7d13ad1a9f801a426d9f20590",
+      "cycle_id": "rootless-cognition-cycle-fc801d38eb324274bf32",
+      "receipt_inventory_digest": "sha256:115fe915c0045ac977511ed6c44c5940da1c2fc6371d0d9494239a555004c9c0",
+      "record_inventory_digest": "sha256:809bd8b6e71a258b95c24e8e9a04e4721ade2223a4ac32f4dd7aad74bb4ceb7e",
+      "runtime_admission_ledger_sha256": "a75a841787ce03d271bbf12af9cbc94e95217b6ea6a7c930f583d693e4aab7c4",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+    },
+    {
+      "composition_state_sha256": "87cb3a54cdbb15cd902c05f111b32e6a4a54f830cc98afeaaef09414e280f6e6",
+      "cycle_id": "rootless-cognition-cycle-724d354bc544461b80f6",
+      "receipt_inventory_digest": "sha256:a636d2f0cd63cd7fa5926f1646e652505f586246c2af5189bac4cbcec6d3a899",
+      "record_inventory_digest": "sha256:189c2139e28546816419d3219a886f11ef0c3528040f2c53b56b8a386361e381",
+      "runtime_admission_ledger_sha256": "158fd47bb8495e471a3330382851577195fe729a0a0cce48d321adf2cc28575d",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+    },
+    {
+      "composition_state_sha256": "2f1fb2af29a534d9f33ca11022a9b078c4e6b9244043ed066017dc64f034aff3",
+      "cycle_id": "rootless-cognition-cycle-7b5eca6905ce473aafef",
+      "receipt_inventory_digest": "sha256:c2266fb4f56ca644de333605339d42ed99931ecc78c52cd4424578b1b3141c7a",
+      "record_inventory_digest": "sha256:5e235309171184825010e1ee4e6ee0bcb1d4190fb543803fb645baf6422a997f",
+      "runtime_admission_ledger_sha256": "02bbb13ce1e9971afa6fb5c78e77730c12d3c40c3e7b2d0d026e2df885164465",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+    },
+    {
+      "composition_state_sha256": "f7a3049fb74b879cccb7bbc56ea208acda35bf6deb63fa9ba0a9a3f2780f3b04",
+      "cycle_id": "rootless-cognition-cycle-abb770979813482c9361",
+      "receipt_inventory_digest": "sha256:7c723f28625940e1bb2173b4c9cd74c464b515784c20711d4ee4e0f114eb34cb",
+      "record_inventory_digest": "sha256:ccbf0b493c2ada053d991b75bba23b5498716153ba16ce69081dba7bd89f5cc4",
+      "runtime_admission_ledger_sha256": "0d894b3caa24eb73efe734f5bd57edc2c0bccc0f2e676bbc6988fd34e0b2fc78",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+    },
+    {
+      "composition_state_sha256": "120fa13c34c4a03788556c69220bd5911c74c1359353db1c7b89be6d3227a091",
+      "cycle_id": "rootless-cognition-cycle-ac48f9a8d8b94536b8a1",
+      "receipt_inventory_digest": "sha256:ab079f8ae8aca1b40c338dbc491c7238fcd6ed250f1d0c743eaf7765988a1627",
+      "record_inventory_digest": "sha256:b24853b0fef074ccf2572fc7cbbc2218f76594c56a1655032745a4b24a32b4c4",
+      "runtime_admission_ledger_sha256": "fadf4472471879e1f3bce7f8b2a46975b9f46ed4f0ec39e82e785e0f626e0f1f",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+    }
+  ],
+  "sources": [
+    {
+      "record_count": 19,
+      "record_inventory_digest": "sha256:827fef4102c8fa9d42fcf818385fd7a14cccc7de60173e357741ffefaa7de3f4",
+      "source_id": "src-4448560d5c38e73f57318253",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc",
+      "source_snapshot_count": 10,
+      "source_snapshot_digest": "sha256:2921061a54b437103180b93ad0644b0244b904e1bb9f9e4f71ed18abe42925cc"
+    },
+    {
+      "record_count": 43,
+      "record_inventory_digest": "sha256:9d90087844d9cdcd0d9ec1b2d41f1dcf74d2a0a1945bc0aa20a3c4bdeb75d7a4",
+      "source_id": "src-c84358c790aeb0c944a38f3e",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de",
+      "source_snapshot_count": 33,
+      "source_snapshot_digest": "sha256:4eb8a13193c4e1050999749d697d105ba2d9a606740c18e498199a5d690d0451"
+    },
+    {
+      "record_count": 9,
+      "record_inventory_digest": "sha256:96a439d7e06434f3f4e0e0aecf7d75252101591a113029d4079f22cf00f8acc9",
+      "source_id": "src-fa8fea23d72bf07e090f2006",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa",
+      "source_snapshot_count": 4,
+      "source_snapshot_digest": "sha256:4d4a20aa73ff472725cdfd781b5e96a252ab65e88e8e31c1b9ba17b045262553"
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "accumulated_strategy_distinct_input_count": 6,
+  "accumulated_strategy_present": true,
+  "accumulated_strategy_run_count": 2,
+  "accumulated_strategy_schema_version": "sentientos.accumulated_integer_affine_strategy_compact:v2",
+  "audit_digest": "sha256:1dc00538f68a7551a36f59093ec3cfd65a207bc1fd60ac0b7eeb4d04af6c1a3a",
+  "authority": false,
+  "binder_selected_record_digests": [
+    "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+  ],
+  "binder_selected_record_ids": [
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "completed_tick_count": 42,
+  "composition_state_digest": "sha256:06ca52bf9f7cc5ec7bf24a781cb9d5f31345cac8ebf45d81d8348a2c9276eadb",
+  "composition_state_digest_verified": true,
+  "current_evidence_posture": "cycle_result_answer_free_summary_surrogate_not_original_full_payload",
+  "current_evidence_summary_chars": 777,
+  "current_evidence_summary_digest": "sha256:c6808353023cc563c3aca022fbb9c41bca1137fb87d95d2d941b479debc99a03",
+  "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+  "exact_prompt_reconstructed": false,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "owner_selected_record_ids": [
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "posttransfer_writeback_excluded_from_allowlist": true,
+  "posttransfer_writeback_record_id_excluded": "devrec-01e35780a28a539aee7c5fb6",
+  "prompt_chars": 20312,
+  "prompt_digest": "09e15cf6ce35becfdccb78c44b40c815b478f63079a234dda5d0485c98b9ca19",
+  "prompt_limit_chars": 24576,
+  "prompt_within_bound": true,
+  "receipt_digest": "61e79ae1e1777a744d728a104a5a894a6c0a61e0d08dc37b29bc1ac8beb211b1",
+  "receipt_id": "lmrec-61e79ae1e1777a744d728a10",
+  "saved_allowlist_record_ids": [
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "saved_allowlist_selection_digest": "sha256:dfb46ac47ff4a192b86cb3aa6f493077fb7523c700e4af75f90678ff53fefcc8",
+  "schema_version": "sentientos.rootless_task_family_owner_prompt_preflight:v2",
+  "semantic_encoder_used": false,
+  "source_run_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+  "target_model_identity_digest": "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1",
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_family_prompt_projection_digest": "sha256:15fa59b738b00f7d6f1d59400fe606c283449ab70cd4cee3bea8f588d2883d6a",
+  "task_family_prompt_projection_schema": "sentientos.task_family_history_prompt_projection:v32",
+  "task_family_prompt_projection_verified": true,
+  "task_probe_inputs": [
+    6,
+    8,
+    9
+  ]
+}

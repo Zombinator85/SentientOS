@@ -1,0 +1,64 @@
+{
+  "answer_key_digest": "sha256:501bbf6393a2442d7508796046efaa7056b9219abc4159f337837c53c4f58a5b",
+  "answered_counts": {
+    "negative_guidance_omitted": 1,
+    "negative_guidance_present": 3
+  },
+  "authority": false,
+  "confidence_brier_squared_error_sums": {
+    "negative_guidance_omitted": 72250000,
+    "negative_guidance_present": 300000000
+  },
+  "confidence_scored_counts": {
+    "negative_guidance_omitted": 1,
+    "negative_guidance_present": 3
+  },
+  "correct_counts": {
+    "negative_guidance_omitted": 0,
+    "negative_guidance_present": 0
+  },
+  "coverage_basis_points": {
+    "negative_guidance_omitted": 3333,
+    "negative_guidance_present": 10000
+  },
+  "discordant_probe_count": 0,
+  "exact_two_sided_mcnemar_p_value_fraction": {
+    "denominator": 1,
+    "numerator": 1
+  },
+  "independent_scorer_attested": false,
+  "learning_established": false,
+  "omitted_minus_present_correct_count": 0,
+  "owner_score_digest": "sha256:76e2136c406d3668c3836c78145599af4e7614a55516afafc1976a517c86df3a",
+  "owner_score_mismatch_fields": [],
+  "owner_score_recomputed_match": true,
+  "paired_correctness_transition_counts": {
+    "both_correct": 0,
+    "neither_correct": 3,
+    "omitted_only_correct": 0,
+    "present_only_correct": 0
+  },
+  "paired_probe_outcomes": [
+    {
+      "negative_guidance_omitted": "incorrect",
+      "negative_guidance_present": "incorrect",
+      "probe_binding_digest": "sha256:51c652a783aba3f889ea2474470db87c60a984960c1bce02375e1609651be108"
+    },
+    {
+      "negative_guidance_omitted": "abstained",
+      "negative_guidance_present": "incorrect",
+      "probe_binding_digest": "sha256:dcabfe1ebf24741de32075952523ea161065c8200819e4a8e382138bae09bc3e"
+    },
+    {
+      "negative_guidance_omitted": "abstained",
+      "negative_guidance_present": "incorrect",
+      "probe_binding_digest": "sha256:179f10fbd382f5eaf974387e67ed56ae618a055ec2bcb2ebab437cf9faa44d7a"
+    }
+  ],
+  "probe_count": 3,
+  "protocol_digest": "sha256:3a8627a43ad25a6fe4dbe2299cdf4215c93d5bf36f6bd81cb3920abcd0d7c837",
+  "raw_prompts_and_model_outputs_excluded": true,
+  "schema_version": "sentientos.negative_guidance_shadow_score:v1",
+  "scoring_implementation": "separate_deterministic_shadow_reimplementation",
+  "shadow_score_digest": "sha256:24f76fb97131bfabbe57730c0852f5d0e06730ed098ea38ec32f69c8f11be044"
+}

@@ -1,0 +1,63 @@
+{
+  "acquisition_prompt_delivery": {
+    "binder_record_ids": [
+      "devrec-a2447a4bc199ed7f439a37e3"
+    ],
+    "exact_probe_overlap_count": 2,
+    "incorrect_example_count": 0,
+    "no_imitation_instruction_present": true,
+    "record_ids": []
+  },
+  "campaign_id": "rootless-history-campaign-20261124000000000009",
+  "historical_examples_ablation_status": "historical_examples_not_present",
+  "interpretation": "The changed owner ranking now selects the recent 0/3 score-bound record for the planned transfer prompt, and the prompt projection verifies three incorrect examples plus the no-imitation instruction. This is delivery evidence only. The acquisition prompt selects an older positive record; the paired positive-example ablation is not applicable when only negative examples are present. No inference or learning claim was made.",
+  "learning_established": false,
+  "model_attention_established": false,
+  "performance_improvement_established": false,
+  "plan_digest": "02b0feb451de88c783fb30725300c5043c17c4d786ce1d3b38d863ce0943350e",
+  "plan_sha256": "3776ba5685ea84b6ed33be333663ff17d52599685a4cd35be46728df343dd3b4",
+  "preflight_digest": "sha256:56a0311b13c75874b163bf93f091617ed5e6cab63d4fb711c9dd7d696f21a548",
+  "preflight_path": "owner_preflight_cycle0_v1.json",
+  "preflight_sha256": "596044597d3b0851476efecc1e24562fc610ac9449d90efc0db84fdd11a3078b",
+  "preflight_verification": {
+    "authority": false,
+    "implementation_digest": "e4e674fcfd5301062d64dce01212e77312d78a9ef111946efcea93356aa113bc",
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "model_identity_verified": true,
+    "report_schema": "sentientos.rootless_planned_cycle_owner_preflight:v19",
+    "status": "verified"
+  },
+  "retrieval_change": {
+    "failed_record_rank_position": 0,
+    "policy_id": "task_family_outcome_then_scored_example_coverage_then_model_probe_overlap_recency:v10",
+    "ranking_trace_schema": "sentientos.task_family_history_ranking_trace:v2",
+    "selected_by_owner": true,
+    "selected_by_transfer_prompt_binder": true,
+    "trace_usable_count_matches_scored_count": true
+  },
+  "schema_version": "sentientos.score_bound_negative_history_delivery_outcome:v1",
+  "seed_history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+  "source_failure_record": {
+    "correct": 0,
+    "incorrect": 3,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "score_bound": true,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "transfer_prompt_delivery": {
+    "authority": false,
+    "current_truth": false,
+    "exact_probe_overlap_count": 0,
+    "heldout_transfer_probe_set_disjoint": true,
+    "historical_only": true,
+    "incorrect_example_count": 3,
+    "no_imitation_instruction_present": true,
+    "prompt_chars": 23704,
+    "prompt_within_bound": true,
+    "record_ids": [
+      "devrec-ccd62c925ff71eed431c3d25"
+    ]
+  }
+}

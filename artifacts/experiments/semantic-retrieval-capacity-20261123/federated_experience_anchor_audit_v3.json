@@ -1,0 +1,916 @@
+{
+  "anchored_record_count": 71,
+  "atomic_snapshot": false,
+  "audit_digest": "sha256:65a4f6b2204646f873ce3fd192fee52536ee97a54cff57e14eef84cedbe55017",
+  "authority": false,
+  "corpus_freeze_digest": "sha256:bda164f2a7eb0c44889b016a390d3559cade5ffc88278a05cfca9fc3f6c7c831",
+  "corpus_freeze_id": "devexp-retrieval-freeze-bda164f2a7eb0c44889b016a",
+  "corpus_manifest_digest": "87dfcc46b09c78076d7e2d2d423fdf4c5b4a0400592e755a615ae7da6efa42dc",
+  "corpus_record_count": 71,
+  "distinct_experience_anchor_count": 71,
+  "distinct_experience_shortfall": 0,
+  "duplicate_anchor_group_count": 0,
+  "duplicate_anchor_record_groups": [],
+  "experience_anchor_kind_counts": {
+    "developmental_experiment_run": 37,
+    "embodied_consequence_event": 34
+  },
+  "independence_established": false,
+  "inference_performed": false,
+  "learning_established": false,
+  "minimum_distinct_source_experiences": 60,
+  "phase_a_eligibility_established": false,
+  "records": [
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-319cc99acfd26f138f01d7cd",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "b652654c4e12ede727fede8ed5174c0d1481f45f578f0e748b80d0502193e4f8",
+      "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+      "record_id": "devrec-01e35780a28a539aee7c5fb6",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-55ff9f6987e753c7eca971b9",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "6de3a06165d70f8a904391b3eb151e3f9a0ccb77d08666c43ade761e63459b34",
+      "record_digest": "sha256:0641223365c8adfd38a1143fe49e5505c950a2a3b55d0de8b128e1a1cf77144b",
+      "record_id": "devrec-0641223365c8adfd38a1143f",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:490f56460b72325e7eff9742",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ceaf39fce6b394f3986aedb0"
+      },
+      "experience_unit_digest": "53c43b01133e43ee70106c4b7dd8b8cfd45893a1d9b2ee9c7d577d1e02a53fe3",
+      "record_digest": "sha256:0d365af302c84f655f6198c5dd0caf05619b69d3019cf3a8e042e9b873294c87",
+      "record_id": "devrec-0d365af302c84f655f6198c5",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:3468730b988d175d2c9f34e3",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:30114061fefbc5d8df2240e4"
+      },
+      "experience_unit_digest": "bf46d9bf9bfcd1a6e268077a1178c2703dcc7630ba3a8f7ec1f948769713a48c",
+      "record_digest": "sha256:127c73ee74991bbcf4ef11fc935a5fc9ab7e154a590968d39fd98d8212b0f919",
+      "record_id": "devrec-127c73ee74991bbcf4ef11fc",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:8f0d82a297e09b769bd582cb",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:e881d80c28903edfbe594d7d"
+      },
+      "experience_unit_digest": "b2a5c297cc24b15958bbd4193d972603d61fd3d8e0050b19356a60b1df6baf19",
+      "record_digest": "sha256:1581103949635ae915924b37618be8aa59bb33baf2560fb0c4ebc4c6b2122f96",
+      "record_id": "devrec-1581103949635ae915924b37",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:268cb73d8d6092d130685bee",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:afcd60d132e33abe053f11a1"
+      },
+      "experience_unit_digest": "90f4b0c772c3210b11bb517ddcf603d32aa51d8e84110e6b860bb6d17a1aaf94",
+      "record_digest": "sha256:1b9228c86fda22f5c03788ec692d848f8eaacbfb3603ce0cf4e67c4187802a63",
+      "record_id": "devrec-1b9228c86fda22f5c03788ec",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-19103218d6ae7eceb9e2ea0c",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "75881a3efb877663a8524a5f4078326f6e55d234be623330ffdded64f4e84df7",
+      "record_digest": "sha256:2101f0fa9196a25d009e485d060389aeddfdd63bdad268c48d0a9bab5aefc1b9",
+      "record_id": "devrec-2101f0fa9196a25d009e485d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-2ae266a5e3cd5a03ba49a812",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "3bc62a545d8ecd8375d55984f6aa56f44deaf009408596f7275d51fa3d4e5490",
+      "record_digest": "sha256:21df63d50d306c0e607fb07f8bd150462cd84d90c368c3ab6c4ea0faf5d0ab31",
+      "record_id": "devrec-21df63d50d306c0e607fb07f",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:b4de7087ebf8dc03387b7c0b",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ece857fd48d74ecf1834dc7a"
+      },
+      "experience_unit_digest": "3a5831007bd9abd5b40033aa74b2c79b0efb31863bf122c578cc731e8fa48c74",
+      "record_digest": "sha256:2f3822b398931baf77de5317824b59c0a4584ea8adcf07789a01272b7554e1ce",
+      "record_id": "devrec-2f3822b398931baf77de5317",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:5cbaf37a15dbf3162557d49e",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:911459acc12a9ef938559692"
+      },
+      "experience_unit_digest": "02f9b47efb3b77cc001f2ed5ab7e4ecab8e7746dcb707c6b1afee7c421c3e5f1",
+      "record_digest": "sha256:32b0780f4dfe2230293877ffecd07cbba8e1e1d515c3e411c91be9d9debdd6b6",
+      "record_id": "devrec-32b0780f4dfe2230293877ff",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-73607303fc0229e94040dd16",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "47f302fd624e88dc7e44d059c0b2c066a831fbc90c89d79cf5103bc92e4a9763",
+      "record_digest": "sha256:34f8af2cc29849b13365de40b1061fa90b06a75fb898e3af6f4326ee5bf0ec32",
+      "record_id": "devrec-34f8af2cc29849b13365de40",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:554e53a3b0212afa5a872f0e",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:dd3811a63de6667d884057b9"
+      },
+      "experience_unit_digest": "5c9c70a821fea9b48e7a235c471b9fa585c5737c9b89bda58baec17a9e6e55fa",
+      "record_digest": "sha256:3b9497fd2b9ffd477c3e9235914c0bdb6357cf072932fafcc264b498520df5ed",
+      "record_id": "devrec-3b9497fd2b9ffd477c3e9235",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-dc935047415908f2545982b4",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "a70189e17529c39e10bd4511d390e633bb60cb8cf90b4af76e7d48110b7d7437",
+      "record_digest": "sha256:3c7fc34d08a407fbdc0a48aaa669624fcf4083a2a742fa58b3d003c1f2b3c62e",
+      "record_id": "devrec-3c7fc34d08a407fbdc0a48aa",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:62a77b388abddeb96c1536d8",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:e78609a8039091bd1accf03c"
+      },
+      "experience_unit_digest": "d3b90400da0d06707b774f88843b46a5418f69a7cb4254629d8cc3f4d993223a",
+      "record_digest": "sha256:4636cead0a89f76418db624a74f37dc6955fb7c68d30e852c8d8208cf2ca65dc",
+      "record_id": "devrec-4636cead0a89f76418db624a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:9e1c62b1c0982325b6d13a84",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ef6c48df858611d6ca2ed0c1"
+      },
+      "experience_unit_digest": "e47e120d681d372c5f3a1b2c9fd7d9a7f753bf82b0140a280f29201c56d2b124",
+      "record_digest": "sha256:4683d0ffa6ff08c614e7e6d1b388a9fba36739fafb3a56e38ed8d3710b245a99",
+      "record_id": "devrec-4683d0ffa6ff08c614e7e6d1",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-45f6942b1bdeb0c2cda16146",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "f1e82dd56662086d1d17eee2bafc1a57f1c68f80489820acb26e6f55d893acd2",
+      "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+      "record_id": "devrec-4fd52036e8b17c28ac02994c",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:68195981f7d8928d6fdacb2b",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ac86e72e49e719dd2b198be7"
+      },
+      "experience_unit_digest": "99a47302ecb1c3f39b77de212faa4537b1b43dd5843febd09e901549c4ebf04d",
+      "record_digest": "sha256:52324db6d60b2a38dedba25e2dac1248ffab01f63cbd1d08efa278c331a46499",
+      "record_id": "devrec-52324db6d60b2a38dedba25e",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-c3eca80af78e9aa6d684b21d",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "d694c9ed2e7adc6f1930e0bc7a81e3e332553efa113330d0e44e5aacdf701386",
+      "record_digest": "sha256:5252c8a2bf33c1f3248ddfeb3ca2d51375df193858c9078dcc575e73494861a6",
+      "record_id": "devrec-5252c8a2bf33c1f3248ddfeb",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-bc4532f77749cd335cc8a36e",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "58d3b50ba64b61fab56d26b7af066bd5b8ece77054bb22bb636666014b0febac",
+      "record_digest": "sha256:593eb0655e50759e2fbb5c1c0f8e19844e6a79c6ca37928638e64be1b3561943",
+      "record_id": "devrec-593eb0655e50759e2fbb5c1c",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-e9068cb8320b68c00f01ddf7",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "d3c2259a0450933d3ab28117b6d0c20d9efa80c84a22c5bb0098add5ff1b644a",
+      "record_digest": "sha256:5b22c5c4943a0d3d322e0e2b0240c3867f6e9159abad218fc1173db15368aa83",
+      "record_id": "devrec-5b22c5c4943a0d3d322e0e2b",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-de53a8746dc111c094c293cc",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "8ae4f6daca6d1d111f212290cf6ae653e1457548d83d7b04c3ca6ddf9811ae2e",
+      "record_digest": "sha256:5ce950e254690f736a4bacc651e492861ee387180cc59af8d34f82bd0c3e6db4",
+      "record_id": "devrec-5ce950e254690f736a4bacc6",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:149bf6256d15f6ebf245cf6c",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:7f00a0f746fe1975d81846ed"
+      },
+      "experience_unit_digest": "e48a96f86a6f751a7ce5bb0959d78a9c44f54a2811796602758b8ef4197e81d0",
+      "record_digest": "sha256:5dae23fd79510dedf13950aab7522cb1f2551ff8e2a4f0b08e098a666d3e9a63",
+      "record_id": "devrec-5dae23fd79510dedf13950aa",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:cc1e964681e32ad0a6be085d",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ea64942a07237774ee564ab5"
+      },
+      "experience_unit_digest": "26af5ddef9323d1e76b20dcc96206515eaf04bc2d3c506e6433e1aff5b7f6fea",
+      "record_digest": "sha256:5e9136f207c8a21292d0305a1fc269904f806cc5b4c2241abf7f72388859cdec",
+      "record_id": "devrec-5e9136f207c8a21292d0305a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-43440da2aca2000e0dc67051",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "a57067a62596b6cea79aacd4516965cbd00d095388d6bea2972b5fa4a73aca38",
+      "record_digest": "sha256:6420107bbb215fa3608eeccf2e6fe06232b5942917cfd5bd7b2b61d7d91337bd",
+      "record_id": "devrec-6420107bbb215fa3608eeccf",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-f80e5f764be0f314aeaf5024",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "fc877ec8954fab6ce2fca84746d18873b60a87c9d4f4ed28cb86964b33284793",
+      "record_digest": "sha256:64c066516a0f80958e1dd4dced68818a5e591cf4a429a0c9041eaf27a63df185",
+      "record_id": "devrec-64c066516a0f80958e1dd4dc",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:e995a8fd7826f1e3b8451c14",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:15106bf234ea574211aa2164"
+      },
+      "experience_unit_digest": "60cea446c53e72fe1092a3f8292629733e8d8d2e0a9a9f3f393e5e1ac8a7ea29",
+      "record_digest": "sha256:656a60aa573a4ac915a45d8d681e8560669aae3e1cc91b9849f6a7ff4d91a2b5",
+      "record_id": "devrec-656a60aa573a4ac915a45d8d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:99cf0e5d9b3bd4c57bddb372",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:d062d88ab599322ef479dd77"
+      },
+      "experience_unit_digest": "16c8497e09de53ff87cb83e78b95492fe50831e0f9df49b65efb6702218d75f3",
+      "record_digest": "sha256:69cd9fc3ed7885b4eaecba603e954a05a15e6eb0b82194d39615c1e4f2790278",
+      "record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-2a9e18b3341d967238f936df",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "79a7ca6d1ac5161241021d12b2369827e2e741b6e7d3fd7755a9d44f9eb86239",
+      "record_digest": "sha256:6c188224414ccd4acff548170c0ce1037a4ca3c74967b0f5db1093e2a79db418",
+      "record_id": "devrec-6c188224414ccd4acff54817",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-67ac8b890ea2c7d59fd98480",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "32676d9a16f543737c441ad66f35ae1304a6aa7d09b1be5905a3509e8b1bb345",
+      "record_digest": "sha256:6cd189853e84eb74e7a7c3542028443a32928bb0d7b6e7f8781843accaf1d560",
+      "record_id": "devrec-6cd189853e84eb74e7a7c354",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:c94922ade76ba2c0b2982478",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:cc7d495ca9c6cbac77157c3a"
+      },
+      "experience_unit_digest": "b95a8bd8e2f1f3813b9bcfbac894a39d6d5ad4420ac892a28b5dfd3f6b3e64a8",
+      "record_digest": "sha256:6db704a20cd40c3a4937351894b71d324f3290a81bb116c366973b5e7b4ec1db",
+      "record_id": "devrec-6db704a20cd40c3a49373518",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-ecf564a49049a2bdfc722f36",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "6651eeaacaf407dfba08865d96272ef3715b589cbbb0bd723e0aed20a2a8a934",
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-7b1d7a3e9aeee64f9cf9778c",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "6789127b82b581c88535037f93e939738b5b8f6a1293a0405cee450e10e95eea",
+      "record_digest": "sha256:6fde16658f35afa909982447968af1d7d7523ee6e3e5b47dc1b923aa072061a6",
+      "record_id": "devrec-6fde16658f35afa909982447",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:61b677dd65644a7792a89232",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:cdbca3ba21e2a67fb7281469"
+      },
+      "experience_unit_digest": "cd25d8ea63bc197b17b56098f170b51f3f9723ba38f80fa281020acfc2bef4a3",
+      "record_digest": "sha256:71188d74065b1eef8ca0e8a9beec69fda622decc487a898212ba2b8ebdf71701",
+      "record_id": "devrec-71188d74065b1eef8ca0e8a9",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:bf6762c359e6419d816e194b",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:01fe63137f4f1082edfa0132"
+      },
+      "experience_unit_digest": "066e229a3f7068a4415e8027414ccc024d2584b0d554f82804fdccbf2c07c0a0",
+      "record_digest": "sha256:75bfcccdf808c2012d472378bea30e1187c429230c23cf148596b4e044dbb08f",
+      "record_id": "devrec-75bfcccdf808c2012d472378",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:50f3505a1c04fd3f766b7139",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:7a368f81621494682ebb5621"
+      },
+      "experience_unit_digest": "82f78ad9ee7f1316c51fae57c15c648c00d87fd69dedffc670959c37a77d1271",
+      "record_digest": "sha256:76fc2e31dcdb3bcb4dd051a1f47da08f22b3e82ac5bee1b4d5feceb0ac7c0dbf",
+      "record_id": "devrec-76fc2e31dcdb3bcb4dd051a1",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-3c528adeaa5f0c2b550132e3",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "524f39750721c833a2be212a4c06e10879ffde7aaaa474f7ac95b1374154beda",
+      "record_digest": "sha256:7841226cbe68c1017cab881c2958a69da0554df99c3aaf6b2f1a51e62ef9bb21",
+      "record_id": "devrec-7841226cbe68c1017cab881c",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-a874b966dd479a4e27d001e5",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "f06825facf511eae3be1bfff5600db63ea5176acc90b32672fe0493023b29b8c",
+      "record_digest": "sha256:7bab60b75b6b114cea689248f5157db798accce490923e73320fc6380669732a",
+      "record_id": "devrec-7bab60b75b6b114cea689248",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:b2c924d1f8859845d8c1d255",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:a2f82b5dfd6e5d33b27b451f"
+      },
+      "experience_unit_digest": "45eff38e3725f8a2e952f8fb5e590ca18eb867342eb3f0e66b4efb842e4bc0f3",
+      "record_digest": "sha256:7c65f971c472cafc40139e061cf609cc36cffc4d26c88fc835bec1c95783c7c1",
+      "record_id": "devrec-7c65f971c472cafc40139e06",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:801bd4b4e116be4b507aa94d",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:e4b9a5867700eb4738e5db44"
+      },
+      "experience_unit_digest": "59b9f960c0586f95732598d890547d0d894fe9d006c07e3937ed7ea2618293b0",
+      "record_digest": "sha256:7e5093f81005e5c781b2ede03ab74ce30dc89601da360199853f6806a1eadafc",
+      "record_id": "devrec-7e5093f81005e5c781b2ede0",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-e6767155fdf302f6e8c52244",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "fd6b45bbba1b90418b5521fb5c8d8df9c936a9f6b54e709005d0e7c2d0eb8a6d",
+      "record_digest": "sha256:80fa37778407832fca4e404abf3f884e476b104d0bcf85f10a5511e38629650f",
+      "record_id": "devrec-80fa37778407832fca4e404a",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:8e5d11e973f421edc1ddcd50",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:9ddbc6ab73d13c55d7e54c5d"
+      },
+      "experience_unit_digest": "c54383e67af4c89d6a851f009c5b4b7f1f726334f39368239c796f8d6f067d78",
+      "record_digest": "sha256:82a706b8435e2c3d9262b54935d2e1bdfb57d60e6536a8aaa2da01589b96a6e3",
+      "record_id": "devrec-82a706b8435e2c3d9262b549",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-c3e60a65e9b72add4caf46c3",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "ca9e04a50d50a76fb095ef3c1f5e7d0cabe46379ce7cf3e5d848dd06a5bb7e42",
+      "record_digest": "sha256:83bc0097864882302ae02efdedac00c1375d88e48dc6e2327af19d183517a3ce",
+      "record_id": "devrec-83bc0097864882302ae02efd",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:0f1768ce616d872df643f234",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:02ecd4cf9e8db25248a68614"
+      },
+      "experience_unit_digest": "9c62e8e7207b590a47ab681cf46c1c59db9f3690e77a1ee3a280f098de543b9b",
+      "record_digest": "sha256:8495c36e445151f2e42af5f05bc52bce90cfb4c448445d43cc70336a896e5ed6",
+      "record_id": "devrec-8495c36e445151f2e42af5f0",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-b1cacc3646eb323b3c041cd8",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "e4ac9a050dcd7c05902d78a7565445c21f6e3c4654f3cc95cae57fffd3af74b8",
+      "record_digest": "sha256:8905e28a74548aa7e998f6b842993bda8e0901b3cdb0c6453da50c7128a4a79d",
+      "record_id": "devrec-8905e28a74548aa7e998f6b8",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:2fbccf07dcaaeceec7baf3a1",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:c4756ab560ab0c8976d99ee5"
+      },
+      "experience_unit_digest": "7b00b427fe0f2f3f88651a97b292c9c15f4aa35d7556066cd9282328aa0ba417",
+      "record_digest": "sha256:89d294006f579428fcbb244d130f1c3c7373bbf95eecb3d006003359cbe52307",
+      "record_id": "devrec-89d294006f579428fcbb244d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-d80ac19d46f5597c39fb5a5a",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "10b6f496323f535f714db03f522206fafe4f4fc66d53edf51a410d8fd9e63c36",
+      "record_digest": "sha256:8c029ca8f2b3b0f518cd520279ffa7527d82a12f0e12f32fbe2031c403bf1ba9",
+      "record_id": "devrec-8c029ca8f2b3b0f518cd5202",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:74820946682545ff9b52af36",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:f21a9a7af891a73675f59c62"
+      },
+      "experience_unit_digest": "497cf5ce46e9f31e29e62a3cb6f7ac593a67b90fef1ba56c2381809c6dab2f58",
+      "record_digest": "sha256:8d2624edfa92112f26dfe3fc85ddc042146c0e00a66e98f5f5e0c4348a8f4a1f",
+      "record_id": "devrec-8d2624edfa92112f26dfe3fc",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:e63c8cbc6c30f8ba933c9363",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:4f1ceac0e4d3c538ec38371c"
+      },
+      "experience_unit_digest": "c2cd5c911a913f2c8589c66ce8c2bc8b6046503cdadef4b095fc552f6c44a1f2",
+      "record_digest": "sha256:8f86d70f05c0a52db9c04fc040c971e2b88c3e9273cdc4a1717b06b3a60bfd6d",
+      "record_id": "devrec-8f86d70f05c0a52db9c04fc0",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:99e1d81a95e7ec6960c25acf",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:b7f038fd6d3bcb20e305a401"
+      },
+      "experience_unit_digest": "e7ed178fef2282485c042abe24f7080f0694ce8bd7894db4dceca4ba2300a919",
+      "record_digest": "sha256:94356f97cd3b0886c33055cc10372db937599987b4c62ee9784900d2cd938fc6",
+      "record_id": "devrec-94356f97cd3b0886c33055cc",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-b55578344d8c51e29660924c",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "7ce6b867a88000f34e2b720c9e6f4edafc96cdc660a3f0d3311960f59d2c60e5",
+      "record_digest": "sha256:956964ba0b0ce781f8a6b2ad5015a0e839125834bc73f91a77e4eca95620d84f",
+      "record_id": "devrec-956964ba0b0ce781f8a6b2ad",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:d8f6653c0b3f6ce3bb349fdc",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:b7fedee19abca2279a788702"
+      },
+      "experience_unit_digest": "2b78acd1779a1897af7bad7e807965d6cf9587f046495810cab4e3074592c048",
+      "record_digest": "sha256:96d2b738bd45fc7992e7e8902ae31286790998c80f138ac99e6cb9cffc08b14c",
+      "record_id": "devrec-96d2b738bd45fc7992e7e890",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-481b87ab05676ad538fec6ad",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "392a8e616bb61542778fcda1149d45fee9eef4f8b49f060891e99e265295d558",
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-d3b05b6ad18ba07a03ebd2d5",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "b0754ac3f4d8f23dee704feeeab7cf65b316451efa7dad3e2d777771cde5b679",
+      "record_digest": "sha256:9ba0af00c88b96a5ec03dd2789fe35810159285be0df3677d7cf23e0c623bee7",
+      "record_id": "devrec-9ba0af00c88b96a5ec03dd27",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:6ec90d140153ca79b4c7f836",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:1be031364c3b1428c5abfe95"
+      },
+      "experience_unit_digest": "fa71898460a833d9effeee455d30cd0266e97c3fa3d95284757cadeefe8fcf9a",
+      "record_digest": "sha256:9d9e267428c02e3c844f1d5a79353a082c622f7e1ec2069c8e02ad253b6d43d8",
+      "record_id": "devrec-9d9e267428c02e3c844f1d5a",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-040eda0ffb9ff9f1fbf33605",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "d386ae3d42161d4929ebae1f5dfd27e6551d43e3647177eb532757c3aa5f813d",
+      "record_digest": "sha256:a01a0e1ea877194d4d2fcb4d15acdb44d89f6d585139d1cd6ab5bb1c091d88c2",
+      "record_id": "devrec-a01a0e1ea877194d4d2fcb4d",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-442d673aa1db8517381baf63",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "7573731cf36daa743536eac94f0f953261648bbbe066e4267f35c6841be764cd",
+      "record_digest": "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88",
+      "record_id": "devrec-a081ef3104dba90c9e19b723",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:7bf504b7c87a3072bd8fd2b0",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ddace50ad749f67fecc0b22f"
+      },
+      "experience_unit_digest": "d68bc9bbc3abdbdbc465128ea1937e9912169859ae0ea7a63c573ad5377d6006",
+      "record_digest": "sha256:a4efd206f7fe0637aed174a711522d2625cf6d34d099079a8019044e958396cc",
+      "record_id": "devrec-a4efd206f7fe0637aed174a7",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-d7007abe605664a131fd4632",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "a0e8d86f71a7fd41dc0fc1fd0d4874e29685b9b5ed2fefc195429bdf1d9e8847",
+      "record_digest": "sha256:a8b299f6e721c3e800c42555009acdad623db8cb83adc02dbb4b5a62f93eb864",
+      "record_id": "devrec-a8b299f6e721c3e800c42555",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-d6cccd9007ee2586783d7c98",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "fe2500e12668d2e8aae7fcb3c34633a1d338b4f04641b1b61b3327febc2c14d7",
+      "record_digest": "sha256:a9ecbff2706d067c2ceb54307e662419ac0c06cebad94bf921cd60827a8ea4b2",
+      "record_id": "devrec-a9ecbff2706d067c2ceb5430",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:ec3f00696a7a000c234ecfea",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:40fbaff01a57d6b68a1e5bed"
+      },
+      "experience_unit_digest": "84fb2e9e313043d3ee2e9d5b1dad07820eac1aa4455c942c87902aaa3c1fe3aa",
+      "record_digest": "sha256:b2cccefb609580032166f99713b8e06e3a9c77a0ccb2323563b6de739f1ce074",
+      "record_id": "devrec-b2cccefb609580032166f997",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:3bd4b60fd7ef2d3155d5de25",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:ae722f717fd555c10b4c1dfa"
+      },
+      "experience_unit_digest": "fb88fcc5a8fb2d78de14a2d522549f746ab0be54161b9b456ed9cb7f0cf25d6c",
+      "record_digest": "sha256:bf02579302e99cd0e1da13271c98af021b60bc79b3de3cfcce6dbd76acf84f65",
+      "record_id": "devrec-bf02579302e99cd0e1da1327",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-437ff694e2b515b5ed7cc9f6",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "b2aee94b0d151a7569e583c3f212af74cfd86a3f5e38dd828333ece8064c4653",
+      "record_digest": "sha256:cc1ff3a3b9e8da022e33ff8304070702a96b8e30f7ae3205a145cdcc4d799b85",
+      "record_id": "devrec-cc1ff3a3b9e8da022e33ff83",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-ac5c6e94e3114ab74169e4a5",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "43d5980f4bc0333cc32bba6415794987dc343f535f82ae4e45dface8370d21df",
+      "record_digest": "sha256:d3818cf820042ede50e12466d323ccb7613e90d3fa82c5f7125a0a66eaa45bc4",
+      "record_id": "devrec-d3818cf820042ede50e12466",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:8c158114487adc4f6ea131b6",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:e9e5c6cb90a29bd6e383effd"
+      },
+      "experience_unit_digest": "11493f8fafee9a21e72fe7d8254e2621e53c9c79a6ce28e1fe2dede2ebeb2b3a",
+      "record_digest": "sha256:d44fdde4016204ea903e093ce0a6462441cc37a78a81026081ebcfa50e78752f",
+      "record_id": "devrec-d44fdde4016204ea903e093c",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-dd765136f24364a054df331d",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "73632dfb9a890d024803025d93fb45537e6cc9697b0d286694276a72ac31ca99",
+      "record_digest": "sha256:d476d487664a5dc051c71d752d095954979f28a1244612e0dc24e8545b9b2e4c",
+      "record_id": "devrec-d476d487664a5dc051c71d75",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-25cba79e897ed842ed9e17ac",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "e4e4fb12e0de9b35a90681c2e9f804383621ed2e576c9341772a068a3815c497",
+      "record_digest": "sha256:d5d23dd21785372394baa2a959b188b834a3263ff9e19109c4350b203dda6f3a",
+      "record_id": "devrec-d5d23dd21785372394baa2a9",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-a26fc7a321eebb75b16e3970",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "de5b67d9121c563373ca27be299fd7c4876c568fdb152b02a4461104acd1d7a1",
+      "record_digest": "sha256:dd077d47f16f1bddf36bb602c8521d5377cba2b4c3737bca058d9a36ac7a06d9",
+      "record_id": "devrec-dd077d47f16f1bddf36bb602",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-15ba8bb55415345c1a7af9b1",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "9dae83ca5a75affbbd7c012878ad3f49d1b4cd29ed26e0cd43b81e8dc2879591",
+      "record_digest": "sha256:dec0f183ac5255063b0c87d8c6449e132804a8df4ce444c486bfdf2b3e14ebff",
+      "record_id": "devrec-dec0f183ac5255063b0c87d8",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:f366ccd11e223576f0d11aa5",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:2b2bcd38b13dd61ff7a2c6aa"
+      },
+      "experience_unit_digest": "24a1f3bd3a40ce1669b4f2b706c663d8fb9d4f129629df716354331584897f45",
+      "record_digest": "sha256:e6c2f49089c474316c5aebf332d331407659553056770d0f428339593023bef4",
+      "record_id": "devrec-e6c2f49089c474316c5aebf3",
+      "source_root_ids": [
+        "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "consequence-chain:68ce414874e74304fc65de9c",
+        "anchor_kind": "embodied_consequence_event",
+        "related_expectation_id": "expectation:fcf3bc011a6ed0ca243176af"
+      },
+      "experience_unit_digest": "3ae2ce32adfc8c75ca521b68e115375fc4e38f73728770956557d43e0dc18259",
+      "record_digest": "sha256:eac0b63422d1d302ede9751025a53ca63635b16bf4bb96448e13037cb78f0bff",
+      "record_id": "devrec-eac0b63422d1d302ede97510",
+      "source_root_ids": [
+        "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa"
+      ]
+    },
+    {
+      "experience_anchor": {
+        "anchor_id": "devexp-run-794cb0f3c91e1fb93851717c",
+        "anchor_kind": "developmental_experiment_run"
+      },
+      "experience_unit_digest": "b89ffb9cb6f42c91377a35ba9cf67e25fe8a93678b6ff99e4fb7b8b98bc4edc3",
+      "record_digest": "sha256:fca1b6cc39e549136f9b815febdaa3eeb2dcca79b7ee74065cb3211d2784daef",
+      "record_id": "devrec-fca1b6cc39e549136f9b815f",
+      "source_root_ids": [
+        "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc"
+      ]
+    }
+  ],
+  "schema_version": "sentientos.federated_experience_anchor_audit:v2",
+  "source_snapshot_count": 47,
+  "source_snapshot_digest": "sha256:98ff65b8574ac0cd8a5de8758cb7a93fc988a1f29e6111d731f96f3de2a277a3",
+  "unanchored_record_count": 0,
+  "unanchored_record_ids": []
+}

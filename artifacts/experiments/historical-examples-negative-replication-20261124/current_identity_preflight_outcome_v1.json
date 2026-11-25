@@ -1,0 +1,19 @@
+{
+  "schema_version": "sentientos.historical_examples_current_identity_preflight_outcome:v1",
+  "cycle_root_id": "rootless-cognition-cycle-20261124000000000037",
+  "source_identity": {
+    "engine": "ollama",
+    "model_content_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "configuration_digest": "a310f2da1ec0dae415f27e28bd56c79349d6d4edd4b5256d6a0a0f73d4020739"
+  },
+  "preflight": {
+    "status": "ineligible_no_raw_examples_to_ablate",
+    "seed": 151,
+    "failure_code": "historical_examples_prompt_ablation_examples_absent",
+    "intervention": "remove_examples_arrays_from_selected_history_experiences",
+    "inference_performed": false,
+    "learning_established": false,
+    "authority": false
+  },
+  "interpretation": "The selected current-identity task-family history did not supply raw examples arrays required by this intervention. This result does not evaluate compact prior_incorrect_examples guidance or model behavior."
+}

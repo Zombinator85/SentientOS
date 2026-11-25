@@ -1,0 +1,79 @@
+{
+  "authority": false,
+  "cohort_digest": "sha256:49e64be997ec10bcd8aaa077151d005738ad049a61163ff70e476ccd615e393c",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "schema_version": "sentientos.historical_examples_preflight_cohort_audit:v1",
+  "shared_boundary": {
+    "cycle_root_id": "rootless-cognition-cycle-9cf3b1f3bff547c1820b",
+    "generation_budget_digest": "sha256:20a03797d74d623129f5e181c13046f66d07155427b1a453ff5134a894ec37b3",
+    "generation_config_digest": "sha256:294cc9bc9c77d67ae16a61af74593dd72932dd3152a0563176ebe4d1e15a6500",
+    "history_set_digest": "sha256:35334216c7d623670627fc34696955540dd897e4c492b581b96ac937542e4263",
+    "snapshot_digest": "sha256:00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+    "snapshot_id": "world-state-00e8c547cf6caa7f",
+    "source_receipt_digest": "ec9754fc5fd3a974ed1f0fdf9e22c638ce4bd77f32ee562ef10bb054dffc0884",
+    "source_receipt_id": "lmrec-ec9754fc5fd3a974ed1f0fdf",
+    "target_model_identity_digest": "sha256:ac5acdf45d34cca6abf7844503bd4cb0d4dcf4287e49905923b3a2ae187d368a",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "trial_count": 5,
+  "trials": [
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "probe_binding_set_digest": "sha256:2e3f2a8a1523f1ee3e181cb741031092641847131f9edc12c472842d2b6f3759",
+      "probe_count": 3,
+      "protocol_digest": "sha256:d50dd2c22254671fa8f2ddf47fa772a91c1169e5f8cce757842178dbe6ff7499",
+      "report_digest": "sha256:8335532a54c6507af662e23cc4882c1cc96c5b5063b60679c36a770af492e4f0",
+      "task_generation_seed": 2026112341
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "probe_binding_set_digest": "sha256:4f0f17ae41db911325bbebc61576154b50f55f741ca5f47f5afe2ceb2dfbff94",
+      "probe_count": 3,
+      "protocol_digest": "sha256:6e6e5590e1bef251db57af7f5f1c137ffe5dc41afa4bec2422134f032ab25659",
+      "report_digest": "sha256:494facd7c127d9038c82b5071178d269f41f8680315bd7ba46ce5a3ff61a39d3",
+      "task_generation_seed": 2026112342
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "probe_binding_set_digest": "sha256:babef236bf98ae34388cbbdea3cf19d44ad60f656e87fc614151090188882b21",
+      "probe_count": 3,
+      "protocol_digest": "sha256:8d3a3485c861ab9f3bdc55ebd120bde774a7e039639d73231a26c4f8b4b66354",
+      "report_digest": "sha256:c8e5d3fb1679f1befe49a820611ddedc49bd7be2349284cb8847bfc6953fd198",
+      "task_generation_seed": 2026112343
+    },
+    {
+      "arm_order": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "probe_binding_set_digest": "sha256:84d9d7d32eeffa5290ac7aa2f8f3fa70db6952827a4ae1219efdc4bf49c48db7",
+      "probe_count": 3,
+      "protocol_digest": "sha256:180df0b18f4d4420e58fe1c4344cc98f6c754207a519d68a95e13ccd3974feee",
+      "report_digest": "sha256:baf5b495930eb23b25b555e2918ca1669801b1dc1bbe5ee3dc7f9461a4bc334b",
+      "task_generation_seed": 2026112344
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "probe_binding_set_digest": "sha256:d97998b0c2540137177f46fee6bb5f116f8b2211b3726aac14a3c2e4bd636f11",
+      "probe_count": 3,
+      "protocol_digest": "sha256:f60004071361c9a36f4bc52a7fdd4e36ea3151174d0acc3625b6d6f7e94e29b3",
+      "report_digest": "sha256:129e79ca1c993272e68270992d1a1521b4ae63817cbf27f34b161b8523cd4942",
+      "task_generation_seed": 2026112345
+    }
+  ],
+  "unique_probe_input_count": 15
+}

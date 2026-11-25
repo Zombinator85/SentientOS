@@ -1,0 +1,92 @@
+{
+  "artifact_digest": "sha256:31617c37e8a255da5d007960f62bf23abd24d695723ecf0863b8d8839bbdde50",
+  "authority": false,
+  "available_compact_packets": [
+    {
+      "compact_packet_chars": 4876,
+      "correct_example_count": 3,
+      "incorrect_example_count": 0,
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "record_id": "devrec-97839cfc90a8bd497154936a"
+    },
+    {
+      "compact_packet_chars": 4876,
+      "correct_example_count": 3,
+      "incorrect_example_count": 0,
+      "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+      "record_id": "devrec-4fd52036e8b17c28ac02994c"
+    },
+    {
+      "compact_packet_chars": 3986,
+      "correct_example_count": 0,
+      "incorrect_example_count": 3,
+      "record_digest": "sha256:d476d487664a5dc051c71d752d095954979f28a1244612e0dc24e8545b9b2e4c",
+      "record_id": "devrec-d476d487664a5dc051c71d75"
+    },
+    {
+      "compact_packet_chars": 4846,
+      "correct_example_count": 3,
+      "incorrect_example_count": 0,
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3"
+    }
+  ],
+  "both_compact_packet_modes_same_size": true,
+  "exact_prompt_assembled": false,
+  "fixed_prompt_remainder_estimate_chars": 14334,
+  "fixed_remainder_comparison_limitations": [
+    "Task-family instruction text changed after the owner receipt; its character delta was not measured against that request.",
+    "The exact prompt was not assembled and its history-selection metadata was not replayed."
+  ],
+  "fixed_remainder_estimate_method": "prechange_owner_prompt_chars_minus_prechange_selected_packet_chars",
+  "history_selection_digest": "sha256:dfb46ac47ff4a192b86cb3aa6f493077fb7523c700e4af75f90678ff53fefcc8",
+  "inference_performed": false,
+  "input_limit_chars": 24576,
+  "learning_established": false,
+  "newest_two_suffix": {
+    "accumulated_candidate_prompt_binding_verified": false,
+    "candidate_strategy": null,
+    "estimated_prompt_chars_without_accumulated_strategy": 23166,
+    "packet_chars": 8832,
+    "projectable_correct_example_count": 3,
+    "projectable_incorrect_example_count": 3,
+    "record_ids": [
+      "devrec-d476d487664a5dc051c71d75",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ]
+  },
+  "non_suffix_positive_pair_diagnostic": {
+    "candidate_prompt_binding_verified": false,
+    "candidate_relation": "output = 2 * input + 1",
+    "candidate_schema_version": "sentientos.accumulated_integer_affine_strategy:v9",
+    "candidate_strategy_digest": "sha256:3a19200241985897960716377958858873323d75e6fd8d9f2c0427f678b127af",
+    "compact_accumulated_strategy_chars": 1184,
+    "comparison_unavailable_source_count": 2,
+    "estimated_prompt_chars_with_compact_strategy": 25240,
+    "fits_estimated_budget": false,
+    "full_accumulated_strategy_chars": 4341,
+    "independent_input_anchor_run_digests": [
+      "sha256:45f6942b1bdeb0c2cda16146c3a2158f07d5d3a6f750df111105c5e6fa68bcc6",
+      "sha256:ecf564a49049a2bdfc722f3642c566534131bf60ac5a260d28ab5db3953f0222"
+    ],
+    "is_runtime_suffix": false,
+    "record_ids": [
+      "devrec-4fd52036e8b17c28ac02994c",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "supporting_distinct_input_count": 6,
+    "supporting_model_identity_count": 2,
+    "supporting_run_count": 2
+  },
+  "owner_receipt_digest": "61e79ae1e1777a744d728a104a5a894a6c0a61e0d08dc37b29bc1ac8beb211b1",
+  "owner_receipt_id": "lmrec-61e79ae1e1777a744d728a10",
+  "postchange_owner_receipt_observed": false,
+  "prechange_available_record_count": 4,
+  "prechange_omission_reason": "inference_input_budget",
+  "prechange_prompt_chars": 20270,
+  "prechange_selected_packet_chars": 5936,
+  "prechange_selected_record_count": 1,
+  "runtime_policy": "most_recent_complete_record_suffix:v1",
+  "schema_version": "sentientos.compact_history_packet_budget_reprojection:v2",
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+}

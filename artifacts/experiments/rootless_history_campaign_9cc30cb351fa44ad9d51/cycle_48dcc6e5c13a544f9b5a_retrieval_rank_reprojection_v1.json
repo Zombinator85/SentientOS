@@ -1,0 +1,44 @@
+{
+  "audit_digest": "88423507af3a87f8e9e96a3c3423926eb821115a6db1a8ac7dc840f3d6bcc79e",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-6a8c5606c73665926428",
+  "campaign_plan_digest": "141ad240526784f039c7be0d223600a15a3f7b15d570986b0f6b191a8bb47491",
+  "counterfactual_only": true,
+  "cycle_id": "rootless-cognition-cycle-48dcc6e5c13a544f9b5a",
+  "history_boundary_digest": "9bda3195d0ec5e55fe124848405beb22ed2799eef887181346d434e607806c24",
+  "history_boundary_file_count": 50,
+  "history_boundary_stable_across_read": true,
+  "history_record_count_with_task_family": 13,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_invocation_performed": false,
+  "observed_exact_probe_overlap_record_has_zero_usable_correct_examples": true,
+  "observed_prompt_positive_anchor_records": [
+    "devrec-83bc0097864882302ae02efd"
+  ],
+  "observed_prompt_selected_record_ids": [
+    "devrec-d476d487664a5dc051c71d75",
+    "devrec-83bc0097864882302ae02efd"
+  ],
+  "prompt_assembled": false,
+  "reprojected_candidate_status": "provisional_two_independent_run_candidate_available",
+  "reprojected_correct_input_counts_per_record": [
+    3,
+    3
+  ],
+  "reprojected_distinct_correct_input_count": 6,
+  "reprojected_supporting_run_count": 2,
+  "reprojected_top_four_record_ids": [
+    "devrec-83bc0097864882302ae02efd",
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-4fd52036e8b17c28ac02994c",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "reprojected_two_record_prompt_suffix": [
+    "devrec-01e35780a28a539aee7c5fb6",
+    "devrec-83bc0097864882302ae02efd"
+  ],
+  "schema_version": "sentientos.task_family_retrieval_rank_reprojection:v1",
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+}

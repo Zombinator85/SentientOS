@@ -1,0 +1,101 @@
+{
+  "audit_digest": "61f3a4656eeea3622d869390f412e1d872df1755a21af39a9016b79c3023d233",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000025",
+  "campaign_plan_digest": "fddb4ad3372cf0e52da80581af75c9c4b8eb06ec0cca006c8cf237cc398dcf71",
+  "cycles": [
+    {
+      "cycle_id": "rootless-cognition-cycle-20261124000000000053",
+      "cycle_index": 0,
+      "failure_code": null,
+      "family_projection_counts": {
+        "rootless_integer_affine_transfer_low_range_v6": {
+          "example_count": 36,
+          "record_count": 12
+        },
+        "rootless_integer_affine_transfer_wide_range_v7": {
+          "example_count": 33,
+          "record_count": 11
+        }
+      },
+      "preflight_declared_history_task_family_ids": null,
+      "preflight_schema": "sentientos.rootless_campaign_transfer_probe_preflight:v1",
+      "preflight_scope_complete": false,
+      "preregistered_claim_upgraded": false,
+      "prior_history_boundary_digest": "965ff08347092c434c25c14b44f84acadd4ec589f85593af34f8f8b974d5a27d",
+      "prior_history_record_count": 37,
+      "projected_record_set_digest": "24a74a6932b8ac21ace5b55017ae7eba1c9c9b01568bdc98d17a69a0eb0bc13c",
+      "projected_record_union_count": 23,
+      "registered_history_task_family_ids": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7"
+      ],
+      "retrospective_measurement_complete": true,
+      "retrospective_overlap": {
+        "historical_probe_overlap_example_count": 0,
+        "historical_probe_overlap_input_count": 0,
+        "historical_probe_overlap_input_digest": "sha256:919664b0b20374fc969f27554b39c919f4a9ed9f9f7c157765711831cecf3e1e",
+        "historical_probe_overlap_measurement_complete": true,
+        "historical_probe_overlap_posture": "no_exact_historical_probe_overlap",
+        "historical_probe_overlap_scope": "selected_score_bound_correct_incorrect_and_abstained_examples",
+        "task_probe_input_count": 3,
+        "task_probe_input_digest": "sha256:4992425b563e48446b03ffd1acfb1f66581f3fb5cc8612f0a0dc92e0c6343368"
+      },
+      "retrospective_overlap_input_count": 0,
+      "retrospective_zero_overlap": true,
+      "task_generation_seed": 799941267,
+      "terminal_preflight_boundary_digest": "965ff08347092c434c25c14b44f84acadd4ec589f85593af34f8f8b974d5a27d",
+      "terminal_status": "completed",
+      "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated"
+    },
+    {
+      "cycle_id": "rootless-cognition-cycle-20261124000000000054",
+      "cycle_index": 1,
+      "failure_code": null,
+      "family_projection_counts": {
+        "rootless_integer_affine_transfer_low_range_v6": {
+          "example_count": 36,
+          "record_count": 12
+        },
+        "rootless_integer_affine_transfer_wide_range_v7": {
+          "example_count": 36,
+          "record_count": 12
+        }
+      },
+      "preflight_declared_history_task_family_ids": null,
+      "preflight_schema": "sentientos.rootless_campaign_transfer_probe_preflight:v1",
+      "preflight_scope_complete": false,
+      "preregistered_claim_upgraded": false,
+      "prior_history_boundary_digest": "c5e6115f273a677e1867e59164285c5a91d84fe880a6bbed5a4c44f9b6530389",
+      "prior_history_record_count": 38,
+      "projected_record_set_digest": "2a487b02712056830db237bc937c1f89904025cb4aaa92668455188f945466fc",
+      "projected_record_union_count": 24,
+      "registered_history_task_family_ids": [
+        "rootless_integer_affine_transfer_low_range_v6",
+        "rootless_integer_affine_transfer_wide_range_v7"
+      ],
+      "retrospective_measurement_complete": true,
+      "retrospective_overlap": {
+        "historical_probe_overlap_example_count": 0,
+        "historical_probe_overlap_input_count": 0,
+        "historical_probe_overlap_input_digest": "sha256:919664b0b20374fc969f27554b39c919f4a9ed9f9f7c157765711831cecf3e1e",
+        "historical_probe_overlap_measurement_complete": true,
+        "historical_probe_overlap_posture": "no_exact_historical_probe_overlap",
+        "historical_probe_overlap_scope": "selected_score_bound_correct_incorrect_and_abstained_examples",
+        "task_probe_input_count": 3,
+        "task_probe_input_digest": "sha256:147d8c86da3a0b3daf8ee89ab3d8dac02ab575430f16961c1955da4ff22bdd66"
+      },
+      "retrospective_overlap_input_count": 0,
+      "retrospective_zero_overlap": true,
+      "task_generation_seed": 799941274,
+      "terminal_preflight_boundary_digest": "c5e6115f273a677e1867e59164285c5a91d84fe880a6bbed5a4c44f9b6530389",
+      "terminal_status": "completed",
+      "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated"
+    }
+  ],
+  "inference_performed": false,
+  "learning_established": false,
+  "performance_improvement_established": false,
+  "posture": "retrospective_cpu_recomputation_not_preregistered_preflight",
+  "schema_version": "sentientos.rootless_registered_history_family_overlap_audit:v1"
+}

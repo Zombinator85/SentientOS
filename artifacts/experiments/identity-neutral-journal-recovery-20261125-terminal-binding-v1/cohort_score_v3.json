@@ -1,0 +1,209 @@
+{
+  "analysis_plan_digest": "sha256:f936fd3c1c851f9ef11a2fbd1341405671dbda2a35cb10fbcd5dbe49c4aab0b8",
+  "analysis_unit": "task_seed_pair_not_individual_probe",
+  "arm_order_by_trial": [
+    {
+      "arm_order": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "protocol_digest": "sha256:5da0674cc32eea803d2ed953790bf5d7965e42409ae7eebe2ba0cc60e6219357",
+      "task_generation_seed": 13688613
+    },
+    {
+      "arm_order": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "protocol_digest": "sha256:e449e074c7d042f3e5045bc49bcf2f4ad35776d575076d7f7c25fe30c26c3f29",
+      "task_generation_seed": 13688614
+    }
+  ],
+  "authority": false,
+  "cohort_digest": "sha256:a50bf9c4b85449f657b7d11c7a4eb0090d6557549c98c7ecef237fa4d54c5740",
+  "cohort_mean_accuracy_difference": {
+    "decimal_rounded_6": 0.0,
+    "denominator": 1,
+    "numerator": 0
+  },
+  "cohort_score_digest": "sha256:9eff051d7f6e587b3b25a4b24bf34d2b4b8d8adb5d9b0c550cd77655dad90d88",
+  "complete_trial_count": 2,
+  "durable_learning_established": false,
+  "general_transfer_established": false,
+  "independent_scorer_attested": true,
+  "inference_scope": "immediate_response_difference_only",
+  "learning_established": false,
+  "model_attention_established": false,
+  "model_independence_established": false,
+  "number_of_complete_trials": 2,
+  "per_trial_accuracy_difference": [
+    {
+      "accuracy_difference": {
+        "denominator": 3,
+        "numerator": 0
+      },
+      "protocol_digest": "sha256:5da0674cc32eea803d2ed953790bf5d7965e42409ae7eebe2ba0cc60e6219357",
+      "task_generation_seed": 13688613
+    },
+    {
+      "accuracy_difference": {
+        "denominator": 3,
+        "numerator": 0
+      },
+      "protocol_digest": "sha256:e449e074c7d042f3e5045bc49bcf2f4ad35776d575076d7f7c25fe30c26c3f29",
+      "task_generation_seed": 13688614
+    }
+  ],
+  "per_trial_correct_counts_by_arm": [
+    {
+      "correct_counts": {
+        "examples_included": 3,
+        "examples_omitted": 3
+      },
+      "protocol_digest": "sha256:5da0674cc32eea803d2ed953790bf5d7965e42409ae7eebe2ba0cc60e6219357",
+      "task_generation_seed": 13688613
+    },
+    {
+      "correct_counts": {
+        "examples_included": 0,
+        "examples_omitted": 0
+      },
+      "protocol_digest": "sha256:e449e074c7d042f3e5045bc49bcf2f4ad35776d575076d7f7c25fe30c26c3f29",
+      "task_generation_seed": 13688614
+    }
+  ],
+  "per_trial_probe_outcomes": [
+    {
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:7cf5cde1a142bbe71355108682f21b0aad21162a3b26fcef5b9232fcd37a8c03"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:4281979d59ac9c6216f07364b4d95e0245f57ad2a2bc52067e93bfdfd2c74802"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:bd2e5c2404a6394a6ddc5cb8778f0b3de24e45ad5fb00e7b0f1b155c7cc065ee"
+        }
+      ],
+      "protocol_digest": "sha256:5da0674cc32eea803d2ed953790bf5d7965e42409ae7eebe2ba0cc60e6219357",
+      "task_generation_seed": 13688613
+    },
+    {
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:a5cc2c15a75870c28b2f38cd9a376848c4106705ce91a753f7138fd0e3447e85"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:cfb4d49e26c1368354793a252b7ba7e2e653c1116fffd8f5105d3c180566551a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:45772f9e44f1894e820982f9aa032f30afeb5f828f3efe23cf7cc49a720afdb5"
+        }
+      ],
+      "protocol_digest": "sha256:e449e074c7d042f3e5045bc49bcf2f4ad35776d575076d7f7c25fe30c26c3f29",
+      "task_generation_seed": 13688614
+    }
+  ],
+  "per_trial_results": [
+    {
+      "arm_order": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "correct_counts": {
+        "examples_included": 3,
+        "examples_omitted": 3
+      },
+      "independent_score_verification_digest": "sha256:21f246ca3b50d3c0b4ab79a8c10861e767f8271b9c7d1cf9775d72f69ed8dd76",
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:7cf5cde1a142bbe71355108682f21b0aad21162a3b26fcef5b9232fcd37a8c03"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:4281979d59ac9c6216f07364b4d95e0245f57ad2a2bc52067e93bfdfd2c74802"
+        },
+        {
+          "examples_included": "correct",
+          "examples_omitted": "correct",
+          "probe_binding_digest": "sha256:bd2e5c2404a6394a6ddc5cb8778f0b3de24e45ad5fb00e7b0f1b155c7cc065ee"
+        }
+      ],
+      "per_task_accuracy_difference": {
+        "denominator": 3,
+        "numerator": 0
+      },
+      "probe_count": 3,
+      "protocol_digest": "sha256:5da0674cc32eea803d2ed953790bf5d7965e42409ae7eebe2ba0cc60e6219357",
+      "runtime_history_receipt_count": 30,
+      "runtime_history_receipt_record_links_verified": true,
+      "runtime_history_receipt_set_digest": "sha256:1ff073d9d1d08f3515edd3c236a731169078027ce2e9571995572b1940ef7b6f",
+      "runtime_history_record_count": 30,
+      "runtime_history_record_set_digest": "sha256:c7f05b3c9f4ec47c3aa5f7e88a8b48749368f43d1eff46b641604f8ea840defb",
+      "score_digest": "sha256:b7d5daf50ab3f7cfe9affaa231b840f809b22bc35323ccfc1267292c6d472251",
+      "selected_history_record_receipts_verified": true,
+      "task_generation_seed": 13688613
+    },
+    {
+      "arm_order": [
+        "examples_included",
+        "examples_omitted"
+      ],
+      "correct_counts": {
+        "examples_included": 0,
+        "examples_omitted": 0
+      },
+      "independent_score_verification_digest": "sha256:eb410b1d169467e6081207fa305c0906c13d2395d4a7e2a3844fe88381dbd043",
+      "paired_probe_outcomes": [
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "incorrect",
+          "probe_binding_digest": "sha256:a5cc2c15a75870c28b2f38cd9a376848c4106705ce91a753f7138fd0e3447e85"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:cfb4d49e26c1368354793a252b7ba7e2e653c1116fffd8f5105d3c180566551a"
+        },
+        {
+          "examples_included": "incorrect",
+          "examples_omitted": "abstained",
+          "probe_binding_digest": "sha256:45772f9e44f1894e820982f9aa032f30afeb5f828f3efe23cf7cc49a720afdb5"
+        }
+      ],
+      "per_task_accuracy_difference": {
+        "denominator": 3,
+        "numerator": 0
+      },
+      "probe_count": 3,
+      "protocol_digest": "sha256:e449e074c7d042f3e5045bc49bcf2f4ad35776d575076d7f7c25fe30c26c3f29",
+      "runtime_history_receipt_count": 30,
+      "runtime_history_receipt_record_links_verified": true,
+      "runtime_history_receipt_set_digest": "sha256:1ff073d9d1d08f3515edd3c236a731169078027ce2e9571995572b1940ef7b6f",
+      "runtime_history_record_count": 30,
+      "runtime_history_record_set_digest": "sha256:c7f05b3c9f4ec47c3aa5f7e88a8b48749368f43d1eff46b641604f8ea840defb",
+      "score_digest": "sha256:05437172899037db23499482c9d66ee4ad6540a42fd8ddd1252d84093e200caa",
+      "selected_history_record_receipts_verified": true,
+      "task_generation_seed": 13688614
+    }
+  ],
+  "schema_version": "sentientos.historical_examples_pair_cohort_score:v3",
+  "source_score_artifact_verification": "reconstructed_from_private_task_plan_archived_verified_arm_receipts_and_stable_record_and_receipt_inventory:v2",
+  "trial_count": 2,
+  "whether_any_trial_is_incomplete": false
+}

@@ -1,0 +1,20 @@
+{
+  "allowlist_digest": "sha256:a99767a2fb1d0c226a140fb82400650063040956234af195b1720f34f8daf3dc",
+  "authority": false,
+  "basis": "intersection_of_verified_matched_preflight_history_sets",
+  "cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+  "inference_performed": false,
+  "learning_established": false,
+  "record_digests": {
+    "devrec-6e3f64dbeb9ae7ae911631c3": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+    "devrec-97839cfc90a8bd497154936a": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606"
+  },
+  "record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "schema_version": "sentientos.historical_examples_record_allowlist:v1",
+  "source_parity_audit_sha256": "sha256:f205e8b11c0218b6a8f49bee90ba7daaf6aa8c6dd25baa10a657a1279f659ec5",
+  "source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "task_digest": "sha256:14a17b925dad093bd39a8cba4f55d71b35024ac2a5286302db89392a109d07ab"
+}

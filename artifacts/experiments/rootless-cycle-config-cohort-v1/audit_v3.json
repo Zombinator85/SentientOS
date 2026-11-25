@@ -1,0 +1,47 @@
+{
+  "audit_digest": "sha256:b96a6ac185d0173b5cf94e676ff34b99e8b21e3fa38c9fb05c11be43096aca15",
+  "audit_performed_inference": false,
+  "authority": false,
+  "configuration_parity_gate_passed": false,
+  "cycle_count": 2,
+  "cycles": [
+    {
+      "condition_identity_bindings_verified": true,
+      "configuration_payload_digest": null,
+      "configuration_payload_present": false,
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "cycle_result_file_sha256": "3146178e433d8ae280c375759c9184c85545a4d50df754edf1696ffe7542e966",
+      "model_configuration_digest": "103352d5d439131c28a5fbb837d9bc7cf9c1e50b98463dac0eaf1fc98b264cfb",
+      "model_identity_digest": "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1",
+      "preregistration_file_sha256": "713544ea73307869285e6248c6f385df8f8dd8e8e036423757bf5c0e37689d94",
+      "source_content_digest": "77b6faf4c580756e77811c6c55bc12b43a392498f61ddd6988d66c2947f50e49",
+      "source_provenance_complete": true,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+    },
+    {
+      "condition_identity_bindings_verified": true,
+      "configuration_payload_digest": null,
+      "configuration_payload_present": false,
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "cycle_result_file_sha256": "ba28ad13ffb117b28779442e4e256162aa756bfbdbe7d8adfe504d046308fc7c",
+      "model_configuration_digest": "d302af74006cf42b85641b726fd65447f0ff742eb74866d1a67c09b2cf1fa627",
+      "model_identity_digest": "sha256:d0877c0a50525fc00275069209e415d3c09bf55119a182a7343ce71e39257e55",
+      "preregistration_file_sha256": "2996a9cc81152c557a2ba89438a3cd64aa4a7670b31f20b9b04ae1fec1d3c476",
+      "source_content_digest": "77b6faf4c580756e77811c6c55bc12b43a392498f61ddd6988d66c2947f50e49",
+      "source_provenance_complete": true,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+    }
+  ],
+  "learning_established": false,
+  "parity": {
+    "canonical_configuration_payload_digests_equal": false,
+    "canonical_configuration_payloads_present": false,
+    "condition_identity_bindings_verified": true,
+    "model_configuration_digests_equal": false,
+    "model_identity_digests_equal": false,
+    "source_content_digests_equal": true,
+    "source_provenance_complete_for_all_cycles": true,
+    "task_families_equal": true
+  },
+  "schema_version": "sentientos.rootless_cycle_configuration_cohort_audit:v1"
+}

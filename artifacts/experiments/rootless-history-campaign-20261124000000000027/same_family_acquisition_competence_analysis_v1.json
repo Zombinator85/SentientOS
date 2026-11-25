@@ -1,0 +1,95 @@
+{
+  "analysis_timing": "posthoc_same_family_acquisition_analysis",
+  "authority_granted": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000027",
+  "campaign_plan_digest": "a3ecf1b5eb02e4c359fbce6d3bfbc9593ed8fb549688cef1f7b250b04622aab8",
+  "causal_claim_made": false,
+  "chain_verification": {
+    "all_planned_cycles_completed": true,
+    "append_only_history_chain_verified": true,
+    "seed_boundary_chain_verified": true
+  },
+  "cross_cycle_probe_overlap_count": 1,
+  "cross_range_transfer_evaluated": false,
+  "cycles": [
+    {
+      "acquisition_output_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+      "acquisition_output_score_binding_verified": true,
+      "acquisition_projection_task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+      "classification": "same_family_acquisition_competence_not_demonstrated",
+      "competence_threshold": 2,
+      "condition_score_digests": [
+        "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+        "sha256:e689b0aa2582f6cb6c3f796378b9a081847ca5b2b6dc002f1eae53cc8968a1a3",
+        "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7"
+      ],
+      "correct_counts": [
+        0,
+        0,
+        0
+      ],
+      "cross_cycle_probe_overlap_count": 0,
+      "cross_range_transfer_evaluated": false,
+      "cross_range_transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "cycle_id": "rootless-cognition-cycle-20261124000000000057",
+      "measurement_scope": "wide_range_acquisition_same_family_history",
+      "prior_history_correct_example_count": 0,
+      "prior_history_projectable_source_run_count": 1,
+      "prior_history_source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+      "probe_count": 3,
+      "restored_correctness_matches_present": true,
+      "task_probe_input_digest": "sha256:52cd15d4a99a205ccfcaf8ae4ee5d9fa22d2a79bba3d1989db4cd8820eccbe65"
+    },
+    {
+      "acquisition_output_run_id": "devexp-run-f5e73a0adf182a7ad9c9085e",
+      "acquisition_output_score_binding_verified": true,
+      "acquisition_projection_task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+      "classification": "same_family_acquisition_competence_not_demonstrated",
+      "competence_threshold": 2,
+      "condition_score_digests": [
+        "sha256:dc00ab23d3e51fc2bbe75e47c9dbd74677abc65dc37e20bccdf11c8429b6f428",
+        "sha256:e06c5790a1ac0051d58d189f1718bbde6218f774b4c01d490a356b090fd1033c",
+        "sha256:dc00ab23d3e51fc2bbe75e47c9dbd74677abc65dc37e20bccdf11c8429b6f428"
+      ],
+      "correct_counts": [
+        0,
+        0,
+        0
+      ],
+      "cross_cycle_probe_overlap_count": 1,
+      "cross_range_transfer_evaluated": false,
+      "cross_range_transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "cycle_id": "rootless-cognition-cycle-20261124000000000058",
+      "measurement_scope": "wide_range_acquisition_same_family_history",
+      "prior_history_correct_example_count": 0,
+      "prior_history_projectable_source_run_count": 1,
+      "prior_history_source_run_id": "devexp-run-f5e73a0adf182a7ad9c9085e",
+      "probe_count": 3,
+      "restored_correctness_matches_present": true,
+      "task_probe_input_digest": "sha256:340ba9e344243d566fd1dbca304d34e3fbd8cc62c3cf7c8e34d71add08a63a85"
+    }
+  ],
+  "learning_established": false,
+  "measurement_scope": "wide_range_acquisition_same_family_history",
+  "minimum_replicated_cycles": 2,
+  "performance_improvement_established": false,
+  "plan_verification": {
+    "experiment_implementation_bound": true,
+    "experiment_implementation_digest": "29a00bc90cb4f3d8c3a560f7ba4af9c1926379312d95bc60e53e0234e040d80c",
+    "experiment_implementation_matches_current": true,
+    "experiment_implementation_source_count": 2517,
+    "identity_count": 2,
+    "identity_digests_verified": true,
+    "inference_performed": false,
+    "manifest_sha256": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "model_identity_recipe_digest": "abb668ddf6c918cecbe6977a50f6772728b8c681697c96e7942a12a385dbb33d"
+  },
+  "registered_overlap_source_families": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "replication_input_sets_disjoint": false,
+  "schema_version": "sentientos.same_family_acquisition_competence_analysis:v1",
+  "status": "same_family_acquisition_competence_not_demonstrated",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+}

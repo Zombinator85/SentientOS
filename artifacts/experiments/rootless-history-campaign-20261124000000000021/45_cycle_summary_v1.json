@@ -1,0 +1,103 @@
+{
+  "acquisition": {
+    "abstained_example_count": 0,
+    "correct_example_count": 0,
+    "history_record_id": "devrec-988f47d7db0d396112407df3",
+    "incorrect_example_count": 3,
+    "learning_established": false,
+    "performance_improvement_established": false,
+    "probe_result_count": 3,
+    "projectable_experience_count": 1,
+    "readiness_classification": "complete_score_bound_acquisition_examples",
+    "score_status": "incorrect",
+    "status": "objective_intervention_completed"
+  },
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000021",
+  "campaign_plan_digest": "2ac843a5977c240af326ee851436e37151e843e268c5b347bd6e5bd47c9a39c9",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000045",
+  "developmental_outcome": {
+    "history_associated_decision_difference_observed": false,
+    "history_change_classification": "invalid_condition_response_rejected",
+    "history_changed_cognition": false,
+    "performance_improvement_established": false,
+    "real_action_consequence_demonstrated": false
+  },
+  "registered_history_overlap_audit": {
+    "audit_digest": "e776afefadfb3f44e40990bb425cabed98ec7ec7845c5678230ea2775115d712",
+    "family_projection_counts": {
+      "rootless_integer_affine_transfer_low_range_v6": {
+        "example_count": 36,
+        "record_count": 12
+      },
+      "rootless_integer_affine_transfer_wide_range_v7": {
+        "example_count": 21,
+        "record_count": 7
+      }
+    },
+    "original_preflight_scope_complete": false,
+    "posture": "retrospective_cpu_recomputation_not_preregistered_preflight",
+    "preregistered_claim_upgraded": false,
+    "prior_history_record_count": 33,
+    "projected_record_union_count": 19,
+    "registered_history_task_family_ids": [
+      "rootless_integer_affine_transfer_low_range_v6",
+      "rootless_integer_affine_transfer_wide_range_v7"
+    ],
+    "retrospective_measurement_complete": true,
+    "retrospective_overlap_input_count": 0,
+    "retrospective_zero_overlap": true
+  },
+  "schema_version": "sentientos.rootless_history_campaign_cycle_summary:v1",
+  "source_provenance": {
+    "repository_revision": "97a8f04aed6eede5ea926fcbaee3fbbf3e86bb4b",
+    "worktree_clean": true,
+    "worktree_content_digest": "e7551b385981c89584b01913be65d041dd673b7024f2d84c5debbba99359f701",
+    "worktree_content_status": "complete"
+  },
+  "source_provenance_stable_for_run": true,
+  "status": "completed",
+  "task_generation_seed": 799941211,
+  "transfer": {
+    "causal_or_learning_claim_made": false,
+    "condition_correct_counts": null,
+    "history_answer_vector_difference_observed": null,
+    "history_condition_difference_observed": null,
+    "history_correct_probe_delta": null,
+    "performance_improvement_established": false,
+    "status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+    "task_family_history_lineage_verified": false,
+    "transfer_eligibility": {
+      "accurate_example_count": 0,
+      "eligible": false,
+      "history_withheld_baseline_competence_qualified": false,
+      "reason": "history_withheld_baseline_competence_not_demonstrated",
+      "required_accurate_example_count": 2,
+      "status": "skipped_history_withheld_baseline_competence_not_demonstrated"
+    },
+    "transfer_history_record_id": null
+  },
+  "transfer_probe_preflight": {
+    "held_out_transfer_qualified": true,
+    "historical_probe_overlap_example_count": 0,
+    "historical_probe_overlap_input_count": 0,
+    "inference_performed": false,
+    "learning_claimed": false,
+    "measurement_complete": true,
+    "original_scope_complete": false,
+    "preflight_digest": "cb9c5b0dada43b232b448833e02b52a2801d8d793f225d233751c52f56176e61",
+    "prior_history_boundary_digest": "4e46de5ccc597c69c82dc76e447b907dfa17a6792fe57b07138b28d69c2cf22c",
+    "projected_record_count": 7,
+    "projected_record_ids": [
+      "devrec-095db5c28b1520756285120a",
+      "devrec-349ee1c7f30b94043e763ae3",
+      "devrec-35daa61bd7ae08a81416b0d6",
+      "devrec-8e71800e6cfed38978f64a31",
+      "devrec-a2447a4bc199ed7f439a37e3",
+      "devrec-ccd62c925ff71eed431c3d25",
+      "devrec-e0fd5583befc8730aca572d8"
+    ],
+    "registered_history_families_checked_by_original_preflight": null,
+    "scope_note": "Original preflight omitted the low-range v6 family declared by the transfer task."
+  }
+}

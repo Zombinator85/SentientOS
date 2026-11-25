@@ -1,0 +1,67 @@
+{
+  "acquisition_probe_inputs": [
+    6,
+    7,
+    9
+  ],
+  "campaign_id": "rootless-history-campaign-20261124000000000006",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000011",
+  "heldout_transfer_probe_inputs": [
+    646,
+    998,
+    1000
+  ],
+  "initial_history_boundary_digest": "6af674d8e40aca4d3bb7304ff179df068764de83425c6fd4a8332b4ffd05ab39",
+  "interpretation": "The cycle 0 score-bound all-incorrect acquisition record is retained in the history boundary and included in ranking diagnostics, but it ranks 13th (zero-based rank_position 12), outside the owner four-record limit. The prompt binder selected a different older record with correct examples. Alternate deterministic task seeds also selected one identical binder record set. The CPU preflight proves history availability and retrieval behavior, not model attention, adaptation, learning, or transfer.",
+  "next_change_candidate": "Adjust family-history retrieval so score-bound negative examples relevant to the target model and task have a deliberate path into the prompt, while keeping their incorrect label and current no-imitation guidance. Validate via a newly pinned CPU preflight before any GPU use.",
+  "objective_failure_feedback": {
+    "binder_selected_record_ids": [
+      "devrec-a2447a4bc199ed7f439a37e3"
+    ],
+    "correct": 0,
+    "incorrect": 3,
+    "owner_limit": 4,
+    "rank_position": 12,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "same_model_artifact_digest_as_target": true,
+    "same_task_family": true,
+    "score_bound": true,
+    "selected_by_owner": false,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394"
+  },
+  "plan_digest": "4ddb5ea32db05abade068de65681d4d56e778152184f29ce96078a8df64edc22",
+  "plan_path": "plan_v1.json",
+  "plan_sha256": "be77fdda3e446dc61b1d488829433d0ce1c0407817bf28636cab6b74940e3248",
+  "plan_verification": {
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "model_identity_verified": true,
+    "status": "verified"
+  },
+  "preflight_digest": "sha256:407eb6668acb0599516c136d689513e344aa4d020331159ad15fe0caf714eacb",
+  "preflight_path": "owner_preflight_cycle0_v1.json",
+  "preflight_sha256": "f2d876ac4a1f511f3fcc9cbd5b78958cd704d3cec61a7141f476c970f6c908ce",
+  "preflight_verification": {
+    "heldout_transfer_probe_set_disjoint": true,
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "status": "verified"
+  },
+  "schema_version": "sentientos.history_retrieval_projection_outcome:v1",
+  "selection": {
+    "all_binder_selections_match_owner_top_ranked_records": true,
+    "alternate_seed_count": 16,
+    "binder_record_ids": [
+      "devrec-a2447a4bc199ed7f439a37e3"
+    ],
+    "owner_record_ids": [
+      "devrec-6e3f64dbeb9ae7ae911631c3",
+      "devrec-01e35780a28a539aee7c5fb6",
+      "devrec-a081ef3104dba90c9e19b723",
+      "devrec-a2447a4bc199ed7f439a37e3"
+    ],
+    "prompt_chars": 22174,
+    "unique_binder_record_set_count": 1
+  },
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+}

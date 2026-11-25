@@ -1,0 +1,61 @@
+{
+  "all_family_probe_overlap_checked": false,
+  "analysis_timing": "posthoc_preinference_history_projection_audit",
+  "audit_digest": "4b540219e42d98a4ed1b8d8a8f69a871f1faf4ac932f82b68a30a01125cfc68e",
+  "authority_granted": false,
+  "capability_evaluated": false,
+  "causal_claim_made": false,
+  "history_records_file_count": 39,
+  "history_records_manifest_digest": "c4fdad50e35b25133dc5af939558e716e22e162030fd6163f4729a6899e29851",
+  "inference_performed": false,
+  "learning_established": false,
+  "prompt_delivery_verified": false,
+  "schema_version": "sentientos.cross_range_history_projection_audit:v1",
+  "source_family": {
+    "authority": false,
+    "candidate_record_count": 12,
+    "correct_example_count": 32,
+    "current_truth": false,
+    "historical_only": true,
+    "independent_input_anchor_coverage": {
+      "candidate_anchor_pair_count": 47,
+      "conflicting_correct_input_count": 0,
+      "correct_source_run_count": 11,
+      "distinct_correct_input_count": 8,
+      "minimum_requirements": {
+        "each_run_contributes_at_least_one_unique_correct_input": true,
+        "score_bound_correct_source_run_count": 2,
+        "union_distinct_correct_input_count": 3
+      },
+      "status": "independent_correct_input_anchor_available"
+    },
+    "projectable_experience_count": 12,
+    "projectable_source_run_count": 12,
+    "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+  },
+  "source_score_binding_accepted_by_projection_auditor": true,
+  "status": "source_history_anchor_gate_available",
+  "target_family": {
+    "authority": false,
+    "candidate_record_count": 13,
+    "correct_example_count": 10,
+    "current_truth": false,
+    "historical_only": true,
+    "independent_input_anchor_coverage": {
+      "candidate_anchor_pair_count": 3,
+      "conflicting_correct_input_count": 0,
+      "correct_source_run_count": 4,
+      "distinct_correct_input_count": 6,
+      "minimum_requirements": {
+        "each_run_contributes_at_least_one_unique_correct_input": true,
+        "score_bound_correct_source_run_count": 2,
+        "union_distinct_correct_input_count": 3
+      },
+      "status": "independent_correct_input_anchor_available"
+    },
+    "projectable_experience_count": 13,
+    "projectable_source_run_count": 13,
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "target_family_anchor_gate_available": true
+}

@@ -1,0 +1,15 @@
+{
+  "authority": false,
+  "journal_protocol_verified": true,
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "objective_request_bindings_digest": "sha256:2a9ac780e73c23a900daee2e80a97c4534be6bd760a375742da62a145f976224",
+  "owner_prompt_pair_reconstructed": true,
+  "preflight_report_digest": "sha256:76542ace88a83838fe129804c4a96340ab4d5422f5106b401d5ef57c12e77236",
+  "private_task_plan_digest": "sha256:b67b6f0b3b71649ce2b1ae83eff7a219f999020dc1998c08b1b4fb16ff045c6a",
+  "protocol_digest": "sha256:ab239193b896dd732391275f0e0a9db78c5648b0d0e32f3dcc1d351c5f97b52e",
+  "resident_owner_protocol_gate_verified": true,
+  "schema_version": "sentientos.resident_historical_examples_preflight_verification:v7",
+  "source_history_reconstructed": true
+}

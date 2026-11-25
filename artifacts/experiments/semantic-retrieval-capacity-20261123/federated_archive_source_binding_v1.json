@@ -1,0 +1,38 @@
+{
+  "authority": false,
+  "binding_digest": "sha256:45d4d93f2d3a76248f06ee2e16857721d93c23202e09b51513e7ee54894e23f9",
+  "experience_anchor_audit_digest": "sha256:96680f405dd2b239fc50b0665c6609eb665e30440a34b29d33f33180bf1a5aaa",
+  "experience_anchor_verification_digest": "sha256:4400dafd890d39f33fea07b0a470912717bdb04fdf1b2be152d851d71ee52c45",
+  "federated_manifest_digest": "sha256:0839f14c2cd8c2f5bd8cd008a1de8874f3d550e0632dd7a1156a8315d39e83af",
+  "learning_established": false,
+  "model_invoked": false,
+  "schema_version": "sentientos.federated_archive_source_binding:v1",
+  "source_snapshot_count": 47,
+  "source_snapshot_digest": "sha256:98ff65b8574ac0cd8a5de8758cb7a93fc988a1f29e6111d731f96f3de2a277a3",
+  "sources": [
+    {
+      "record_count": 19,
+      "record_inventory_digest": "sha256:827fef4102c8fa9d42fcf818385fd7a14cccc7de60173e357741ffefaa7de3f4",
+      "source_id": "src-4448560d5c38e73f57318253",
+      "source_root_id": "71631db337f6d8b2a396c5e45cf63507998876bfa942fec8555d21c6939667fc",
+      "source_snapshot_count": 10,
+      "source_snapshot_digest": "sha256:2921061a54b437103180b93ad0644b0244b904e1bb9f9e4f71ed18abe42925cc"
+    },
+    {
+      "record_count": 43,
+      "record_inventory_digest": "sha256:9d90087844d9cdcd0d9ec1b2d41f1dcf74d2a0a1945bc0aa20a3c4bdeb75d7a4",
+      "source_id": "src-c84358c790aeb0c944a38f3e",
+      "source_root_id": "1f0cc998ebebdeb414860ed616e3cfc2ea3d9f47d965c0bccc242d24430e98de",
+      "source_snapshot_count": 33,
+      "source_snapshot_digest": "sha256:4eb8a13193c4e1050999749d697d105ba2d9a606740c18e498199a5d690d0451"
+    },
+    {
+      "record_count": 9,
+      "record_inventory_digest": "sha256:96a439d7e06434f3f4e0e0aecf7d75252101591a113029d4079f22cf00f8acc9",
+      "source_id": "src-fa8fea23d72bf07e090f2006",
+      "source_root_id": "e92cef9621333d5b4ea4310445e04eddced3c257013a4a2d9b89c006c1240cfa",
+      "source_snapshot_count": 4,
+      "source_snapshot_digest": "sha256:4d4a20aa73ff472725cdfd781b5e96a252ab65e88e8e31c1b9ba17b045262553"
+    }
+  ]
+}

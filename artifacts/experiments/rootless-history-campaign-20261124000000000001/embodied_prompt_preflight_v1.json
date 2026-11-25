@@ -1,0 +1,68 @@
+{
+  "authority": false,
+  "backend_entry_performed": false,
+  "campaign_binding": {
+    "campaign_id": "rootless-history-campaign-20261124000000000001",
+    "campaign_plan_digest": "12d96994593175c000111f64fac04526df5bd290140ed5bd34bf8c2925f68598",
+    "cycle_id": "rootless-cognition-cycle-20261124000000000001",
+    "cycle_index": 0,
+    "target_model_identity_digest": "b24f835c65916bf0b37ed01b32d47de2704fe5313172701119763e72fcde5bf9",
+    "task_generation_seed": 799940913
+  },
+  "clarification_ask_bound": {
+    "question_char_limit": 1200,
+    "question_chars": 1190,
+    "source_bytes": 60,
+    "worst_case_json_escaped_unicode": true
+  },
+  "clarification_sensor_refresh": {
+    "evidence_class": "sensor_observation",
+    "observed_at": "2026-11-24T07:37:24.582163+00:00",
+    "physical_world_observation": false,
+    "provenance_class": "deterministic_synthetic_fixture",
+    "source_digest": "sha256:e7f1664a12bd027eaa5c74de4470f38b39fbf57650cc292764b10cfcaf0e219d",
+    "source_id": "rootless-cognition-cycle-ebd1563f89de4f0fbdf2:synthetic-current-target-refresh-2",
+    "source_schema": "sentientos.synthetic_environment_target_observation:v2",
+    "synthetic": true
+  },
+  "inference_performed": false,
+  "initial_decision": {
+    "current_fact_ids": [
+      "fact-46a8120e16a53bd3",
+      "fact-8ab2ef83e4a40915"
+    ],
+    "current_projection_digest": "sha256:1781a788e810849de48d6f58024318e1afba0da2badaf3493c9d756a2f66fa1c",
+    "history_record_ids": [],
+    "history_withheld": true,
+    "max_input_chars": 24576,
+    "prompt_bytes": 23451,
+    "prompt_chars": 23451,
+    "prompt_sha256": "50adb21e6dde87971e466481ba2d3ceff033550f4d19e46258d9085a11246291",
+    "snapshot_digest": "e73045dc93ee44152dfa17920c2e5941bacab4d456c815da00660e491ba1091f",
+    "within_owner_limit": true
+  },
+  "learning_established": false,
+  "maximum_bounded_clarification": {
+    "current_fact_ids": [
+      "fact-0991fab0f5404804",
+      "fact-8ab2ef83e4a40915"
+    ],
+    "current_projection_digest": "sha256:f5d4573b55d9f66b62a05b54a540d5caa0485c361946deb948e42d3872ac3094",
+    "history_record_ids": [],
+    "history_withheld": true,
+    "max_input_chars": 24576,
+    "prompt_bytes": 23643,
+    "prompt_chars": 23643,
+    "prompt_sha256": "3529ab372a332969611f751c0bcd5b88cb21074fd74a446fd7bdea5699e4913f",
+    "snapshot_digest": "5e5d7f3130c9ed02d9c596d79d94c6ed5bef805106b42ebd46bf643ceae0aacf",
+    "within_owner_limit": true
+  },
+  "model_output_persisted": false,
+  "observed_at": "2026-11-24T07:37:29.975358+00:00",
+  "raw_prompt_persisted": false,
+  "report_digest": "f068ce2dd65dac54777a8e104802f59a42656c75ca2e709659f86bcf437bd10e",
+  "schema_version": "sentientos.rootless_embodied_decision_prompt_preflight:v1",
+  "source_provenance_stable_during_preview": true,
+  "source_worktree_content_digest": "1da4fa66444411e7584844e7a86e10db88fa66aeef20828ea2f2dd0bc0226251",
+  "synthetic_action_simulated": false
+}

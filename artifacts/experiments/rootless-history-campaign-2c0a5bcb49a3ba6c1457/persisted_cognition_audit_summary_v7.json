@@ -1,0 +1,1071 @@
+{
+  "current_retrospective_audit_schema_version": 17,
+  "cycle_count": 5,
+  "cycles": [
+    {
+      "acquisition_condition_scores": {
+        "history_present": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:cb7848e2073a6ef59c34ccc01e324348cdc76885ce5504fd9290149ec6d1384b",
+          "status": "incorrect"
+        },
+        "history_restored": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:cb7848e2073a6ef59c34ccc01e324348cdc76885ce5504fd9290149ec6d1384b",
+          "status": "incorrect"
+        },
+        "history_withheld": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:cb7848e2073a6ef59c34ccc01e324348cdc76885ce5504fd9290149ec6d1384b",
+          "status": "incorrect"
+        }
+      },
+      "acquisition_condition_scores_by_source_run": null,
+      "acquisition_source_run_count": null,
+      "audit_digest_verified": true,
+      "audit_schema_posture": "older_than_current",
+      "audit_schema_version": 14,
+      "cycle_id": "rootless-cognition-cycle-1e3f877fb56242c5b2c0",
+      "cycle_status": "completed",
+      "history_changed_cognition": false,
+      "history_present_restored_output_matches": true,
+      "history_present_restored_prompt_matches": true,
+      "history_present_withheld_output_differs": true,
+      "history_present_withheld_prompt_differs": true,
+      "history_projection_status": "task_family_contract_quarantined",
+      "history_quarantine_reason_code": "unstable_mapping_reused_under_one_family_id",
+      "history_quarantined": true,
+      "intervention_status": "three_condition_receipts_verified",
+      "learning_claim_made": false,
+      "model_attention_established": false,
+      "performance_improvement_established": false,
+      "projectable_experience_count": 0,
+      "projection_prompt_delivery_status": "not_assessed_by_this_audit",
+      "prompt_delivery_assessed": false,
+      "required_baseline_correct_count": 2,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v5",
+      "task_relevant_example_count": 0,
+      "task_relevant_record_count": 0,
+      "transfer_accumulated_strategy_condition_evidence": null,
+      "transfer_accumulated_strategy_delivery_status": null,
+      "transfer_condition_scores": null,
+      "transfer_exact_probe_reuse_posture": null,
+      "transfer_exact_prompt_serialization_reconstructed": false,
+      "transfer_overlap_recomputed_from_verified_selected_records": null,
+      "transfer_paired_probe_outcome_summary": null,
+      "transfer_projection_delivery_status": "not_present",
+      "transfer_projection_prompt_digest_bound": false,
+      "transfer_result_present": false,
+      "transfer_selected_history_record_refs_reloaded": false,
+      "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "transfer_task_relevant_example_counts": {},
+      "withheld_baseline_correct_count": 0
+    },
+    {
+      "acquisition_condition_scores": {
+        "history_present": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:f1b853313d6dbb3e239c5bc0a024e99585c332fe2737cdc7bdd4568b926f28ff",
+          "status": "correct"
+        },
+        "history_restored": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:f1b853313d6dbb3e239c5bc0a024e99585c332fe2737cdc7bdd4568b926f28ff",
+          "status": "correct"
+        },
+        "history_withheld": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:f1b853313d6dbb3e239c5bc0a024e99585c332fe2737cdc7bdd4568b926f28ff",
+          "status": "correct"
+        }
+      },
+      "acquisition_condition_scores_by_source_run": null,
+      "acquisition_source_run_count": null,
+      "audit_digest_verified": true,
+      "audit_schema_posture": "older_than_current",
+      "audit_schema_version": 14,
+      "cycle_id": "rootless-cognition-cycle-724d354bc544461b80f6",
+      "cycle_status": "completed",
+      "history_changed_cognition": false,
+      "history_present_restored_output_matches": true,
+      "history_present_restored_prompt_matches": true,
+      "history_present_withheld_output_differs": true,
+      "history_present_withheld_prompt_differs": true,
+      "history_projection_status": "task_family_contract_quarantined",
+      "history_quarantine_reason_code": "unstable_mapping_reused_under_one_family_id",
+      "history_quarantined": true,
+      "intervention_status": "three_condition_receipts_verified",
+      "learning_claim_made": false,
+      "model_attention_established": false,
+      "performance_improvement_established": false,
+      "projectable_experience_count": 0,
+      "projection_prompt_delivery_status": "not_assessed_by_this_audit",
+      "prompt_delivery_assessed": false,
+      "required_baseline_correct_count": 2,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v5",
+      "task_relevant_example_count": 0,
+      "task_relevant_record_count": 0,
+      "transfer_accumulated_strategy_condition_evidence": null,
+      "transfer_accumulated_strategy_delivery_status": null,
+      "transfer_condition_scores": {
+        "history_present": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "02daae633bdcbeb9a895193d315aa940f97c28519642eea178a7515c8c54eb63",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:24f3d75a7912cda3731405ec660d3a57190daf954559f6822e474bfcaadb423d",
+          "status": "incorrect"
+        },
+        "history_restored": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "02daae633bdcbeb9a895193d315aa940f97c28519642eea178a7515c8c54eb63",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:24f3d75a7912cda3731405ec660d3a57190daf954559f6822e474bfcaadb423d",
+          "status": "incorrect"
+        },
+        "history_withheld": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "02daae633bdcbeb9a895193d315aa940f97c28519642eea178a7515c8c54eb63",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:0465a6d7539c6a38ef5c36b28888c35052a1aafa89d4089ae4a371c54ea8ac73",
+          "status": "incorrect"
+        }
+      },
+      "transfer_exact_probe_reuse_posture": "exact_probe_reuse_evidence_unbound",
+      "transfer_exact_prompt_serialization_reconstructed": false,
+      "transfer_overlap_recomputed_from_verified_selected_records": false,
+      "transfer_paired_probe_outcome_summary": {
+        "authority": false,
+        "condition_order": [
+          "history_present",
+          "history_withheld",
+          "history_restored"
+        ],
+        "evidence_scope": "scorer_correctness_and_abstention_only",
+        "learning_established": false,
+        "model_attention_assessed": false,
+        "paired_outcome_counts": {
+          "history_present_vs_restored": {
+            "abstention_involved_count": 0,
+            "different_outcome_count": 0,
+            "present_correct_comparison_incorrect_count": 0,
+            "present_incorrect_comparison_correct_count": 0,
+            "same_outcome_count": 3
+          },
+          "history_present_vs_withheld": {
+            "abstention_involved_count": 0,
+            "different_outcome_count": 0,
+            "present_correct_comparison_incorrect_count": 0,
+            "present_incorrect_comparison_correct_count": 0,
+            "same_outcome_count": 3
+          }
+        },
+        "per_probe": [
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "same",
+            "outcomes_by_condition": {
+              "history_present": "incorrect",
+              "history_restored": "incorrect",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "02daae633bdcbeb9a895193d315aa940f97c28519642eea178a7515c8c54eb63",
+            "probe_index": 0
+          },
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "same",
+            "outcomes_by_condition": {
+              "history_present": "incorrect",
+              "history_restored": "incorrect",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+            "probe_index": 1
+          },
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "same",
+            "outcomes_by_condition": {
+              "history_present": "incorrect",
+              "history_restored": "incorrect",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+            "probe_index": 2
+          }
+        ],
+        "posture": "paired_scorer_outcomes_by_probe_index",
+        "probe_count_by_condition": [
+          3,
+          3,
+          3
+        ],
+        "response_text_assessed": false
+      },
+      "transfer_projection_delivery_status": "verified_zero_task_family_material_in_projection",
+      "transfer_projection_prompt_digest_bound": true,
+      "transfer_result_present": true,
+      "transfer_selected_history_record_refs_reloaded": true,
+      "transfer_status": "completed_scored_intervention",
+      "transfer_task_relevant_example_counts": {
+        "history_present": 0,
+        "history_restored": 0,
+        "history_withheld": 0
+      },
+      "withheld_baseline_correct_count": 3
+    },
+    {
+      "acquisition_condition_scores": {
+        "history_present": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+          "status": "correct"
+        },
+        "history_restored": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+          "status": "correct"
+        },
+        "history_withheld": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+          "status": "correct"
+        }
+      },
+      "acquisition_condition_scores_by_source_run": [
+        {
+          "condition_score_summaries": {
+            "history_present": {
+              "correct_count": 3,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+              "status": "correct"
+            },
+            "history_restored": {
+              "correct_count": 3,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+              "status": "correct"
+            },
+            "history_withheld": {
+              "correct_count": 3,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1",
+              "status": "correct"
+            }
+          },
+          "history_record_score_binding_verified": true,
+          "owner_run_reload_verified": true,
+          "run_id": "devexp-run-ecf564a49049a2bdfc722f36"
+        }
+      ],
+      "acquisition_source_run_count": 1,
+      "audit_digest_verified": true,
+      "audit_schema_posture": "current",
+      "audit_schema_version": 17,
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "cycle_status": "completed",
+      "history_changed_cognition": false,
+      "history_present_restored_output_matches": true,
+      "history_present_restored_prompt_matches": true,
+      "history_present_withheld_output_differs": true,
+      "history_present_withheld_prompt_differs": true,
+      "history_projection_status": "projectable_score_bound_history_available",
+      "history_quarantine_reason_code": null,
+      "history_quarantined": false,
+      "intervention_status": "three_condition_receipts_verified",
+      "learning_claim_made": false,
+      "model_attention_established": false,
+      "performance_improvement_established": false,
+      "projectable_experience_count": 1,
+      "projection_prompt_delivery_status": "not_assessed_by_this_audit",
+      "prompt_delivery_assessed": false,
+      "required_baseline_correct_count": 2,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_count": 1,
+      "transfer_accumulated_strategy_condition_evidence": {
+        "history_present": {
+          "accumulated_strategy_anchor_run_digests": null,
+          "accumulated_strategy_digest": null,
+          "accumulated_strategy_distinct_input_count": null,
+          "accumulated_strategy_prompt_binding_posture": "no_accumulated_candidate_in_projection",
+          "accumulated_strategy_schema_version": null,
+          "accumulated_strategy_supporting_run_count": null,
+          "projection_digest_bound_to_verified_receipt": true,
+          "status": "no_candidate_in_projection"
+        },
+        "history_restored": {
+          "accumulated_strategy_anchor_run_digests": null,
+          "accumulated_strategy_digest": null,
+          "accumulated_strategy_distinct_input_count": null,
+          "accumulated_strategy_prompt_binding_posture": "no_accumulated_candidate_in_projection",
+          "accumulated_strategy_schema_version": null,
+          "accumulated_strategy_supporting_run_count": null,
+          "projection_digest_bound_to_verified_receipt": true,
+          "status": "no_candidate_in_projection"
+        },
+        "history_withheld": {
+          "accumulated_strategy_anchor_run_digests": null,
+          "accumulated_strategy_digest": null,
+          "accumulated_strategy_distinct_input_count": null,
+          "accumulated_strategy_prompt_binding_posture": "no_accumulated_candidate_in_projection",
+          "accumulated_strategy_schema_version": null,
+          "accumulated_strategy_supporting_run_count": null,
+          "projection_digest_bound_to_verified_receipt": true,
+          "status": "withheld_condition_candidate_absent"
+        }
+      },
+      "transfer_accumulated_strategy_delivery_status": "condition_strategy_projection_evidence_bound",
+      "transfer_condition_scores": {
+        "history_present": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "1f76ebbce5018781c52a067dd2f59587b1a389f51b3bab044352496c56d479d3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:9903a9cdd99161ee3d1d7f9c4b42aff9dd556cc0a2eb57c5290ded9cb1168642",
+          "status": "correct"
+        },
+        "history_restored": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "1f76ebbce5018781c52a067dd2f59587b1a389f51b3bab044352496c56d479d3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:9903a9cdd99161ee3d1d7f9c4b42aff9dd556cc0a2eb57c5290ded9cb1168642",
+          "status": "correct"
+        },
+        "history_withheld": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "1f76ebbce5018781c52a067dd2f59587b1a389f51b3bab044352496c56d479d3",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:250faa60bac93fa81ef6fb64134372daa15dcaf29af5b980d19b68b4a2d5efad",
+          "status": "incorrect"
+        }
+      },
+      "transfer_exact_probe_reuse_posture": "no_exact_probe_reuse_detected",
+      "transfer_exact_prompt_serialization_reconstructed": false,
+      "transfer_overlap_recomputed_from_verified_selected_records": true,
+      "transfer_paired_probe_outcome_summary": {
+        "authority": false,
+        "condition_order": [
+          "history_present",
+          "history_withheld",
+          "history_restored"
+        ],
+        "evidence_scope": "scorer_correctness_and_abstention_only",
+        "learning_established": false,
+        "model_attention_assessed": false,
+        "paired_outcome_counts": {
+          "history_present_vs_restored": {
+            "abstention_involved_count": 0,
+            "different_outcome_count": 0,
+            "present_correct_comparison_incorrect_count": 0,
+            "present_incorrect_comparison_correct_count": 0,
+            "same_outcome_count": 3
+          },
+          "history_present_vs_withheld": {
+            "abstention_involved_count": 0,
+            "different_outcome_count": 3,
+            "present_correct_comparison_incorrect_count": 3,
+            "present_incorrect_comparison_correct_count": 0,
+            "same_outcome_count": 0
+          }
+        },
+        "per_probe": [
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "different",
+            "outcomes_by_condition": {
+              "history_present": "correct",
+              "history_restored": "correct",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "1f76ebbce5018781c52a067dd2f59587b1a389f51b3bab044352496c56d479d3",
+            "probe_index": 0
+          },
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "different",
+            "outcomes_by_condition": {
+              "history_present": "correct",
+              "history_restored": "correct",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "ba03ee5af7b0b404750dfb87da6ca1f6dc048bd54d01e8a7d952fa22bd3c2568",
+            "probe_index": 1
+          },
+          {
+            "history_present_vs_restored": "same",
+            "history_present_vs_withheld": "different",
+            "outcomes_by_condition": {
+              "history_present": "correct",
+              "history_restored": "correct",
+              "history_withheld": "incorrect"
+            },
+            "probe_binding_digest": "273e98fc808280c0f3d44b3359108966507b421b660409d1ed193b10e157b4da",
+            "probe_index": 2
+          }
+        ],
+        "posture": "paired_scorer_outcomes_by_probe_index",
+        "probe_count_by_condition": [
+          3,
+          3,
+          3
+        ],
+        "response_text_assessed": false
+      },
+      "transfer_projection_delivery_status": "verified_v5_request_projection_and_history_refs",
+      "transfer_projection_prompt_digest_bound": true,
+      "transfer_result_present": true,
+      "transfer_selected_history_record_refs_reloaded": true,
+      "transfer_status": "completed_scored_intervention",
+      "transfer_task_relevant_example_counts": {
+        "history_present": null,
+        "history_restored": null,
+        "history_withheld": null
+      },
+      "withheld_baseline_correct_count": 3
+    },
+    {
+      "acquisition_condition_scores": {
+        "history_present": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:ac672ae95ee4190b8883292d9ac34b3197d93d64a4b09f17daa98270338472c6",
+          "status": "incorrect"
+        },
+        "history_restored": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:ac672ae95ee4190b8883292d9ac34b3197d93d64a4b09f17daa98270338472c6",
+          "status": "incorrect"
+        },
+        "history_withheld": {
+          "correct_count": 0,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "274f973c09997ebdb77fa4bb0cf72a3c088f588cca24c9eb855b8c870847c6c3",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:ac672ae95ee4190b8883292d9ac34b3197d93d64a4b09f17daa98270338472c6",
+          "status": "incorrect"
+        }
+      },
+      "acquisition_condition_scores_by_source_run": null,
+      "acquisition_source_run_count": null,
+      "audit_digest_verified": true,
+      "audit_schema_posture": "older_than_current",
+      "audit_schema_version": 14,
+      "cycle_id": "rootless-cognition-cycle-abb770979813482c9361",
+      "cycle_status": "completed",
+      "history_changed_cognition": false,
+      "history_present_restored_output_matches": true,
+      "history_present_restored_prompt_matches": true,
+      "history_present_withheld_output_differs": true,
+      "history_present_withheld_prompt_differs": true,
+      "history_projection_status": "task_family_contract_quarantined",
+      "history_quarantine_reason_code": "unstable_mapping_reused_under_one_family_id",
+      "history_quarantined": true,
+      "intervention_status": "three_condition_receipts_verified",
+      "learning_claim_made": false,
+      "model_attention_established": false,
+      "performance_improvement_established": false,
+      "projectable_experience_count": 0,
+      "projection_prompt_delivery_status": "not_assessed_by_this_audit",
+      "prompt_delivery_assessed": false,
+      "required_baseline_correct_count": 2,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v5",
+      "task_relevant_example_count": 0,
+      "task_relevant_record_count": 0,
+      "transfer_accumulated_strategy_condition_evidence": null,
+      "transfer_accumulated_strategy_delivery_status": null,
+      "transfer_condition_scores": null,
+      "transfer_exact_probe_reuse_posture": null,
+      "transfer_exact_prompt_serialization_reconstructed": false,
+      "transfer_overlap_recomputed_from_verified_selected_records": null,
+      "transfer_paired_probe_outcome_summary": null,
+      "transfer_projection_delivery_status": "not_present",
+      "transfer_projection_prompt_digest_bound": false,
+      "transfer_result_present": false,
+      "transfer_selected_history_record_refs_reloaded": false,
+      "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "transfer_task_relevant_example_counts": {},
+      "withheld_baseline_correct_count": 0
+    },
+    {
+      "acquisition_condition_scores": {
+        "history_present": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "status": "correct"
+        },
+        "history_restored": {
+          "correct_count": 3,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "status": "correct"
+        },
+        "history_withheld": {
+          "correct_count": 1,
+          "probe_count": 3,
+          "probe_outcomes": [
+            {
+              "outcome": "correct",
+              "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+              "probe_index": 0
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+              "probe_index": 1
+            },
+            {
+              "outcome": "incorrect",
+              "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+              "probe_index": 2
+            }
+          ],
+          "score_digest": "sha256:066b7a1cb64e54e3e5b95619ab81d183e2649492c18df79d02d9b974fc4c2859",
+          "status": "incorrect"
+        }
+      },
+      "acquisition_condition_scores_by_source_run": [
+        {
+          "condition_score_summaries": {
+            "history_present": {
+              "correct_count": 3,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "status": "correct"
+            },
+            "history_restored": {
+              "correct_count": 3,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "status": "correct"
+            },
+            "history_withheld": {
+              "correct_count": 1,
+              "probe_count": 3,
+              "probe_outcomes": [
+                {
+                  "outcome": "correct",
+                  "probe_binding_digest": "d3f3a0a186c329717b2f5ef0bfc4418546384b3308d209a84d8a5104b8fb9388",
+                  "probe_index": 0
+                },
+                {
+                  "outcome": "incorrect",
+                  "probe_binding_digest": "d8344a9bb64903fa99c2aa196af97d49173853e3364cabcee44e7e6976faeb3b",
+                  "probe_index": 1
+                },
+                {
+                  "outcome": "incorrect",
+                  "probe_binding_digest": "c5547c505838ad6267fa8bb5170efd166613e9e196d02a57bdf8071a0146b1c8",
+                  "probe_index": 2
+                }
+              ],
+              "score_digest": "sha256:066b7a1cb64e54e3e5b95619ab81d183e2649492c18df79d02d9b974fc4c2859",
+              "status": "incorrect"
+            }
+          },
+          "history_record_score_binding_verified": true,
+          "owner_run_reload_verified": true,
+          "run_id": "devexp-run-442d673aa1db8517381baf63"
+        }
+      ],
+      "acquisition_source_run_count": 1,
+      "audit_digest_verified": true,
+      "audit_schema_posture": "current",
+      "audit_schema_version": 17,
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "cycle_status": "completed",
+      "history_changed_cognition": false,
+      "history_present_restored_output_matches": true,
+      "history_present_restored_prompt_matches": true,
+      "history_present_withheld_output_differs": true,
+      "history_present_withheld_prompt_differs": true,
+      "history_projection_status": "projectable_score_bound_history_available",
+      "history_quarantine_reason_code": null,
+      "history_quarantined": false,
+      "intervention_status": "three_condition_receipts_verified",
+      "learning_claim_made": false,
+      "model_attention_established": false,
+      "performance_improvement_established": false,
+      "projectable_experience_count": 1,
+      "projection_prompt_delivery_status": "not_assessed_by_this_audit",
+      "prompt_delivery_assessed": false,
+      "required_baseline_correct_count": 2,
+      "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+      "task_relevant_example_count": 3,
+      "task_relevant_record_count": 1,
+      "transfer_accumulated_strategy_condition_evidence": null,
+      "transfer_accumulated_strategy_delivery_status": null,
+      "transfer_condition_scores": null,
+      "transfer_exact_probe_reuse_posture": null,
+      "transfer_exact_prompt_serialization_reconstructed": false,
+      "transfer_overlap_recomputed_from_verified_selected_records": null,
+      "transfer_paired_probe_outcome_summary": null,
+      "transfer_projection_delivery_status": "not_present",
+      "transfer_projection_prompt_digest_bound": false,
+      "transfer_result_present": false,
+      "transfer_selected_history_record_refs_reloaded": false,
+      "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "transfer_task_relevant_example_counts": {},
+      "withheld_baseline_correct_count": 1
+    }
+  ],
+  "history_transfer_gate_audit": {
+    "artifact_count": 6,
+    "artifact_error_count": 0,
+    "inference_performed": false,
+    "internal_rollups_recomputed": true,
+    "learning_claim_made": false,
+    "objective_transfer_status_counts": {
+      "completed_scored_intervention": 5,
+      "skipped_history_withheld_baseline_competence_not_demonstrated": 1
+    },
+    "observer_key_custody_unverified_record_count": 0,
+    "report_sha256": "a8bf2577c4ff798989a4aeec4f95fdd3a65bd2343cf180ca5ca6f1fb63c6a9bc",
+    "retrospective_verified_source_fact_count": 0,
+    "runtime_snapshot_bound_pattern_match_count": 0,
+    "schema_version": "sentientos.history_transfer_precondition_audit:v5",
+    "source_binding_valid_pattern_fact_count": 6,
+    "source_path": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/rootless-history-campaign-2c0a5bcb49a3ba6c1457/history_transfer_precondition_audit_v5.json",
+    "source_provenance_failure_code_counts": {
+      "observation_independence_posture_unverified": 6
+    },
+    "transfer_status_counts": {
+      "skipped_history_evidence_precondition_not_met": 6
+    },
+    "valid_artifact_count": 6,
+    "verified_source_pattern_fact_count": 0
+  },
+  "incomplete_run_count": 0,
+  "incomplete_runs": [],
+  "pooled_learning_claim": false,
+  "schema_version": "sentientos.persisted_cognition_audit_summary:v7",
+  "source_root": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments"
+}

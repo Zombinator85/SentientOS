@@ -1,0 +1,116 @@
+{
+  "all_shared_record_digests_equal": true,
+  "audit_digest": "sha256:ce95f6e048047c64a2e2d461c96e5ad532faa9fe8061d4d670b5a01939d8f9f8",
+  "authority": false,
+  "cross_model_prompt_comparison_ready": true,
+  "history_prompt_identity_policy": "matched_cross_model_identity_omitted:v1",
+  "history_record_allowlist_digest": "sha256:11fce08f5cf62a860cf62922ec14a108e16c82e86571df7938c3c9e06943e94e",
+  "history_record_allowlist_file_sha256": "sha256:2d09b419ff2742c89fb81469a4f89ab0dc7a2c65100e8dfac20128243e27f45b",
+  "identity_bindings_verified": true,
+  "inference_performed": false,
+  "interpretation_limit": "digest_parity_only_no_prompt_content_or_model_attention_claim",
+  "learning_established": false,
+  "left_identity_binding_digest": "sha256:e681dce9b20c1f9640e8168d899be98cb8f5acd15b12d154fa854d45a0d67f8b",
+  "left_only_selected_record_ids": [],
+  "left_preflight_sha256": "sha256:be388dea4f4bbdb42b35b45d3962eae7c7d0e653e2cab9642470991ca9ef2f65",
+  "left_preflight_verification_sha256": "sha256:d93b096b6cb36a387d8b7b98a3185103965f1b26d0ded9279eaf52fe3f4a63ee",
+  "left_prompt_digests": {
+    "examples_included": "sha256:b9245e244c4e3f60e0cf29585455a8d9cb2fde8f8e5c158d50f61be38807f4ce",
+    "examples_omitted": "sha256:c183d0bf621f5b20bab100c2b3bd13c941e13d2c81e5c2598792b00baf9dc0d7"
+  },
+  "left_selected_record_count": 2,
+  "left_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "left_target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+  "left_withheld_example_count": 6,
+  "left_withheld_examples_digest": "sha256:37a3ea3635a4327051ee4d9acb913aa156ef3768eb905075f0ee79e34c66c39a",
+  "pair_verification_file_sha256": "sha256:d36acd5b1320a61688cc5a7f160e4b385742e2a0f359895bf9dd211df2d9aaf8",
+  "prompt_comparison_readiness_posture": "ready_shared_task_history_and_prompt_digests",
+  "prompt_digests_equal_by_arm": {
+    "examples_included": true,
+    "examples_omitted": true
+  },
+  "right_identity_binding_digest": "sha256:b1f01f7d897c905ab09a85d4647be0e2ec84ea07fb8efaa74882035fe1984948",
+  "right_only_selected_record_ids": [],
+  "right_preflight_sha256": "sha256:4f67de185e99aba817e65dc2f1494e707809ff029600de8862e6b3753e59a3fe",
+  "right_preflight_verification_sha256": "sha256:52cdaf07580951d197ddc1050ce2fe3777c495990441fbbd9fb7b6f0f2e3052d",
+  "right_prompt_digests": {
+    "examples_included": "sha256:b9245e244c4e3f60e0cf29585455a8d9cb2fde8f8e5c158d50f61be38807f4ce",
+    "examples_omitted": "sha256:c183d0bf621f5b20bab100c2b3bd13c941e13d2c81e5c2598792b00baf9dc0d7"
+  },
+  "right_selected_record_count": 2,
+  "right_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "right_target_model_identity_digest": "sha256:4d81dfdb5ef1aa23e7f373be7f3d3bc87efc1f65e0dd00cab49f8aaab317755b",
+  "right_withheld_example_count": 6,
+  "right_withheld_examples_digest": "sha256:37a3ea3635a4327051ee4d9acb913aa156ef3768eb905075f0ee79e34c66c39a",
+  "schema_version": "sentientos.matched_task_preflight_prompt_parity:v4",
+  "selected_history_applicability_relations_equal": true,
+  "selected_record_provenance": {
+    "devrec-6e3f64dbeb9ae7ae911631c3": {
+      "objective_task_families": [
+        "rootless_integer_affine_transfer_low_range_v6"
+      ],
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "selected_by_left_target": true,
+      "selected_by_right_target": true,
+      "source_fact_bindings": [
+        {
+          "objective_task_family": "rootless_integer_affine_transfer_low_range_v6",
+          "source_active_model_identity_digest": "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1",
+          "source_fact_id": "fact-80379ad996fd46ee",
+          "source_task_digest": "sha256:0f2232ca2ce7c5c30f2662479d02669796e6448e9f989f3873448f1b357d6d79"
+        }
+      ],
+      "source_identity_matches_left_target": false,
+      "source_identity_matches_right_target": false,
+      "source_identity_relation_equal_across_targets": true,
+      "source_model_identity_digests": [
+        "sha256:36bd1cea3a8750814f3beb65ed4df06e39d183b6e1f7971e7372c3855f5a11d1"
+      ]
+    },
+    "devrec-97839cfc90a8bd497154936a": {
+      "objective_task_families": [
+        "rootless_integer_affine_transfer_low_range_v6"
+      ],
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "selected_by_left_target": true,
+      "selected_by_right_target": true,
+      "source_fact_bindings": [
+        {
+          "objective_task_family": "rootless_integer_affine_transfer_low_range_v6",
+          "source_active_model_identity_digest": "sha256:22f54bd286f3ab07bd415f6e7987359cef9aaa33121106012046ec1399d07e1f",
+          "source_fact_id": "fact-3de1680932a8ec0e",
+          "source_task_digest": "sha256:ce9363e0037b0ae128a18c08a4245051b7de5abcfc0426351a39d4996d773887"
+        }
+      ],
+      "source_identity_matches_left_target": false,
+      "source_identity_matches_right_target": false,
+      "source_identity_relation_equal_across_targets": true,
+      "source_model_identity_digests": [
+        "sha256:22f54bd286f3ab07bd415f6e7987359cef9aaa33121106012046ec1399d07e1f"
+      ]
+    }
+  },
+  "selected_record_sets_equal": true,
+  "selected_record_source_reconstructed": true,
+  "shared_cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+  "shared_selected_record_digests": {
+    "devrec-6e3f64dbeb9ae7ae911631c3": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+    "devrec-97839cfc90a8bd497154936a": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606"
+  },
+  "shared_selected_record_ids": [
+    "devrec-6e3f64dbeb9ae7ae911631c3",
+    "devrec-97839cfc90a8bd497154936a"
+  ],
+  "shared_source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "task_commitment_nonce_pair_digest": "sha256:464bb72a5b32c028aff040410f510febb4d9c72dc95d3ba08965bad7651c834c",
+  "task_digest": "sha256:252c164aeeaa60922ab9b2524b902a3d8bf33b0dc33d9ed1b58b7fd7b4496c18",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 13688609,
+  "withheld_examples_equal_by_count_and_digest": true
+}

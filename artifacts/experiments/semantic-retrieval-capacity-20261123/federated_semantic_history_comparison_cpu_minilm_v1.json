@@ -1,0 +1,376 @@
+{
+  "authority": false,
+  "comparison_digest": "sha256:e959b72d843b9f9f464170b4ad96a95e1ab441075229e5a03c9ed43315a0d576",
+  "federated_manifest_digest": "sha256:0839f14c2cd8c2f5bd8cd008a1de8874f3d550e0632dd7a1156a8315d39e83af",
+  "gate_qualification": "not_evaluated",
+  "learning_established": false,
+  "lexical_policy_id": "ordinary_chat_query_decision_polarity_then_lexical_overlap_with_identity_bound_correction_groups_and_embodied_reports_then_recency_fill:v1:federated_global:v1:max_selected_records:8",
+  "query_results": [
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:c4a24181c09ab041b0199e9c3d52f9c73d3cb30c4da7a689853ce6bcacd695e7",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:4c678c30f40bc03f085a96734728ac10fb2bd4a24bdd7caeff4ce6eb5424148f",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:210579d0c1be725d47131d2b2a36fae01b666248516676d691ea9d952599c98e",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:cf34f866e23641a7bfdea720098f282f6d6526ce2fd3d35fc963b305bd9218e3",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:4789615b83fa32936c2a96f408634c677e795a5ed2d38f7944f07eb61ca2892c",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:41999e74b6da3a7463dbfb1ddca6bcf5127191b3add7d1ce9810150c57efab8c",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:ceffe085d03d126d40550a6c447aed714180e54de8d0d9037e86994fdee329d9",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:c9e087f804f06ba790e6031d5cdccce822c0bcd86b5a7ec6756762121f7ed44b",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:01a855cd78d8177e0372ecd537d4a254523e0ec0bf72087b2aacda163ed3e59d",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:211320d8d1bc44e3a4b7cce3c032d7925a2f5cbb676c89cde16e4ccbeb3432c0",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:0b495acac90b07f9ff97dae97b6a4ce29b6357eaa4e263aac55b722622eead50",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:235c270a307c2e22c94c3eb68dd526cf8670c4c714167a825c9e60c2ba8312c6",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:0b4944e4c06175db66fe979482698d6d8e48d2a3880a8e6ca21cedc125798f2e",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:e5df661759ba687ac5a8a15e5579d988e03f2c00409eee3436a019e3edb4f6c8",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:4f5b230b8d8c3a74ce4981164588749c36ff4a6b8a082bf6dc6ff225a1eae5dd",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:89c8014e2f68d743ef60a43dba13ebc6d686a4fe3ab1f89afd950d9555f6e28a",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:be9986bb0112c57fd0d1f7bc66aae900a9fd90f124fadc041075a0abf864582d",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:b24d2c580a35e473b189b5091f2f57646541e11dbd8544ec6dcb52c0c6ace98a",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:b7c895008ce3a03af2121c0b42ecd07b1ea4cafb55b5cb817b001ef1475dd843",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:2b1f7be065cabd7823732cca12a510f806035295a3ca414aa7d9822e2462338e",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:c21c3c767f90c879baa77ca4035fc56e0e3f9e88e3c5089f9d4be6b294a2d427",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:4f6f6aa1decfb180b85d81c0cd1bca7594fde9e5dc4dec5ccb49b8a0904b02f8",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:c26f9ce3fa4bed8d5208c83703937a7a0247224594c14ef90a459944410192d9",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:d5b15ba4a88346e795434093f8beff2343ac5780cb35b02011f6c7761c3726a2",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:22893cc9556c72cd41476a868d719795256e2a628840758bd49fe2faa3ef3b24",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:6c0fb1f1a1e06428c375dc61e657fd49b5585d0ec9a07cd2707f30490d6557b7",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:2d909355a498684c1adb3aaa0f4380d46ee272c70b9a019d741d397443844bf4",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:743e90a0742fc3740f4e55722656e6c9bdff54fffc559ff8db0c372db29d27ab",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:3d0931d029fd3901ff8926f664abec9acb999d6d104e997a8eea19004048e394",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:1b50482fe3661dcb54c7a5ffb0a514f8b065fce2bb8ae89526e0891d2830b56b",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:8ee828a8fedff9b0dade9ad6cda0fac2eda7dbfb755aa8a1d6ec269d319d4771",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:fed981595553a9b9f37cdb5202cdc752084c4ec1af3d66dd70294492e11c8b5b",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:fa5a0d692959623592a22bf27e07baf3c887b77687d21bf27fddc0f7e0ee5f73",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:532b7a919ae7870c56553927ad6b3570c24d90e2d19f39074393c59402253a29",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:3e6011cdbefb41774a78997393c37c4a553abbba45f850bdbc20e6ab8389e830",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:2d1b509f757122acef5e4f98242b3b0d699cb5fdbb58fc74e13da3b245c2c7c7",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:1a9fe36a750c2417899e5d62ca529ba016735d5248dc6a2ca82a1852619de5fd",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:cb3571d10ae048dc259ef2221a99ad2b2bd8aa40dacef8b6c1c15b3eed6ad75b",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:33011a4961d56bc335fbde9194fc892f5a27a888cce6cbcffbaa9f3fd421f06b",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:5828c81818f87328743964deef839eedf45f411e791559a7b3fe1dca73034a4c",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:1a804abc2e1f869f567a69ff87821141b865c7e68f58356ed1f38df6bd67c898",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:ae40c239eb821fdd3425a2e9f3d093e92cfebbe1d1355425e2b338d4f3057d71",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:e5b4c33d6816a152b848acf7b498ab39e43513c9f67aad608920669dd8f18122",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:bfd154dab8b9dd79c24a30747f3637e35316a58246c093a05fb5617d186af6e3",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:f40f8489e05cd65672f4076129f438535b18fbafde945736e0416dbccc1d9e79",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:2589de024616ad6c567c7dc6f5c120fcb6c54d8b36af73e86ef39ff5c4f8efe5",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:670d0c7de415c87113f3d53fb53fea185c9ccf94ec844e145af2bc5e911e8094",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:09c88bc475a9eefcb11679a5a7c8e188478a7f8b9aefd5f289ad37ca1bbba290",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:a564b6f6083a06c5bbdaec1f16293533390cb57fdf4962bad4932413228432d1",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:e629eb1e6f258704b1fb1ff7184f255ab4246b45278f33817c6855f33f124e04",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:bd8eb9649eab48042d31fdb5d6fc24cf48c1c82bcaee72ddc37e370237b47c96",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:9f7317195bdb624ff43efc050232a0037844acc92ce966b23a529e959ca937a2",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:4c61e084d358d7f5932059aae03cc7e3e6f570b94b8910dedd697a52898f48f2",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:f2ef2137b115cf5f6f57d5170eea60ebf3402568a60b5fb21b44c8cd77918f69",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:5367c8405159a8fa37659ff43004fcd633c1b0af6b1b53420cef15710d3a3038",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:663bd8c30c4ac8806aef2451a31975676b695e758d72909586d096955fa816ed",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:70cad04c704fc12d7bea542afe510c70a3c969cd53074c1451bd826e905a9985",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:e61c36ce277cc13e7dbe33df0bb1ccdba90cbb335009dc1bcb19c6199b99802a",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:6a931ff54e8431bc4b96a28ea45c720dd49f45149fe18e1e99c6eaf5b3b0fc04",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    },
+    {
+      "lexical_selected_refs": [],
+      "question_digest": "sha256:5d1b8a2482bce9f2e101ff531002bc443eddba1aa7a17cbbe6b5051faeeedc4e",
+      "semantic_fallback_to_lexical": false,
+      "semantic_selected_refs": []
+    }
+  ],
+  "query_set_digest": "sha256:7d204b6253b8a1e3cd6e97df54834d388136174ae6fe9b7e2706a3c9e290b3c1",
+  "query_set_id": "federated-queryset-7d204b6253b8a1e3cd6e97df",
+  "retrieval_implementation_digest": "sha256:cc9a578d9f7d275a376ebcab2c1808a60c077ee3d46e74fa75b90738dc6a64b2",
+  "schema_version": "sentientos.federated_semantic_history_comparison:v1",
+  "semantic_embedder_identity_digest": "sha256:bee56ccdccb76b59049b50af5299c959816a7305a88ac55b9be1db2bf60d157e",
+  "semantic_policy_id": "ordinary_chat_global_semantic_rank:v1:sha256:bee56ccdccb76b59049b50af5299c959816a7305a88ac55b9be1db2bf60d157e:max_selected_records:8"
+}

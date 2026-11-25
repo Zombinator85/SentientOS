@@ -1,0 +1,61 @@
+{
+  "boundary_chain_audit": {
+    "reason": "Verifier requires roots for all planned cycles; only cycle 0 is completed.",
+    "status": "not_completed"
+  },
+  "campaign_id": "rootless-history-campaign-20261124000000000005",
+  "campaign_plan": "plan_v1.json",
+  "campaign_plan_sha256": "df66d9cdcb354d2db071df705bf9147249896f547c211027f039a61b73ddf744",
+  "consequence_record": {
+    "authority": false,
+    "record_id": null,
+    "status": "not_run_no_action_after_ask_or_abstain"
+  },
+  "cycle1_cpu_preflight": {
+    "failure": "planned_preflight_initial_boundary_mismatch",
+    "reason": "Plan binds cycle 1 preflight to original seed boundary; cycle 0 appended its score record. No post-result rebinding was attempted.",
+    "status": "not_completed"
+  },
+  "cycle_id": "rootless-cognition-cycle-20261124000000000009",
+  "cycle_result_path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-20261124000000000009/cycle-result.json",
+  "cycle_result_sha256": "c237bfd13f695a77bfb198539693cdbdebd899e1094a9a4373dbe0ef629a2f62",
+  "cycle_status": "completed",
+  "gpu_testing": "No additional GPU inference was run in this turn.",
+  "history_intervention": {
+    "causal_claim_made": false,
+    "condition_ids": [
+      "history_present",
+      "history_withheld",
+      "history_restored"
+    ],
+    "status": null
+  },
+  "history_transfer_intervention": {
+    "performance_improvement_established": false,
+    "reason_codes": [
+      "no_new_action_consequence_record"
+    ],
+    "status": "skipped_history_evidence_precondition_not_met"
+  },
+  "implementation_change": "Verified pre-action ask/abstain keeps action authority closed and consequence writeback skipped while independent cognition continues.",
+  "interpretation": "No-action continuation enabled score-bound cognition without action. Result is negative task-performance evidence, not learning, transfer, or improvement.",
+  "pre_action": {
+    "action_authority": false,
+    "classification": "repeated_ask_after_new_current_projection",
+    "disposition": "ask",
+    "synthetic_action": false
+  },
+  "schema_version": "sentientos.no_action_cognition_continuation_outcome:v1",
+  "task_acquisition": {
+    "abstained": 0,
+    "correct": 0,
+    "incorrect": 3,
+    "learning_claim_made": false,
+    "record_id": "devrec-ccd62c925ff71eed431c3d25",
+    "score_binding_status": "verified_exact_source_run_score_to_history_binding",
+    "score_binding_verified": true,
+    "source_run_id": "devexp-run-75c70d41d26a75642d635394",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+    "transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated"
+  }
+}

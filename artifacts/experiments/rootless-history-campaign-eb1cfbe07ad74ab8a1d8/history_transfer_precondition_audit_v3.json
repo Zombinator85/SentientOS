@@ -1,0 +1,245 @@
+{
+  "artifact_count": 6,
+  "artifact_error_count": 0,
+  "inference_performed": false,
+  "learning_claim_made": false,
+  "measurement_scope": "persisted_artifact_readiness_summary",
+  "objective_transfer_status_counts": {
+    "completed_scored_intervention": 5,
+    "skipped_history_withheld_baseline_competence_not_demonstrated": 1
+  },
+  "readiness_reason_counts": {
+    "retained_history_does_not_match_probe_pattern": 6
+  },
+  "record_snapshot_binding_status_counts": {
+    "not_bound_by_cycle_artifact": 6
+  },
+  "retrospective_verified_source_fact_count": 0,
+  "runs": [
+    {
+      "action_executed": false,
+      "actual_record_digest": "fe42e5947a840c028e07837885c01db95609bfc3b9853b30e5065e1eaf85f883",
+      "cycle_id": "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "copied_and_reloaded_verified",
+      "model_attention_verified": false,
+      "objective_transfer_status": "completed_scored_intervention",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-05bda3c4d231f9a765c5/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-f853056318e6716d"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-94356f97cd3b0886c33055cc",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-05bda3c4d231f9a765c5",
+      "source_binding_valid_fact_ids": [
+        "fact-f853056318e6716d"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    },
+    {
+      "action_executed": false,
+      "actual_record_digest": "812003537e9b2b1ca9183300dc0b32f668f0830c46d6534f457053f9dd28bc80",
+      "cycle_id": "rootless-cognition-cycle-515800da0a8749fb8ffc",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "not_configured",
+      "model_attention_verified": false,
+      "objective_transfer_status": "completed_scored_intervention",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-515800da0a8749fb8ffc/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-1e34202a1847bbae"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-9d9e267428c02e3c844f1d5a",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-515800da0a8749fb8ffc",
+      "source_binding_valid_fact_ids": [
+        "fact-1e34202a1847bbae"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    },
+    {
+      "action_executed": false,
+      "actual_record_digest": "317d53f417746844aad8c9ab0e1d2ce8cdfdf300d0c933d031f50f8117e6b9d8",
+      "cycle_id": "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "copied_and_reloaded_verified",
+      "model_attention_verified": false,
+      "objective_transfer_status": "completed_scored_intervention",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-797e9fd3f02b355e9de4/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-d84a361cf61d506e"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-69cd9fc3ed7885b4eaecba60",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-797e9fd3f02b355e9de4",
+      "source_binding_valid_fact_ids": [
+        "fact-d84a361cf61d506e"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    },
+    {
+      "action_executed": false,
+      "actual_record_digest": "f8cb96b74eb7d7eb62514f8543cb0383b7a0984f08d6cf9096e4d81e4070785d",
+      "cycle_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "copied_and_reloaded_verified",
+      "model_attention_verified": false,
+      "objective_transfer_status": "completed_scored_intervention",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-a02be6d3b0e82fe59391/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-46e9e309e71d2000"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-e6c2f49089c474316c5aebf3",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-a02be6d3b0e82fe59391",
+      "source_binding_valid_fact_ids": [
+        "fact-46e9e309e71d2000"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    },
+    {
+      "action_executed": false,
+      "actual_record_digest": "f60b7af30c9ab6b59a2d9e2650228aa2caf87d80b4a507dfc2d29c7aa366a69f",
+      "cycle_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "copied_and_reloaded_verified",
+      "model_attention_verified": false,
+      "objective_transfer_status": "skipped_history_withheld_baseline_competence_not_demonstrated",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-baf4c2d89e35592a4c01/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-f15b63431d07e01a"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-7e5093f81005e5c781b2ede0",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-baf4c2d89e35592a4c01",
+      "source_binding_valid_fact_ids": [
+        "fact-f15b63431d07e01a"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    },
+    {
+      "action_executed": false,
+      "actual_record_digest": "6e0d0891b7c8a0da81c464995a9d23f53f3a55d9b9c1de88dcbfc63241437858",
+      "cycle_id": "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+      "eligible_evidence_fact_ids": [],
+      "expected_record_digest": null,
+      "history_seed_status": "copied_and_reloaded_verified",
+      "model_attention_verified": false,
+      "objective_transfer_status": "completed_scored_intervention",
+      "path": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-d014bdb4dd2b3f9c8a71/cycle-result.json",
+      "pattern_match_fact_ids": [
+        "fact-740378efd980d4ce"
+      ],
+      "performance_improvement_established": false,
+      "provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "readiness_eligible": false,
+      "readiness_reason": "retained_history_does_not_match_probe_pattern",
+      "readiness_record_id": "devrec-82a706b8435e2c3d9262b549",
+      "record_read_status": "read_structural_and_source_validation",
+      "record_snapshot_binding_status": "not_bound_by_cycle_artifact",
+      "result_status": "completed",
+      "run_id": "rootless-cognition-cycle-d014bdb4dd2b3f9c8a71",
+      "source_binding_valid_fact_ids": [
+        "fact-740378efd980d4ce"
+      ],
+      "source_provenance_failure_codes": [
+        "observation_independence_posture_unverified"
+      ],
+      "structural_readiness_classification": "final_record_pattern_not_bound_to_runtime_precondition",
+      "transfer_classification": "history_evidence_precondition_not_met",
+      "transfer_status": "skipped_history_evidence_precondition_not_met",
+      "verified_source_fact_ids": []
+    }
+  ],
+  "runtime_snapshot_bound_pattern_match_count": 0,
+  "schema_version": "sentientos.history_transfer_precondition_audit:v3",
+  "skipped_probes_are_negative_results": false,
+  "source_binding_valid_pattern_fact_count": 6,
+  "source_provenance_failure_code_counts": {
+    "observation_independence_posture_unverified": 6
+  },
+  "structural_readiness_classification_counts": {
+    "final_record_pattern_not_bound_to_runtime_precondition": 6
+  },
+  "transfer_status_counts": {
+    "skipped_history_evidence_precondition_not_met": 6
+  },
+  "valid_artifact_count": 6,
+  "verified_source_pattern_fact_count": 0
+}

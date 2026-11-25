@@ -1,0 +1,16 @@
+{
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000025",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000054",
+  "cycle_index": 1,
+  "failure_code": "task_family_strategy_ablation_candidate_unavailable",
+  "failure_diagnostic_scope": "owner preflight emitted the candidate-unavailable code without a source-family eligibility breakdown",
+  "inference_performed": false,
+  "interpretation": "preflight rejection is recorded; it does not establish that the cross-range low-range evidence was absent or ineligible",
+  "learning_established": false,
+  "plan_digest": "fddb4ad3372cf0e52da80581af75c9c4b8eb06ec0cca006c8cf237cc398dcf71",
+  "schema_version": "sentientos.rootless_strategy_inclusion_preflight_outcome:v1",
+  "status": "preflight_rejected",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_generation_seed": 799941274
+}

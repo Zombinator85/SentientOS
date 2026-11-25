@@ -1,0 +1,54 @@
+{
+  "authority": false,
+  "cohort_digest": "sha256:cea26a079e82c6e0e7c4ccaee09138d3822aec1400c48d80245ab1d4ecdf746e",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "schema_version": "sentientos.historical_examples_preflight_cohort_audit:v1",
+  "shared_boundary": {
+    "cycle_root_id": "rootless-cognition-cycle-20261124000000000009",
+    "generation_budget_digest": "sha256:20a03797d74d623129f5e181c13046f66d07155427b1a453ff5134a894ec37b3",
+    "generation_config_digest": "sha256:5e93da5919107f5108842f3add410ce256faff76a9f928d4c34d24abc21d5168",
+    "history_prompt_identity_policy": "matched_cross_model_identity_omitted:v1",
+    "history_set_digest": "sha256:d4d757dbefd967b9dd6a7cef4b77f2138ad56f3267c5d0716be8cadfab875d96",
+    "model_identity_backend_seed": 42,
+    "snapshot_digest": "sha256:00e8c547cf6caa7fd3fdba2c4cd2be2a9195bf7cb17700b25d9786771aa22396",
+    "snapshot_id": "world-state-00e8c547cf6caa7f",
+    "source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+    "source_receipt_id": "lmrec-d14f3d9870e9dbc64f5812f5",
+    "target_model_identity_digest": "sha256:35cce0d6df50245cf1cfff5355b36f9953bfd368356f0c2c123f4ba37954daee",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  },
+  "trial_count": 2,
+  "trials": [
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "arm_order_seed_digest": "sha256:dd8f71869a36c27b66ae2208bab2f26affbd68e8c4f9d9552e6097c6c0e593b8",
+      "probe_binding_set_digest": "sha256:3e4d1daae78f3a910bc8df5425cd385ac2a27925e3966a9088d4fcc40239adaa",
+      "probe_count": 3,
+      "protocol_digest": "sha256:32b0f1d079cd10ce53ec54307c36eec26058350e7758957e10a772ce5edc1415",
+      "report_digest": "sha256:9c7cfe338b89ab6beefda7f383116c3039f49e9c431052ec94f8769904d1e1eb",
+      "task_digest": "sha256:cebf9a61789e430ecec774fff64d9207aa5e4ace67e70b8e993572c31e8df0f0",
+      "task_generation_seed": 13688501,
+      "verification_digest": "sha256:d8754d6e61b2815ee43913066120bd84ec9f2fe448749e299825de8061f0c2b0"
+    },
+    {
+      "arm_order": [
+        "examples_omitted",
+        "examples_included"
+      ],
+      "arm_order_seed_digest": "sha256:1a6fa40c7e3d215970235427beb8d1a6a0d41a716e2ad632f92eade2ceec305b",
+      "probe_binding_set_digest": "sha256:27d5e32c7354df7041279a8dc925a39963404bc6a4846528998413f09eb2d904",
+      "probe_count": 3,
+      "protocol_digest": "sha256:45006d7ae20b7dd00099c5ae940beed0c9c39810c52fc138db6636a063ab67de",
+      "report_digest": "sha256:efa5f41e86e9b40ad35456a87cde4db85e6edddf133c38535f661c2378741cbb",
+      "task_digest": "sha256:776c0f47dbfd5c66895e7a598dd090bb9a267aa3c704da1250c6a0f568b01e0a",
+      "task_generation_seed": 13688502,
+      "verification_digest": "sha256:8043f4c971042a45bb06a32c5fe29f8d8e5b282490173a3d1e09e3a36ba5ca83"
+    }
+  ],
+  "unique_probe_input_count": 6
+}

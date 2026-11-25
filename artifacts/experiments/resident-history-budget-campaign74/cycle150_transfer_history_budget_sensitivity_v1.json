@@ -1,0 +1,70 @@
+{
+  "audit_digest": "sha256:04e240b96368467921ab6e9de6627b536936aebe42ad6120a083bc8a31cbcb85",
+  "authority": false,
+  "baseline_owner_preview_digest": "36abec4de474cb9a7ded9c4bcc80907b6c2e77b4b60cd0b8c0fce5b8efe0655f",
+  "baseline_present_prompt_chars": 24232,
+  "baseline_selected_record_ids": [
+    "devrec-8d4bdcc40d2e871887858499",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "campaign_id": "rootless-history-campaign-216a55c09fa84e2ea9fb",
+  "candidate_overage_chars": 452,
+  "conclusion_scope": "this historical surrogate does not predict the size of the future acquisition record; it shows that a comparable three-record owner selection can exceed the current character budget and be omitted by the owner before transfer inference",
+  "configured_prompt_limit_chars": 24576,
+  "cycle_id": "rootless-cognition-cycle-00000000000000000150",
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "plan_digest": "df2b1c6a91a815dc3c6a336b09915f2b8beb221e34653089fbddc2a641055e5a",
+  "relaxed_measurement_preview": {
+    "implementation_matches_current": true,
+    "inference_performed": false,
+    "learning_established": false,
+    "measurement_ceiling_chars": 40000,
+    "owner_payload_digest_verified": true,
+    "owner_report_digest": "ad87da4e28fe42be45496e5e1e63e13840c9c539f994e03e5cfd032d3b815ea1",
+    "present_prompt_chars": 25028,
+    "restored_prompt_chars": 25028,
+    "selected_record_ids": [
+      "devrec-e0fd5583befc8730aca572d8",
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "withheld_prompt_chars": 14020
+  },
+  "report_origin_attested": false,
+  "required_history_record_digests_for_surrogate": [
+    "sha256:e0fd5583befc8730aca572d8d106b76a9ade8aec853f12ea27b26674a7cdf4c7",
+    "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+    "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+  ],
+  "required_history_record_ids_for_surrogate": [
+    "devrec-e0fd5583befc8730aca572d8",
+    "devrec-97839cfc90a8bd497154936a",
+    "devrec-6e3f64dbeb9ae7ae911631c3"
+  ],
+  "schema_version": "sentientos.cycle150_transfer_history_budget_sensitivity:v1",
+  "standard_limit_attempt": {
+    "error_code": "runtime_owner_preview_history_binding_mismatch",
+    "expected_record_ids": [
+      "devrec-e0fd5583befc8730aca572d8",
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ],
+    "inference_performed": false,
+    "objective_condition_request_count": 3,
+    "owner_rejected_required_selection": true,
+    "selected_record_digests": [
+      "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8"
+    ],
+    "selected_record_ids": [
+      "devrec-97839cfc90a8bd497154936a",
+      "devrec-6e3f64dbeb9ae7ae911631c3"
+    ]
+  },
+  "surrogate_record_digest": "sha256:e0fd5583befc8730aca572d8d106b76a9ade8aec853f12ea27b26674a7cdf4c7",
+  "surrogate_record_id": "devrec-e0fd5583befc8730aca572d8",
+  "surrogate_role": "existing same-family history record used only to estimate size variation; not the not-yet-created cycle150 acquisition record"
+}

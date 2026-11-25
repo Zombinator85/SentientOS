@@ -1,0 +1,71 @@
+{
+  "audit_digest": "sha256:b5f602e77c6616ae355e5e1e88117202dff641566dd27f294f1555523b98a74b",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-216a55c09fa84e2ea9fb",
+  "cycle_id": "rootless-cognition-cycle-00000000000000000150",
+  "evidence_scope": "record-level linkage between owner prompt projections and independently reloaded source run score digests; does not establish model attention or learning",
+  "history_present_projected_example_count": 9,
+  "history_restored_projected_example_count": 9,
+  "history_withheld_projected_example_count": 0,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_attention_established": false,
+  "owner_preview_audit_digest": "dea0eb1b5d3914e97311650ee8a80440386bb15c89f06af6e0a95d14ae052a56",
+  "owner_preview_verification_scope": "owner_payload_digest_and_flattened_report_consistency",
+  "plan_digest": "ed44a33871b6f6d1b14d62f33d280b9bd2a7719d9f0ea17c1819c4d35f1ea2b6",
+  "preflight_plan_digest": "ed44a33871b6f6d1b14d62f33d280b9bd2a7719d9f0ea17c1819c4d35f1ea2b6",
+  "present_restored_projection_identical": true,
+  "record_bindings": [
+    {
+      "example_count": 3,
+      "examples_digest": "sha256:a006e34133e1028ec2aa34e2d3bd0fb1c46fba971bc8b6d4422e75f947dcec49",
+      "experience_count": 1,
+      "prompt_packet_digest": "sha256:69e7f10af12102959057853439c3a85a0843f1a877cf1b908a0d29b2a03eaaf8",
+      "prompt_packet_serialization_present": true,
+      "record_digest": "sha256:8d4bdcc40d2e871887858499fe1af412760563a40e6944bf8e6c4ae4029951e9",
+      "record_id": "devrec-8d4bdcc40d2e871887858499",
+      "score_bound_source_run_digests": [
+        "sha256:424be291fa71f6edd425026ac3a779d1a5d27871f111a669c04a8fa3307d30a5"
+      ],
+      "score_bound_source_score_digests": [
+        "sha256:b5d5d1be5ab6aca62f430681bd3ad98c85ba32da506fb841025d6521b0326e25"
+      ]
+    },
+    {
+      "example_count": 3,
+      "examples_digest": "sha256:35409f5277eadecbc1577a7940b6638b37cd881d0d5843b4b6ddbfaab7668fde",
+      "experience_count": 1,
+      "prompt_packet_digest": "sha256:6ceb29446e0a4f52c855cbdcd863b8df0691dd932d87e5e0d22b9719e6ac17f2",
+      "prompt_packet_serialization_present": true,
+      "record_digest": "sha256:97839cfc90a8bd497154936a887ed392d67b498afb9078dcd83fe7afb566e606",
+      "record_id": "devrec-97839cfc90a8bd497154936a",
+      "score_bound_source_run_digests": [
+        "sha256:481b87ab05676ad538fec6ad0b0d2b546348fc1e8e89dda8abcd8e884067926e"
+      ],
+      "score_bound_source_score_digests": [
+        "sha256:3962c8adf16a8a3c2bbcf4299b98a90a2672d7c1f666e915b37cec389ee76d58"
+      ]
+    },
+    {
+      "example_count": 3,
+      "examples_digest": "sha256:8ddeb4af262e119a5a8f1639b677508bf5855f0815ae403314cb64cd90d14773",
+      "experience_count": 1,
+      "prompt_packet_digest": "sha256:fbd51eadd40a8a4e54480e32a166977268d36adc20e443f309d99d8c8caae306",
+      "prompt_packet_serialization_present": true,
+      "record_digest": "sha256:6e3f64dbeb9ae7ae911631c32972848f4b280136fd3c83739c7a1451e4ff42f8",
+      "record_id": "devrec-6e3f64dbeb9ae7ae911631c3",
+      "score_bound_source_run_digests": [
+        "sha256:ecf564a49049a2bdfc722f3642c566534131bf60ac5a260d28ab5db3953f0222"
+      ],
+      "score_bound_source_score_digests": [
+        "sha256:39e5bfe8357be955cfa3f56bf75bf8a063dc356bfa965d3e52952d63adb0a7f1"
+      ]
+    }
+  ],
+  "report_origin_attested": false,
+  "schema_version": "sentientos.cycle150_transfer_owner_source_reconciliation:v1",
+  "source_invocation_receipts_verified": true,
+  "source_readiness_audit_digest": "sha256:77eb1bec7670bb3ed50e596e04fb9cb56cb774a286b377dbc2a6d40daf8a5f9f",
+  "source_scores_independently_recomputed": true,
+  "withheld_projection_empty": true
+}

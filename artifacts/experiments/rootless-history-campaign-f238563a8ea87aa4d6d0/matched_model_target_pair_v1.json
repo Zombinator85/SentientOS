@@ -1,0 +1,106 @@
+{
+  "comparison_status": "matched_preflight_verified",
+  "equivalence_checks": {
+    "distinct_target_active_identities": true,
+    "distinct_target_artifacts": true,
+    "hermes_sources_share_hermes_artifact": true,
+    "qwen_sources_from_different_artifact": true,
+    "same_backend_seeds": true,
+    "same_cycle0_transfer_probes": true,
+    "same_history_boundary": true,
+    "same_implementation_pin": true,
+    "same_selected_history_records": true,
+    "same_task_family": true,
+    "same_task_generation_seeds": true
+  },
+  "limits": {
+    "authority": false,
+    "cycle1_preflight_posture": "rebuild_after_cycle0_history_changes",
+    "inference_performed": false,
+    "learning_established": false,
+    "transfer_established": false
+  },
+  "members": {
+    "different_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-f238563a8ea87aa4d6d0",
+      "cycle0_transfer_probe_inputs": [
+        11,
+        978,
+        991
+      ],
+      "cycle_id": "rootless-cognition-cycle-9e04c1f403ace99f610e",
+      "model_artifact_digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+      "model_name": "qwen3:8b",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:902107391d461ac1ba168cf1aaa5f9df97b4a2eab5b290f818c1fb2f517d0324",
+      "owner_report_file": {
+        "path": "artifacts/experiments/rootless-history-campaign-f238563a8ea87aa4d6d0/owner_preflight_cycle0_v1.json",
+        "sha256": "2e12693e72dc295cf333107b1f45560ba4da389072a3d7c420ef895136cb096a"
+      },
+      "plan_digest": "c0d474b5ac3d0b84837976f652ba3b0972ec9d129e73858ba6301d320bd8c98e",
+      "plan_file": {
+        "path": "artifacts/experiments/rootless-history-campaign-f238563a8ea87aa4d6d0/plan_v1.json",
+        "sha256": "481712eec4d98f716e29b6d3f2f12826af50e9dce05aa3425d1b1a0035c83fdd"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "target_model_identity_digest": "3897849e2af38099ba317a71cfc06b9695c519d241af9d501d15c8f1738d722d"
+    },
+    "same_model_artifact_target": {
+      "campaign_id": "rootless-history-campaign-8cd976412437a9540d25",
+      "cycle0_transfer_probe_inputs": [
+        11,
+        978,
+        991
+      ],
+      "cycle_id": "rootless-cognition-cycle-d6d749b102aac62a04df",
+      "model_artifact_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+      "model_name": "hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M",
+      "owner_preflight_verifier_status": "verified",
+      "owner_report_digest": "sha256:aa6bd45d64f769bb56dc8880926df4ce170ef454e443e9d047e92a8931cd7bec",
+      "owner_report_file": {
+        "path": "artifacts/experiments/rootless-history-campaign-8cd976412437a9540d25/owner_preflight_cycle0_v1.json",
+        "sha256": "c06decbf2f86f156e2ae5212e1da37ffcef24c5339061e81997e01bbc8e4c2c5"
+      },
+      "plan_digest": "e454e934e2ff6f598839b6452d27c528dfa3f119c8c613048af516b40d4ea304",
+      "plan_file": {
+        "path": "artifacts/experiments/rootless-history-campaign-8cd976412437a9540d25/plan_v1.json",
+        "sha256": "8b4edbf3ead62ea13f4e3af4ef33a18cbb858441ebcc82b5764a1c0c95f6659c"
+      },
+      "plan_verifier_status": "verified",
+      "selected_history_record_ids": [
+        "devrec-21df63d50d306c0e607fb07f",
+        "devrec-6e3f64dbeb9ae7ae911631c3",
+        "devrec-01e35780a28a539aee7c5fb6",
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "target_model_identity_digest": "c2ee58996154031690dd35ebdcfa3bcf0bc54b46d2c446d38af4e98fc4a11261"
+    }
+  },
+  "pair_digest": "sha256:700e7bf45fe03e68dda25047b3c123fd0adbc2c7abe2e110c33c74dcbed55272",
+  "schema_version": "sentientos.rootless_matched_model_target_pair:v1",
+  "shared": {
+    "heldout_probe_set": [
+      11,
+      978,
+      991
+    ],
+    "implementation_digest": "0c4bbad57ee9bd4a224f3cff97ecccb2771e914da8531e49d229dfd26c3fecd6",
+    "implementation_source_count": 1207,
+    "initial_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+    "ordered_backend_seeds": [
+      1091674980,
+      63362724
+    ],
+    "ordered_task_generation_seeds": [
+      13688478,
+      1931189252
+    ],
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  }
+}

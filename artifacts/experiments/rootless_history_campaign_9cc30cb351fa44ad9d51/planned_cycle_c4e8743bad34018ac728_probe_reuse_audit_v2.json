@@ -1,0 +1,85 @@
+{
+  "aggregate_overlap_inputs": [
+    6,
+    7,
+    8
+  ],
+  "audit_digest": "sha256:d42f4a126b460c90464220aa3f7c066eb1b3e7f01c2daab19d6aad98012d957b",
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-9cc30cb351fa44ad9d51",
+  "classification": "reused_input_recall_not_held_out_transfer",
+  "cycle_id": "rootless-cognition-cycle-c4e8743bad34018ac728",
+  "held_out_transfer_qualified": false,
+  "inference_performed": false,
+  "learning_established": false,
+  "limitations": [
+    "The source preflight does not establish model attention or use.",
+    "The history boundary is not an atomic filesystem snapshot.",
+    "This audit does not reconstruct a prompt or execute inference."
+  ],
+  "plan_digest": "f556ffcf65946c122fc561e781fc40fc746471a33d6a128a37112ece3272ba91",
+  "recomputed_history_boundary": {
+    "atomic_snapshot": false,
+    "boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e",
+    "file_count": 46,
+    "selected_record_files_match_boundary": true
+  },
+  "schema_version": "sentientos.planned_cycle_probe_reuse_audit:v1",
+  "selected_prompt_records": [
+    {
+      "available_probe_inputs": [
+        6,
+        8,
+        9
+      ],
+      "overlap_count": 2,
+      "overlap_inputs": [
+        6,
+        8
+      ],
+      "projected_experience_count": 1,
+      "record_digest": "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+      "record_file_sha256": "bbc3eea931388cce185f1f987a86d440a47787cee096a4fb8f0e4076a63e010b",
+      "record_id": "devrec-01e35780a28a539aee7c5fb6"
+    },
+    {
+      "available_probe_inputs": [
+        6,
+        7,
+        8
+      ],
+      "overlap_count": 3,
+      "overlap_inputs": [
+        6,
+        7,
+        8
+      ],
+      "projected_experience_count": 1,
+      "record_digest": "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad",
+      "record_file_sha256": "0203c45bd6901924f403f092b413871ef8f40a7f505dd7f059079c4be43bdb5f",
+      "record_id": "devrec-4fd52036e8b17c28ac02994c"
+    }
+  ],
+  "source_preflight": {
+    "artifact": "planned_cycle_c4e8743bad34018ac728_owner_preflight_v10.json",
+    "audit_digest": "sha256:290e4f35f06cb8a5a9b539d97214424ad9da86a86b5405a098683ad121c492b6",
+    "binder_selected_record_digests": [
+      "sha256:01e35780a28a539aee7c5fb606438ae3d36bfe9c4c28d695be2d55f8140b81d5",
+      "sha256:4fd52036e8b17c28ac02994c502e6169bf4dbc02da6c97e2d1e2222d124302ad"
+    ],
+    "binder_selected_record_ids": [
+      "devrec-01e35780a28a539aee7c5fb6",
+      "devrec-4fd52036e8b17c28ac02994c"
+    ],
+    "file_sha256": "9b791e74465d2ce1192f0754634cb78ff9c7ba0e3177d03a62249ebf2e8ff694",
+    "plan_digest": "f556ffcf65946c122fc561e781fc40fc746471a33d6a128a37112ece3272ba91",
+    "prior_history_boundary_digest": "f091bb019eaed937a347c4ac557ab970e93f92f7d7749852d97b85a5866d6d0e"
+  },
+  "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_generation_seed": 2026112211,
+  "transfer_probe_inputs": [
+    6,
+    7,
+    8
+  ]
+}
