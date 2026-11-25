@@ -7537,7 +7537,8 @@ def test_configured_semantic_failure_is_recorded_as_lexical_fallback(
 
     class Store:
         def get(self, record_id):
-            return SimpleNamespace(candidate=candidates[record_id])
+            return SimpleNamespace(record_id=record_id, candidate=candidates[record_id],
+                record_digest="sha256:" + digest_payload(record_id))
 
     class Writeback:
         store = Store()
@@ -7554,10 +7555,12 @@ def test_configured_semantic_failure_is_recorded_as_lexical_fallback(
         return None
 
     monkeypatch.setattr(semantic_embeddings, "encode_semantic", unavailable)
-    fake_owner = SimpleNamespace(writeback=Writeback(),
-        config=SimpleNamespace(max_retrieved_records=1,
-            semantic_history_model_id="test/local-embedder",
-            semantic_history_model_revision="a" * 40), objective_task=None)
+    fake_owner = object.__new__(ResidentDevelopmentalCognitionOwner)
+    fake_owner.writeback = Writeback()
+    fake_owner.config = SimpleNamespace(max_retrieved_records=1,
+        semantic_history_model_id="test/local-embedder",
+        semantic_history_model_revision="a" * 40)
+    fake_owner.objective_task = None
     state = {"completed_ticks": [
         {"tick_id": "tick-0", "record_id": "older-relevant"},
         {"tick_id": "tick-1", "record_id": "newer-unrelated"}]}
@@ -10231,6 +10234,26 @@ def test_ordinary_integer_history_requires_task_scope_and_score_evidence() -> No
         "selected_facts": [{"payload": {"objective_task_family": "integer_affine_prediction",
             "examples": [{"probe_input": 3, "observed_answer": 7, "evaluator_correct": True}]}}]}
     assert _ordinary_chat_integer_experiences(candidate) == []
+
+
+def test_latest_scored_exercise_uses_first_admission_of_each_matching_run() -> None:
+    from sentientos.resident_developmental_cognition import _latest_integer_exercise, _latest_integer_scope
+
+    def experience(run, family):
+        return {"source_run_id": run, "task_family_id": f"integer_transfer_{family}_range_v1"}
+
+    first, second = experience("first", "wide"), experience("second", "wide")
+    third = experience("third", "low")
+    admitted = [("initial", [first]), ("next", [first, second]), ("low", [third]),
+                ("cited-again", [first, third])]
+    assert _latest_integer_exercise(admitted, "wide") == ("next", {"second"})
+    assert _latest_integer_exercise(admitted, "any") == ("low", {"third"})
+    assert _latest_integer_exercise(admitted, "novel") == (None, set())
+    assert _latest_integer_scope("What inputs did we try on our latest wide-range arithmetic task?") == "wide"
+    assert _latest_integer_scope("Which inputs did we try on our last arithmetic task in the low range?") == "low"
+    assert _latest_integer_scope("Compare our latest arithmetic task with an earlier one.") is None
+    assert _latest_integer_scope("What outputs come before our last arithmetic task?") is None
+    assert _latest_integer_scope("What are the latest scores for the match?") is None
 
 
 def test_companion_bridge_forwards_pinned_embedder_configuration() -> None:

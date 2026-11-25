@@ -18,7 +18,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Callable, Iterator, Mapping, Sequence, cast
+from typing import Any, Callable, Iterable, Iterator, Mapping, Sequence, cast
 
 from .codex_task_authority_admission import (
     RESIDENT_DEVELOPMENTAL_WRITEBACK,
@@ -12104,12 +12104,24 @@ _LATEST_INTEGER_EXERCISE = re.compile(
     r"(?:exercise|task|trial|puzzle)\b", re.IGNORECASE)
 
 
-def _latest_integer_exercise(exercises, range_name):
+def _latest_integer_scope(question: str) -> str | None:
+    # A comparison or an exclusion needs ordinary multi-record retrieval.
+    matches = list(_LATEST_INTEGER_EXERCISE.finditer(question))
+    if len(matches) != 1 or re.search(
+            r"\b(?:compare|compared|versus|before|earlier|previous|except|excluding|"
+            r"other than|apart from|not (?:our|the|my|your))\b", question, re.IGNORECASE):
+        return None
+    ranges = set(re.findall(r"\b(wide|low|novel)[\s-]+range\b", question.lower()))
+    return next(iter(ranges), "any") if len(ranges) <= 1 else None
+
+
+def _latest_integer_exercise(exercises: Iterable[tuple[str, Sequence[Mapping[str, Any]]]],
+        range_name: str) -> tuple[str | None, set[str]]:
     """Choose the last checkpoint introducing a scored run in the requested range."""
     seen = set()
     latest_record, latest_runs = None, set()
     for record_id, experiences in exercises:
-        runs = {e["source_run_id"] for e in experiences if range_name is None
+        runs = {e["source_run_id"] for e in experiences if range_name == "any"
                 or f"_{range_name}_range_" in "_" + e["task_family_id"] + "_"}
         new_runs = runs - seen
         if new_runs:
@@ -15829,6 +15841,13 @@ class ResidentDevelopmentalCognitionOwner:
             "integrity_verified": True, "effect_established": False,
             "learning_established": False, "authority": False}
 
+    def _ordinary_chat_scored_exercises(self, state: Mapping[str, Any], tick_id: str
+            ) -> Iterator[tuple[str, list[dict[str, Any]]]]:
+        for ref in self._verified_history_record_refs(state, exclude_tick_id=tick_id):
+            candidate = self.writeback.store.get(ref["record_id"]).candidate
+            if not _historical_operator_feedback_context(candidate):
+                yield ref["record_id"], _ordinary_chat_integer_experiences(candidate)
+
     def _ordinary_chat_developmental_history_context_for_state(self, *,
             state: Mapping[str, Any], question: str, max_input_chars: int,
             target_model_identity: Mapping[str, Any] | None,
@@ -15845,19 +15864,13 @@ class ResidentDevelopmentalCognitionOwner:
             if history_inventory_snapshot is not None else
             self._ordinary_chat_developmental_history_state_snapshot_locked())
         numeric_question = _asks_for_integer_prediction_examples(question)
-        latest = (_LATEST_INTEGER_EXERCISE.search(question)
+        latest = (_latest_integer_scope(question)
                   if numeric_question and record_allowlist is None else None)
         retrieval_allowlist = record_allowlist
-        latest_runs = set()
+        latest_runs: set[str] = set()
         if latest:
-            refs = self._verified_history_record_refs(state, exclude_tick_id=tick_id)
-            def exercises():
-                for ref in refs:
-                    candidate = self.writeback.store.get(ref["record_id"]).candidate
-                    if not _historical_operator_feedback_context(candidate):
-                        yield ref["record_id"], _ordinary_chat_integer_experiences(candidate)
             record_id, latest_runs = _latest_integer_exercise(
-                exercises(), (latest.group("range") or "").lower() or None)
+                self._ordinary_chat_scored_exercises(state, tick_id), latest)
             retrieval_allowlist = (record_id,) if record_id is not None else None
         projection = self._prior_projection(state, tick_id,
             relevance_query=question,

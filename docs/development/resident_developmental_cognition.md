@@ -6042,3 +6042,34 @@ selection. This rehearsal establishes evidence delivery and exact reopening
 for these prompts. Behavioral retention, attribution to the acquisition
 experience and transfer across model replacements still require measured
 responses under matched histories. [Service replay and source bindings](../../artifacts/experiments/ordinary-chat-retention-20261125/scored_rows_service_v2.json)
+
+### Ordinary chat after two different acquisitions from one starting history
+
+Two archived residents inherited the same 39 records and writeback receipts,
+admission ledger and recovery checkpoint from cycle 54. Each added one
+scored wide-range arithmetic exercise. The left run stopped at a later
+writeback when its history projection exceeded the size limit. Its acquisition
+had already committed. The replay reopened each addition, verified its
+invocation receipts and checked the individual rows against its scored run.
+The two acquisition runs used different seeds and model configurations.
+
+Before the retrieval change, asking about the most recent scored wide-range
+exercise surfaced the same older inputs (23, 394, 499) in all three stores.
+Ordinary chat now uses verified checkpoint order when a question explicitly
+asks for the latest scored arithmetic exercise. A later citation of an
+already admitted run preserves its original place in that order. An explicit
+range limits the eligible exercises. [Before the change](../../artifacts/experiments/ordinary-chat-retention-20261125/sibling_history_before.json)
+
+| Resident | Scored answer delivered for the wide-range question | Recorded abstentions |
+| --- | --- | --- |
+| Shared parent | Answered 5 for input 2, scored correct | 7 and 8 |
+| Left child | Answered 26 for input 6, scored incorrect | 7 and 8 |
+| Right child | Answered 26 for input 5, scored incorrect | 7 and 9 |
+
+The low-range question selected the same inherited record in all three stores.
+For the two prediction questions without a recency request, all six complete
+prompt hashes matched their pre-change values. Each question had the same
+prompt outside the history block across residents. Capture stopped at the
+ordinary chat inference boundary. Whether the acquired difference changes a
+model's response or improves a later decision remains an open behavioral
+question. [After the change](../../artifacts/experiments/ordinary-chat-retention-20261125/sibling_history_after.json)
