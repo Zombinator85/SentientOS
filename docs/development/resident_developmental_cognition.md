@@ -6567,3 +6567,21 @@ score are preserved in the
 [run artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/).
 The isolated Ollama server was stopped after scoring, returning GPU memory to
 its prior idle level.
+
+The follow-up [evidence diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/evidence-diagnostic.json)
+decomposes the result. Parent and left exposed the same three scored examples
+(`2→5`, `4→9`, `5→11`); all agree with the fixed `2x+1` task mapping. Right
+exposed one incorrect answer (`5→26`) and two abstentions, while empty exposed
+no scored examples. A lenient extraction recovered one JSON payload from each
+response, but none contained a correct target answer. Therefore response
+formatting contributed to three strict-format failures, while formatting alone
+does not explain the absence of transfer. The parent/left contrast also cannot
+attribute an effect to the left-child addition because their selected scored
+record and rows are identical. A better follow-up should balance the quality
+of usable history across arms and measure generalization at several increasing
+input distances, while keeping strict-format adherence as a separate outcome.
+Recreate the diagnostic from the frozen run with:
+
+```bash
+python -m work.analyze_ordinary_chat_novel_transfer <run-directory> <evidence-diagnostic.json>
+```

@@ -1,0 +1,182 @@
+{
+  "analyzer_source_sha256": "73a051c4c58d77a81aac736e8ba83c95a55565e7b3566b65b1512d663176ae82",
+  "history_support_by_arm": {
+    "empty": {
+      "answered_example_count": 0,
+      "examples": [],
+      "history_block_digest": null,
+      "history_record_ids": [],
+      "mapping_aligned_answer_count": 0,
+      "support_class": "no_scored_history_examples"
+    },
+    "left": {
+      "answered_example_count": 3,
+      "examples": [
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 5,
+          "probe_input": 2,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        },
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 9,
+          "probe_input": 4,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        },
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 11,
+          "probe_input": 5,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "history_block_digest": "18a003faabb6638bafe24abb427838d3fcb3f20b09719104aa9bb05994fb6ef2",
+      "history_record_ids": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "mapping_aligned_answer_count": 3,
+      "support_class": "all_observed_examples_agree_with_fixed_mapping"
+    },
+    "parent": {
+      "answered_example_count": 3,
+      "examples": [
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 5,
+          "probe_input": 2,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        },
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 9,
+          "probe_input": 4,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        },
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": true,
+          "observed_answer": 11,
+          "probe_input": 5,
+          "source_evaluator_correct": true,
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "history_block_digest": "39315d98c969e9795cd78cd59274ec9fc3d24239ad904834bb142ee877bfbba2",
+      "history_record_ids": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "mapping_aligned_answer_count": 3,
+      "support_class": "all_observed_examples_agree_with_fixed_mapping"
+    },
+    "right": {
+      "answered_example_count": 1,
+      "examples": [
+        {
+          "abstained": false,
+          "agrees_with_novel_family_mapping": false,
+          "observed_answer": 26,
+          "probe_input": 5,
+          "source_evaluator_correct": false,
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        },
+        {
+          "abstained": true,
+          "agrees_with_novel_family_mapping": false,
+          "observed_answer": null,
+          "probe_input": 7,
+          "source_evaluator_correct": null,
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        },
+        {
+          "abstained": true,
+          "agrees_with_novel_family_mapping": false,
+          "observed_answer": null,
+          "probe_input": 9,
+          "source_evaluator_correct": null,
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "history_block_digest": "0011e3505e079104ca968294cfb709c58f8b36d88e170b70aadcd578a3caba08",
+      "history_record_ids": [
+        "devrec-ea97ca95f0c73de28d117b4f"
+      ],
+      "mapping_aligned_answer_count": 0,
+      "support_class": "no_observed_example_agrees_with_fixed_mapping"
+    }
+  },
+  "independent_score_sha256": "9db68c0b303f02ac8a63578b9fb585054234d9023ddcd61e53361214b0d2e95d",
+  "interpretation": "Diagnostic decomposition only. Mapping agreement is calculated from frozen source rows; recovering JSON from prose does not change the strict score or establish learning.",
+  "outputs_by_arm": {
+    "empty": {
+      "denominator": 3,
+      "recovered_answers": [
+        null,
+        null,
+        null
+      ],
+      "recovered_correct_count": 0,
+      "strict_answers": null,
+      "strict_json_only_valid": false,
+      "strict_score_correct_count": 0,
+      "unambiguous_json_payload_recovered": true
+    },
+    "left": {
+      "denominator": 3,
+      "recovered_answers": [
+        null,
+        null,
+        null
+      ],
+      "recovered_correct_count": 0,
+      "strict_answers": [
+        null,
+        null,
+        null
+      ],
+      "strict_json_only_valid": true,
+      "strict_score_correct_count": 0,
+      "unambiguous_json_payload_recovered": true
+    },
+    "parent": {
+      "denominator": 3,
+      "recovered_answers": [
+        null,
+        null,
+        null
+      ],
+      "recovered_correct_count": 0,
+      "strict_answers": null,
+      "strict_json_only_valid": false,
+      "strict_score_correct_count": 0,
+      "unambiguous_json_payload_recovered": true
+    },
+    "right": {
+      "denominator": 3,
+      "recovered_answers": [
+        null,
+        null,
+        10
+      ],
+      "recovered_correct_count": 0,
+      "strict_answers": null,
+      "strict_json_only_valid": false,
+      "strict_score_correct_count": 0,
+      "unambiguous_json_payload_recovered": true
+    }
+  },
+  "parent_and_left_exposed_identical_scored_examples": true,
+  "plan_sha256": "3f223e9eac3bece9ea43c7d761ef20d6a6a0826f1ecb674d64dae2114d118fc1",
+  "schema": "sentientos.ordinary_chat_novel_transfer_evidence_diagnostic:v1",
+  "task_family_id": "rootless_integer_affine_transfer_novel_range_v8"
+}
