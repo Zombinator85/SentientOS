@@ -57,7 +57,8 @@ def regrade(source=SOURCE):
     result = json.loads(result_file.read_text(encoding="utf-8"))
     if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v2",
                               "sentientos.sibling_chat_recall_plan:v3",
-                              "sentientos.sibling_chat_recall_plan:v4"}:
+                              "sentientos.sibling_chat_recall_plan:v4",
+                              "sentientos.sibling_chat_recall_plan:v5"}:
         raise ValueError("regrade requires a cited recall protocol")
 
     trials = []

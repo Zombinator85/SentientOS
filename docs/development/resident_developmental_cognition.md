@@ -6137,18 +6137,21 @@ scoring when checking its saved result, so historical scores remain
 reproducible and are not silently rewritten. No new model call is needed to
 apply this correction.
 
-The next extraction intervention is isolated in cited protocol v4. It adds an
-explicit mapping from each projected `examples` field to the output row,
-including the `abstained` and `evaluator_correct` cases, after history selection
-has run. Its CPU preflight captured the same one scored record in all six
-history-present conditions, with the mapping in each captured history
-instruction; the retrieval question and evidence stayed fixed. The longest
-prompt was 7,972 characters. Empty-history controls remained empty. The plan
-records the intervention and captured guidance before inference, so the baseline
-v2 artifact and this condition can be compared without editing historical
-results. The first generation then exceeded its 120-second timeout under the
-matched two-thread CPU configuration, before any trial result was saved. This
-run provides no evidence that extraction improves. Raising the timeout or
-changing thread count would alter the matched configuration and needs a new
-paired protocol. Hermes/GPU testing remains paused; the runner's pinned local
-model configuration explicitly requests CPU inference.
+The extraction intervention was first tried in cited protocol v4 by appending
+the mapping to the history context. That rendered the mapping twice: once in
+history guidance and again in serialized context. Its first generation exceeded
+the matched 120-second CPU timeout before a trial result was saved, so it
+provides no evidence of improved extraction.
+
+Cited protocol v5 injects the same mapping once at the model prompt boundary,
+after retrieval and context validation. It leaves the selected history,
+selection digest, and retrieval question unchanged. The new
+`--preflight-only` mode saves the fully captured plan and an explicit no-inference
+status record without starting generation. The independently verified
+[v5 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-explicit-mapping-preflight-v5/)
+contains eight planned trials: five history exposures each retain the same
+single scored record as the archived comparison, and the empty-history controls remain empty. Prompts range from 7,812 to 7,819
+characters. The pinned model was not resident and inference was not performed.
+The matched two-thread CPU model comparison remains outstanding; this preflight
+does not establish improved extraction or learning. Hermes/GPU testing remains
+paused.

@@ -17,13 +17,16 @@ def verify(path):
     plan_file = path / "plan.json"
     plan, result, archive = read(plan_file), read(path / "result.json"), read(SOURCE_REPORT)
     if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2",
-                              "sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v4"}:
+                              "sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v4",
+                              "sentientos.sibling_chat_recall_plan:v5"}:
         raise ValueError("unknown recall protocol")
     cited = plan["schema"].endswith((":v2", ":v3"))
     cited = cited or plan["schema"].endswith(":v4")
+    cited = cited or plan["schema"].endswith(":v5")
     legacy_cited_scoring = plan["schema"].endswith(":v2")
-    explicit_row_mapping = plan["schema"].endswith(":v4")
-    expected_intervention = ({"id": "explicit_developmental_history_field_to_row_mapping:v1",
+    explicit_row_mapping = plan["schema"].endswith((":v4", ":v5"))
+    mapping_revision = "v2" if plan["schema"].endswith(":v5") else "v1"
+    expected_intervention = ({"id": "explicit_developmental_history_field_to_row_mapping:" + mapping_revision,
         "guidance": EXPLICIT_ROW_MAPPING, "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
         if explicit_row_mapping else None)
     trials = conditions(cited)

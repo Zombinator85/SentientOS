@@ -186,7 +186,9 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         end = prompt.index("\n[SESSION_HISTORY_DATA]", start)
         data = prompt.index("[DEVELOPMENTAL_HISTORY_DATA]\n", start) + len("[DEVELOPMENTAL_HISTORY_DATA]\n")
         context = json.loads(prompt[data:end])
-        history_instruction = context.get("instruction")
+        guidance_start = start + len("[DEVELOPMENTAL_HISTORY_GUIDANCE]\n")
+        history_instruction = prompt[guidance_start:prompt.index(
+            "\n[DEVELOPMENTAL_HISTORY_DATA]", guidance_start)]
         verify_ordinary_chat_history_projection_triplet(history_present=context, history_withheld=None,
             history_restored=context)
         if (ordinary_chat_developmental_history_prompt_block_digest(prompt)

@@ -23,7 +23,9 @@ from urllib.parse import urlsplit
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_service import DevelopmentLocalChatInference, PersistentConversationService
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.conversation_session import ConversationSessionStore
+from sentientos.conversation_session import (
+    ConversationSessionStore, ordinary_chat_developmental_history_prompt_block_digest,
+)
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
 from sentientos.local_model import LocalModel
@@ -68,22 +70,21 @@ def recall_question(scope, cited):
     return question + (CITED_FORMAT if cited else FORMAT)
 
 
-def _enable_explicit_row_mapping(owner):
-    """Add the extraction mapping after retrieval without changing its query."""
-    original = owner.ordinary_chat_developmental_history_context_for_model
-
-    def projected_context(*args, **kwargs):
-        context = original(*args, **kwargs)
-        if context is None:
-            return None
-        body = {key: value for key, value in context.items() if key != "selection_digest"}
-        instruction = body.get("instruction")
-        if not isinstance(instruction, str) or EXPLICIT_ROW_MAPPING.strip() in instruction:
-            raise ValueError("explicit row mapping cannot be bound to the history context")
-        body["instruction"] = instruction + EXPLICIT_ROW_MAPPING
-        return {**body, "selection_digest": digest_payload(body)}
-
-    owner.ordinary_chat_developmental_history_context_for_model = projected_context
+def _inject_explicit_row_mapping(prompt, linkage):
+    """Add the treatment once to rendered guidance, after retrieval and validation."""
+    marker = "[DEVELOPMENTAL_HISTORY_GUIDANCE]\n"
+    data_marker = "\n[DEVELOPMENTAL_HISTORY_DATA]"
+    start = prompt.find(marker)
+    if start < 0:
+        return prompt, linkage
+    boundary = prompt.find(data_marker, start + len(marker))
+    if boundary < 0 or EXPLICIT_ROW_MAPPING.strip() in prompt[start:boundary]:
+        raise ValueError("explicit row mapping cannot be bound to the rendered history guidance")
+    updated = prompt[:boundary] + "\n" + EXPLICIT_ROW_MAPPING.strip() + prompt[boundary:]
+    updated_linkage = dict(linkage)
+    updated_linkage["ordinary_developmental_history_prompt_block_digest"] = (
+        ordinary_chat_developmental_history_prompt_block_digest(updated))
+    return updated, updated_linkage
 
 
 def sha(data):
@@ -309,8 +310,13 @@ def source_rows(owner, evidence):
 
 class VerifiedChat(DevelopmentLocalChatInference):
     capture_only = True
+    explicit_row_mapping = False
 
     def generate(self, **kwargs):
+        if self.explicit_row_mapping:
+            kwargs = dict(kwargs)
+            kwargs["prompt"], kwargs["caller_linkage"] = _inject_explicit_row_mapping(
+                kwargs["prompt"], kwargs["caller_linkage"])
         if self.capture_only:
             raise _CapturedRequest(kwargs["prompt"], kwargs["caller_linkage"])
         if sha(kwargs["prompt"].encode()) != self.frozen_hash:
@@ -319,7 +325,7 @@ class VerifiedChat(DevelopmentLocalChatInference):
         return self.receipt
 
 
-def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False):
+def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False, preflight_only=False):
     if explicit_row_mapping and not cited:
         raise ValueError("explicit row mapping requires the cited response protocol")
     root.mkdir(parents=True, exist_ok=False)
@@ -338,6 +344,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
             raise ValueError("ordinary chat model identity is ineligible")
         inference = VerifiedChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
             kernel=_resource_governed_kernel(root), runtime_root=root / "inference-custody"))
+        inference.explicit_row_mapping = explicit_row_mapping
         owners, snapshots, source_owners = {}, {}, {}
         for arm, suffix in CYCLES.items():
             cycle = cycles / ("rootless-cognition-cycle-" + suffix)
@@ -345,15 +352,11 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
             archive(cycle, resident)
             kinds = _source_kinds_from_history(resident / "history")
             owner = _owner(resident, kinds, resident.parent, historical_request)
-            if explicit_row_mapping:
-                _enable_explicit_row_mapping(owner)
             if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline["arms"][arm]["admitted_boundary_digest"]:
                 raise ValueError("archive differs from sibling comparison")
             owners[arm] = owner
             source_owners[cycle.name] = owner
         owners["empty"] = _owner(root / "empty", kinds, cycle, historical_request)
-        if explicit_row_mapping:
-            _enable_explicit_row_mapping(owners["empty"])
         profiles, questions, exposure, bases = {"empty": []}, {}, {}, {}
         for arm, scope in dict.fromkeys(conditions(cited)):
             owner = owners[arm]
@@ -396,14 +399,14 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 if profiles.setdefault(profile, oracle) != oracle:
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
-        protocol = "v4" if explicit_row_mapping else "v3" if cited else "v1"
+        protocol = "v5" if explicit_row_mapping else "v3" if cited else "v1"
         plan = {"schema": "sentientos.sibling_chat_recall_plan:" + protocol, "model": MODEL,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
                 "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
                 "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
                     k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
-                "intervention": ({"id": "explicit_developmental_history_field_to_row_mapping:v1",
+                "intervention": ({"id": "explicit_developmental_history_field_to_row_mapping:v2",
                                   "guidance": EXPLICIT_ROW_MAPPING,
                                   "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
                                  if explicit_row_mapping else None),
@@ -415,6 +418,18 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 "The scorer removes exactly one surrounding ```json fence before parsing.")
         save(root / "plan.json", plan)
         plan_hash = sha((root / "plan.json").read_bytes())
+        if preflight_only:
+            if get_api("ps")["models"]:
+                raise ValueError("preflight-only mode found a resident server model")
+            save(root / "preflight.json", {
+                "schema": "sentientos.sibling_chat_recall_preflight:v1",
+                "plan_sha256": plan_hash, "model_invoked": False,
+                "inference_performed": False, "runtime_condition_created": False,
+                "learning_established": False, "authority": False,
+                "resident_vram_bytes": 0,
+            })
+            print("preflight_saved", plan_hash, flush=True)
+            return
         trials = []
         inference.capture_only = False
         for index, (arm, scope) in enumerate(conditions(cited)):
@@ -465,6 +480,8 @@ if __name__ == "__main__":
     parser.add_argument("--cited", action="store_true")
     parser.add_argument("--explicit-row-mapping", action="store_true",
                         help="Run the cited CPU protocol with an explicit history-field to output-row mapping")
+    parser.add_argument("--preflight-only", action="store_true",
+                        help="Save and validate the complete prompt plan without invoking the model")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
-        explicit_row_mapping=args.explicit_row_mapping)
+        explicit_row_mapping=args.explicit_row_mapping, preflight_only=args.preflight_only)
