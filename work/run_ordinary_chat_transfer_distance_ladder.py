@@ -31,6 +31,25 @@ TRIAL_ORDER = (
     ("middle", "empty"), ("middle", "history"),
     ("far", "history"), ("far", "empty"),
 )
+STRICT_JSON_OUTPUT = (
+    "[RESPONSE_FORMAT_CONSTRAINT]\n"
+    "Output one JSON object with only an answers array of three integer-or-null values, in order. "
+    "No other text.")
+
+
+class DistanceLadderChat(VerifiedChat):
+    """Optionally append a strict output instruction after retrieval is complete."""
+
+    strict_json_output = False
+
+    def generate(self, **kwargs):
+        if self.strict_json_output:
+            kwargs = dict(kwargs)
+            prompt = kwargs["prompt"]
+            if prompt.count("[RESPONSE_FORMAT_CONSTRAINT]") != 0:
+                raise ValueError("strict output constraint was already present")
+            kwargs["prompt"] = prompt.rstrip() + "\n\n" + STRICT_JSON_OUTPUT
+        return super().generate(**kwargs)
 
 
 def _evidence_signature(items):
@@ -41,7 +60,7 @@ def _evidence_signature(items):
 
 def run(cycles: Path, install: Path, models: Path, root: Path, *,
         expected_plan_sha256: str | None = None, preflight_only: bool = False,
-        gpu_layers: int = GPU_LAYERS) -> None:
+        gpu_layers: int = GPU_LAYERS, strict_json_output: bool = False) -> None:
     if type(gpu_layers) is not int or not 1 <= gpu_layers <= 128:
         raise ValueError("transfer-ladder inference requires 1 through 128 GPU layers")
     if not preflight_only and expected_plan_sha256 is None:
@@ -75,8 +94,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         identity = model.active_identity.to_dict()
         if not authority.record_for_active_identity(model.active_identity, "local_user_chat"):
             raise ValueError("ordinary-chat model identity is ineligible")
-        inference = VerifiedChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
+        inference = DistanceLadderChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
             kernel=_resource_governed_kernel(root), runtime_root=root / "inference-custody"))
+        inference.strict_json_output = strict_json_output
 
         parent_cycle = cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
         history_root = root / "history" / "resident-cognition"
@@ -118,12 +138,17 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2"
+                if strict_json_output else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
             "source_report_sha256": sha(REPORT.read_bytes()),
             "model": MODEL, "model_manifest_sha256": manifest_digest,
             "model_identity": identity, "ollama_version": version,
             "options": options, "context_tokens": config.max_context_tokens,
             "generation": config.generation.as_kwargs(), "gpu_layers": gpu_layers,
+            "format_treatment": "strict_json_post_retrieval:v1" if strict_json_output
+                else "user_message_only:v1",
+            "output_constraint": STRICT_JSON_OUTPUT if strict_json_output else None,
+            "output_constraint_sha256": sha(STRICT_JSON_OUTPUT.encode()) if strict_json_output else None,
             "trial_order": [{"tier": tier, "arm": arm} for tier, arm in TRIAL_ORDER],
             "tiers": {tier: {"probe_inputs": entry["probe_inputs"],
                 "answer_key_commitment": entry["answer_key_commitment"],
@@ -215,7 +240,10 @@ if __name__ == "__main__":
     parser.add_argument("--gpu-layers", type=int, default=GPU_LAYERS)
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--expected-plan-sha256")
+    parser.add_argument("--strict-json-output", action="store_true",
+        help="Append the frozen JSON-only constraint after history retrieval")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory,
         expected_plan_sha256=args.expected_plan_sha256,
-        preflight_only=args.preflight_only, gpu_layers=args.gpu_layers)
+        preflight_only=args.preflight_only, gpu_layers=args.gpu_layers,
+        strict_json_output=args.strict_json_output)

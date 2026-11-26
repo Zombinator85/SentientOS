@@ -1,0 +1,57 @@
+{
+  "comparison_source_sha256": "0e11096d4a651da74ba05e86d9e6df0a36f23544bd61a128a8124ca8879f30c3",
+  "constrained_plan_sha256": "5f42f94a03ca5ed9dba7a2f5c759d9bf55af746a771298011f1da0b7ea43a958",
+  "exact_correct_answers": {
+    "constrained": [
+      0,
+      18
+    ],
+    "unconstrained": [
+      0,
+      18
+    ]
+  },
+  "interpretation": "The post-retrieval format instruction changed strict-format compliance but did not produce correct transfer answers in this single-model run. This does not establish durable learning.",
+  "same_generation_and_gpu_settings": true,
+  "same_model_identity": true,
+  "same_questions_probe_tiers_and_order": true,
+  "same_scored_history_evidence": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_format_comparison:v1",
+  "strict_json_valid_trials": {
+    "constrained": [
+      6,
+      6
+    ],
+    "unconstrained": [
+      0,
+      6
+    ]
+  },
+  "tier_results": {
+    "far": {
+      "constrained_empty_correct": 0,
+      "constrained_empty_json_valid": true,
+      "constrained_history_correct": 0,
+      "constrained_history_json_valid": true,
+      "unconstrained_empty_correct": 0,
+      "unconstrained_history_correct": 0
+    },
+    "middle": {
+      "constrained_empty_correct": 0,
+      "constrained_empty_json_valid": true,
+      "constrained_history_correct": 0,
+      "constrained_history_json_valid": true,
+      "unconstrained_empty_correct": 0,
+      "unconstrained_history_correct": 0
+    },
+    "near": {
+      "constrained_empty_correct": 0,
+      "constrained_empty_json_valid": true,
+      "constrained_history_correct": 0,
+      "constrained_history_json_valid": true,
+      "unconstrained_empty_correct": 0,
+      "unconstrained_history_correct": 0
+    }
+  },
+  "unconstrained_plan_sha256": "c6e8906af54fbb8d4b143a35bc42e0d541ff755ae9f72e90d026b92035c5135b"
+}

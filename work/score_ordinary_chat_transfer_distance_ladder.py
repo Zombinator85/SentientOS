@@ -36,11 +36,19 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
     plan, result = read(plan_path), read(run_directory / "result.json")
     protocol = read(REPORT)
     plan_digest = sha(plan_path.read_bytes())
-    if (plan.get("schema") != "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1"
+    if (plan.get("schema") not in {
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2"}
             or plan_digest != result.get("plan_sha256")
             or plan.get("source_report_sha256") != sha(REPORT.read_bytes())
             or set(plan.get("tiers", {})) != set(protocol.get("tiers", {}))):
         raise ValueError("execution plan or results do not match the frozen ladder preflight")
+    if plan["schema"].endswith(":v2"):
+        if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
+                or plan.get("output_constraint_sha256") != sha(plan["output_constraint"].encode())):
+            raise ValueError("post-retrieval output constraint is not bound to the execution plan")
+    elif plan.get("format_treatment") != "user_message_only:v1" or plan.get("output_constraint") is not None:
+        raise ValueError("unconstrained-format execution plan has an unexpected treatment")
     if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):
         raise ValueError("trial order differs from preregistration")
     mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
@@ -95,6 +103,7 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
         "plan_sha256": plan_digest,
         "preflight_sha256": sha(REPORT.read_bytes()),
         "scorer_source_sha256": sha(Path(__file__).read_bytes()),
+        "format_treatment": plan.get("format_treatment"),
         "tier_summaries": summaries,
         "trials": trial_rows,
         "learning_established": False,

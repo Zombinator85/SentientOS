@@ -1,0 +1,6 @@
+{
+  "full_run_plan_sha256": "5f42f94a03ca5ed9dba7a2f5c759d9bf55af746a771298011f1da0b7ea43a958",
+  "matched": true,
+  "preflight_plan_sha256": "5f42f94a03ca5ed9dba7a2f5c759d9bf55af746a771298011f1da0b7ea43a958",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight_binding:v1"
+}

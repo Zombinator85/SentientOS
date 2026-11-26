@@ -6677,7 +6677,33 @@ limitation, although lenient payload scoring also found no correct answers.
 The [full run artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-full-v1/)
 contains the frozen plan, six raw outputs, six governed receipts, independent
 score, payload diagnostic, and code snapshots. The isolated Ollama server is
-stopped and GPU memory has returned to its idle baseline. A follow-up can
-constrain the JSON format after retrieval while keeping the same history and
-distance contrast, then report content accuracy separately from format
-compliance again.
+stopped and GPU memory has returned to its idle baseline.
+
+### Post-retrieval strict-format follow-up
+
+On 2026-11-26, a second six-trial run added a compact JSON-only instruction
+after prompt assembly and retrieval. The intervention was identical in the
+history and empty arms; it did not change the retrieved record, examples,
+questions, probe order, model identity, generation settings, or GPU placement.
+The [frozen plan](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-strict-full-v1/frozen-plan.json),
+preflight and execution bindings, six governed inference receipts,
+independent score, and source snapshots are preserved with the
+[full run artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-strict-full-v1/).
+
+All six constrained responses were valid JSON, improving strict-format
+compliance from `0/6` in the unconstrained run to `6/6`. Content accuracy
+remained `0/18` in both runs: history and empty arms each scored `0/3` at near,
+middle, and far distance. Every constrained answer was `null`, including for
+the history arm. The [paired format comparison](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-strict-full-v1/format-comparison.json)
+checks that model identity, generation/GPU settings, questions, tiers, order,
+and scored history evidence match. Thus the format intervention fixed the
+measured output-format failure but did not produce correct transfer answers;
+this experiment establishes neither durable learning nor that the model could
+never transfer under another prompt or task.
+
+The next useful contrast should test semantic rule derivation or a worked
+example as its own treatment, applied equally to history and empty arms. That
+would help distinguish failure to infer the mapping from failure to use
+retrieved history, while keeping content scoring independent from format
+compliance. The isolated Ollama server was stopped after scoring; GPU usage
+returned to the idle baseline.
