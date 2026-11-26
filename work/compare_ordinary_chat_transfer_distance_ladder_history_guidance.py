@@ -16,6 +16,10 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _canonical_sha(payload: Any) -> str:
+    return _sha(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
+
+
 def _evidence_signature(plan: dict[str, Any]) -> dict[str, Any]:
     return {tier: [{key: row.get(key) for key in (
         "record_id", "source_run_id", "source_score_digest", "task_family_id", "examples")}
@@ -82,6 +86,19 @@ def compare(control: Path, treatment: Path, control_report: Path,
                 different_presentation)):
         raise ValueError("runs differ in model, settings, task, support, empty prompt, base prompt, or format")
 
+    settings_without_seed = {
+        "generation": control_plan.get("generation"),
+        "options": {key: value for key, value in control_plan.get("options", {}).items()
+                    if key != "seed"},
+        "gpu_layers": control_plan.get("gpu_layers"),
+        "format_treatment": control_plan.get("format_treatment"),
+        "output_constraint": control_plan.get("output_constraint"),
+    }
+    task_payload = {"task_family_id": control_plan.get("task_family_id"),
+        "tiers": control_plan.get("tiers"), "trial_order": control_plan.get("trial_order")}
+    support_payload = _evidence_signature(control_plan)
+    model_identity = control_plan.get("model_identity", {})
+
     control_blocks = {tier: control_plan["prompt_bindings"][tier + "_history"][
         "history_block_digest"] for tier in control_plan["tiers"]}
     treatment_blocks = {tier: treatment_plan["prompt_bindings"][tier + "_history"][
@@ -104,6 +121,7 @@ def compare(control: Path, treatment: Path, control_report: Path,
                 "treatment_answers": after["answers"],
                 "control_correct": before["correct_count"],
                 "treatment_correct": after["correct_count"],
+                "denominator": before["denominator"],
                 "control_json_valid": before["strict_json_valid"],
                 "treatment_json_valid": after["strict_json_valid"],
             }
@@ -122,6 +140,14 @@ def compare(control: Path, treatment: Path, control_report: Path,
         else "changed strict-format validity")
     accuracy_effect = ("did not change exact accuracy" if exact_accuracy_unchanged
         else "changed exact accuracy")
+    history_control_correct = sum(row["correct_count"] for row in control_score["trials"]
+                                  if row["arm"] == "history")
+    history_treatment_correct = sum(row["correct_count"] for row in treatment_score["trials"]
+                                    if row["arm"] == "history")
+    empty_control_correct = sum(row["correct_count"] for row in control_score["trials"]
+                                if row["arm"] == "empty")
+    empty_treatment_correct = sum(row["correct_count"] for row in treatment_score["trials"]
+                                  if row["arm"] == "empty")
     report = {
         "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_guidance_comparison:v1",
         "control_plan_sha256": control_score["plan_sha256"],
@@ -129,6 +155,13 @@ def compare(control: Path, treatment: Path, control_report: Path,
         "control_preflight_sha256": control_score["preflight_sha256"],
         "treatment_preflight_sha256": treatment_score["preflight_sha256"],
         "comparison_source_sha256": _sha(Path(__file__).read_bytes()),
+        "seed": control_plan.get("options", {}).get("seed"),
+        "model": control_plan.get("model"),
+        "model_manifest_sha256": control_plan.get("model_manifest_sha256"),
+        "model_content_sha256": model_identity.get("model_content_sha256"),
+        "non_seed_generation_settings_sha256": _canonical_sha(settings_without_seed),
+        "task_probes_and_order_sha256": _canonical_sha(task_payload),
+        "scored_support_sha256": _canonical_sha(support_payload),
         "same_model_identity": same_identity,
         "same_generation_and_gpu_settings": same_generation,
         "same_seed": same_seed,
@@ -156,12 +189,14 @@ def compare(control: Path, treatment: Path, control_report: Path,
             for arm in ("history", "empty")},
         "tier_results": by_tier,
         "interpretation": (
-            f"In this single paired run, the history presentation {response_effect}, "
-            f"{format_effect}, and {accuracy_effect}. The history block changed while "
-            "the model, probes, scored support, empty prompts, non-history prompt, and output "
-            "constraint matched. The history arm's guesses remained incorrect; the empty arm "
-            "abstained. This does "
-            "not establish durable learning or general transfer."),
+            f"In this matched pair (seed {control_plan.get('options', {}).get('seed')}), "
+            f"the history presentation {response_effect}, {format_effect}, and "
+            f"{accuracy_effect}. History exact answers were {history_control_correct}/9 "
+            f"with structured-only presentation and {history_treatment_correct}/9 with "
+            f"record-linked presentation; empty-arm totals were {empty_control_correct}/9 "
+            f"and {empty_treatment_correct}/9. The model, generation settings, seed, probes, "
+            "scored support, empty prompts, non-history prompt, and output constraint matched. "
+            "This pair does not establish durable learning or general transfer."),
         "learning_established": False,
     }
     output.parent.mkdir(parents=True, exist_ok=True)

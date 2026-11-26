@@ -6955,11 +6955,10 @@ history outputs and all empty-arm abstentions were unchanged. This one paired
 pass shows that the rendering changed immediate behavior without improving
 correctness. It does not establish durable learning or general transfer.
 
-The next evidence step is a seeded replication of the structured-only versus
-record-linked presentation contrast. Preserve the exact source record and
-labels across arms and report per-seed history-minus-empty outcomes. Any prompt
-change should continue to preserve provenance and keep epistemic validity
-separate from action authority.
+The next evidence step was a seeded replication of the structured-only versus
+record-linked presentation contrast. The exact source record and labels were
+preserved across arms, with each seed pair reporting history and empty outcomes
+separately.
 
 The seeded replication protocol now has an explicit presentation setting in
 the model-free report and execution plan. The runner also accepts a bounded
@@ -6970,17 +6969,41 @@ paired comparator verifies that the two presentation settings differ and that
 the model, generation settings, seed, probes, scored support, empty prompts,
 and non-history prompt match.
 
-Two new model-free reports were built from the same 39-record parent snapshot
-and reconstructed byte-for-byte without invoking a model:
-[structured-only preflight v4](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-structured-only.json)
+Six model-free reports were built from the same 39-record parent snapshot and
+reconstructed byte-for-byte without invoking a model. They cover structured-
+only and record-linked presentation for seeds 42, 101, and 202. The initial
+[seed 42 structured-only report](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-structured-only.json)
 and
-[record-linked preflight v4](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-record-linked.json).
-Both reproduce parent boundary digest
+[seed 42 record-linked report](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-record-linked.json)
+were followed by the seed-specific v5 and v6 reports in the evidence package.
+All reproduce parent boundary digest
 `53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b` and
 snapshot tree hash
 `sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0`.
 Each tier retrieves the same scored support record and keeps its empty prompt
 free of history; only the record-linked report contains a readable rendering.
-These reports establish protocol readiness, not an effect on model behavior.
-The multi-seed inference and comparison remain to be run when GPU time is
-available.
+Each seed used its own configuration-bound model identity; the seed changed
+while the pinned model artifact, generation settings, probes, parent snapshot,
+and support record remained fixed.
+
+The three matched Hermes pairs completed 36 governed trials with separate
+receipts and independent scores. All 18 trials per presentation produced valid
+strict JSON. Structured-only history scored `0/27`; record-linked history
+scored `1/27`; both empty conditions scored `0/27`. Record-linked presentation
+changed answer payloads in all three seed pairs. Exact accuracy was unchanged
+for seeds 42 and 202, and improved by one answer for seed 101: on the middle
+tier, input 14 received the correct answer 29. Near and far tiers had no
+correct answers under either presentation.
+
+This is a limited immediate-response signal: the readable view changed how the
+model used retrieved history, and it produced one correct answer in one of
+three seed pairs. It does not establish durable learning, broad transfer, or
+model-independent continuity. The [seeded evidence package](../../artifacts/experiments/ordinary-chat-retention-20261125/seeded-presentation-replication-v1/)
+contains the six model-free protocols, six model-bound preflights, six full
+plans and results, 36 separate inference receipts, independent scores, paired
+comparisons, a machine-generated aggregation, and file hashes.
+
+The isolated Ollama server on port 11436 was stopped after the runs; the
+unrelated server on port 11434 was left untouched. The next experiment should
+check whether the middle-tier hit recurs under new probes or a held-out task
+family before treating the response shift as transferable knowledge.

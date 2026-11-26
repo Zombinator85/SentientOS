@@ -1,0 +1,573 @@
+{
+  "comparison_count": 3,
+  "comparison_source_sha256": "1450e2bbe0ff2e363de7e46c096ebf919495a083d03dce6c918969f706644642",
+  "cross_seed_invariants": {
+    "model": "sentientos-hermes4:14b-q4km",
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "non_seed_generation_settings_sha256": "35c7526a8f2aa1b3ebf87f4cdb313eee758015cd4c1662e6b1b60b99ea08687f",
+    "scored_support_sha256": "823485117ff0cf5d2048d15dc0d3e4f91a3ef18be76cafd41ab1462c8b12e2c0",
+    "task_probes_and_order_sha256": "acb97164c54beeabc1457c12bf16a3a5ad0e44b94a36667f366c8806695fd80c"
+  },
+  "history_accuracy_gain_seeds": [
+    101
+  ],
+  "history_accuracy_loss_seeds": [],
+  "history_accuracy_unchanged_seeds": [
+    42,
+    202
+  ],
+  "history_payload_changed_pair_count": 3,
+  "interpretation": "Across 3 matched seeds (42, 101, 202), record-linked rendering yielded 1/27 exact history answers versus 0/27 with structured-only history. History accuracy improved on 1 seed(s), worsened on 0, and was unchanged on 2. This measures immediate responses to history presentation in one frozen task and model; it does not establish durable learning or general transfer.",
+  "learning_established": false,
+  "matched_pairs": [
+    {
+      "comparison_sha256": "83a51805c87e037271d38c3f2ce51f4ff3c75121533e6525cf2ec39baa2c87f8",
+      "empty_correct": {
+        "record_linked": [
+          0,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "empty_gain": 0,
+      "exact_accuracy_unchanged": true,
+      "history_correct": {
+        "record_linked": [
+          0,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "history_gain": 0,
+      "history_payload_changed": true,
+      "plan_sha256": {
+        "record_linked": "971c77fc12dec5427bac9d29ac780fb784f53412fb52c7cb8fb04e54da6f6501",
+        "structured_only": "50bb4073574968fece003d89db4f23005b7501cd496b60c5a433ee61a65e7e01"
+      },
+      "seed": 42,
+      "strict_json_valid_trials": {
+        "control": [
+          6,
+          6
+        ],
+        "treatment": [
+          6,
+          6
+        ]
+      },
+      "strict_json_validity_unchanged": true,
+      "tier_results": {
+        "far": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              23,
+              24,
+              25
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        },
+        "middle": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              28,
+              30,
+              32
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        },
+        "near": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              15,
+              16,
+              17
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              19,
+              20,
+              21
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        }
+      }
+    },
+    {
+      "comparison_sha256": "f8ba0d27c512911bee8c3ca206a8503eba2b72ac8e08759c95559478005ae47f",
+      "empty_correct": {
+        "record_linked": [
+          0,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "empty_gain": 0,
+      "exact_accuracy_unchanged": false,
+      "history_correct": {
+        "record_linked": [
+          1,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "history_gain": 1,
+      "history_payload_changed": true,
+      "plan_sha256": {
+        "record_linked": "374451e4b40f21da1040993845b78e86f293a1d88abd9b8f1feaa43046edd95f",
+        "structured_only": "64fe623e4c92c20ce05a78b61680ceae4b2885ffd1ee2a8db2a229a1d79b6b72"
+      },
+      "seed": 101,
+      "strict_json_valid_trials": {
+        "control": [
+          6,
+          6
+        ],
+        "treatment": [
+          6,
+          6
+        ]
+      },
+      "strict_json_validity_unchanged": true,
+      "tier_results": {
+        "far": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              23,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              21,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        },
+        "middle": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              14,
+              15,
+              16
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              29,
+              null,
+              null
+            ],
+            "treatment_correct": 1,
+            "treatment_json_valid": true
+          }
+        },
+        "near": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              10,
+              12,
+              14
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              19,
+              20,
+              21
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        }
+      }
+    },
+    {
+      "comparison_sha256": "aacc1658b9c284b6896821eaf1628b2b2c1ce110f8a952ec23a9368c197fc03d",
+      "empty_correct": {
+        "record_linked": [
+          0,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "empty_gain": 0,
+      "exact_accuracy_unchanged": true,
+      "history_correct": {
+        "record_linked": [
+          0,
+          9
+        ],
+        "structured_only": [
+          0,
+          9
+        ]
+      },
+      "history_gain": 0,
+      "history_payload_changed": true,
+      "plan_sha256": {
+        "record_linked": "7266b1bfe3c01cdda0baa85bd3bf320adfe04cbac62d321b5620d4c85fe0d5eb",
+        "structured_only": "a1e6be0c330ad9afe396b8681fa783ef0ddc20bf8f427e69a14c60e3d4b9d2fe"
+      },
+      "seed": 202,
+      "strict_json_valid_trials": {
+        "control": [
+          6,
+          6
+        ],
+        "treatment": [
+          6,
+          6
+        ]
+      },
+      "strict_json_validity_unchanged": true,
+      "tier_results": {
+        "far": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              20,
+              21,
+              22
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              23,
+              24,
+              25
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        },
+        "middle": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        },
+        "near": {
+          "empty": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              null,
+              null,
+              null
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          },
+          "history": {
+            "control_answers": [
+              null,
+              null,
+              null
+            ],
+            "control_correct": 0,
+            "control_json_valid": true,
+            "denominator": 3,
+            "treatment_answers": [
+              19,
+              20,
+              21
+            ],
+            "treatment_correct": 0,
+            "treatment_json_valid": true
+          }
+        }
+      }
+    }
+  ],
+  "presentation": {
+    "control": "structured_only",
+    "treatment": "record_linked"
+  },
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_seeded_aggregation:v1",
+  "seeds": [
+    42,
+    101,
+    202
+  ],
+  "strict_json_valid_trials": {
+    "control": [
+      18,
+      18
+    ],
+    "treatment": [
+      18,
+      18
+    ]
+  },
+  "strict_json_validity_changed_pair_count": 0,
+  "tier_totals": {
+    "far": {
+      "empty": {
+        "denominator": 9,
+        "record_linked_correct": 0,
+        "record_linked_minus_structured_only": 0,
+        "structured_only_correct": 0
+      },
+      "history": {
+        "denominator": 9,
+        "record_linked_correct": 0,
+        "record_linked_minus_structured_only": 0,
+        "structured_only_correct": 0
+      }
+    },
+    "middle": {
+      "empty": {
+        "denominator": 9,
+        "record_linked_correct": 0,
+        "record_linked_minus_structured_only": 0,
+        "structured_only_correct": 0
+      },
+      "history": {
+        "denominator": 9,
+        "record_linked_correct": 1,
+        "record_linked_minus_structured_only": 1,
+        "structured_only_correct": 0
+      }
+    },
+    "near": {
+      "empty": {
+        "denominator": 9,
+        "record_linked_correct": 0,
+        "record_linked_minus_structured_only": 0,
+        "structured_only_correct": 0
+      },
+      "history": {
+        "denominator": 9,
+        "record_linked_correct": 0,
+        "record_linked_minus_structured_only": 0,
+        "structured_only_correct": 0
+      }
+    }
+  },
+  "totals": {
+    "empty": {
+      "record_linked": [
+        0,
+        27
+      ],
+      "record_linked_minus_structured_only": 0,
+      "structured_only": [
+        0,
+        27
+      ]
+    },
+    "history": {
+      "record_linked": [
+        1,
+        27
+      ],
+      "record_linked_minus_structured_only": 1,
+      "structured_only": [
+        0,
+        27
+      ]
+    }
+  }
+}
