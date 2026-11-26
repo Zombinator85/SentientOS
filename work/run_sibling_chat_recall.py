@@ -61,6 +61,10 @@ CITED_FORMAT = (' Cite the containing record_id once. Copy each observed answer 
                 'Return one fenced JSON object with "record_id" and "rows", where each row is '
                 '[input integer, answer as a JSON integer or null, outcome as one of "correct", '
                 '"incorrect", or "abstained"]. Use record_id null and empty rows if there is no report.')
+STRICT_CITED_OUTPUT = ('[RESPONSE_FORMAT_CONSTRAINT]\nOutput exactly one fenced JSON object and '
+                       'nothing else. Do not include prose, explanations, or commentary before or '
+                       'after the fence.')
+STRICT_CITED_OUTPUT_CONTRACT = "fenced_json_only:v1"
 EXPLICIT_ROW_MAPPING = (
     ' Map examples as [probe_input, observed_answer, outcome]; abstained=true→abstained, else '
     'evaluator_correct=true/false→correct/incorrect; keep JSON types.')
@@ -70,8 +74,12 @@ def conditions(cited):
     return TRIALS + ((("empty", "inline"),) if cited else ())
 
 
-def recall_question(scope, cited):
+def recall_question(scope, cited, strict_cited_output=False):
     question = INLINE_QUESTION if scope == "inline" else QUESTIONS["latest_" + scope]
+    if strict_cited_output and not cited:
+        raise ValueError("strict fenced output requires the cited response protocol")
+    # The strict boundary is injected after history retrieval in VerifiedChat.generate;
+    # keeping it out of the user query preserves the retrieval evidence being compared.
     return question + (CITED_FORMAT if cited else FORMAT)
 
 
@@ -344,12 +352,16 @@ def source_rows(owner, evidence):
 class VerifiedChat(DevelopmentLocalChatInference):
     capture_only = True
     explicit_row_mapping = False
+    strict_cited_output = False
 
     def generate(self, **kwargs):
         if self.explicit_row_mapping:
             kwargs = dict(kwargs)
             kwargs["prompt"], kwargs["caller_linkage"] = _inject_explicit_row_mapping(
                 kwargs["prompt"], kwargs["caller_linkage"])
+        if self.strict_cited_output:
+            kwargs = dict(kwargs)
+            kwargs["prompt"] = kwargs["prompt"].rstrip() + "\n\n" + STRICT_CITED_OUTPUT
         if self.capture_only:
             raise _CapturedRequest(kwargs["prompt"], kwargs["caller_linkage"])
         if sha(kwargs["prompt"].encode()) != self.frozen_hash:
@@ -358,10 +370,13 @@ class VerifiedChat(DevelopmentLocalChatInference):
         return self.receipt
 
 
-def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False, preflight_only=False,
+def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False,
+        strict_cited_output=False, preflight_only=False,
         model_name=MODEL, diagnostic_condition=None, gpu_layers=0):
     if explicit_row_mapping and not cited:
         raise ValueError("explicit row mapping requires the cited response protocol")
+    if strict_cited_output and not cited:
+        raise ValueError("strict fenced output requires the cited response protocol")
     if diagnostic_condition is not None and (not cited or explicit_row_mapping
             or diagnostic_condition not in {"empty_wide", "empty_inline"}):
         raise ValueError("diagnostic condition must be an empty cited control without treatment")
@@ -390,6 +405,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
         inference = VerifiedChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
             kernel=_resource_governed_kernel(root), runtime_root=root / "inference-custody"))
         inference.explicit_row_mapping = explicit_row_mapping
+        inference.strict_cited_output = strict_cited_output
         owners, snapshots, source_owners = {}, {}, {}
         for arm, suffix in CYCLES.items():
             cycle = cycles / ("rootless-cognition-cycle-" + suffix)
@@ -407,7 +423,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
             owner = owners[arm]
             snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
             question = questions[scope] = ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(
-                scope, cited)
+                scope, cited, strict_cited_output)
             base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
                                               bind_invocation=True, capture_adapter=inference,
                                               capture_history_instruction=explicit_row_mapping)
@@ -444,7 +460,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 if profiles.setdefault(profile, oracle) != oracle:
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
-        protocol = "v5" if explicit_row_mapping else "v3" if cited else "v1"
+        protocol = "v6" if strict_cited_output else "v5" if explicit_row_mapping else "v3" if cited else "v1"
         plan = {"schema": ("sentientos.sibling_chat_recall_diagnostic:v1" if diagnostic_condition
                             else "sentientos.sibling_chat_recall_plan:" + protocol), "model": model_name,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
@@ -459,6 +475,8 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                                   "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
                                  if explicit_row_mapping else None),
                 "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
+        if strict_cited_output:
+            plan["output_contract"] = STRICT_CITED_OUTPUT_CONTRACT
         if diagnostic_condition:
             plan["diagnostic_condition"] = diagnostic_condition
         if cited:
@@ -539,6 +557,8 @@ if __name__ == "__main__":
     parser.add_argument("--cited", action="store_true")
     parser.add_argument("--explicit-row-mapping", action="store_true",
                         help="Run the cited protocol with an explicit history-field to output-row mapping")
+    parser.add_argument("--strict-cited-output", action="store_true",
+                        help="Require the cited JSON fence to be the entire response")
     parser.add_argument("--preflight-only", action="store_true",
                         help="Save and validate the complete prompt plan without invoking the model")
     parser.add_argument("--model", choices=tuple(MODEL_MANIFESTS), default=MODEL,
@@ -549,5 +569,6 @@ if __name__ == "__main__":
                         help="Offload this many Ollama model layers (0 keeps the run on CPU)")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
-        explicit_row_mapping=args.explicit_row_mapping, preflight_only=args.preflight_only,
+        explicit_row_mapping=args.explicit_row_mapping, strict_cited_output=args.strict_cited_output,
+        preflight_only=args.preflight_only,
         model_name=args.model, diagnostic_condition=args.diagnostic_condition, gpu_layers=args.gpu_layers)

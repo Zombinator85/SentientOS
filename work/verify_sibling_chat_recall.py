@@ -9,6 +9,7 @@ from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
     EXPLICIT_ROW_MAPPING, INLINE_REPORT, INLINE_ROWS, MODEL_MANIFESTS, SOURCE_REPORT,
+    STRICT_CITED_OUTPUT_CONTRACT,
     conditions, read, recall_question, score_answer, score_cited_answer, score_cited_answer_v2_legacy, sha,
 )
 
@@ -18,14 +19,16 @@ def verify(path):
     plan, result, archive = read(plan_file), read(path / "result.json"), read(SOURCE_REPORT)
     if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2",
                               "sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v4",
-                              "sentientos.sibling_chat_recall_plan:v5"}:
+                              "sentientos.sibling_chat_recall_plan:v5", "sentientos.sibling_chat_recall_plan:v6"}:
         raise ValueError("unknown recall protocol")
     cited = plan["schema"].endswith((":v2", ":v3"))
     cited = cited or plan["schema"].endswith(":v4")
-    cited = cited or plan["schema"].endswith((":v4", ":v5"))
+    cited = cited or plan["schema"].endswith((":v4", ":v5", ":v6"))
     legacy_cited_scoring = plan["schema"].endswith(":v2")
-    explicit_row_mapping = plan["schema"].endswith((":v4", ":v5"))
-    mapping_revision = "v2" if plan["schema"].endswith(":v5") else "v1"
+    strict_cited_output = plan["schema"].endswith(":v6")
+    explicit_row_mapping = (plan["schema"].endswith((":v4", ":v5"))
+                            or (strict_cited_output and plan.get("intervention") is not None))
+    mapping_revision = "v2" if plan["schema"].endswith((":v5", ":v6")) else "v1"
     expected_intervention = ({"id": "explicit_developmental_history_field_to_row_mapping:" + mapping_revision,
         "guidance": EXPLICIT_ROW_MAPPING, "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
         if explicit_row_mapping else None)
@@ -34,7 +37,10 @@ def verify(path):
     configuration_digest = candidate_configuration_digest_from_payload({
         "engine": "ollama", "options": plan["options"], "max_context_tokens": plan["context_tokens"],
         "generation": plan["generation"]})
+    expected_output_contract = STRICT_CITED_OUTPUT_CONTRACT if strict_cited_output else None
     if (result["plan_sha256"] != plan_hash or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
+            or (strict_cited_output and plan["source_code_sha256"] != sha(
+                Path(__file__).resolve().with_name("run_sibling_chat_recall.py").read_bytes()))
             or plan["trials"] != [list(t) for t in trials] or len(result["trials"]) != len(trials)
             or plan["model"] not in MODEL_MANIFESTS
             or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
@@ -44,7 +50,8 @@ def verify(path):
             or type(plan["options"]["num_gpu"]) is not int
             or not 0 <= plan["options"]["num_gpu"] <= 128 or plan["options"]["num_thread"] != 2
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
-                                     + recall_question(s, cited) for _, s in trials}
+                                     + recall_question(s, cited, strict_cited_output) for _, s in trials}
+            or plan.get("output_contract") != expected_output_contract
             or plan.get("intervention") != expected_intervention):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}

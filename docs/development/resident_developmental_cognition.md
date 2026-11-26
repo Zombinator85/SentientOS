@@ -6258,3 +6258,31 @@ and use a new matched preflight before inference. The
 stores per-trial official and exploratory scores, output hashes, and the
 matched-configuration bindings. No model was loaded or inference run to create
 it.
+
+### Strict cited-output protocol v6 preflights
+
+Protocol v6 adds an explicit instruction to return only the required fenced
+JSON object. The output constraint is inserted into the final model prompt
+after ordinary-chat history retrieval, keeping it out of the retrieval
+question. This preserves the original question and selected evidence while
+changing only the model-facing response-format instruction. Protocols v1
+through v5 retain their original prompt construction and verification rules.
+
+The [control preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v1/)
+and [mapped preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v1/)
+each pass the independent v6 preflight verifier. Both use the same pinned
+Hermes model identity, Ollama v0.40.16 CPU-only preflight runtime,
+configuration, output contract, user questions, source report, profiles, and
+matched prompt bases. Each plans eight trials and exposes five single-record
+history conditions. The source evidence is equal across arms; the only planned
+intervention is the already-defined explicit history-field-to-row mapping.
+The longest planned prompts are 7,828 characters for control and 7,981 for
+mapping. The separate [pair verification](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-strict-preflight-pair-v1.json)
+checks these bindings and records that inference was not performed and
+learning was not established. Checksummed complete captures accompany both
+plans.
+
+No model inference was run for v6. The prior Hermes result remains the only
+full comparison. A future full pair still needs a matched runtime and strict
+full-output scoring; this preflight is not evidence that the new instruction
+improves recall or that developmental learning occurred.

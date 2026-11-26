@@ -6,7 +6,8 @@ from pathlib import Path
 
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from work.run_sibling_chat_recall import (
-    EXPLICIT_ROW_MAPPING, INLINE_REPORT, MODEL_MANIFESTS, SOURCE_REPORT, conditions, read,
+    EXPLICIT_ROW_MAPPING, INLINE_REPORT, MODEL_MANIFESTS, SOURCE_REPORT,
+    STRICT_CITED_OUTPUT_CONTRACT, conditions, read,
     recall_question, sha,
 )
 
@@ -20,8 +21,11 @@ def verify(path: Path):
         "generation": plan["generation"],
     })
     schema = plan["schema"]
-    mapped = schema == "sentientos.sibling_chat_recall_plan:v5"
-    if (schema not in {"sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v5"}
+    strict = schema == "sentientos.sibling_chat_recall_plan:v6"
+    mapped = (schema == "sentientos.sibling_chat_recall_plan:v5"
+              or (strict and plan.get("intervention") is not None))
+    if (schema not in {"sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v5",
+                       "sentientos.sibling_chat_recall_plan:v6"}
             or status != {
                 "schema": "sentientos.sibling_chat_recall_preflight:v1",
                 "plan_sha256": plan_hash, "model_invoked": False,
@@ -31,6 +35,8 @@ def verify(path: Path):
             }
             or (path / "result.json").exists()
             or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
+            or (strict and plan["source_code_sha256"] != sha(
+                (Path(__file__).resolve().with_name("run_sibling_chat_recall.py")).read_bytes()))
             or plan["model"] not in MODEL_MANIFESTS
             or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
             or plan["options"]["model"] != plan["model"]
@@ -41,9 +47,11 @@ def verify(path: Path):
             or plan["options"]["timeout_seconds"] != 120
             or plan["trials"] != [list(trial) for trial in conditions(True)]
             or plan["questions"] != {
-                scope: ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(scope, True)
+                scope: ((INLINE_REPORT + "\n") if scope == "inline" else "")
+                + recall_question(scope, True, strict)
                 for _, scope in conditions(True)
             }
+            or plan.get("output_contract") != (STRICT_CITED_OUTPUT_CONTRACT if strict else None)
             or plan["intervention"] != ({
                 "id": "explicit_developmental_history_field_to_row_mapping:v2",
                 "guidance": EXPLICIT_ROW_MAPPING,

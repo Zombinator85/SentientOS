@@ -5,7 +5,9 @@ import argparse
 from pathlib import Path
 
 from sentientos.governed_local_model_invocation import validate_receipt
-from work.run_sibling_chat_recall import EXPLICIT_ROW_MAPPING, MODEL_MANIFESTS, read, sha
+from work.run_sibling_chat_recall import (
+    EXPLICIT_ROW_MAPPING, MODEL_MANIFESTS, STRICT_CITED_OUTPUT_CONTRACT, read, sha,
+)
 
 
 def verify(path: Path):
@@ -13,10 +15,13 @@ def verify(path: Path):
     plan, failure = read(plan_path), read(failure_path)
     plan_hash = sha(plan_path.read_bytes())
     schema = plan["schema"]
-    mapped = schema == "sentientos.sibling_chat_recall_plan:v5"
+    strict = schema == "sentientos.sibling_chat_recall_plan:v6"
+    mapped = (schema == "sentientos.sibling_chat_recall_plan:v5"
+              or (strict and plan.get("intervention") is not None))
     diagnostic = schema == "sentientos.sibling_chat_recall_diagnostic:v1"
     condition = plan.get("diagnostic_condition", "right_wide")
     if (schema not in {"sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v5",
+                       "sentientos.sibling_chat_recall_plan:v6",
                        "sentientos.sibling_chat_recall_diagnostic:v1"}
             or plan["model"] not in MODEL_MANIFESTS
             or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
@@ -28,6 +33,9 @@ def verify(path: Path):
             or failure["plan_sha256"] != plan_hash
             or failure["trial"] != 0 or failure["condition"] != condition
             or failure["prompt_sha256"] != plan["exposures"][condition]["invocation_prompt_digest"]
+            or plan.get("output_contract") != (STRICT_CITED_OUTPUT_CONTRACT if strict else None)
+            or (strict and plan["source_code_sha256"] != sha(
+                Path(__file__).resolve().with_name("run_sibling_chat_recall.py").read_bytes()))
             or not failure["model_invoked"] or failure["receipt_status"] != "timeout"
             or failure["exception"] != "governed_inference_not_completed:timeout"
             or failure["output_size_bytes"] != 0 or failure["fallback_occurred"] is not False
