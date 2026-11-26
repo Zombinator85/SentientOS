@@ -1,0 +1,153 @@
+{
+  "format_treatment": "strict_json_post_retrieval:v1",
+  "interpretation": "Immediate transfer scores under one model and frozen history; the report does not establish durable learning or causal attribution to the history's original acquisition.",
+  "ladder_design": "held_out_source_near_progression_v1",
+  "learning_established": false,
+  "plan_sha256": "55f861d9e61a98d86446712df90bdc84b1b0d775d8f3187423cef82469387373",
+  "preflight_sha256": "657add6d8d8dfdf3d939f01eda64b9ca04562e006fcc5e6f4f839c3b18f1a251",
+  "prompt_evidence_validation": {
+    "empty_arm_exposed_no_history": true,
+    "history_matches_model_free_preflight": true,
+    "history_record_ids_by_tier": {
+      "far": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "middle": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "near": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ]
+    }
+  },
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2",
+  "scorer_source_sha256": "492165c9f00e27bae5b3593d173012d7fbaf77e7e0d721f3773868037b38a005",
+  "tier_summaries": {
+    "far": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 0,
+      "empty_json_valid": true,
+      "history_correct_count": 0,
+      "history_json_valid": false,
+      "history_minus_empty_correct_count": 0
+    },
+    "middle": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 1,
+      "empty_json_valid": true,
+      "history_correct_count": 0,
+      "history_json_valid": false,
+      "history_minus_empty_correct_count": -1
+    },
+    "near": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 0,
+      "empty_json_valid": true,
+      "history_correct_count": 0,
+      "history_json_valid": true,
+      "history_minus_empty_correct_count": 0
+    }
+  },
+  "trials": [
+    {
+      "answers": null,
+      "arm": "history",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-bfe0213a2015a95cc551b175",
+      "strict_json_valid": false,
+      "tier": "far"
+    },
+    {
+      "answers": [
+        27,
+        28,
+        29
+      ],
+      "arm": "empty",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-8dc0bc2e09b6d6922854fbcf",
+      "strict_json_valid": true,
+      "tier": "far"
+    },
+    {
+      "answers": [
+        42,
+        51,
+        60
+      ],
+      "arm": "empty",
+      "correct_count": 1,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        true,
+        false
+      ],
+      "receipt_id": "lmrec-f2192b26572563fa291952e3",
+      "strict_json_valid": true,
+      "tier": "middle"
+    },
+    {
+      "answers": null,
+      "arm": "history",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-1829fc95261a5a52380885ce",
+      "strict_json_valid": false,
+      "tier": "middle"
+    },
+    {
+      "answers": [
+        17,
+        23,
+        29
+      ],
+      "arm": "history",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-040ab4eabdb77471d6e65dd0",
+      "strict_json_valid": true,
+      "tier": "near"
+    },
+    {
+      "answers": [
+        26,
+        34,
+        44
+      ],
+      "arm": "empty",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-6653719fe1344dd7ddaa5bf4",
+      "strict_json_valid": true,
+      "tier": "near"
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "answer_payloads_unchanged": false,
+  "comparison_source_sha256": "ea684e029b398e98610148666eed1053f7563a09ff7e8acc66f4a333fdd12451",
+  "control_plan_sha256": "ce8683eb2aa989fa246fd018a0694c68a58fe533bcd14775a3468ad173297334",
+  "control_preflight_sha256": "3218874b2714adc40bf2eba7f0bff7b9f205aa52edaba0a8aaeb285587989871",
+  "exact_accuracy_unchanged": true,
+  "exact_answers": {
+    "empty": {
+      "control": [
+        0,
+        9
+      ],
+      "treatment": [
+        0,
+        9
+      ]
+    },
+    "history": {
+      "control": [
+        0,
+        9
+      ],
+      "treatment": [
+        0,
+        9
+      ]
+    }
+  },
+  "history_block_digests": {
+    "control": {
+      "far": "c7a591750925e53072b013cfc18b7669cc12490c94d79a088c31fa5e6cba5291",
+      "middle": "c7a591750925e53072b013cfc18b7669cc12490c94d79a088c31fa5e6cba5291",
+      "near": "c7a591750925e53072b013cfc18b7669cc12490c94d79a088c31fa5e6cba5291"
+    },
+    "treatment": {
+      "far": "6dc21348a1675ea57285f566170db8aa99ee4d5d33026d7208ad8bc7630ce268",
+      "middle": "6dc21348a1675ea57285f566170db8aa99ee4d5d33026d7208ad8bc7630ce268",
+      "near": "6dc21348a1675ea57285f566170db8aa99ee4d5d33026d7208ad8bc7630ce268"
+    }
+  },
+  "history_example_presentation": {
+    "control": "structured_only",
+    "treatment": "record_linked"
+  },
+  "history_example_presentation_changed": true,
+  "history_prompt_block_changed": true,
+  "interpretation": "In this matched pair (seed 404), the history presentation changed answer payloads, did not change strict-format validity, and did not change exact accuracy. History exact answers were 0/9 with structured-only presentation and 0/9 with record-linked presentation; empty-arm totals were 0/9 and 0/9. The model, generation settings, seed, probes, scored support, empty prompts, non-history prompt, and output constraint matched. This pair does not establish durable learning or general transfer.",
+  "learning_established": false,
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "non_seed_generation_settings_sha256": "35c7526a8f2aa1b3ebf87f4cdb313eee758015cd4c1662e6b1b60b99ea08687f",
+  "same_empty_prompts": true,
+  "same_format_constraint": true,
+  "same_generation_and_gpu_settings": true,
+  "same_model_identity": true,
+  "same_prompt_outside_history_block": true,
+  "same_scored_history_evidence": true,
+  "same_seed": true,
+  "same_task_probes_and_trial_order": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_guidance_comparison:v1",
+  "scored_support_sha256": "823485117ff0cf5d2048d15dc0d3e4f91a3ef18be76cafd41ab1462c8b12e2c0",
+  "seed": 404,
+  "strict_json_valid_trials": {
+    "control": [
+      6,
+      6
+    ],
+    "treatment": [
+      6,
+      6
+    ]
+  },
+  "strict_json_validity_unchanged": true,
+  "task_probes_and_order_sha256": "5407420fb1e86f307c231bfbcdb7e6033acef20ea52b5a286b048a687c390996",
+  "tier_results": {
+    "far": {
+      "empty": {
+        "control_answers": [
+          30,
+          31,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          30,
+          31,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          29,
+          30,
+          31
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    },
+    "middle": {
+      "empty": {
+        "control_answers": [
+          2479683105,
+          2479683106,
+          2479683107
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          2479683105,
+          2479683106,
+          2479683107
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          48,
+          50,
+          52
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    },
+    "near": {
+      "empty": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          16,
+          20,
+          25
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          17,
+          23,
+          29
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    }
+  },
+  "treatment_plan_sha256": "7975033bd19f6ed952d9c202836e4c38a1cf390333eaab34e85ef69cbb0ad889",
+  "treatment_preflight_sha256": "ff21abb9bc08851302ea995eba48ea16c56cb8abea55269cacdb9d70c6b0ca7e"
+}

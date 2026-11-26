@@ -1,0 +1,289 @@
+{
+  "context_tokens": 4096,
+  "example_presentation": "record_linked",
+  "format_treatment": "strict_json_post_retrieval:v1",
+  "generation": {
+    "max_new_tokens": 160,
+    "repetition_penalty": null,
+    "temperature": 0.0,
+    "top_k": null,
+    "top_p": 1.0
+  },
+  "gpu_layers": 24,
+  "inference_performed": false,
+  "ladder_design": "held_out_source_near_progression_v1",
+  "learning_established": false,
+  "matched_base_sha256": "90727296b5e43d1daf240c1c051305d87f40e407ca291635b8e3d928b25fef46",
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "53a2250185b633b4da42e380b9c3237d5dadc6cd11972bd1b3ffc6a27eac2881",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "ollama_version": "0.40.16",
+  "options": {
+    "api_base": "http://127.0.0.2:11434",
+    "keep_alive": "5m",
+    "manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "model": "sentientos-hermes4:14b-q4km",
+    "num_gpu": 24,
+    "num_thread": 2,
+    "seed": 505,
+    "think": false,
+    "timeout_seconds": 120
+  },
+  "output_constraint": "[RESPONSE_FORMAT_CONSTRAINT]\nOutput one JSON object with only an answers array of three integer-or-null values, in order. No other text.",
+  "output_constraint_sha256": "9ff5f4ccf5d841898ad816a2aabd1146bb0ca2c34e622acd6d24ac561386fff1",
+  "parent_snapshot_tree_sha256": "sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0",
+  "primary_outcome": "Exact-answer count per tier and history condition; report history-minus-empty differences.",
+  "prompt_bindings": {
+    "far_empty": {
+      "history_block_digest": null,
+      "history_context_posture": "provider_returned_no_context",
+      "invocation_prompt_digest": "8a47bdafe9d6b0e201038b94a1e77ea397910274284c3257f62622bef35a054e",
+      "prompt_chars": 4413,
+      "prompt_example_renderings": [],
+      "prompt_score_evidence": [],
+      "prompt_sha256": "2d0e0dd4a9a58de74c558debcc764902d55897384e247f7665a5e20b9f9296b0"
+    },
+    "far_history": {
+      "history_block_digest": "d3181f840b6e932a3658c0d9b9e1acd97675021aa0713bb9ac1d33ed80a1ba5f",
+      "history_context_posture": "selected",
+      "invocation_prompt_digest": "c7214bbad85284dd82eddf94e828904ae0279941526362c05ea2833180870025",
+      "prompt_chars": 7976,
+      "prompt_example_renderings": [
+        {
+          "human_readable_examples": "2 -> 5 (correct); 4 -> 9 (correct); 5 -> 11 (correct)",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "32b37baa61c44b302ec81cdcc01d8602530226f317804a517ca999e84a193655"
+    },
+    "middle_empty": {
+      "history_block_digest": null,
+      "history_context_posture": "provider_returned_no_context",
+      "invocation_prompt_digest": "5daa6119a1785c12d876d50e2c65b9132fbc8b88c8ff3860ad46c5655846052a",
+      "prompt_chars": 4413,
+      "prompt_example_renderings": [],
+      "prompt_score_evidence": [],
+      "prompt_sha256": "786f24b712a6df158b1582ff7397577a2c195a78c88e7f9de9b5adc2565bb401"
+    },
+    "middle_history": {
+      "history_block_digest": "d3181f840b6e932a3658c0d9b9e1acd97675021aa0713bb9ac1d33ed80a1ba5f",
+      "history_context_posture": "selected",
+      "invocation_prompt_digest": "6aa904645892f9d7c9be838c974a32188100ae079874dca1bdd8dee09ea73d63",
+      "prompt_chars": 7976,
+      "prompt_example_renderings": [
+        {
+          "human_readable_examples": "2 -> 5 (correct); 4 -> 9 (correct); 5 -> 11 (correct)",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "5522c3d536cbdc2974abc5600f37832ccea7f9b9da2019ae04184996d900d673"
+    },
+    "near_empty": {
+      "history_block_digest": null,
+      "history_context_posture": "provider_returned_no_context",
+      "invocation_prompt_digest": "8792cec761fe6279385b65f0c8a300611ef2e1a04aaaf9e740220c8c5c51d99f",
+      "prompt_chars": 4413,
+      "prompt_example_renderings": [],
+      "prompt_score_evidence": [],
+      "prompt_sha256": "6b4b7c0da750bd1bdfc3dcb3d1a56a909238cd17e01fb31b74db5da674670326"
+    },
+    "near_history": {
+      "history_block_digest": "d3181f840b6e932a3658c0d9b9e1acd97675021aa0713bb9ac1d33ed80a1ba5f",
+      "history_context_posture": "selected",
+      "invocation_prompt_digest": "65910a4828f923429847761becf6ce84eae95ee11c50da8b361cc295545de252",
+      "prompt_chars": 7976,
+      "prompt_example_renderings": [
+        {
+          "human_readable_examples": "2 -> 5 (correct); 4 -> 9 (correct); 5 -> 11 (correct)",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "beaa34438f6521ed3b911b857dc684f921a5418dfa070a82c444aba5dcd7627a"
+    }
+  },
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",
+  "secondary_outcome": "Strict JSON-only format validity, independent of exact-answer correctness.",
+  "semantic_procedure": null,
+  "semantic_procedure_sha256": null,
+  "semantic_treatment": null,
+  "source_code_sha256": {
+    "sentientos/chat_service.py": "2259268ee6d433ab3d6b9df97d582c99ddd4c168b28308111359b15320dfeb39",
+    "sentientos/conversation_session.py": "3ab1b501c2d8d80104ee2622b158571117f793e24c5d999bdbbd9f388f294095",
+    "sentientos/resident_developmental_cognition.py": "7eaf764f6fe78077dddb6e05f7f7748804c13ea2006d894a882d0de149f9f2ba",
+    "work/preflight_ordinary_chat_retention.py": "e33f09f1b47bff51a86a386f4e6b85123b27e00a7c1742114615656fcba1d17f",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py": "e4bee8003e36a945a423458d194c93e6566b7e0d135c92715eff8b529cf32b54",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
+    "work/run_ordinary_chat_transfer_distance_ladder.py": "c18e50736915a39860e8ce4da2ac280b4b67bf0e0c26438481a0303132fc9881",
+    "work/run_sibling_chat_recall.py": "ccef5e003c9259db4c1e063df1c7899bf9e485295df2a19b480a5332a5e7e387"
+  },
+  "source_report_sha256": "657add6d8d8dfdf3d939f01eda64b9ca04562e006fcc5e6f4f839c3b18f1a251",
+  "task_family_id": "rootless_integer_affine_transfer_source_near_v9",
+  "tiers": {
+    "far": {
+      "answer_key_commitment": "sha256:249eaef77c1775aa9ff158aadd43fc52785ae35f39c3c09939dab6566fcce27e",
+      "probe_inputs": [
+        27,
+        28,
+        29
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 27, 28, 29? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "middle": {
+      "answer_key_commitment": "sha256:3d8b0bc401dab777cbb6981222aecfb1a0439bf26d88461093142071ad9808e3",
+      "probe_inputs": [
+        24,
+        25,
+        26
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 24, 25, 26? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "near": {
+      "answer_key_commitment": "sha256:8458dd1779327cf585eafcd4e99e0ad0ee1b52c84890f9769b1966442dfc4d86",
+      "probe_inputs": [
+        13,
+        17,
+        22
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 13, 17, 22? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    }
+  },
+  "trial_order": [
+    {
+      "arm": "history",
+      "tier": "near"
+    },
+    {
+      "arm": "empty",
+      "tier": "near"
+    },
+    {
+      "arm": "empty",
+      "tier": "middle"
+    },
+    {
+      "arm": "history",
+      "tier": "middle"
+    },
+    {
+      "arm": "history",
+      "tier": "far"
+    },
+    {
+      "arm": "empty",
+      "tier": "far"
+    }
+  ]
+}

@@ -39,6 +39,13 @@ SOURCE_NEAR_TIERS = {
     "middle": (14, 15, 16),
     "far": (19, 20, 21),
 }
+HELD_OUT_SOURCE_NEAR_TIERS = {
+    "near": (13, 17, 22),
+    "middle": (24, 25, 26),
+    "far": (27, 28, 29),
+}
+PREVIOUS_PRESENTATION_PROBE_INPUTS = {
+    value for values in SOURCE_NEAR_TIERS.values() for value in values}
 QUESTION_TEMPLATE = (
     "Earlier we practiced a number prediction exercise. What outputs should go "
     "with these inputs: {inputs}? If the history does not support a prediction, "
@@ -118,6 +125,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             or any(not any(lower <= value <= upper for lower, upper in ranges)
                    for value in all_inputs)):
         raise ValueError("distance ladder probes are duplicated or outside the novel task family")
+    prior_seeded_overlap = sorted(set(all_inputs) & PREVIOUS_PRESENTATION_PROBE_INPUTS)
+    if ladder_design == "held_out_source_near_progression_v1" and prior_seeded_overlap:
+        raise ValueError("held-out ladder reuses prior seeded-presentation probes")
 
     pilot = read(PILOT)
     pilot_inputs = set(pilot["owner_arm_protocols"]["strategy_included"]
@@ -242,7 +252,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/resident_developmental_cognition.py",
             "sentientos/developmental_model_replacement_experiment.py",
         )
-        return {
+        report = {
             "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
             "ladder_design": ladder_design,
             "example_presentation": example_presentation,
@@ -284,6 +294,12 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "learning_established": False,
             "authority": False,
         }
+        if ladder_design == "held_out_source_near_progression_v1":
+            report["prior_seeded_presentation_probe_inputs"] = sorted(
+                PREVIOUS_PRESENTATION_PROBE_INPUTS)
+            report["prior_seeded_presentation_probe_overlap"] = prior_seeded_overlap
+            report["probe_set_disjoint_from_prior_seeded_replication"] = not prior_seeded_overlap
+        return report
 
 
 def main() -> None:
@@ -291,7 +307,8 @@ def main() -> None:
     parser.add_argument("cycles_root", type=Path, nargs="?")
     parser.add_argument("output", type=Path, nargs="?")
     parser.add_argument("--verify-report", type=Path)
-    parser.add_argument("--tier-set", choices=("balanced", "source-near"), default="balanced")
+    parser.add_argument("--tier-set", choices=("balanced", "source-near", "held-out-source-near"),
+        default="balanced")
     parser.add_argument("--example-presentation", choices=("structured_only", "record_linked"),
         default="record_linked")
     parser.add_argument("--parent-snapshot", type=Path,
@@ -309,11 +326,16 @@ def main() -> None:
         if args.cycles_root is None or args.identity_plan is not None:
             parser.error("provide cycles_root, or --parent-snapshot with --identity-plan")
         identity_plan = None
-    tiers, design, family = ((SOURCE_NEAR_TIERS, "source_near_progression_v1",
-                              ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY)
-                     if args.tier_set == "source-near" else
-                     (TIERS, "balanced_magnitude_v1",
-                      ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY))
+    if args.tier_set == "held-out-source-near":
+        tiers, design, family = (HELD_OUT_SOURCE_NEAR_TIERS,
+            "held_out_source_near_progression_v1",
+            ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY)
+    elif args.tier_set == "source-near":
+        tiers, design, family = (SOURCE_NEAR_TIERS, "source_near_progression_v1",
+            ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY)
+    else:
+        tiers, design, family = (TIERS, "balanced_magnitude_v1",
+            ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY)
     report = build_report(args.cycles_root, tiers, design, family,
                           parent_snapshot=args.parent_snapshot,
                           identity_plan=identity_plan,

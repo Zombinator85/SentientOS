@@ -7004,6 +7004,30 @@ plans and results, 36 separate inference receipts, independent scores, paired
 comparisons, a machine-generated aggregation, and file hashes.
 
 The isolated Ollama server on port 11436 was stopped after the runs; the
-unrelated server on port 11434 was left untouched. The next experiment should
-check whether the middle-tier hit recurs under new probes or a held-out task
-family before treating the response shift as transferable knowledge.
+unrelated server on port 11434 was left untouched. All six held-out model-free
+reports reconstructed byte-for-byte. The paired runs again used the same
+support record and verified history retrieval, with new probes 13/17/22,
+24/25/26, and 27/28/29. These avoid the prior seed replication probes and the
+saved parent-history inputs.
+
+The [held-out source-near package](../../artifacts/experiments/ordinary-chat-retention-20261125/held-out-source-near-replication-v1/)
+contains three new seed pairs (303, 404, 505). Structured-only and record-
+linked history each scored `0/27`. The empty arm scored `1/27` under both
+presentations: seed 505 answered input 25 with 51, the correct value under the
+fixed `2x + 1` mapping. That answer did not depend on developmental history.
+The earlier seed 101 history hit did not recur on these fresh probes.
+
+Record-linked presentation changed answer payloads in all three pairs, but it
+did not improve history accuracy. Strict JSON validity was `17/18` for
+structured-only and `16/18` for record-linked. The failures were all-null
+fenced objects followed by prose claiming the history lacked relevant records,
+even though the prompt captures show the scored support was present. Lenient
+diagnostics recovered those arrays as all-null, so none concealed a correct
+answer. This is evidence of response sensitivity without reliable use of the
+stored examples; it does not establish developmental learning.
+
+The next experiment should isolate why retrieved evidence is sometimes
+described as absent and why the model adds prose outside a strict response
+format. Keep the retrieved record, its labels, and the empty-history control
+fixed while varying one evidence-reading or response-format intervention at a
+time.
