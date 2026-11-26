@@ -54,6 +54,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--analysis-plan", required=True, type=Path)
     parser.add_argument("--plan", required=True, type=Path)
     parser.add_argument("--journal-root", required=True, type=Path)
+    parser.add_argument("--bindings-only", action="store_true",
+        help="reproduce the original v1 structural audit without observing arm claims")
     parser.add_argument("--output", type=Path,
         help="optional new file for the answer-free audit report")
     args = parser.parse_args(argv)
@@ -97,6 +99,15 @@ def main(argv: list[str] | None = None) -> int:
             "trial_count": len(verified), "verified_slots": verified,
             "all_slots_verified": True, "model_invoked": False,
             "learning_established": False, "authority": False}
+        if not args.bindings_only:
+            for slot, row in zip(verified, canonical["trials"], strict=True):
+                slot["journal_arms"] = {
+                    arm: journal.arm_execution_history(protocol_digest=row["protocol_digest"], arm=arm)
+                    for arm in row["arm_order"]}
+            semantic["schema_version"] = "sentientos.historical_examples_pair_execution_slot_audit:v2"
+            semantic["all_arms_unstarted_in_journal"] = all(
+                observation["status"] == "not_started"
+                for slot in verified for observation in slot["journal_arms"].values())
         report = {**semantic, "verification_digest": _digest(semantic)}
         if args.output is not None:
             target = args.output.absolute()

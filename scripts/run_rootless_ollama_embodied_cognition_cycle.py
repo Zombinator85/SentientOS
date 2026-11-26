@@ -178,7 +178,6 @@ from work.historical_examples_intervention import (
     HistoricalExamplesInterventionError,
     HistoricalExamplesPairJournal,
     build_resident_historical_examples_arm_executor,
-    build_resident_historical_examples_receipt_loader,
     derive_historical_examples_objective_answer_key,
     execute_historical_examples_pair_once,
     make_historical_examples_pair_execution_terminal,
@@ -948,6 +947,12 @@ def _load_historical_pair_execution_context() -> dict[str, Any] | None:
     journal = HistoricalExamplesPairJournal(
         store=DevelopmentalExperimentStore(journal_root))
     protocol = journal.load_protocol(protocol_digest=slot["protocol_digest"])
+    for arm in protocol["conditions"]:
+        arm_history = journal.arm_execution_history(
+            protocol_digest=slot["protocol_digest"], arm=arm)
+        if arm_history["status"] != "not_started":
+            raise RootlessExperimentalError(
+                f"historical_examples_pair_slot_previously_claimed:{arm}:{arm_history['status']}")
     objective_task = journal.load_task_for_protocol(
         protocol_digest=slot["protocol_digest"])
     try:
@@ -1570,13 +1575,14 @@ def _execute_historical_pair_slot(*, context: Mapping[str, Any],
     _set_run_stage("historical_examples_pair_execution")
     execute_arm = build_resident_historical_examples_arm_executor(
         owner=owner, snapshot=snapshot, objective_task=objective_task)
-    receipt_loader = build_resident_historical_examples_receipt_loader(
-        owner=owner)
+    if RUN_PREREGISTRATION_DIGEST is None:
+        raise RootlessExperimentalError("historical_examples_run_preregistration_missing")
     answer_key = derive_historical_examples_objective_answer_key(
         protocol=protocol, objective_task=objective_task)
     pair_result = execute_historical_examples_pair_once(
         protocol=protocol, answer_key=answer_key, execute_arm=execute_arm,
-        journal=journal, load_receipt_by_binding=receipt_loader)
+        journal=journal,
+        fresh_run_binding=(RUN_ID, RUN_PREREGISTRATION_DIGEST))
     score = journal.load_score(protocol_digest=protocol["protocol_digest"])
     runtime_history_inventories = {}
     for arm in protocol["conditions"]:

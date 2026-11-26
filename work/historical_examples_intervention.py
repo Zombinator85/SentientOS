@@ -441,6 +441,22 @@ class HistoricalExamplesPairJournal:
                     protocol=protocol))
         return state
 
+    def arm_execution_history(self, *, protocol_digest: str, arm: str) -> dict[str, Any]:
+        """Summarize a verified journal state without disclosing a prompt or output."""
+        state = self.arm_state(protocol_digest=protocol_digest, arm=arm)
+        session = _receipt_session(state.get("receipt"))
+        run_id = session.get("run_id")
+        preregistration = session.get("preregistration_digest")
+        return {
+            "status": state["status"],
+            "receipt_digest": state.get("receipt_binding", {}).get("receipt_digest"),
+            "receipt_run_id": run_id if isinstance(run_id, str) and
+                _PAIR_RUN_ID.fullmatch(run_id) else None,
+            "run_preregistration_digest": preregistration if
+                isinstance(preregistration, str) and _RAW_DIGEST.fullmatch(preregistration)
+                and preregistration != "0" * 64 else None,
+        }
+
     def claim_arm(self, *, protocol_digest: str, arm: str) -> dict[str, Any]:
         protocol = self.load_protocol(protocol_digest=protocol_digest)
         if arm not in protocol["conditions"]:
@@ -1892,6 +1908,14 @@ def build_resident_historical_examples_receipt_loader(*, owner: Any
     return load
 
 
+def _receipt_session(receipt: Any) -> Mapping[str, Any]:
+    request = receipt.get("request") if isinstance(receipt, Mapping) else None
+    linkage = request.get("linkage") if isinstance(request, Mapping) else None
+    session = (linkage.get("rootless_experimental_session")
+        if isinstance(linkage, Mapping) else None)
+    return session if isinstance(session, Mapping) else {}
+
+
 def execute_historical_examples_pair_once(*, protocol: Mapping[str, Any],
         answer_key: Mapping[str, int],
         execute_arm: Callable[[str, Mapping[str, Any]],
@@ -1899,8 +1923,9 @@ def execute_historical_examples_pair_once(*, protocol: Mapping[str, Any],
         journal: HistoricalExamplesPairJournal,
         load_receipt_by_binding: Callable[[Mapping[str, Any]], Mapping[str, Any]]
             | None = None,
+        fresh_run_binding: tuple[str, str] | None = None,
         ) -> dict[str, Any]:
-    """Execute or recover a frozen pair without replaying a claimed arm."""
+    """Recover a frozen pair, or require new receipts from the specified run."""
     validate_historical_examples_protocol(protocol=protocol)
     probes = protocol["probe_binding_digests"]
     if (not isinstance(answer_key, Mapping) or set(answer_key) != set(probes)
@@ -1914,6 +1939,13 @@ def execute_historical_examples_pair_once(*, protocol: Mapping[str, Any],
                 and not callable(load_receipt_by_binding))):
         raise HistoricalExamplesInterventionError(
             "historical_examples_pair_executor_invalid")
+    if fresh_run_binding is not None:
+        run_id, run_preregistration = fresh_run_binding
+        if (not isinstance(run_id, str) or not _PAIR_RUN_ID.fullmatch(run_id)
+                or not isinstance(run_preregistration, str)
+                or not _RAW_DIGEST.fullmatch(run_preregistration)
+                or run_preregistration == "0" * 64):
+            raise HistoricalExamplesInterventionError("historical_examples_run_binding_invalid")
     protocol = journal.persist_protocol(protocol=protocol)
     receipts: dict[str, Mapping[str, Any]] = {}
     for arm in protocol["conditions"]:
@@ -1923,6 +1955,9 @@ def execute_historical_examples_pair_once(*, protocol: Mapping[str, Any],
             raise HistoricalExamplesInterventionError(
                 "historical_examples_pair_arm_outcome_ambiguous:" + arm)
         if state["status"] == "completed":
+            if fresh_run_binding is not None:
+                raise HistoricalExamplesInterventionError(
+                    "historical_examples_pair_arm_previously_completed:" + arm)
             archived_receipt = state.get("receipt")
             if isinstance(archived_receipt, Mapping):
                 receipt = archived_receipt
@@ -1951,6 +1986,12 @@ def execute_historical_examples_pair_once(*, protocol: Mapping[str, Any],
                 raise HistoricalExamplesInterventionError(
                     "historical_examples_pair_arm_execution_evidence_missing:" + arm)
             receipt = execution.receipt
+            if fresh_run_binding is not None:
+                session = _receipt_session(receipt)
+                if (session.get("run_id"), session.get("preregistration_digest")
+                        ) != fresh_run_binding:
+                    raise HistoricalExamplesInterventionError(
+                        "historical_examples_pair_arm_receipt_run_mismatch:" + arm)
             runtime_history_inventory = _verify_runtime_history_inventory(
                 execution.runtime_history_inventory, protocol=protocol)
             if not isinstance(receipt, Mapping):
