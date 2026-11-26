@@ -8,7 +8,7 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
-    INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
+    INLINE_REPORT, INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
     score_answer, score_cited_answer, sha,
 )
 
@@ -29,7 +29,8 @@ def verify(path):
             or plan["model"] != MODEL or plan["model_identity"]["model_content_sha256"] != MANIFEST
             or configuration_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
-            or plan["questions"] != {s: recall_question(s, cited) for _, s in trials}):
+            or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
+                                     + recall_question(s, cited) for _, s in trials}):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}
     for arm, scope in dict.fromkeys(trials):

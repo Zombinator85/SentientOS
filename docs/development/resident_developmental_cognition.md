@@ -6100,3 +6100,16 @@ cycle, and prompt capture was aligned with the live adapter's model and
 workload metadata. Neither mismatch reached inference. A separate initial
 CPU invocation timed out at 30 seconds while processing the prompt. The
 completed experimental run used a 120-second service budget.
+
+A second run preserved the cited format and supplied the inline control as a
+short plain-text report. The model returned eight replies. Independent replay
+verified each ordinary chat receipt, prompt digest, source score and model
+configuration. It cited the record shown in each sibling prompt. However,
+its rows used placeholder inputs such as `input_integer_1` and sometimes
+marked a recorded abstention incorrect. The shared low-range result also
+differed from the automatic retrieval capture. On the direct report control,
+the outcomes were correct but the input values were strings. Asked about an
+absent history, the model stated it could not find the exercise in session
+history. These outcomes show sensitivity to history availability and format,
+alongside unreliable transcription of observed evidence. [Cited protocol](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-cited-v2/plan.json)
+and [verified replies](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-cited-v2/result.json).

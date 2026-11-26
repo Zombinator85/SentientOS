@@ -26,12 +26,16 @@ def test_blind_recall_score_checks_every_row_and_grade():
     assert score_answer("No evidence available.", profiles) == {"format": "invalid", "exact_profiles": []}
 
 
-def test_cited_score_preserves_a_wrong_citation_and_tolerates_one_fence():
+def test_cited_score_keeps_citation_separate_from_row_accuracy():
     profiles = {"first": [[6, 26, "incorrect"]]}
     answer = json.dumps({"record_id": "some-other-record", "rows": profiles["first"]})
     expected = {"format": "valid", "exact_profiles": ["first"], "cited_record": "some-other-record"}
-    assert score_cited_answer(answer, profiles) == expected
-    assert score_cited_answer("```json\n" + answer + "\n```", profiles) == expected
+    assert score_cited_answer(answer, profiles) == {"format": "valid", "exact_profiles": ["first"],
+                                                     "cited_record": "some-other-record"}
+    cited_grade = score_cited_answer(answer, {"some-other-record": profiles["first"]})
+    assert cited_grade == {"format": "valid", "exact_profiles": ["some-other-record"],
+                           "cited_record": "some-other-record"}
+    assert score_cited_answer("```json\n" + answer + "\n```", profiles)["format"] == "invalid"
     assert score_cited_answer(answer + "\n" + answer, profiles)["format"] == "invalid"
     assert score_cited_answer('{"rows":[]}', profiles)["format"] == "invalid"
 

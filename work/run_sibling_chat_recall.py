@@ -41,14 +41,14 @@ FORMAT = (' Reply only with a JSON array of rows. Each row is [input, observed a
           'for the outcome. If you have no recorded exercise, return an empty array.')
 TRIALS = (("right", "wide"), ("left", "low"), ("empty", "wide"), ("parent", "wide"),
           ("left", "wide"), ("right", "low"), ("left", "wide"))
-CITED_FORMAT = (' Consult the scored observations if available. Return one JSON object with "record_id" '
-                'and "rows". Cite the containing record_id once for all rows. Each row is [input, observed '
-                'answer, outcome]. Use an integer or null for the answer and "correct", "incorrect", or '
-                '"abstained" for the outcome. With no source, use null for record_id and an empty rows array.')
-INLINE_QUESTION = ('Read this supplied exercise report, named inline-example. At input 47 the answer was '
-                   'minus four and was marked incorrect. At input 52 there was an abstention. At input 61 '
-                   'the answer was ten and was marked correct. Use inline-example as the citation.')
+INLINE_REPORT = ('Report inline-example. Input 47. Answer -4. Incorrect. '
+                 'Input 52. Abstained. Input 61. Answer 10. Correct.')
+INLINE_QUESTION = "Using the report above, what were the recorded inputs and outcomes?"
 INLINE_ROWS = [[47, -4, "incorrect"], [52, None, "abstained"], [61, 10, "correct"]]
+CITED_FORMAT = (' Cite the containing record_id once. Copy each observed answer exactly as written. '
+                'Return one fenced JSON object with "record_id" and "rows", where each row is '
+                '[input integer, answer as a JSON integer or null, outcome as one of "correct", '
+                '"incorrect", or "abstained"]. Use record_id null and empty rows if there is no report.')
 
 
 def conditions(cited):
@@ -159,16 +159,21 @@ def score_answer(text, profiles):
 
 def score_cited_answer(text, profiles):
     """Allow a single JSON fence. Score row content independently of the stated citation."""
-    text = text.strip()
-    fenced = re.fullmatch(r"```(?:json)?[ \t]*\r?\n(.*?)\r?\n```", text, re.DOTALL)
     try:
-        value = json.loads(fenced.group(1) if fenced else text)
+        value = json.loads(text.strip())
     except ValueError:
         value = None
     if (not isinstance(value, dict) or set(value) != {"record_id", "rows"}
             or not (value["record_id"] is None or isinstance(value["record_id"], str))):
         return {"format": "invalid", "exact_profiles": [], "cited_record": None}
-    return {**score_answer(json.dumps(value["rows"]), profiles), "cited_record": value["record_id"]}
+    if not isinstance(value["rows"], list) or any(
+            not isinstance(row, list) or len(row) != 3
+            or type(row[0]) is not int or (row[1] is not None and type(row[1]) is not int)
+            or not isinstance(row[2], str) for row in value["rows"]):
+        return {"format": "invalid", "exact_profiles": [], "cited_record": value["record_id"]}
+    parsed = score_answer(json.dumps(value["rows"]), profiles)
+    parsed["cited_record"] = value["record_id"]
+    return parsed
 
 
 def source_rows(owner, evidence):
@@ -225,7 +230,7 @@ def run(cycles, install, models, root, *, cited=False):
         for arm, scope in dict.fromkeys(conditions(cited)):
             owner = owners[arm]
             snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
-            question = questions[scope] = recall_question(scope, cited)
+            question = questions[scope] = ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(scope, cited)
             base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
                                               bind_invocation=True, capture_adapter=inference)
             if bases.setdefault(scope, base) != base:
