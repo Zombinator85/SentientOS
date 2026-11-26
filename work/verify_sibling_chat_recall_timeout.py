@@ -5,14 +5,20 @@ import argparse
 from pathlib import Path
 
 from sentientos.governed_local_model_invocation import validate_receipt
-from work.run_sibling_chat_recall import read, sha
+from work.run_sibling_chat_recall import EXPLICIT_ROW_MAPPING, MODEL_MANIFESTS, read, sha
 
 
 def verify(path: Path):
     plan_path, failure_path = path / "plan.json", path / "trials" / "0" / "failure.json"
     plan, failure = read(plan_path), read(failure_path)
     plan_hash = sha(plan_path.read_bytes())
-    if (plan["schema"] != "sentientos.sibling_chat_recall_plan:v5"
+    mapped = plan["schema"] == "sentientos.sibling_chat_recall_plan:v5"
+    if (plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v5"}
+            or plan["model"] not in MODEL_MANIFESTS
+            or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
+            or plan["options"]["model"] != plan["model"]
+            or plan["options"]["manifest_sha256"] != MODEL_MANIFESTS[plan["model"]]
+            or plan["options"]["num_gpu"] != 0
             or failure["schema"] != "sentientos.sibling_chat_recall_trial_failure:v1"
             or failure["plan_sha256"] != plan_hash
             or failure["trial"] != 0 or failure["condition"] != "right_wide"
@@ -20,6 +26,11 @@ def verify(path: Path):
             or not failure["model_invoked"] or failure["receipt_status"] != "timeout"
             or failure["exception"] != "governed_inference_not_completed:timeout"
             or failure["output_size_bytes"] != 0 or failure["fallback_occurred"] is not False
+            or plan.get("intervention") != ({
+                "id": "explicit_developmental_history_field_to_row_mapping:v2",
+                "guidance": EXPLICIT_ROW_MAPPING,
+                "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode()),
+            } if mapped else None)
             or (path / "result.json").exists()):
         raise ValueError("failed-trial record differs from the v5 timeout")
     receipt_path = path / "inference-custody" / "receipts" / (failure["receipt_id"] + ".json")

@@ -8,8 +8,8 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
-    EXPLICIT_ROW_MAPPING, INLINE_REPORT, INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
-    score_answer, score_cited_answer, score_cited_answer_v2_legacy, sha,
+    EXPLICIT_ROW_MAPPING, INLINE_REPORT, INLINE_ROWS, MODEL_MANIFESTS, SOURCE_REPORT,
+    conditions, read, recall_question, score_answer, score_cited_answer, score_cited_answer_v2_legacy, sha,
 )
 
 
@@ -22,7 +22,7 @@ def verify(path):
         raise ValueError("unknown recall protocol")
     cited = plan["schema"].endswith((":v2", ":v3"))
     cited = cited or plan["schema"].endswith(":v4")
-    cited = cited or plan["schema"].endswith(":v5")
+    cited = cited or plan["schema"].endswith((":v4", ":v5"))
     legacy_cited_scoring = plan["schema"].endswith(":v2")
     explicit_row_mapping = plan["schema"].endswith((":v4", ":v5"))
     mapping_revision = "v2" if plan["schema"].endswith(":v5") else "v1"
@@ -36,7 +36,10 @@ def verify(path):
         "generation": plan["generation"]})
     if (result["plan_sha256"] != plan_hash or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
             or plan["trials"] != [list(t) for t in trials] or len(result["trials"]) != len(trials)
-            or plan["model"] != MODEL or plan["model_identity"]["model_content_sha256"] != MANIFEST
+            or plan["model"] not in MODEL_MANIFESTS
+            or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
+            or plan["options"]["model"] != plan["model"]
+            or plan["options"]["manifest_sha256"] != MODEL_MANIFESTS[plan["model"]]
             or configuration_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")

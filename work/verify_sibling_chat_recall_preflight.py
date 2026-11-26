@@ -6,7 +6,7 @@ from pathlib import Path
 
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from work.run_sibling_chat_recall import (
-    EXPLICIT_ROW_MAPPING, INLINE_REPORT, MANIFEST, MODEL, SOURCE_REPORT, conditions, read,
+    EXPLICIT_ROW_MAPPING, INLINE_REPORT, MODEL_MANIFESTS, SOURCE_REPORT, conditions, read,
     recall_question, sha,
 )
 
@@ -19,7 +19,9 @@ def verify(path: Path):
         "engine": "ollama", "options": plan["options"], "max_context_tokens": plan["context_tokens"],
         "generation": plan["generation"],
     })
-    if (plan["schema"] != "sentientos.sibling_chat_recall_plan:v5"
+    schema = plan["schema"]
+    mapped = schema == "sentientos.sibling_chat_recall_plan:v5"
+    if (schema not in {"sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v5"}
             or status != {
                 "schema": "sentientos.sibling_chat_recall_preflight:v1",
                 "plan_sha256": plan_hash, "model_invoked": False,
@@ -29,8 +31,10 @@ def verify(path: Path):
             }
             or (path / "result.json").exists()
             or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
-            or plan["model"] != MODEL
-            or plan["model_identity"]["model_content_sha256"] != MANIFEST
+            or plan["model"] not in MODEL_MANIFESTS
+            or plan["model_identity"]["model_content_sha256"] != MODEL_MANIFESTS[plan["model"]]
+            or plan["options"]["model"] != plan["model"]
+            or plan["options"]["manifest_sha256"] != MODEL_MANIFESTS[plan["model"]]
             or config_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
             or plan["options"]["timeout_seconds"] != 120
@@ -39,11 +43,11 @@ def verify(path: Path):
                 scope: ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(scope, True)
                 for _, scope in conditions(True)
             }
-            or plan["intervention"] != {
+            or plan["intervention"] != ({
                 "id": "explicit_developmental_history_field_to_row_mapping:v2",
                 "guidance": EXPLICIT_ROW_MAPPING,
                 "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode()),
-            }):
+            } if mapped else None)):
         raise ValueError("preflight plan or no-inference status differs from protocol v5")
 
     for arm, scope in dict.fromkeys(conditions(True)):
@@ -53,17 +57,20 @@ def verify(path: Path):
         if arm == "empty":
             if exposure["history_block_digest"] is not None or exposure["prompt_score_evidence"]:
                 raise ValueError("empty-history control contains history")
-            if exposure["history_instruction"] is not None:
+            if exposure.get("history_instruction") is not None:
                 raise ValueError("empty-history control contains treatment guidance")
             if exposure["prompt_sha256"] != plan["matched_base_sha256"][scope]:
                 raise ValueError("empty-history prompt differs from its matched base")
             continue
         instruction = exposure.get("history_instruction")
-        if (not isinstance(instruction, str)
-                or instruction.count(EXPLICIT_ROW_MAPPING.strip()) != 1
-                or exposure["history_block_digest"] is None
+        if (exposure["history_block_digest"] is None
                 or len(exposure["prompt_score_evidence"]) != 1):
             raise ValueError("history treatment is missing, duplicated, or unbound")
+        if mapped and (not isinstance(instruction, str)
+                or instruction.count(EXPLICIT_ROW_MAPPING.strip()) != 1):
+            raise ValueError("history row mapping is missing or duplicated")
+        if not mapped and instruction is not None:
+            raise ValueError("unmapped control unexpectedly captured treatment guidance")
         oracle, = archive["questions"]["latest_" + scope]["captures"][arm]["prompt_score_evidence"]
         actual, = exposure["prompt_score_evidence"]
         if any(actual.get(key) != oracle.get(key) for key in (

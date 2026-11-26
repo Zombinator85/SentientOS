@@ -39,6 +39,10 @@ from work.preflight_sibling_chat_histories import CYCLES, QUESTIONS, TARGET, arc
 
 MODEL = "qwen2.5:1.5b-instruct-q4_K_M"
 MANIFEST = "f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e"
+MODEL_MANIFESTS = {
+    MODEL: MANIFEST,
+    "qwen3:0.6b": "6f76d4346c34ba89df6e137fb661b4bb4daf322c1151b6ef0dfda981070a851f",
+}
 ADDRESS = "127.0.0.2"
 BASE = f"http://{ADDRESS}:11434"
 SOURCE_REPORT = Path(__file__).resolve().parents[1] / (
@@ -130,16 +134,16 @@ def get_api(path):
         return json.load(response)
 
 
-def _prepare_private_model(models, private):
+def _prepare_private_model(models, private, model, manifest_digest):
     """Copy or link exactly the manifest-pinned model into a private store."""
-    relative = Path("manifests/registry.ollama.ai/library") / MODEL.replace(":", "/")
+    relative = Path("manifests/registry.ollama.ai/library") / model.replace(":", "/")
     manifest = models / relative
-    if sha(manifest.read_bytes()) != MANIFEST:
+    if sha(manifest.read_bytes()) != manifest_digest:
         raise ValueError("unexpected model manifest")
     (private / relative).parent.mkdir(parents=True, exist_ok=True)
     manifest_target = private / relative
     if manifest_target.exists():
-        if sha(manifest_target.read_bytes()) != MANIFEST:
+        if sha(manifest_target.read_bytes()) != manifest_digest:
             raise ValueError("private model manifest differs from pin")
     else:
         manifest_target.write_bytes(manifest.read_bytes())
@@ -208,13 +212,13 @@ def _loopback_api_forwarder(target_host, target_port):
 
 
 @contextmanager
-def cpu_server(install, models, root):
+def cpu_server(install, models, root, model, manifest_digest):
     """Create an isolated Linux loader tree containing only CPU backends and one model."""
     external_models = os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")
     if external_models:
         private = Path(external_models)
         private.mkdir(parents=True, exist_ok=True)
-        manifest = _prepare_private_model(models, private)
+        manifest = _prepare_private_model(models, private, model, manifest_digest)
         target = urlsplit(os.environ.get("SENTIENTOS_OLLAMA_CPU_TARGET", ""))
         if target.scheme != "http" or not target.hostname or not target.port:
             raise ValueError("external CPU server target must be an explicit HTTP host and port")
@@ -222,8 +226,8 @@ def cpu_server(install, models, root):
             if get_api("ps")["models"]:
                 raise ValueError("external CPU server already has a resident model")
             version = get_api("version")["version"]
-            tagged, = [item for item in get_api("tags")["models"] if item["name"] == MODEL]
-            if tagged["digest"] != MANIFEST:
+            tagged, = [item for item in get_api("tags")["models"] if item["name"] == model]
+            if tagged["digest"] != manifest_digest:
                 raise ValueError("external server did not load the pinned manifest")
             yield manifest, version
         return
@@ -243,7 +247,7 @@ def cpu_server(install, models, root):
                     or f.name == "llama-server"):
                 os.link(f.resolve(strict=True), lib / f.name)
         private = base / "models"
-        manifest = _prepare_private_model(models, private)
+        manifest = _prepare_private_model(models, private, model, manifest_digest)
         env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "ROCR_VISIBLE_DEVICES": "-1",
                "OLLAMA_VULKAN": "0", "OLLAMA_HOST": ADDRESS + ":11434", "OLLAMA_MODELS": str(private),
                "OLLAMA_NO_CLOUD": "1", "OLLAMA_NOPRUNE": "1", "OLLAMA_NUM_PARALLEL": "1"}
@@ -352,17 +356,21 @@ class VerifiedChat(DevelopmentLocalChatInference):
         return self.receipt
 
 
-def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False, preflight_only=False):
+def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False, preflight_only=False,
+        model_name=MODEL):
     if explicit_row_mapping and not cited:
         raise ValueError("explicit row mapping requires the cited response protocol")
+    if model_name not in MODEL_MANIFESTS:
+        raise ValueError("model is not in the pinned recall model registry")
+    manifest_digest = MODEL_MANIFESTS[model_name]
     root.mkdir(parents=True, exist_ok=False)
     baseline = read(SOURCE_REPORT)
     historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
-    with cpu_server(install, models, root) as (manifest, version), _rootless_governance_custody(root):
-        options = {"api_base": BASE, "model": MODEL, "manifest_sha256": MANIFEST,
+    with cpu_server(install, models, root, model_name, manifest_digest) as (manifest, version), _rootless_governance_custody(root):
+        options = {"api_base": BASE, "model": model_name, "manifest_sha256": manifest_digest,
                    "num_gpu": 0, "num_thread": 2, "timeout_seconds": 120, "seed": 42,
                    "think": False, "keep_alive": "5m"}
-        config = ModelConfig([ModelCandidate(manifest, "ollama", MODEL, options)], max_context_tokens=4096,
+        config = ModelConfig([ModelCandidate(manifest, "ollama", model_name, options)], max_context_tokens=4096,
                              generation=GenerationConfig(max_new_tokens=160, temperature=0.0, top_p=1.0))
         authority = build_local_model_authority_map(config, allowed_roots=[manifest.parent])
         model = LocalModel.load_candidate(0, config=config)
@@ -427,7 +435,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
         protocol = "v5" if explicit_row_mapping else "v3" if cited else "v1"
-        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + protocol, "model": MODEL,
+        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + protocol, "model": model_name,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
                 "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
@@ -485,7 +493,7 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                     or receipt.fallback_occurred or receipt.output_text is None):
                 raise ValueError("governed inference did not yield a verified model response")
             placement, = get_api("ps")["models"]
-            if placement["digest"] != MANIFEST or placement["size_vram"] != 0:
+            if placement["digest"] != manifest_digest or placement["size_vram"] != 0:
                 raise ValueError("expected exact model resident on CPU")
             grade = (score_cited_answer if cited else score_answer)(response.response, profiles)
             expected = ("inline" if scope == "inline" else "empty" if arm == "empty"
@@ -514,6 +522,9 @@ if __name__ == "__main__":
                         help="Run the cited CPU protocol with an explicit history-field to output-row mapping")
     parser.add_argument("--preflight-only", action="store_true",
                         help="Save and validate the complete prompt plan without invoking the model")
+    parser.add_argument("--model", choices=tuple(MODEL_MANIFESTS), default=MODEL,
+                        help="Select a pre-pinned local model artifact")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
-        explicit_row_mapping=args.explicit_row_mapping, preflight_only=args.preflight_only)
+        explicit_row_mapping=args.explicit_row_mapping, preflight_only=args.preflight_only,
+        model_name=args.model)

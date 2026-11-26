@@ -6163,3 +6163,15 @@ records automatically; the record for this first attempt was reconstructed
 from its governed receipt. The matched model comparison remains outstanding;
 the timeout is not evidence for or against improved extraction or learning.
 Hermes/GPU testing remains paused.
+
+To distinguish an oversized-model problem from a broader CPU-runtime constraint,
+the runner now accepts a second locally pinned model, `qwen3:0.6b`. Separate
+control and mapped preflights use the same model and configuration digest,
+identical matched base prompts, and the same selected evidence. Their maximum
+prompt sizes are 7,648 and 7,801 characters. The full no-mapping control also
+timed out at 120,339 ms with zero output bytes. Because the control produced no
+answer, the mapping arm was not run. These records show that a smaller model
+does not resolve the current CPU timeout; they establish no result about
+cross-model cognitive continuity or the mapping intervention. Both preflights
+and the timeout receipt are in the
+[qwen3 probe artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-qwen3-06b-probe-v1/).
