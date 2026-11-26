@@ -1616,6 +1616,11 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
             "For check-ins, answer briefly as SentientOS without claiming moods or lived experiences.",
             "Model labels and runtime lineage are provenance, not proof of truth, succession, quality, or authority.",
         ])
+    competing_groups = memory_snapshot.get("competing_correction_groups", [])
+    if competing_groups:
+        instructions.append("Each group in UNRESOLVED_MEMORY_CORRECTIONS lists zero-based "
+            "MEMORY_DATA indexes for competing retained corrections. If directly relevant, "
+            "ask which preference applies before using any member of that group.")
     lines = ["[SYSTEM_INSTRUCTION]", *instructions,
              "[VERIFIED_RUNTIME_CONTEXT]",
              json.dumps(dict(runtime_context or {}), ensure_ascii=False, sort_keys=True,
@@ -1813,6 +1818,11 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         separators=(",", ":")))
     lines.append("[RETRIEVED_MEMORY_DATA_UNTRUSTED]")
     lines.extend(f"MEMORY_DATA: {json.dumps(record['text'], ensure_ascii=False)}" for record in memories)
+    if competing_groups:
+        index_by_id = {record["id"]: index for index, record in enumerate(memories)}
+        lines.append("[UNRESOLVED_MEMORY_CORRECTIONS]")
+        lines.append(json.dumps([sorted(index_by_id[item] for item in group)
+            for group in competing_groups], separators=(",", ":")))
     if memories and not (compact_history or compact_screen_context):
         recorded_times: list[dict[str, Any]] = []
         for index, record in enumerate(memories):

@@ -2421,17 +2421,18 @@ def test_unverified_retained_memory_decoys_cannot_starve_verified_context(
     app = service(tmp_path)
     session_id = app.create_session()
     retained_text = "The cedar shelf is in the west workshop."
-    for index in range(chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1):
+    decoy_count = 16
+    for index in range(decoy_count + 1):
         result = app.chat(retained_text, session_id=session_id,
             request_id=f"memory-source-starvation-{index}", retain=True)
         assert result.retention["status"] == "memory_retention_committed"
 
     raw_candidates = app.memories.retrieve("cedar shelf",
-        limit=chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES)
+        limit=decoy_count)
     candidate_ids = set(raw_candidates["selected_memory_ids"])
     all_ids = {record["id"] for record in app.memories._records()[0]}
     valid_target_ids = all_ids - candidate_ids
-    assert len(all_ids) == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES + 1
+    assert len(all_ids) == decoy_count + 1
     assert len(valid_target_ids) == 1
 
     for memory_id in candidate_ids:
@@ -2535,7 +2536,8 @@ def test_resident_memory_context_cap_does_not_claim_partial_source_verification(
 
     assert context is not None
     assert len(captured_retrievals) == 1
-    assert len(captured_retrievals[0]["memories"]) == 5
+    assert len(captured_retrievals[0]["memories"]) == 4
+    assert captured_retrievals[0]["omitted_memory_count"] == 1
     assert captured_retrievals[0]["record_validation_posture"] == (
         "inspected_candidates_passed")
     assert len(context["records"]) == 4
@@ -3075,8 +3077,10 @@ def test_correction_guidance_keeps_competing_updates_unresolved() -> None:
 
 @pytest.mark.skipif(os.name == "nt",
     reason="durable conversation publication is POSIX-only")
+@pytest.mark.parametrize("revise_competing_branch", [False, True],
+    ids=["direct-corrections", "revised-branch"])
 def test_retained_memory_correction_changes_resident_personalization_after_restart(
-        tmp_path: Path) -> None:
+        tmp_path: Path, revise_competing_branch: bool) -> None:
     from tests.test_resident_developmental_cognition import (
         FakeInvoker as CognitionFakeInvoker, owner as cognition_owner,
     )
@@ -3117,8 +3121,9 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                         for relation in relations}
                     correcting_ids = {relation["correcting_memory_id"]
                         for relation in relations}
-                    assert len(targets) == 1
+                    assert len(targets) == (2 if revise_competing_branch else 1)
                     assert len(correcting_ids) == 2
+                    assert memory["competing_correction_groups"] == [sorted(correcting_ids)]
                     assert len(records) == 2
                     instruction = prompt["instruction"]
                     assert "Competing explicit corrections are present" in instruction
@@ -3133,8 +3138,8 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
                     }
                 elif not records:
                     self.companion_output_override = {
-                        "disposition": "answer",
-                        "response": "I have no retained answer-style preference.",
+                        "disposition": "abstain",
+                        "response": "I have no answer-style preference in the selected context.",
                         "evidence_ids": [], "history_record_ids": [],
                         "memory_record_ids": [],
                     }
@@ -3172,9 +3177,14 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
             if turn.get("linkage", {}).get("client_request_id_digest")
                 == source_request_digest)
         old_memory_id = source_turn["retention_receipt"]["memory_id"]
+        concise_target = old_memory_id
+        if competing_corrections and revise_competing_branch:
+            intermediate = source_app.chat("I prefer brief answers.", session_id=source_session_id,
+                request_id="retained-brief-preference", retain=True, corrects_memory_ids=(old_memory_id,))
+            concise_target = intermediate.retention["memory_id"]
         source_app.chat("I prefer concise answers.", session_id=source_session_id,
             request_id="retained-concise-preference", retain=True,
-            corrects_memory_ids=(old_memory_id,) if bind_correction else ())
+            corrects_memory_ids=(concise_target,) if bind_correction else ())
         if competing_corrections:
             source_app.chat("I prefer medium length answers.",
                 session_id=source_session_id,
@@ -3228,7 +3238,7 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         "correction link. Which should I use?")
     assert corrected_response.response != control_response.response
     assert corrected_response.response != no_topic_response.response
-    assert no_topic_response.response == "I have no retained answer-style preference."
+    assert no_topic_response.response == "I have no answer-style preference in the selected context."
     assert source_session_id != query_session_id
     assert corrected_context["selection_posture"] == "all_matching_records_selected"
     assert len(corrected_context["records"]) == 1
@@ -3255,14 +3265,14 @@ def test_retained_memory_correction_changes_resident_personalization_after_resta
         for row in corrected_prompt["session_conversation_context"]["turns"])
     assert any(row["role"] == "user" and row["text"] == "Thanks!"
         for row in corrected_prompt["session_conversation_context"]["turns"])
-    assert no_topic_prompt["canonical_user_memory_context"]["records"] == []
+    assert "canonical_user_memory_context" not in no_topic_prompt
     assert control_context["correction_relations"] == []
     assert len(control_context["records"]) == 2
     assert "correction_relations" not in control_prompt["instruction"]
     assert competing_context["selection_posture"] == "all_matching_records_selected"
     assert len(competing_context["correction_relations"]) == 2
-    assert {row["corrected_memory_id"] for row in
-        competing_context["correction_relations"]} == {competing_old_memory_id}
+    assert competing_old_memory_id in {row["corrected_memory_id"] for row in
+        competing_context["correction_relations"]}
     assert {row["text"] for row in competing_context["records"]} == {
         "I prefer concise answers.", "I prefer medium length answers."}
     assert "Competing explicit corrections are present" in (
@@ -4721,6 +4731,76 @@ def test_competing_memory_corrections_are_selected_or_omitted_as_a_group(
         concise["id"], medium["id"]}
     assert len(selected_together["correction_relations"]) == 2
     assert selected_together["selection_posture"] == "all_matching_records_selected"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="retention publication requires POSIX")
+def test_branched_memory_correction_survives_restart_until_explicit_join(
+        tmp_path: Path) -> None:
+    from sentientos.resident_developmental_cognition import (
+        _canonical_memory_correction_guidance)
+
+    app = service(tmp_path)
+    session_id = app.create_session()
+
+    def retain(text: str, *targets: str) -> str:
+        response = app.chat(text, session_id=session_id, retain=True,
+            corrects_memory_ids=targets)
+        assert response.retention["status"] == "memory_retention_committed"
+        return response.retention["memory_id"]
+
+    original = retain("I prefer detailed answers.")
+    left = retain("I prefer concise answers.", original)
+    right = retain("I prefer medium length answers.", original)
+    revised = retain("I prefer terse answers.", left)
+    invoker = FakeInvoker()
+    app = service(tmp_path, invoker)
+    query = "Explain the word terse."
+    assert app.memories.retrieve(query, limit=1)["selected_memory_ids"] == []
+    assert app.memories.retrieve(query, budget_chars=len("I prefer terse answers."))[
+        "selected_memory_ids"] == []
+
+    context = app._resident_canonical_memory_context(query)
+    assert {row["memory_id"] for row in context["records"]} == {right, revised}
+    assert context["competing_correction_groups"] == [sorted((right, revised))]
+    assert {(link["correcting_memory_id"], link["corrected_memory_id"])
+        for link in context["correction_relations"]} == {(right, original), (revised, left)}
+    assert "ask which preference the user wants applied" in (
+        _canonical_memory_correction_guidance(context))
+    app.chat(query, session_id=app.create_session())
+    prompt = invoker.requests[-1].prompt
+    assert "I prefer medium length answers." in prompt and "I prefer terse answers." in prompt
+    assert "ask which preference applies" in prompt
+    snapshot = app._verified_chat_memory_snapshot(query, budget_chars=1000)
+    compact_prompt = assemble_local_chat_context(history=ContextSnapshot(
+        "session-test", (), 0, False, "0" * 64), memory_snapshot=snapshot,
+        current_message=query, compact_history=True)
+    assert "[UNRESOLVED_MEMORY_CORRECTIONS]\n[[0,1]]" in compact_prompt
+    assert "ask which preference applies" in compact_prompt
+
+    joined = retain("I prefer short paragraphs.", right, revised)
+    context = service(tmp_path)._resident_canonical_memory_context(query)
+    assert [row["memory_id"] for row in context["records"]] == [joined]
+    assert not context.get("competing_correction_groups")
+    assert "Competing explicit corrections are present" not in (
+        _canonical_memory_correction_guidance(context))
+
+
+@pytest.mark.skipif(os.name != "posix", reason="retention publication requires POSIX")
+def test_resident_record_limit_omits_oversized_correction_group(tmp_path: Path) -> None:
+    app = service(tmp_path)
+    session_id = app.create_session()
+    original = app.chat("My cabinet label is amber.", session_id=session_id, retain=True)
+    for color in ("red", "blue", "white", "green", "black"):
+        app.chat(f"My cabinet label is {color}.", session_id=session_id,
+            retain=True, corrects_memory_ids=(original.retention["memory_id"],))
+    independent = app.chat("The cabinet holds the spare keys.", session_id=session_id,
+        retain=True)
+
+    context = service(tmp_path)._resident_canonical_memory_context("cabinet label")
+    assert [row["memory_id"] for row in context["records"]] == [
+        independent.retention["memory_id"]]
+    assert context["selection_posture"] == "matching_records_omitted"
+    assert not context.get("competing_correction_groups")
 
 
 def test_canonical_memory_retrieval_preserves_unicode_accents(

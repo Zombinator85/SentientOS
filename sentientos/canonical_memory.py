@@ -16,6 +16,7 @@ MAX_MEMORY_SCAN_ENTRIES = 4096
 MAX_MEMORY_RECORDS = 1024
 MAX_MEMORY_TOTAL_BYTES = 16 * 1024 * 1024
 MAX_MEMORY_CORRECTION_TARGETS = 8
+MAX_CHAT_CANONICAL_MEMORIES = 4
 MAX_SEMANTIC_MEMORY_RECENT_CANDIDATES = 192
 MAX_SEMANTIC_MEMORY_LEXICAL_OLDER_CANDIDATES = 32
 MAX_SEMANTIC_MEMORY_SAMPLED_OLDER_CANDIDATES = 32
@@ -90,6 +91,22 @@ def retention_request_id(operation_id: str) -> str:
         raise ValueError("retention_operation_identity_invalid")
     return "retain-request-" + hashlib.sha256(
         operation_id.encode("utf-8")).hexdigest()[:24]
+
+
+def valid_competing_correction_groups(groups: object, texts: Mapping[str, str]) -> bool:
+    """Check that groups describe disjoint, complete sets of selected alternatives."""
+    if not isinstance(groups, list) or len(groups) > len(texts) // 2:
+        return False
+    seen: set[str] = set()
+    for group in groups:
+        if (not isinstance(group, list) or not 2 <= len(group) <= len(texts)
+                or not all(isinstance(item, str) and item in texts for item in group)
+                or group != sorted(set(group)) or not seen.isdisjoint(group)):
+            return False
+        if len({" ".join(texts[item].split()).casefold() for item in group}) < 2:
+            return False
+        seen.update(group)
+    return groups == sorted(groups)
 
 
 def _validated_correction_targets(value: object, *, allow_empty: bool = False
@@ -509,7 +526,7 @@ class CanonicalMemoryStore:
             posture = "partial_duplicate_records"
         return unique, posture
 
-    def retrieve(self,query:str,*,limit:int=4,budget_chars:int=2000,
+    def retrieve(self,query:str,*,limit:int=MAX_CHAT_CANONICAL_MEMORIES,budget_chars:int=2000,
             semantic_model_id: str | None = None,
             semantic_model_revision: str | None = None,
             record_validator: Callable[[Mapping[str, Any]], bool] | None = None
@@ -572,7 +589,6 @@ class CanonicalMemoryStore:
         by_id = {record.get("id"): record for record in records
             if isinstance(record.get("id"), str)}
         superseded: dict[str, list[tuple[str, str]]] = {}
-        correction_siblings: dict[tuple[str, str], set[str]] = {}
         for correction in records:
             correction_id = correction.get("id")
             meta = correction.get("meta")
@@ -602,22 +618,37 @@ class CanonicalMemoryStore:
                     continue
                 seen_targets.add(target_id)
                 superseded.setdefault(target_id, []).append((correction_id, target_digest))
-                correction_siblings.setdefault((target_id, target_digest), set()).add(
-                    correction_id)
         historical_recall = _is_historical_memory_recall_query(query)
         eligible = [record for record in records
             if not _is_prior_message_recall_question(record["text"])
             and (historical_recall or record.get("id") not in superseded)]
         eligible_ids = {record.get("id") for record in eligible
             if isinstance(record.get("id"), str)}
-        # Distinct active corrections to one exact target form an indivisible
-        # retrieval unit. Otherwise a budget could hide one branch and present
-        # its sibling as though the user had supplied an unambiguous update.
-        competing_sibling_sets: list[set[str]] = []
-        for sibling_ids in correction_siblings.values():
-            members = {record_id for record_id in sibling_ids
-                if record_id in eligible_ids}
-            if len(members) < 2:
+        correction_alias_terms: dict[str, set[str]] = {}
+        competing_sets: list[set[str]] = []
+        for target_id, corrections in superseded.items():
+            direct_ids = {correction_id for correction_id, _ in corrections}
+            if historical_recall:
+                members = direct_ids & eligible_ids
+            else:
+                # Search old wording through every live endpoint. A revision
+                # on one branch leaves the other branches of the fork open.
+                inherited_terms = _memory_retrieval_terms(by_id[target_id]["text"])
+                members = set()
+                pending = list(direct_ids)
+                visited: set[str] = set()
+                while pending:
+                    correction_id = pending.pop()
+                    if correction_id in visited:
+                        continue
+                    visited.add(correction_id)
+                    if correction_id in superseded:
+                        pending.extend(next_id for next_id, _ in superseded[correction_id])
+                    elif correction_id in eligible_ids:
+                        members.add(correction_id)
+                        correction_alias_terms.setdefault(correction_id, set()).update(
+                            inherited_terms)
+            if len(direct_ids) < 2 or len(members) < 2:
                 continue
             texts = [by_id[record_id].get("text") for record_id in members
                 if isinstance(by_id.get(record_id), Mapping)]
@@ -626,48 +657,18 @@ class CanonicalMemoryStore:
             valid_text_count = sum(isinstance(text, str) and bool(text.strip())
                 for text in texts)
             if len(normalized_texts) > 1 or valid_text_count != len(members):
-                competing_sibling_sets.append(members)
-        merged_sibling_groups: list[set[str]] = []
-        for sibling_set in competing_sibling_sets:
-            overlapping = [group for group in merged_sibling_groups
-                if group & sibling_set]
-            merged = set(sibling_set)
+                competing_sets.append(members)
+        merged_groups: list[set[str]] = []
+        for members in competing_sets:
+            overlapping = [group for group in merged_groups if group & members]
+            merged = set(members)
             for group in overlapping:
                 merged.update(group)
-                merged_sibling_groups.remove(group)
-            merged_sibling_groups.append(merged)
-        correction_group_by_id = {
-            record_id: tuple(sorted(group))
-            for group in merged_sibling_groups for record_id in group
-        }
-        # A correction should remain findable through the wording it replaced.
-        # Carry only query terms from the superseded entry into the active
-        # correction's retrieval index; the old text itself stays out of the
-        # selected context. Follow correction chains to their unsuperseded
-        # endpoint so a query using the oldest wording reaches the current
-        # retained correction. Historical-recall queries intentionally keep
-        # their existing behavior and retrieve the retained history directly.
-        correction_alias_terms: dict[str, set[str]] = {}
-        if not historical_recall:
-            for target_id, corrections in superseded.items():
-                target = by_id.get(target_id)
-                if not isinstance(target, Mapping) or not isinstance(
-                        target.get("text"), str):
-                    continue
-                inherited_terms = _memory_retrieval_terms(target["text"])
-                pending = [correction_id for correction_id, _ in corrections]
-                visited: set[str] = set()
-                while pending:
-                    correction_id = pending.pop()
-                    if correction_id in visited:
-                        continue
-                    visited.add(correction_id)
-                    next_corrections = superseded.get(correction_id)
-                    if next_corrections:
-                        pending.extend(next_id for next_id, _ in next_corrections)
-                    elif correction_id in eligible_ids:
-                        correction_alias_terms.setdefault(correction_id, set()).update(
-                            inherited_terms)
+                merged_groups.remove(group)
+            merged_groups.append(merged)
+        ordered_groups = sorted(sorted(group) for group in merged_groups)
+        correction_group_by_id = {record_id: group
+            for group in ordered_groups for record_id in group}
         document_terms = [
             _memory_retrieval_terms(record["text"])
             | correction_alias_terms.get(str(record.get("id")), set())
@@ -787,6 +788,9 @@ class CanonicalMemoryStore:
             used += group_char_count
         identities=[(r.get("id"),r.get("text_digest") or digest({"text":r["text"]})) for r in selected]
         selected_ids = {str(record.get("id")) for record in selected}
+        selected_groups = [group for group in ordered_groups
+            if not historical_recall and selected_ids.issuperset(group)]
+        conflict_metadata = {"competing_correction_groups": selected_groups} if selected_groups else {}
         correction_relations = [{
             "correcting_memory_id": correction_id,
             "corrected_memory_id": target_id,
@@ -800,6 +804,7 @@ class CanonicalMemoryStore:
                 "legacy_sidecar_present":legacy_sidecar_present,
                 "legacy_sidecar_posture":legacy_sidecar_posture,
                 "correction_relations":correction_relations,
+                **conflict_metadata,
                 "retrieval_posture":retrieval_posture,
                 "selection_posture":selection_posture,
                 "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",
@@ -818,6 +823,7 @@ class CanonicalMemoryStore:
                 "snapshot_digest":digest({"query_digest":digest({"query":query}),"selected":identities,
                     "omitted":omitted,"selection_posture":selection_posture,
                     "correction_relations":correction_relations,
+                    **conflict_metadata,
                     "limit":limit,"budget_chars":budget_chars,"retrieval_posture":retrieval_posture,
                     "legacy_sidecar_posture":legacy_sidecar_posture,
                     "retrieval_policy_id": "weighted_lexical_semantic_refinement:v1",

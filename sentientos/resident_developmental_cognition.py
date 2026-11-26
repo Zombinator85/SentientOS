@@ -37,7 +37,8 @@ from .governed_local_model_invocation import (
     resident_objective_task_answer_output_schema,
     validate_receipt,
 )
-from .canonical_memory import sentientos_memory_dir
+from .canonical_memory import (MAX_CHAT_CANONICAL_MEMORIES, MAX_MEMORY_CORRECTION_TARGETS,
+    sentientos_memory_dir, valid_competing_correction_groups)
 from .cognition_retrieval import (
     COMPACT_CHAT_SELECTION, cognition_query_terms, is_sparse_or_elliptical_cognition_query,
     ordinary_chat_history_partition, render_ordinary_chat_integer_examples,
@@ -1834,7 +1835,7 @@ def _canonical_memory_correction_guidance(memory_context: Mapping[str, Any]) -> 
     guidance = (
         " In canonical_user_memory_context, each correction_relations row "
         "links one explicitly retained later user statement to an older "
-        "retained statement it corrects. When exactly one distinct selected "
+        "retained statement it corrects. In a resolved lineage, when exactly one distinct selected "
         "later statement corrects an older statement, use the linked later "
         "statement as the user's updated preference for defeasible personalization "
         "and cite its correcting_memory_id; do not treat the older linked statement "
@@ -1872,10 +1873,10 @@ def _canonical_memory_correction_guidance(memory_context: Mapping[str, Any]) -> 
         if len(normalized) > 1 or valid_text_count != len(correcting_ids):
             competing = True
             break
-    if competing:
+    if competing or memory_context.get("competing_correction_groups"):
         guidance += (
             " Competing explicit corrections are present: multiple distinct "
-            "later user statements link to the same corrected_memory_id. That "
+            "later user statements descend from a shared corrected statement. That "
             "correction lineage is unresolved. Do not select one by timestamp, "
             "ordering, or the correction link alone. For a directly relevant "
             "preference, briefly present the competing retained statements, cite "
@@ -18900,7 +18901,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "historical_only", "current_truth", "authority", "mutation_performed",
                 "correction_relations", "selection_digest"}
             optional_memory_fields = {"retrieval_policy_id",
-                "semantic_retrieval_posture"}
+                "semantic_retrieval_posture", "competing_correction_groups"}
             semantic_memory = {key: value for key, value in canonical_memory_context.items()
                 if key != "selection_digest"}
             retrieval_policy = canonical_memory_context.get("retrieval_policy_id")
@@ -18916,7 +18917,7 @@ class ResidentDevelopmentalCognitionOwner:
                     "no_candidates", "no_match_lexical_fallback", "unavailable",
                     "unavailable_lexical_fallback"})
             records = canonical_memory_context.get("records")
-            valid_records = isinstance(records, list) and 0 < len(records) <= 4
+            valid_records = isinstance(records, list) and 0 < len(records) <= MAX_CHAT_CANONICAL_MEMORIES
             seen_memory_ids: set[str] = set()
             if isinstance(records, list):
                 for row in records:
@@ -18953,9 +18954,10 @@ class ResidentDevelopmentalCognitionOwner:
                         break
                     seen_memory_ids.add(memory_id)
             relations = canonical_memory_context.get("correction_relations")
-            valid_relations = isinstance(relations, list) and len(relations) <= 8
-            if isinstance(relations, list):
-                seen_pairs: set[tuple[str, str]] = set()
+            valid_relations = isinstance(relations, list) and len(relations) <= (
+                len(seen_memory_ids) * MAX_MEMORY_CORRECTION_TARGETS)
+            targets_by_source: dict[str, set[str]] = {}
+            if valid_relations:
                 for relation in relations:
                     pair = (relation.get("correcting_memory_id"),
                         relation.get("corrected_memory_id")) if isinstance(
@@ -18969,7 +18971,6 @@ class ResidentDevelopmentalCognitionOwner:
                             or not isinstance(pair[1], str)
                             or not re.fullmatch(r"memory-[0-9a-f]{24}", pair[1])
                             or pair[0] == pair[1]
-                            or pair in seen_pairs
                             or not isinstance(relation.get(
                                 "corrected_memory_record_digest"), str)
                             or not re.fullmatch(r"[0-9a-f]{64}", relation[
@@ -18978,11 +18979,17 @@ class ResidentDevelopmentalCognitionOwner:
                                 != "explicit_user_correction_unverified"):
                         valid_relations = False
                         break
-                    if isinstance(pair[0], str) and isinstance(pair[1], str):
-                        seen_pairs.add((pair[0], pair[1]))
-                    else:
+                    targets = targets_by_source.setdefault(pair[0], set())
+                    if pair[1] in targets or len(targets) >= MAX_MEMORY_CORRECTION_TARGETS:
                         valid_relations = False
                         break
+                    targets.add(pair[1])
+            if valid_records and valid_relations:
+                correcting_texts = {row["memory_id"]: row["text"] for row in records
+                    if row["memory_id"] in targets_by_source}
+                valid_relations = valid_competing_correction_groups(
+                    canonical_memory_context.get("competing_correction_groups", []),
+                    correcting_texts)
             if (not expected_memory_fields.issubset(canonical_memory_context)
                     or not set(canonical_memory_context).issubset(
                         expected_memory_fields | optional_memory_fields)

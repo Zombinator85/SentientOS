@@ -31,5 +31,17 @@ and there is no autonomous retention loop. Exact long-term deletion is deferred
 until the production tomb executor matures; deleting a session must not imply
 deletion of independently retained memory.
 
+A user can correct retained statements by supplying their memory IDs with a
+new explicit retention request. For example, two corrections to “detailed”
+may say “concise” and “medium length”. Revising “concise” to “terse” leaves
+both “terse” and “medium length” open. For ordinary personalization, retrieval
+keeps competing branches in the verified records together when they fit the record and character
+budgets, and omits the whole group when they do not. Both chat prompt paths
+identify the unresolved alternatives so a relevant preference can be clarified.
+A subsequent correction linked to both alternatives resolves the fork. Direct
+links still name the exact older records, which remain available for historical
+recall. The restart regression exercises durable retention and prompt assembly
+with a simulated model invoker.
+
 First-boot readiness reports storage, retrieval, retention, and commissioned
 activation facts without creating fake sessions or starting autonomous chat.

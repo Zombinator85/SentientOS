@@ -62,9 +62,9 @@ from .conversation_session import (
     transcript_recall_terms, ordinary_chat_developmental_history_prompt_block_digest,
 )
 from .canonical_memory import (AdmittedRetentionWriter, CanonicalMemoryStore, CANDIDATE_TYPE,
-    ExplicitRetentionAdmissionGate, MAX_MEMORY_CORRECTION_TARGETS,
+    ExplicitRetentionAdmissionGate, MAX_CHAT_CANONICAL_MEMORIES, MAX_MEMORY_CORRECTION_TARGETS,
     MemorySourceVerificationDeferred, retention_request_id,
-    sentientos_data_dir, sentientos_memory_dir)
+    sentientos_data_dir, sentientos_memory_dir, valid_competing_correction_groups)
 from .cognition_retrieval import is_sparse_or_elliptical_cognition_query
 from .local_model_authority import digest_payload
 from .chat_response_grounding import (
@@ -85,7 +85,6 @@ from .perception.screen_text_delta import validate_ocr_text_line_delta
 from .screen_observation_bridge import ScreenObservationBridgeError
 
 LOGGER = logging.getLogger(__name__)
-MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES = 16
 MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL = 4
 MAX_RESIDENT_MEMORY_SOURCE_BYTES_PER_RETRIEVAL = (
     MAX_RESIDENT_MEMORY_SOURCE_SESSIONS_PER_RETRIEVAL * MAX_SESSION_BYTES)
@@ -3093,7 +3092,7 @@ class PersistentConversationService:
         if not query.strip():
             # Exact transcript recall and check-ins deliberately suppress memory.
             # Avoid loading source sessions when no query can select a record.
-            empty = self.memories.retrieve(query, limit=4, budget_chars=0)
+            empty = self.memories.retrieve(query, limit=MAX_CHAT_CANONICAL_MEMORIES, budget_chars=0)
             if (not isinstance(empty, Mapping)
                     or empty.get("read_only") is not True
                     or not isinstance(empty.get("snapshot_digest"), str)
@@ -3101,7 +3100,7 @@ class PersistentConversationService:
                 raise ChatRequestStateError("canonical_memory_snapshot_invalid")
             return dict(empty)
         validate_record, verified_records = self._canonical_memory_source_verifier()
-        retrieve_kwargs: dict[str, Any] = {"limit": 4,
+        retrieve_kwargs: dict[str, Any] = {"limit": MAX_CHAT_CANONICAL_MEMORIES,
             "budget_chars": budget_chars, "record_validator": validate_record}
         retrieve_kwargs.update(self._semantic_memory_retrieval_kwargs())
         retrieved = self.memories.retrieve(query, **retrieve_kwargs)
@@ -3129,6 +3128,9 @@ class PersistentConversationService:
             "inspected_candidates_passed", "inspected_candidates_rejected",
             "inspected_candidates_deferred"}
         filtered_count = len(retrieved["memories"]) - len(selected)
+        if not valid_competing_correction_groups(retrieved.get("competing_correction_groups", []),
+                {record["id"]: record["text"] for record in selected}):
+            raise ChatRequestStateError("canonical_memory_snapshot_invalid")
         source_verification_incomplete = (
             validation_posture not in recognized_validation_postures
             or validation_posture in {"inspected_candidates_rejected",
@@ -3167,7 +3169,7 @@ class PersistentConversationService:
         validate_record, verified_records = self._canonical_memory_source_verifier()
 
         retrieve_kwargs: dict[str, Any] = {
-            "limit": MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES,
+            "limit": MAX_CHAT_CANONICAL_MEMORIES,
             "budget_chars": self.memory_budget_chars,
             "record_validator": validate_record,
         }
@@ -3182,7 +3184,7 @@ class PersistentConversationService:
         used = 0
         seen_ids: set[str] = set()
         for record in retrieved["memories"]:
-            if len(selected) >= 4:
+            if len(selected) >= MAX_CHAT_CANONICAL_MEMORIES:
                 break
             if not isinstance(record, Mapping):
                 continue
@@ -3252,6 +3254,11 @@ class PersistentConversationService:
             "historical_only": True, "current_truth": False,
             "authority": False, "mutation_performed": False,
         }
+        if retrieved.get("competing_correction_groups"):
+            if not valid_competing_correction_groups(retrieved["competing_correction_groups"],
+                    {row["memory_id"]: row["text"] for row in selected}):
+                return None
+            semantic["competing_correction_groups"] = retrieved["competing_correction_groups"]
         return {**semantic, "selection_digest": digest_payload(semantic)}
 
     def _resident_historical_citation_context(self, *, bridge: Any,

@@ -144,7 +144,7 @@ def test_resident_memory_verifies_beyond_untrusted_top_candidates(tmp_path, monk
 
     def retrieve(query, *, limit, budget_chars, record_validator):
         assert query == "When is the Atlas meeting?"
-        assert limit == chat_service.MAX_RESIDENT_CANONICAL_MEMORY_CANDIDATES
+        assert limit == 4
         assert budget_chars == conversation_service.memory_budget_chars
         verified = [record for record in candidates if record_validator(record)]
         return {"read_only": True, "snapshot_digest": "a" * 64,
