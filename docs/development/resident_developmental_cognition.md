@@ -6585,3 +6585,28 @@ Recreate the diagnostic from the frozen run with:
 ```bash
 python -m work.analyze_ordinary_chat_novel_transfer <run-directory> <evidence-diagnostic.json>
 ```
+
+### Balanced transfer-distance ladder preflight
+
+The next probe removes the sibling-history evidence imbalance and tests one
+shared parent record against an empty-history control. It captures three
+disjoint probe tiers in fresh sessions: near (`1001`, `1013`, `1097`), middle
+(`5003`, `7777`, `10007`), and far (`60013`, `200003`, `900001`). Every tier
+uses the same ordinary-chat question template; within each tier, the rendered
+prompts match outside the developmental-history block. Each history-present
+prompt selects the same frozen parent record with three correct examples
+consistent with the fixed `2x+1` mapping; the empty control exposes no scored
+examples. The preflight also checks the probes against parent history and all
+earlier reference probes.
+
+The [saved ladder preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-preflight-v1.json)
+is model-free. It does not create a Hermes-bound plan or run inference. A later
+execution should bind the model identity, generation settings, and trial order,
+then report exact-answer accuracy and strict JSON validity separately within
+each distance tier. This estimates immediate transfer from one durable record
+across ranges; it does not by itself establish durable learning or attribute
+the original acquisition of that record. Reconstruct the evidence with:
+
+```bash
+python -m work.preflight_ordinary_chat_transfer_distance_ladder <cycles-root> --verify-report <report.json>
+```
