@@ -35,7 +35,8 @@ def test_cited_score_keeps_citation_separate_from_row_accuracy():
     cited_grade = score_cited_answer(answer, {"some-other-record": profiles["first"]})
     assert cited_grade == {"format": "valid", "exact_profiles": ["some-other-record"],
                            "cited_record": "some-other-record"}
-    assert score_cited_answer("```json\n" + answer + "\n```", profiles)["format"] == "invalid"
+    assert score_cited_answer("```json\n" + answer + "\n```", profiles) == expected
+    assert score_cited_answer("```json\n" + answer + "\n```\n```", profiles)["format"] == "invalid"
     assert score_cited_answer(answer + "\n" + answer, profiles)["format"] == "invalid"
     assert score_cited_answer('{"rows":[]}', profiles)["format"] == "invalid"
 

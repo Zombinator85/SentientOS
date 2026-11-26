@@ -6131,4 +6131,8 @@ contains enough structured information for exact transcription; it is not a
 model response and provides no evidence of learning. No inference was run to
 produce this diagnostic. The [regrade implementation](../../work/regrade_sibling_chat_packet.py)
 records both measures separately and retains hashes of the original plan and
-results.
+results. The reusable scorer now implements the declared fenced-object rule
+for new cited runs under protocol v3. The verifier keeps protocol v2's original
+scoring when checking its saved result, so historical scores remain
+reproducible and are not silently rewritten. No new model call is needed to
+apply this correction.

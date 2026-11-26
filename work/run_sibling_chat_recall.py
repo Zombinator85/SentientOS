@@ -158,11 +158,27 @@ def score_answer(text, profiles):
 
 
 def score_cited_answer(text, profiles):
-    """Allow a single JSON fence. Score row content independently of the stated citation."""
+    """Allow one protocol-approved JSON fence; score rows separately from citation."""
+    try:
+        stripped = text.strip()
+        if stripped.startswith("```json\n") and stripped.endswith("\n```"):
+            stripped = stripped[len("```json\n"):-len("\n```")].strip()
+        value = json.loads(stripped)
+    except ValueError:
+        value = None
+    return _score_cited_value(value, profiles)
+
+
+def score_cited_answer_v2_legacy(text, profiles):
+    """Reproduce the original v2 scorer when validating its immutable saved scores."""
     try:
         value = json.loads(text.strip())
     except ValueError:
         value = None
+    return _score_cited_value(value, profiles)
+
+
+def _score_cited_value(value, profiles):
     if (not isinstance(value, dict) or set(value) != {"record_id", "rows"}
             or not (value["record_id"] is None or isinstance(value["record_id"], str))):
         return {"format": "invalid", "exact_profiles": [], "cited_record": None}
@@ -264,7 +280,7 @@ def run(cycles, install, models, root, *, cited=False):
                 if profiles.setdefault(profile, oracle) != oracle:
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
-        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + ("v2" if cited else "v1"), "model": MODEL,
+        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + ("v3" if cited else "v1"), "model": MODEL,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
                 "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
@@ -274,7 +290,8 @@ def run(cycles, install, models, root, *, cited=False):
         if cited:
             plan["criterion"] = ("One JSON object with record_id and rows. A single Markdown JSON fence is accepted. "
                 "Score exact rows against every profile, independently of the citation. Passing also requires the "
-                "source record ID, null for empty history, or inline-example for the direct-reading control.")
+                "source record ID, null for empty history, or inline-example for the direct-reading control. "
+                "The scorer removes exactly one surrounding ```json fence before parsing.")
         save(root / "plan.json", plan)
         plan_hash = sha((root / "plan.json").read_bytes())
         trials = []

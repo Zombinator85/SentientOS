@@ -9,16 +9,18 @@ from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
     INLINE_REPORT, INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
-    score_answer, score_cited_answer, sha,
+    score_answer, score_cited_answer, score_cited_answer_v2_legacy, sha,
 )
 
 
 def verify(path):
     plan_file = path / "plan.json"
     plan, result, archive = read(plan_file), read(path / "result.json"), read(SOURCE_REPORT)
-    if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2"}:
+    if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2",
+                              "sentientos.sibling_chat_recall_plan:v3"}:
         raise ValueError("unknown recall protocol")
-    cited = plan["schema"].endswith(":v2")
+    cited = plan["schema"].endswith((":v2", ":v3"))
+    legacy_cited_scoring = plan["schema"].endswith(":v2")
     trials = conditions(cited)
     plan_hash = sha(plan_file.read_bytes())
     configuration_digest = candidate_configuration_digest_from_payload({
@@ -78,7 +80,8 @@ def verify(path):
         references.add(disk["receipt_id"])
         if trial["delivered"] != trial["model_output"].strip():
             raise ValueError("delivered text differs from the receipted model response")
-        grade = (score_cited_answer if cited else score_answer)(trial["delivered"], profiles)
+        scorer = (score_cited_answer_v2_legacy if legacy_cited_scoring else score_cited_answer) if cited else score_answer
+        grade = scorer(trial["delivered"], profiles)
         expected = ("inline" if scope == "inline" else "empty" if arm == "empty"
                     else "shared_low" if scope == "low" else key)
         exact = expected in grade["exact_profiles"]
