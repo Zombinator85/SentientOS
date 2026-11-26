@@ -1,0 +1,12 @@
+{
+  "comparison_control": "matched history and empty arms with strict JSON output",
+  "gpu_layers": 24,
+  "inference_performed": true,
+  "learning_established": false,
+  "model_invoked": true,
+  "plan_sha256": "34aed5acd735e975cc4dcce74cb3026bd166d9edcf3b98d13c96cf373baa05e6",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_full_run_package:v1",
+  "separate_receipt_count": 6,
+  "source_reference": "source-reference.json",
+  "trial_count": 6
+}

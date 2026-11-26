@@ -4,9 +4,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, Mapping
 
 from sentientos.developmental_model_replacement_experiment import (
     FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
@@ -20,6 +21,7 @@ from work.preflight_ordinary_chat_retention import (
     PARAPHRASE_PROBES, PILOT, PROBES, _owner, _read_receipt, _service_request,
     _source_kinds_from_history,
 )
+from scripts.preflight_resident_strategy_inclusion_pair import _copy_without_symlinks
 from work.preflight_sibling_chat_histories import (
     CYCLES, ROOT, TARGET, admitted_boundary, archive, read,
 )
@@ -32,9 +34,9 @@ TIERS = {
     "far": (60013, 200003, 900001),
 }
 SOURCE_NEAR_TIERS = {
-    "near": (11, 13, 17),
-    "middle": (23, 29, 31),
-    "far": (47, 59, 61),
+    "near": (10, 11, 12),
+    "middle": (14, 15, 16),
+    "far": (19, 20, 21),
 }
 QUESTION_TEMPLATE = (
     "Earlier we practiced a number prediction exercise. What outputs should go "
@@ -48,6 +50,25 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def _snapshot_sha(root: Path) -> str:
+    entries = []
+    for path in sorted(p for p in root.rglob("*") if p.is_file() and not p.name.endswith(".lock")):
+        if path.is_symlink():
+            raise ValueError("parent snapshot cannot contain symlinks")
+        entries.append({"path": path.relative_to(root).as_posix(),
+                        "size": path.stat().st_size,
+                        "sha256": _sha(path.read_bytes())})
+    return "sha256:" + _sha(json.dumps(entries, sort_keys=True, separators=(",", ":")).encode())
+
+
+def _copy_private_snapshot(source: Path, destination: Path) -> None:
+    _copy_without_symlinks(source, destination)
+    if os.name == "posix":
+        for path in sorted(destination.rglob("*"), reverse=True):
+            path.chmod(0o700 if path.is_dir() else 0o600)
+        destination.chmod(0o700)
+
+
 def _answer_commitment(inputs: tuple[int, ...], task_family: str) -> str:
     mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
     return "sha256:" + digest_payload({
@@ -57,15 +78,30 @@ def _answer_commitment(inputs: tuple[int, ...], task_family: str) -> str:
     })
 
 
-def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = TIERS,
+def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, ...]] = TIERS,
                  ladder_design: str = "balanced_magnitude_v1",
-                 task_family: str = ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY) -> dict[str, Any]:
+                 task_family: str = ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+                 parent_snapshot: Path | None = None,
+                 identity_plan: Mapping[str, Any] | None = None) -> dict[str, Any]:
     cycles = cycles_root
-    target_cycle = cycles / ("rootless-cognition-cycle-" + TARGET)
-    parent_cycle = cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
+    target_cycle = (cycles / ("rootless-cognition-cycle-" + TARGET)
+                    if cycles_root is not None else None)
+    parent_cycle = (cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
+                    if cycles_root is not None else None)
     prior = read(SOURCE_REPORT)
-    request = _read_receipt(target_cycle)[1]["request"]
-    identity = request["active_model_identity"]
+    if parent_snapshot is not None:
+        if identity_plan is None or "model_identity" not in identity_plan:
+            raise ValueError("snapshot mode requires a frozen model-bound plan for identity")
+        identity = identity_plan["model_identity"]
+        request = {"active_model_identity": identity,
+                   "model_id": identity_plan.get("model"),
+                   "model_artifact_digest": identity_plan.get("model_manifest_sha256"),
+                   "authority_map_digest": "snapshot-replay-no-inference"}
+    else:
+        if target_cycle is None or parent_cycle is None:
+            raise ValueError("provide either a cycles root or parent snapshot plus identity plan")
+        request = _read_receipt(target_cycle)[1]["request"]
+        identity = request["active_model_identity"]
     ranges = FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[task_family]
     mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
     if (mapping != FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[
@@ -90,8 +126,15 @@ def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = 
 
     with tempfile.TemporaryDirectory(prefix="sentientos-transfer-distance-ladder-") as temp:
         root = Path(temp)
-        parent_root = root / "history" / "resident-cognition"
-        _, _, _, _, _ = archive(parent_cycle, parent_root)
+        parent_cycle_copy = root / "verified-parent-cycle"
+        parent_root = parent_cycle_copy / "resident-cognition"
+        if parent_snapshot is not None:
+            _copy_private_snapshot(parent_snapshot / "resident-cognition", parent_root)
+            _copy_private_snapshot(parent_snapshot / "inference-custody" / "receipts",
+                                   parent_cycle_copy / "inference-custody" / "receipts")
+            parent_cycle = parent_cycle_copy
+        else:
+            _, _, _, _, _ = archive(parent_cycle, parent_root)
         kinds = _source_kinds_from_history(parent_root / "history")
         owner = _owner(parent_root, kinds, parent_cycle, request)
         baseline_arm = prior["arms"]["parent"]
@@ -112,7 +155,7 @@ def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = 
 
         empty_root = root / "empty" / "resident-cognition"
         empty_root.mkdir(parents=True)
-        empty_owner = _owner(empty_root, kinds, target_cycle, request)
+        empty_owner = _owner(empty_root, kinds, parent_cycle, request)
         expected_evidence = prior["questions"]["novel_range_transfer"]["captures"]["parent"][
             "prompt_score_evidence"]
         if len(expected_evidence) != 1 or len(expected_evidence[0]["examples"]) != 3:
@@ -135,8 +178,10 @@ def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = 
             captures: dict[str, Any] = {}
             bases: dict[str, str] = {}
             for arm, current_owner in (("history", owner), ("empty", empty_owner)):
+                chat_root = root / "chats" / tier / arm
+                chat_root.mkdir(parents=True, exist_ok=True)
                 base, capture = _service_request(current_owner,
-                    root / "chats" / tier / arm, identity, question)
+                    chat_root, identity, question)
                 bases[arm] = base
                 captures[arm] = capture
             if (bases["history"] != bases["empty"]
@@ -193,6 +238,17 @@ def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = 
             "support_task_family_id": expected_evidence[0]["task_family_id"],
             "support_rows": support_rows,
             "support_rows_all_correct_and_mapping_consistent": True,
+            "parent_history_boundary_digest": admitted_boundary(owner.writeback.inspect_completed_records()),
+            "parent_snapshot_tree_sha256": (_snapshot_sha(parent_snapshot)
+                if parent_snapshot is not None else None),
+            "parent_snapshot_cycle_attestation_present": parent_snapshot is None,
+            "identity_plan_payload_sha256": (_sha(json.dumps(identity_plan, sort_keys=True,
+                separators=(",", ":")).encode()) if identity_plan is not None else None),
+            "identity_binding": ({
+                "model": identity_plan.get("model"),
+                "model_manifest_sha256": identity_plan.get("model_manifest_sha256"),
+                "model_identity": identity_plan.get("model_identity"),
+            } if identity_plan is not None else None),
             "answer_values_withheld": True,
             "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
             "primary_outcome": "History-minus-empty exact-answer count within each distance tier.",
@@ -208,26 +264,45 @@ def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("cycles_root", type=Path)
+    parser.add_argument("cycles_root", type=Path, nargs="?")
     parser.add_argument("output", type=Path, nargs="?")
     parser.add_argument("--verify-report", type=Path)
     parser.add_argument("--tier-set", choices=("balanced", "source-near"), default="balanced")
+    parser.add_argument("--parent-snapshot", type=Path,
+        help="Verified resident-cognition plus inference-custody snapshot directory")
+    parser.add_argument("--identity-plan", type=Path,
+        help="Existing frozen plan whose model identity should be used for snapshot replay")
+    parser.add_argument("--output-report", type=Path,
+        help="Output path when cycles_root is omitted for snapshot replay")
     args = parser.parse_args()
+    if args.parent_snapshot is not None:
+        if args.cycles_root is not None or args.identity_plan is None:
+            parser.error("--parent-snapshot requires --identity-plan and replaces cycles_root")
+        identity_plan = read(args.identity_plan)
+    else:
+        if args.cycles_root is None or args.identity_plan is not None:
+            parser.error("provide cycles_root, or --parent-snapshot with --identity-plan")
+        identity_plan = None
     tiers, design, family = ((SOURCE_NEAR_TIERS, "source_near_progression_v1",
                               ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY)
                      if args.tier_set == "source-near" else
                      (TIERS, "balanced_magnitude_v1",
                       ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY))
-    report = build_report(args.cycles_root, tiers, design, family)
+    report = build_report(args.cycles_root, tiers, design, family,
+                          parent_snapshot=args.parent_snapshot,
+                          identity_plan=identity_plan)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.verify_report is not None:
         if json.loads(args.verify_report.read_text(encoding="utf-8")) != report:
             raise ValueError("saved distance-ladder preflight differs from reconstructed evidence")
         print("distance_ladder_preflight_reconstructed",
               _sha(args.verify_report.read_bytes()), flush=True)
-    elif args.output is not None:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(encoded, encoding="utf-8")
+    elif args.output is not None or args.output_report is not None:
+        output_path = args.output_report or args.output
+        if args.output is not None and args.output_report is not None:
+            parser.error("use either positional output or --output-report, not both")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(encoded, encoding="utf-8")
     else:
         parser.error("provide output or --verify-report")
 

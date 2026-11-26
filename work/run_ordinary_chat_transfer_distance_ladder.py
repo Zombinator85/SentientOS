@@ -17,6 +17,8 @@ from sentientos.local_model import LocalModel
 from sentientos.local_model_authority import build_local_model_authority_map, digest_payload
 from sentientos.rootless_experimental_local_model import _resource_governed_kernel, _rootless_governance_custody
 from work.preflight_ordinary_chat_retention import _owner, _read_receipt, _service_request, _source_kinds_from_history
+from scripts.preflight_resident_strategy_inclusion_pair import _copy_without_symlinks
+from work.preflight_ordinary_chat_transfer_distance_ladder import _snapshot_sha
 from work.preflight_sibling_chat_histories import CYCLES, ROOT, TARGET, admitted_boundary, archive, read
 from work.run_sibling_chat_recall import (
     BASE, MODEL_MANIFESTS, VerifiedChat, get_api, model_server, record_failed_trial, save, sha,
@@ -82,7 +84,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         gpu_layers: int = GPU_LAYERS, strict_json_output: bool = False,
         derive_rule_from_history: bool = False,
         explicit_rule_calibration: bool = False,
-        report_path: Path | None = None) -> None:
+        report_path: Path | None = None,
+        parent_snapshot: Path | None = None) -> None:
     if type(gpu_layers) is not int or not 1 <= gpu_layers <= 128:
         raise ValueError("transfer-ladder inference requires 1 through 128 GPU layers")
     if not preflight_only and expected_plan_sha256 is None:
@@ -105,8 +108,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True):
         raise ValueError("distance-ladder model-free preflight is not qualified")
-    target_cycle = cycles / ("rootless-cognition-cycle-" + TARGET)
-    historical_request = _read_receipt(target_cycle)[1]["request"]
+    target_cycle = (cycles / ("rootless-cognition-cycle-" + TARGET)
+                    if cycles is not None and parent_snapshot is None else None)
 
     with model_server(install, models, root, MODEL, manifest_digest) as (manifest, version), \
             _rootless_governance_custody(root):
@@ -119,6 +122,26 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         authority = build_local_model_authority_map(config, allowed_roots=[manifest.parent])
         model = LocalModel.load_candidate(0, config=config)
         identity = model.active_identity.to_dict()
+        identity_binding = protocol.get("identity_binding")
+        if parent_snapshot is not None:
+            if (not isinstance(identity_binding, dict)
+                    or identity_binding.get("model") != MODEL
+                    or identity_binding.get("model_manifest_sha256") != manifest_digest
+                    or identity_binding.get("model_identity") != identity
+                    or _snapshot_sha(parent_snapshot) != protocol.get("parent_snapshot_tree_sha256")):
+                raise ValueError("parent snapshot or model identity differs from the frozen source-near report")
+        if target_cycle is not None:
+            historical_request = _read_receipt(target_cycle)[1]["request"]
+        else:
+            if parent_snapshot is None:
+                raise ValueError("cycles root or a bound parent snapshot is required")
+            historical_request = {
+                "active_model_identity": identity,
+                "model_id": MODEL,
+                "model_artifact_digest": manifest_digest,
+                "authority_map_digest": authority.map_digest,
+                "authority_map_policy_digest": authority.policy_digest,
+            }
         if not authority.record_for_active_identity(model.active_identity, "local_user_chat"):
             raise ValueError("ordinary-chat model identity is ineligible")
         inference = DistanceLadderChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
@@ -127,18 +150,32 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         inference.derive_rule_from_history = derive_rule_from_history
         inference.explicit_rule_calibration = explicit_rule_calibration
 
-        parent_cycle = cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
         history_root = root / "history" / "resident-cognition"
-        archive(parent_cycle, history_root)
+        if parent_snapshot is None:
+            parent_cycle = cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
+            archive(parent_cycle, history_root)
+        else:
+            _copy_without_symlinks(parent_snapshot / "resident-cognition", history_root)
+            _copy_without_symlinks(parent_snapshot / "inference-custody" / "receipts",
+                                   history_root.parent / "inference-custody" / "receipts")
+            if os.name == "posix":
+                for path in sorted(history_root.parent.rglob("*"), reverse=True):
+                    if path.is_dir():
+                        path.chmod(0o700)
+                    elif path.is_file():
+                        path.chmod(0o600)
+                history_root.parent.chmod(0o700)
+            parent_cycle = history_root.parent
         kinds = _source_kinds_from_history(history_root / "history")
         history_owner = _owner(history_root, kinds, history_root.parent, historical_request)
-        exposure_report = read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")
-        if admitted_boundary(history_owner.writeback.inspect_completed_records()) != exposure_report[
-                "arms"]["parent"]["admitted_boundary_digest"]:
+        expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
+            else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
+                "arms"]["parent"]["admitted_boundary_digest"])
+        if admitted_boundary(history_owner.writeback.inspect_completed_records()) != expected_boundary:
             raise ValueError("parent history differs from the archived transfer source")
         empty_root = root / "empty" / "resident-cognition"
         empty_root.mkdir(parents=True)
-        empty_owner = _owner(empty_root, kinds, target_cycle, historical_request)
+        empty_owner = _owner(empty_root, kinds, target_cycle or parent_cycle, historical_request)
         owners = {"history": history_owner, "empty": empty_owner}
         snapshots = {arm: owner.ordinary_chat_developmental_history_state_snapshot()
                      for arm, owner in owners.items()}
@@ -176,6 +213,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             "source_report_sha256": sha(selected_report.read_bytes()),
             "ladder_design": protocol.get("ladder_design", "balanced_magnitude_v1"),
             "task_family_id": protocol.get("task_family_id"),
+            "parent_snapshot_tree_sha256": protocol.get("parent_snapshot_tree_sha256"),
             "model": MODEL, "model_manifest_sha256": manifest_digest,
             "model_identity": identity, "ollama_version": version,
             "options": options, "context_tokens": config.max_context_tokens,
@@ -289,6 +327,8 @@ if __name__ == "__main__":
         help="Supply the mapping equally to both arms as an arithmetic/format calibration")
     parser.add_argument("--report", type=Path,
         help="Use a separately frozen model-free protocol report")
+    parser.add_argument("--parent-snapshot", type=Path,
+        help="Use the parent snapshot whose history boundary is bound by the report")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory,
         expected_plan_sha256=args.expected_plan_sha256,
@@ -296,4 +336,4 @@ if __name__ == "__main__":
         strict_json_output=args.strict_json_output,
         derive_rule_from_history=args.derive_rule_from_history,
         explicit_rule_calibration=args.explicit_rule_calibration,
-        report_path=args.report)
+        report_path=args.report, parent_snapshot=args.parent_snapshot)

@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
@@ -161,6 +162,14 @@ class _CapturedRequest(Exception):
 
 def _service_request(owner, root, identity, question=QUESTION, *, bind_invocation=False,
                      capture_adapter=None, capture_history_instruction=False):
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "sessions").mkdir(exist_ok=True)
+    (root / "memory").mkdir(exist_ok=True)
+    if os.name == "posix":
+        root.chmod(0o700)
+        (root / "sessions").chmod(0o700)
+        (root / "memory").chmod(0o700)
+
     class CaptureOnly:
         def current_conversation_model_identity(self):
             return identity

@@ -6841,16 +6841,39 @@ observed values.
 The existing novel-range task family begins at input 1,001, so it cannot host
 a genuinely source-near tier. The model-free ladder builder now supports a
 separate `rootless_integer_affine_transfer_source_near_v9` family covering
-inputs 10–1,000, with frozen progression tiers 11/13/17, 23/29/31, and
-47/59/61. These values avoid the documented pilot and prior retention probes;
-the builder still checks every value against the live parent history and the
-complete frozen probe inventory before it emits a qualified report. The
-existing wide-magnitude ladder remains the default and its report is not
-rewritten.
+inputs 10–1,000, with frozen progression tiers 10/11/12, 14/15/16, and
+19/20/21. The nearest tier starts five input units above the largest support
+example. These values avoid the documented pilot, prior retention probes, and
+the full saved parent history. The existing wide-magnitude ladder remains the
+default and its report is not rewritten.
 
-To build the source-near report, use the same archived cycles root as the
-ordinary-chat preflight and pass `--tier-set source-near`. The report can then
-be supplied to the runner with `--report` and to the independent scorer with
-`--preflight-report`; both bind the selected report hash and task family into
-their artifacts. The cycles archive was not present in this checkout during
-this update, so no source-near report or inference result is claimed yet.
+The source-near [model-free preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v1.json)
+was reconstructed from the saved parent snapshot because the cycle directory
+was absent. All 39 completed history records and their receipts reproduced the
+previously frozen admitted-history boundary digest
+`53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b`; the
+preflight also binds the snapshot tree hash and the model identity plan. It
+retrieved the same three correct support examples for each history prompt,
+kept the empty prompts history-free, and recorded no probe overlap. The report
+is reproducible with `--parent-snapshot` and `--identity-plan` and verifies
+without inference. The parent snapshot lacks the original cycle result and
+preregistration, so that provenance limitation is explicit in the report.
+
+The report can be supplied to the runner with `--report` and
+`--parent-snapshot`, then to the independent scorer with `--preflight-report`;
+both bind the selected report hash and task family into their artifacts.
+
+The pinned Hermes strict-JSON run used execution-plan hash
+`34aed5acd735e975cc4dcce74cb3026bd166d9edcf3b98d13c96cf373baa05e6`. All six
+outputs were valid JSON. Exact accuracy was `0/9` in the history arm and `0/9`
+in the empty arm across the three tiers. The empty arm abstained on all nine
+probes. The history arm returned `[15, 16, 17]` for inputs 10/11/12, abstained
+for inputs 14/15/16, and returned `[20, 21, 22]` for inputs 19/20/21; both
+non-null sets were wrong under the frozen `2x + 1` key. Thus history exposure
+coincided with guesses in the nearest and farthest tiers without improving
+accuracy. This single deterministic pass does not establish durable learning
+or a general causal effect; each arm/tier has one trial. The isolated Ollama
+server was stopped and GPU memory returned to the 1,140 MiB desktop baseline.
+The [full run package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-full-v1/)
+contains the plan, raw outputs, six governed receipts, independently
+reproduced score, and source references.

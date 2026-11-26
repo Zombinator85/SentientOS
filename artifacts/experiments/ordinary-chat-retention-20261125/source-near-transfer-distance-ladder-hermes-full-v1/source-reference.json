@@ -1,0 +1,23 @@
+{
+  "execution_plan_sha256": "34aed5acd735e975cc4dcce74cb3026bd166d9edcf3b98d13c96cf373baa05e6",
+  "inference_receipt_count": 6,
+  "learning_established": false,
+  "model_bound_plan_sha256": "34aed5acd735e975cc4dcce74cb3026bd166d9edcf3b98d13c96cf373baa05e6",
+  "parent_history_boundary_digest": "53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b",
+  "parent_snapshot_cycle_attestation_present": false,
+  "parent_snapshot_tree_sha256": "sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0",
+  "preflight_report": "../source-near-transfer-distance-ladder-preflight-v1.json",
+  "preflight_report_sha256": "a04ea825e90d26e53a32cc42a5bf74094862d00bf76c801373b4af27a7ade6d5",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_source_reference:v1",
+  "scorer_source_sha256": "69bd788be81d48ec1078999daab7c3a1335b3590c298fc72ea173a83a883ce23",
+  "source_code_sha256": {
+    "sentientos/chat_service.py": "af1702d615f9ac2041ec1f478aa92c8b82ddbaef298e1b3c2d3a473df467244e",
+    "sentientos/conversation_session.py": "251b2cdcb7815dcf2afed417621aa579f5cf8ea4cddd8428e67f6779598c3a44",
+    "sentientos/resident_developmental_cognition.py": "f6f068783cdd382376f94aa42ede7eb23f85f00eac2c4a3ea924fe152572977a",
+    "work/preflight_ordinary_chat_retention.py": "9cbac4569233d1e5cd5dbd4fe1d416872c591c19e66dff37697d378bc608155d",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py": "377c7a134030c1e337fb4b034497264c5e769167927442c4233d41cf2eef4af2",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
+    "work/run_ordinary_chat_transfer_distance_ladder.py": "e9c416fe16dcfb0f61e3acc8d2dc6b8848e0212af599d4093e5bdcdab7077714",
+    "work/run_sibling_chat_recall.py": "ccef5e003c9259db4c1e063df1c7899bf9e485295df2a19b480a5332a5e7e387"
+  }
+}
