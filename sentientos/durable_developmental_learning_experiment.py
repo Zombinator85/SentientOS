@@ -31,6 +31,7 @@ PROTOCOL_SCHEMA_V10 = "sentientos.durable_developmental_learning_protocol:v10"
 _PROTOCOL_SCHEMA_V10 = PROTOCOL_SCHEMA_V10
 PROTOCOL_SCHEMA_V11 = "sentientos.durable_developmental_learning_protocol:v11"
 _PROTOCOL_SCHEMA_V11 = PROTOCOL_SCHEMA_V11
+CURRENT_PROTOCOL_SCHEMA = PROTOCOL_SCHEMA_V11
 _V10_PROTOCOL_SCHEMAS = {_PROTOCOL_SCHEMA_V10, _PROTOCOL_SCHEMA_V11}
 _COMPETENCE_ASSESSMENT_SCHEMA_V1 = (
     "sentientos.durable_learning_competence_assessment:v1")
@@ -84,7 +85,8 @@ def _durable_learning_v11_gate_lock(store: Any) -> Iterator[None]:
                 os.close(descriptor)
 _STRATEGY_PROBE_PROTOCOL_SCHEMAS = {
     _PROTOCOL_SCHEMA_V9, *_V10_PROTOCOL_SCHEMAS}
-PROTOCOL_SCHEMA = "sentientos.durable_developmental_learning_protocol:v8"
+PROTOCOL_SCHEMA_V8 = "sentientos.durable_developmental_learning_protocol:v8"
+PROTOCOL_SCHEMA = CURRENT_PROTOCOL_SCHEMA
 _CONSOLIDATION_INTENT_SCHEMA_V1 = (
     "sentientos.durable_learning_consolidation_intent:v1")
 _CONSOLIDATION_INTENT_SCHEMA_V2 = (
@@ -832,12 +834,12 @@ def _verify_condition_worker_baseline_read_access_setup(value: Any, *,
         raise ValueError(
             "durable_learning_worker_baseline_read_access_setup_digest_invalid")
     return dict(value)
-_BRANCH_PROTOCOL_SCHEMAS = {_PROTOCOL_SCHEMA_V7, PROTOCOL_SCHEMA,
+_BRANCH_PROTOCOL_SCHEMAS = {_PROTOCOL_SCHEMA_V7, PROTOCOL_SCHEMA_V8,
     *_STRATEGY_PROBE_PROTOCOL_SCHEMAS}
-_POLICY_PROTOCOL_SCHEMAS = {PROTOCOL_SCHEMA,
+_POLICY_PROTOCOL_SCHEMAS = {PROTOCOL_SCHEMA_V8,
     *_STRATEGY_PROBE_PROTOCOL_SCHEMAS}
 _SUPPORTED_PROTOCOL_SCHEMAS = (_PROTOCOL_SCHEMA_V5, _PROTOCOL_SCHEMA_V6,
-    _PROTOCOL_SCHEMA_V7, PROTOCOL_SCHEMA,
+    _PROTOCOL_SCHEMA_V7, PROTOCOL_SCHEMA_V8,
     *_STRATEGY_PROBE_PROTOCOL_SCHEMAS)
 PROTOCOL_ID_PREFIX = "devexp-durable-learning-protocol-"
 MAX_TASKS_PER_PHASE = 255
@@ -1704,18 +1706,25 @@ def make_durable_learning_protocol(*, acquisition_tasks: Sequence[Any],
         scorer_software_digest: str,
         generation_config_digest: str, scoring_rubric_digest: str,
         minimum_delay_seconds: int, protocol_nonce: str,
-        _protocol_schema: str = PROTOCOL_SCHEMA,
+        _protocol_schema: str | None = None,
         protocol_schema: str | None = None,
         condition_branch_ids: Mapping[str, str] | None = None,
         exclusion_auditor_public_key: str | None = None,
         exclusion_auditor_software_digest: str | None = None,
         minimum_withheld_acquisition_correct_probe_count: int | None = None
         ) -> dict[str, Any]:
-    """Create a protocol using the current preregistered audit policy."""
+    """Create a protocol using v11's preregistered competence gate by default.
+
+    Older schemas remain available through explicit ``protocol_schema`` or
+    the legacy private ``_protocol_schema`` argument for digest-preserving
+    replay. A new v11 protocol must set its withheld-acquisition threshold.
+    """
     if protocol_schema is not None:
-        if _protocol_schema != PROTOCOL_SCHEMA:
+        if _protocol_schema is not None:
             raise ValueError("durable_learning_protocol_schema_ambiguous")
         _protocol_schema = protocol_schema
+    if _protocol_schema is None:
+        _protocol_schema = PROTOCOL_SCHEMA
     if _protocol_schema not in _SUPPORTED_PROTOCOL_SCHEMAS:
         raise ValueError("durable_learning_protocol_schema_unsupported")
     return _build_durable_learning_protocol_artifact(

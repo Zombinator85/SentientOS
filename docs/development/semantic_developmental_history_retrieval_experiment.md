@@ -533,6 +533,14 @@ original digests and behavior. This gate makes an unqualified delayed result
 ineligible for interpretation; it does not establish learning or make a
 delayed experiment complete.
 
+New calls to `make_durable_learning_protocol()` now default to v11, and the
+public `PROTOCOL_SCHEMA` constant names that current version. A caller must
+provide the v11 withheld-acquisition minimum; an omitted threshold fails
+protocol construction. `PROTOCOL_SCHEMA_V8` remains available for explicitly
+rebuilding legacy plans. This default prevents newly created protocols from
+silently skipping the competence gate, while preserving verification of older
+protocol digests.
+
 The repository now implements Phase C preregistration in
 `sentientos/durable_developmental_learning_experiment.py`. It freezes disjoint
 acquisition and probe inputs, task commitments, retained-history state digest,
