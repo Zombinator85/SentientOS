@@ -36,10 +36,8 @@ STRICT_JSON_OUTPUT = (
     "Output one JSON object with only an answers array of three integer-or-null values, in order. "
     "No other text.")
 HISTORY_RULE_DERIVATION = (
-    "[HISTORY_RULE_DERIVATION_PROCEDURE]\n"
-    "Infer the simplest plausible input-output rule that fits the available developmental-history examples, "
-    "then apply it to each probe. Check the rule against every available example before answering. "
-    "If there are no usable examples or no simple rule fits them, use null.")
+    "[RULE]\n"
+    "Infer a simple rule fitting all history examples and apply it to probes; if none fit, use null.")
 
 
 class DistanceLadderChat(VerifiedChat):
@@ -54,7 +52,7 @@ class DistanceLadderChat(VerifiedChat):
             prompt = kwargs["prompt"]
             if self.strict_json_output and prompt.count("[RESPONSE_FORMAT_CONSTRAINT]") != 0:
                 raise ValueError("strict output constraint was already present")
-            if self.derive_rule_from_history and prompt.count("[HISTORY_RULE_DERIVATION_PROCEDURE]") != 0:
+            if self.derive_rule_from_history and prompt.count("[RULE]") != 0:
                 raise ValueError("history rule derivation procedure was already present")
             suffix = []
             if self.derive_rule_from_history:
@@ -168,7 +166,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 else "user_message_only:v1",
             "output_constraint": STRICT_JSON_OUTPUT if strict_json_output else None,
             "output_constraint_sha256": sha(STRICT_JSON_OUTPUT.encode()) if strict_json_output else None,
-            "semantic_treatment": "derive_rule_from_available_history:v1" if derive_rule_from_history else None,
+            "semantic_treatment": "derive_rule_from_available_history:v3" if derive_rule_from_history else None,
             "semantic_procedure": HISTORY_RULE_DERIVATION if derive_rule_from_history else None,
             "semantic_procedure_sha256": sha(HISTORY_RULE_DERIVATION.encode()) if derive_rule_from_history else None,
             "trial_order": [{"tier": tier, "arm": arm} for tier, arm in TRIAL_ORDER],

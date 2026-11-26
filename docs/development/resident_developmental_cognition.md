@@ -6712,13 +6712,14 @@ returned to the idle baseline.
 
 The all-null strict-format result does not distinguish failure to retrieve or
 use the examples from a conservative response strategy. The ladder runner now
-supports a separately bound `derive_rule_from_available_history:v2` treatment
+supports a separately bound `derive_rule_from_available_history:v3` treatment
 on top of the existing strict JSON constraint. After retrieval, it instructs
-the model to infer the simplest plausible rule that fits available
-developmental-history examples, check it against the examples, and apply it to
-the probes. It uses null if there are no usable examples or no simple rule
-fits. This avoids demanding mathematical uniqueness from a finite set of
-examples. It does not state the mapping or require a visible reasoning trace.
+the model to infer a simple rule fitting all available developmental-history
+examples and apply it to the probes. It uses null if no rule fits. This avoids
+demanding mathematical uniqueness from a finite set of examples. The compact
+wording keeps the longest strict-format prompt below the ordinary-chat 8,000
+character bound. It does not state the mapping or require a visible reasoning
+trace.
 The identical procedure is appended to both history and empty prompts, leaving
 the history contrast and strict output requirement intact. Plan schema v3
 records the exact procedure and digest; independent scoring rejects a missing
@@ -6727,15 +6728,15 @@ model-bound history evidence with the model-free preflight and rejects scored
 history evidence or a history block in the empty control before counting
 answers.
 
-Once GPU time is available, create a fresh model-bound preflight and plan with
-both `--strict-json-output` and `--derive-rule-from-history`, inspect the bound
-suffix and plan hash, then run the six trials only against that reviewed hash.
-Score with the independent ladder scorer and compare against the strict-format
-control using:
+Once GPU time is available, execute the frozen model-bound plan below only
+against its reviewed hash. Score with the independent ladder scorer and
+compare against the strict-format control using:
 
 ```bash
 python -m work.compare_ordinary_chat_transfer_distance_ladder_derivation \
-  <strict-format-control-run> <rule-derivation-run> <comparison.json>
+  <strict-format-control-run> <rule-derivation-run> <comparison.json> \
+  --control-score <strict-format-control-score-v2.json> \
+  --derivation-score <rule-derivation-score-v2.json>
 ```
 
 The comparator requires matching model identity, generation/GPU settings,
@@ -6749,5 +6750,32 @@ for both arms at all three distances. An empty-arm improvement would indicate
 the procedure helped solve the task generally; an additional history-arm
 improvement would be evidence that history contributed under the scaffold.
 Neither result alone would establish durable learning or carryover across
-sessions/models. No model-bound preflight or inference has been run for this
-new treatment yet.
+sessions/models.
+
+The CPU-only model-bound plan preflight for treatment v3 completed on
+2026-11-26 with plan hash
+`f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f`.
+It made no model invocation or inference and recorded zero resident VRAM. The
+six assembled prompts retained the same history/empty evidence separation as
+the model-free preflight; the longest was 7,991 characters, under the 8,000
+character history-prompt bound. Its [frozen plan and source snapshots](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/)
+preserve the exact treatment. The isolated CPU-only Ollama process was stopped
+after preflight.
+
+With the isolated server on `127.0.0.1:11436` configured for GPU inference and
+the GPU free, execute only against that preflight hash:
+
+```bash
+export SENTIENTOS_OLLAMA_MODELS=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-ollama-store-20261126
+export SENTIENTOS_OLLAMA_CPU_TARGET=http://127.0.0.1:11436
+"$py" -m work.run_ordinary_chat_transfer_distance_ladder "$cycles" "$install" "$models" \
+  /home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/transfer-ladder-semantic-full-20261126-v1 \
+  --strict-json-output --derive-rule-from-history \
+  --expected-plan-sha256 f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f
+```
+
+The strict-format control was rescored with the strengthened v2 independent
+scorer. It reconfirmed `0/3` correct for both arms at each distance while
+independently validating that history matched the preflight and the empty arm
+exposed no history. The new [evidence-audited control score](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-strict-full-v1/independent-score-evidence-v2.json)
+is stored alongside, without replacing, the original score.

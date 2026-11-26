@@ -70,7 +70,7 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
             raise ValueError("post-retrieval output constraint is not bound to the execution plan")
         if plan["schema"].endswith(":v3"):
             from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_RULE_DERIVATION
-            if (plan.get("semantic_treatment") != "derive_rule_from_available_history:v2"
+            if (plan.get("semantic_treatment") != "derive_rule_from_available_history:v3"
                     or plan.get("semantic_procedure") != HISTORY_RULE_DERIVATION
                     or plan.get("semantic_procedure_sha256") != sha(HISTORY_RULE_DERIVATION.encode())):
                 raise ValueError("history rule-derivation procedure is not bound to the execution plan")

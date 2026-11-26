@@ -5,3 +5,4 @@
 # The recall protocols bind the exact bytes of the archived JSON sources.
 artifacts/experiments/ordinary-chat-retention-20261125/** text eol=lf
 artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-*/complete-capture.tar.gz binary
+artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/source/** binary

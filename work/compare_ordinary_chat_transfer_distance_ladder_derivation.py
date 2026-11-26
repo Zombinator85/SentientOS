@@ -63,7 +63,7 @@ def compare(control: Path, derivation: Path, output: Path, *,
         raise ValueError("comparison changed model, generation, format, task/order, or history evidence")
     if control_plan.get("semantic_treatment") is not None:
         raise ValueError("control run must not contain the semantic derivation treatment")
-    if derivation_plan.get("semantic_treatment") != "derive_rule_from_available_history:v2":
+    if derivation_plan.get("semantic_treatment") != "derive_rule_from_available_history:v3":
         raise ValueError("treatment run lacks the frozen history rule-derivation procedure")
 
     tier_results = {}

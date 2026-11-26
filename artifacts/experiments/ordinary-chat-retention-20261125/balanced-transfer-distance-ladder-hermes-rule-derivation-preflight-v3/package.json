@@ -1,0 +1,21 @@
+{
+  "inference_performed": false,
+  "model_invoked": false,
+  "plan_sha256": "f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f",
+  "preflight_server_cuda_visible_devices": "-1",
+  "preflight_server_target": "127.0.0.1:11436",
+  "resident_vram_bytes": 0,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight_package:v1",
+  "source_snapshots": [
+    "sentientos/chat_service.py",
+    "sentientos/conversation_session.py",
+    "sentientos/resident_developmental_cognition.py",
+    "work/preflight_ordinary_chat_retention.py",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py",
+    "work/preflight_sibling_chat_histories.py",
+    "work/run_ordinary_chat_transfer_distance_ladder.py",
+    "work/run_sibling_chat_recall.py",
+    "work/score_ordinary_chat_transfer_distance_ladder.py",
+    "work/compare_ordinary_chat_transfer_distance_ladder_derivation.py"
+  ]
+}
