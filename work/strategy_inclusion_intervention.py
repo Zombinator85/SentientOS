@@ -276,6 +276,26 @@ def _verify_owner_prompt_pair_preview(preview: Mapping[str, Any], *,
     if claimed != _digest(semantic):
         raise StrategyInclusionInterventionError(
             "strategy_intervention_owner_prompt_pair_digest_mismatch")
+    request_semantics = preview.get("request_semantics_by_arm")
+    if request_semantics is not None:
+        request_digests = preview.get("preview_request_digests")
+        if (not isinstance(request_semantics, Mapping)
+                or set(request_semantics) != set(_ARMS)
+                or not isinstance(request_digests, Mapping)
+                or set(request_digests) != set(_ARMS)):
+            raise StrategyInclusionInterventionError(
+                "strategy_intervention_owner_request_semantics_invalid")
+        for arm in _ARMS:
+            value = request_semantics[arm]
+            digest = request_digests[arm]
+            if (not isinstance(value, Mapping)
+                    or not isinstance(digest, str)
+                    or _DIGEST.fullmatch(digest) is None
+                    or canonical_strategy_invocation_request_digest(
+                        value, binding_posture=REQUEST_DIGEST_BINDING_POSTURE)
+                        != digest.removeprefix("sha256:")):
+                raise StrategyInclusionInterventionError(
+                    "strategy_intervention_owner_request_semantics_digest_mismatch")
     if preview_schema == _OWNER_PREVIEW_V3:
         _validate_strategy_evidence_summary(
             preview.get("strategy_evidence_summary"),

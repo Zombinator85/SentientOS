@@ -20188,16 +20188,15 @@ class ResidentDevelopmentalCognitionOwner:
             "learning_established": False,
             "authority": False,
         }
-        result = {**semantic, "pair_preview_digest": _digest(semantic)}
         if include_request_semantics:
-            result["request_semantics_by_arm"] = {
+            semantic["request_semantics_by_arm"] = {
                 arm: {key: value for key, value in previews[mode][
                     "request"].items() if key not in {
                         "request_id", "request_digest", "raw_prompt_stored",
                         "ephemeral_prompt_handling"}}
                 for arm, mode in (("strategy_included", "included"),
                     ("strategy_omitted", "omitted"))}
-        return result
+        return {**semantic, "pair_preview_digest": _digest(semantic)}
 
     def preview_objective_historical_examples_pair(self, *,
             snapshot: WorldStateSnapshot, tick_id: str,
