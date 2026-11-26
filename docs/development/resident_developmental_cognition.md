@@ -6712,12 +6712,13 @@ returned to the idle baseline.
 
 The all-null strict-format result does not distinguish failure to retrieve or
 use the examples from a conservative response strategy. The ladder runner now
-supports a separately bound `derive_rule_from_available_history:v1` treatment
+supports a separately bound `derive_rule_from_available_history:v2` treatment
 on top of the existing strict JSON constraint. After retrieval, it instructs
-the model to use available developmental-history examples to identify a
-candidate mapping, check it against the examples, and apply it to the probes;
-it still uses null when the examples are absent or do not determine a unique
-answer. It does not state the mapping or require a visible reasoning trace.
+the model to infer the simplest plausible rule that fits available
+developmental-history examples, check it against the examples, and apply it to
+the probes. It uses null if there are no usable examples or no simple rule
+fits. This avoids demanding mathematical uniqueness from a finite set of
+examples. It does not state the mapping or require a visible reasoning trace.
 The identical procedure is appended to both history and empty prompts, leaving
 the history contrast and strict output requirement intact. Plan schema v3
 records the exact procedure and digest; independent scoring rejects a missing

@@ -37,9 +37,9 @@ STRICT_JSON_OUTPUT = (
     "No other text.")
 HISTORY_RULE_DERIVATION = (
     "[HISTORY_RULE_DERIVATION_PROCEDURE]\n"
-    "Use any available developmental-history examples to identify a candidate input-output mapping. "
-    "Check it against every available example, then apply it to each probe. "
-    "If there are no usable examples or they do not determine a unique answer, use null.")
+    "Infer the simplest plausible input-output rule that fits the available developmental-history examples, "
+    "then apply it to each probe. Check the rule against every available example before answering. "
+    "If there are no usable examples or no simple rule fits them, use null.")
 
 
 class DistanceLadderChat(VerifiedChat):
