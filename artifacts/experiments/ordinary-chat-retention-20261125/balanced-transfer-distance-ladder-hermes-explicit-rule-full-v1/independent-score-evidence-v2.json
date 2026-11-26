@@ -1,0 +1,156 @@
+{
+  "format_treatment": "strict_json_post_retrieval:v1",
+  "interpretation": "Immediate transfer scores under one model and frozen history; the report does not establish durable learning or causal attribution to the history's original acquisition.",
+  "learning_established": false,
+  "plan_sha256": "24bd4e3e072d185ed29b6dadcde6fcb5bcb048da0d37ec277d8469e8ae67e4e5",
+  "preflight_sha256": "d1d27ccf13f8976a4a56ad2abeeb61f91b776f51dd7a19e19ef80366e79e0f3b",
+  "prompt_evidence_validation": {
+    "empty_arm_exposed_no_history": true,
+    "history_matches_model_free_preflight": true,
+    "history_record_ids_by_tier": {
+      "far": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "middle": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ],
+      "near": [
+        "devrec-a081ef3104dba90c9e19b723"
+      ]
+    }
+  },
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2",
+  "scorer_source_sha256": "21da5e5ab34223d6bba8ef37a3e90e09de1b3a67c5f3f887ea7c7f8bd4757ca5",
+  "tier_summaries": {
+    "far": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 3,
+      "empty_json_valid": true,
+      "history_correct_count": 3,
+      "history_json_valid": true,
+      "history_minus_empty_correct_count": 0
+    },
+    "middle": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 3,
+      "empty_json_valid": true,
+      "history_correct_count": 0,
+      "history_json_valid": false,
+      "history_minus_empty_correct_count": -3
+    },
+    "near": {
+      "denominator_per_arm": 3,
+      "empty_correct_count": 3,
+      "empty_json_valid": true,
+      "history_correct_count": 3,
+      "history_json_valid": true,
+      "history_minus_empty_correct_count": 0
+    }
+  },
+  "trials": [
+    {
+      "answers": [
+        120027,
+        400007,
+        1800003
+      ],
+      "arm": "history",
+      "correct_count": 3,
+      "denominator": 3,
+      "probe_correct": [
+        true,
+        true,
+        true
+      ],
+      "receipt_id": "lmrec-3439c09a5fbc2537ca697cbf",
+      "strict_json_valid": true,
+      "tier": "far"
+    },
+    {
+      "answers": [
+        120027,
+        400007,
+        1800003
+      ],
+      "arm": "empty",
+      "correct_count": 3,
+      "denominator": 3,
+      "probe_correct": [
+        true,
+        true,
+        true
+      ],
+      "receipt_id": "lmrec-6befb0b7df90f46c676c0a3b",
+      "strict_json_valid": true,
+      "tier": "far"
+    },
+    {
+      "answers": [
+        10007,
+        15555,
+        20015
+      ],
+      "arm": "empty",
+      "correct_count": 3,
+      "denominator": 3,
+      "probe_correct": [
+        true,
+        true,
+        true
+      ],
+      "receipt_id": "lmrec-be8cd2dd0de5ae84b8b2effd",
+      "strict_json_valid": true,
+      "tier": "middle"
+    },
+    {
+      "answers": null,
+      "arm": "history",
+      "correct_count": 0,
+      "denominator": 3,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "receipt_id": "lmrec-ba90795d67156360be0d5e34",
+      "strict_json_valid": false,
+      "tier": "middle"
+    },
+    {
+      "answers": [
+        2003,
+        2027,
+        2195
+      ],
+      "arm": "history",
+      "correct_count": 3,
+      "denominator": 3,
+      "probe_correct": [
+        true,
+        true,
+        true
+      ],
+      "receipt_id": "lmrec-269dcda2b91b614b92fbb31c",
+      "strict_json_valid": true,
+      "tier": "near"
+    },
+    {
+      "answers": [
+        2003,
+        2027,
+        2195
+      ],
+      "arm": "empty",
+      "correct_count": 3,
+      "denominator": 3,
+      "probe_correct": [
+        true,
+        true,
+        true
+      ],
+      "receipt_id": "lmrec-3696b1a2f1116965f86225a6",
+      "strict_json_valid": true,
+      "tier": "near"
+    }
+  ]
+}

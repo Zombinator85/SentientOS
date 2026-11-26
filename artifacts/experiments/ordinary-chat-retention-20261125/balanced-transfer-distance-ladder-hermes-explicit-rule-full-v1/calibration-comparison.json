@@ -1,0 +1,45 @@
+{
+  "calibration_plan_sha256": "24bd4e3e072d185ed29b6dadcde6fcb5bcb048da0d37ec277d8469e8ae67e4e5",
+  "comparison_source_sha256": "c48f4b21c6072d94628db58e006fb470ed9e05a856624a9348645665a9b02472",
+  "derivation_plan_sha256": "f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f",
+  "interpretation": "The supplied-rule arm is an arithmetic and format calibration, not a history-learning condition. Success with the supplied rule and failure under derivation would localize the observed limitation to rule induction or use of retrieved examples under this prompt; neither result establishes learning.",
+  "learning_established": false,
+  "same_generation_and_gpu_settings": true,
+  "same_model_identity": true,
+  "same_output_format_constraint": true,
+  "same_questions_probe_tiers_and_order": true,
+  "same_scored_history_evidence": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_calibration_comparison:v1",
+  "tier_results": {
+    "far": {
+      "calibration_empty_correct": 3,
+      "calibration_empty_json_valid": true,
+      "calibration_history_correct": 3,
+      "calibration_history_json_valid": true,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    },
+    "middle": {
+      "calibration_empty_correct": 3,
+      "calibration_empty_json_valid": true,
+      "calibration_history_correct": 0,
+      "calibration_history_json_valid": false,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    },
+    "near": {
+      "calibration_empty_correct": 3,
+      "calibration_empty_json_valid": true,
+      "calibration_history_correct": 3,
+      "calibration_history_json_valid": true,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    }
+  }
+}

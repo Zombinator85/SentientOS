@@ -1,0 +1,102 @@
+{
+  "analyzer_source_sha256": "d5937d6a4712e1228b4316a84ca55e73769e75766e6bad3978e0bb2884b68709",
+  "independent_score_sha256": "71b4465695cf851590b74c1ae11cc7f09e356b1df7959cebb0143e6da167cbb1",
+  "interpretation": "Payload extraction is descriptive and does not alter strict scores. All outputs remain behavioral evidence only; this one-run ladder does not establish durable learning.",
+  "plan_sha256": "24bd4e3e072d185ed29b6dadcde6fcb5bcb048da0d37ec277d8469e8ae67e4e5",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_payload_diagnostic:v1",
+  "tiers": {
+    "far": {
+      "empty_payload": {
+        "denominator": 3,
+        "official_correct_count": 3,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-6befb0b7df90f46c676c0a3b",
+        "recoverable": true,
+        "recovered_answers": [
+          120027,
+          400007,
+          1800003
+        ],
+        "strict_json_valid": true
+      },
+      "history_payload": {
+        "denominator": 3,
+        "official_correct_count": 3,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-3439c09a5fbc2537ca697cbf",
+        "recoverable": true,
+        "recovered_answers": [
+          120027,
+          400007,
+          1800003
+        ],
+        "strict_json_valid": true
+      },
+      "payload_correct_count_difference": 0,
+      "support_examples": 3,
+      "support_examples_aligned_with_fixed_mapping": 3
+    },
+    "middle": {
+      "empty_payload": {
+        "denominator": 3,
+        "official_correct_count": 3,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-be8cd2dd0de5ae84b8b2effd",
+        "recoverable": true,
+        "recovered_answers": [
+          10007,
+          15555,
+          20015
+        ],
+        "strict_json_valid": true
+      },
+      "history_payload": {
+        "denominator": 3,
+        "official_correct_count": 0,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-ba90795d67156360be0d5e34",
+        "recoverable": true,
+        "recovered_answers": [
+          10007,
+          15555,
+          20015
+        ],
+        "strict_json_valid": false
+      },
+      "payload_correct_count_difference": 0,
+      "support_examples": 3,
+      "support_examples_aligned_with_fixed_mapping": 3
+    },
+    "near": {
+      "empty_payload": {
+        "denominator": 3,
+        "official_correct_count": 3,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-3696b1a2f1116965f86225a6",
+        "recoverable": true,
+        "recovered_answers": [
+          2003,
+          2027,
+          2195
+        ],
+        "strict_json_valid": true
+      },
+      "history_payload": {
+        "denominator": 3,
+        "official_correct_count": 3,
+        "payload_correct_count": 3,
+        "receipt_id": "lmrec-269dcda2b91b614b92fbb31c",
+        "recoverable": true,
+        "recovered_answers": [
+          2003,
+          2027,
+          2195
+        ],
+        "strict_json_valid": true
+      },
+      "payload_correct_count_difference": 0,
+      "support_examples": 3,
+      "support_examples_aligned_with_fixed_mapping": 3
+    }
+  }
+}

@@ -8,3 +8,4 @@ artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-*/comp
 artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/source/** binary
 artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-full-v1/source/** binary
 artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-preflight-v1/source/** binary
+artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-full-v1/source/** binary

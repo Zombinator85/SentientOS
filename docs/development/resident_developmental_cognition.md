@@ -6792,3 +6792,48 @@ diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/balance
 recovered valid answer arrays from all six outputs, but all 18 values were
 null, confirming no correct answers even when ignoring the history arm's
 fences and trailing explanation.
+
+### Explicit-rule arithmetic and format calibration
+
+The derivation run's universal abstention left arithmetic competence
+unresolved. A separate v4 plan supplied `output = 2 * input + 1` equally to
+the history and empty arms while retaining the same six probes, retrieval
+contrast, model settings, and strict JSON constraint. This is a capacity
+calibration, not a developmental-learning condition. Its CPU-only preflight
+bound the treatment to plan hash
+`24bd4e3e072d185ed29b6dadcde6fcb5bcb048da0d37ec277d8469e8ae67e4e5`, exposed
+the same three history examples only in history prompts, kept every prompt
+below 8,000 characters (maximum 7,957), and recorded no inference or resident
+VRAM. The [frozen preflight and source snapshots](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-preflight-v1/)
+preserve the exact plan.
+
+With the mapping supplied, lenient payload recovery scored `18/18` correct
+across both arms and all distances. The independent strict scorer counted
+`15/18` correct because the history/middle response wrapped its correct JSON
+answers in a Markdown fence; format validity was `5/6` trials. All three
+empty responses and the near/far history responses were valid JSON. The
+[paired comparison](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-full-v1/calibration-comparison.json)
+confirmed the model, generation/GPU settings, probes/order, output constraint,
+and scored history evidence matched the prior rule-derivation run. Its
+[payload diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-full-v1/payload-diagnostic.json)
+confirms the one strict-format failure still contained correct answers.
+
+This establishes that Hermes can perform the arithmetic at all tested scales
+when given the mapping. The previous failure therefore lies in inferring or
+using the mapping from retrieved examples under this task prompt, with a
+separate history-associated format lapse in the middle condition. It does not
+show that the history caused the calibration successes, since the mapping was
+provided to both arms, and it is not evidence of durable learning. The
+[complete calibration package](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-explicit-rule-full-v1/)
+contains the frozen plan, six governed receipts, independent score,
+comparison, and payload diagnostic. The isolated inference server was stopped
+afterward; GPU memory returned to its idle baseline.
+
+The next useful transfer probe is close to the support examples themselves.
+The earlier “near” tier started at 1,001 while the largest history example
+input was 5, so even that tier required a large magnitude extrapolation. A
+model-free protocol should first select unused adjacent inputs just above the
+support range and verify disjointness from every prior probe; only after that
+baseline should it increase magnitude. This distinguishes difficulty
+inferring a rule from the additional burden of extrapolating it far beyond the
+observed values.

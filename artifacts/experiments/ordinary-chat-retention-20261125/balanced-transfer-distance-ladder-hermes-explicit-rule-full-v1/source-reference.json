@@ -1,0 +1,18 @@
+{
+  "comparison_source_sha256": "c48f4b21c6072d94628db58e006fb470ed9e05a856624a9348645665a9b02472",
+  "payload_analyzer_source_sha256": "d5937d6a4712e1228b4316a84ca55e73769e75766e6bad3978e0bb2884b68709",
+  "preflight_artifact": "../balanced-transfer-distance-ladder-hermes-explicit-rule-preflight-v1/",
+  "preflight_plan_sha256": "24bd4e3e072d185ed29b6dadcde6fcb5bcb048da0d37ec277d8469e8ae67e4e5",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_source_reference:v1",
+  "scorer_source_sha256": "21da5e5ab34223d6bba8ef37a3e90e09de1b3a67c5f3f887ea7c7f8bd4757ca5",
+  "source_code_sha256": {
+    "sentientos/chat_service.py": "af1702d615f9ac2041ec1f478aa92c8b82ddbaef298e1b3c2d3a473df467244e",
+    "sentientos/conversation_session.py": "251b2cdcb7815dcf2afed417621aa579f5cf8ea4cddd8428e67f6779598c3a44",
+    "sentientos/resident_developmental_cognition.py": "f6f068783cdd382376f94aa42ede7eb23f85f00eac2c4a3ea924fe152572977a",
+    "work/preflight_ordinary_chat_retention.py": "502052552b8c161384456dd584e03e7b1d9d7317c7d4475763be8542a2f1b1af",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py": "b906451203cb9eb5c1937b0896b5a85b1633a0c3fa9e8f0efdc15146b407f130",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
+    "work/run_ordinary_chat_transfer_distance_ladder.py": "83944af2459ec1395bb60fbb92920c2990e91232a4f116f5a0755501461f0875",
+    "work/run_sibling_chat_recall.py": "ccef5e003c9259db4c1e063df1c7899bf9e485295df2a19b480a5332a5e7e387"
+  }
+}
