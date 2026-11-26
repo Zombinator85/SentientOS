@@ -194,7 +194,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                     raise ValueError(
                         f"{tier} query retrieved no scored support evidence; "
                         "the frozen source-near preflight cannot be replayed against "
-                        "the current ordinary-chat projection")
+                        "the current ordinary-chat projection "
+                        f"(context_posture={captures['history']['history_context_posture']!r})")
                 raise ValueError(f"{tier} query did not retrieve the exact frozen support record")
             normalized = bases["history"].replace(", ".join(map(str, probes)), "[PROBES]")
             normalized_bases.append(normalized)

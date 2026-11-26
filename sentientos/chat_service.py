@@ -4783,14 +4783,21 @@ class PersistentConversationService:
                 try:
                     history_query = _ordinary_epistemic_relevance_query(
                         message, history)
-                    if callable(model_aware_history_provider):
-                        candidate_history = history_provider(question=history_query,
-                            max_input_chars=max_history_chars,
-                            target_model_identity=identity_payload)
-                    else:
-                        candidate_history = history_provider(question=history_query,
-                            max_input_chars=max_history_chars)
-                    if isinstance(candidate_history, Mapping):
+                    def request_history(limit: int) -> Any:
+                        if callable(model_aware_history_provider):
+                            return history_provider(question=history_query,
+                                max_input_chars=limit,
+                                target_model_identity=identity_payload)
+                        return history_provider(question=history_query,
+                            max_input_chars=limit)
+
+                    candidate_history = request_history(max_history_chars)
+                    for _ in range(4):
+                        if not isinstance(candidate_history, Mapping):
+                            developmental_history_context_posture = (
+                                "provider_returned_no_context" if candidate_history is None
+                                else "context_validation_failed")
+                            break
                         try:
                             candidate_prompt = assemble_local_chat_context(
                                 history=history, memory_snapshot=memory,
@@ -4803,28 +4810,32 @@ class PersistentConversationService:
                                     and screen_observation is not None),
                                 recent_session_recall=recent_session_recall,
                                 earliest_session_recall=earliest_session_recall)
-                            candidate_history_prompt_block_digest = (
-                                ordinary_chat_developmental_history_prompt_block_digest(
-                                    candidate_prompt))
                         except Exception:
                             developmental_history_context_posture = (
                                 "context_validation_failed")
-                        else:
-                            if len(candidate_prompt) <= 8000:
-                                developmental_history_context = candidate_history
-                                developmental_history_prompt_block_digest = (
-                                    candidate_history_prompt_block_digest)
-                                developmental_history_context_posture = "selected"
-                                prompt = candidate_prompt
-                            else:
+                            break
+                        if len(candidate_prompt) <= 8000:
+                            try:
+                                candidate_history_prompt_block_digest = (
+                                    ordinary_chat_developmental_history_prompt_block_digest(
+                                        candidate_prompt))
+                            except Exception:
                                 developmental_history_context_posture = (
-                                    "prompt_budget_rejected")
-                    elif candidate_history is None:
-                        developmental_history_context_posture = (
-                            "provider_returned_no_context")
-                    else:
-                        developmental_history_context_posture = (
-                            "context_validation_failed")
+                                    "context_validation_failed")
+                                break
+                            developmental_history_context = candidate_history
+                            developmental_history_prompt_block_digest = (
+                                candidate_history_prompt_block_digest)
+                            developmental_history_context_posture = "selected"
+                            prompt = candidate_prompt
+                            break
+
+                        developmental_history_context_posture = "prompt_budget_rejected"
+                        next_limit = max_history_chars - (len(candidate_prompt) - 8000 + 128)
+                        if next_limit < 128 or next_limit >= max_history_chars:
+                            break
+                        max_history_chars = next_limit
+                        candidate_history = request_history(max_history_chars)
                 except Exception:
                     # Retained experience is optional input, never a chat blocker.
                     developmental_history_context = None

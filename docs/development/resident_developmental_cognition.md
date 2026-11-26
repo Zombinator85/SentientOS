@@ -6893,28 +6893,43 @@ therefore did not make the stored examples usable and reduced history-arm
 format adherence. The [derivation package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-derivation-full-v1/)
 preserves the separate receipts, score, payload diagnostic, and comparison.
 
-The next implementation step adds a short field guide to ordinary-chat history
-guidance when a retrieved packet contains a `rootless_integer_affine_transfer_*`
-experience. It explains that `probe_input` and `observed_answer` are recorded
-historical data, that `evaluator_correct` and `abstained` constrain how examples
-can be used, and that any inferred relation stays within its task family. This
-is prompt interpretation guidance, not a stored rule or a claim that the current
-model learned or transferred it. The guidance is omitted for unrelated history
-examples. A local render check confirmed both the scoped guidance and its
-omission for an unrelated example family.
+The ordinary-chat reader now gives a compact field guide for retrieved
+`rootless_integer_affine_transfer_*` examples. It identifies the recorded
+input/output fields, says to use only distinct rows marked correct and not
+abstained within one task family, and keeps the evidence scoped as uncertain
+history without current truth or authority. Other history types retain their
+existing guidance. An initial longer version made the assembled prompt exceed
+the 8,000-character limit; the service attempted to digest it before checking
+that limit and dropped the context. The reader now checks prompt size before
+digesting, and the compact guidance keeps the complete matched prompt within the
+limit.
 
-Before evaluating that prompt change, a replay of the source-near model-free
-preflight against its saved parent snapshot reproduced the frozen 39-record
-boundary and snapshot tree hash, but the ordinary-chat query returned no history
-block. This differs from the saved v1 capture, which contains the expected
-support packet. The source-near preflight now reports this missing-evidence case
-explicitly and must be made reproducible against the current projection before
-another model-bound transfer run. The existing v1 artifact remains the record
-of its original capture; it is not evidence that the current prompt renderer
-will retrieve the same packet.
+The refreshed [model-free preflight v2](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v2.json)
+was reconstructed from the saved parent snapshot. It reproduced the 39-record
+history boundary and snapshot tree hash, retrieved the same three scored
+examples for all history queries, and kept empty prompts free of history. The
+model-bound prompts selected the expected record with
+`history_context_posture=selected`; their maximum measured prompt length was
+7,840 characters. The original v1 report remains an accurate record of its
+original capture; v2 now verifies retrieval under the current renderer.
 
-The next cognition target is the history-to-prompt projection: make the
-retrieved examples legible as evidence to ordinary chat, then repeat the
-history/empty contrast before claiming transfer. Any projection change should
-preserve provenance and keep epistemic validity separate from action
-authority.
+The pinned Hermes run used the same six strict-JSON trials and source-near
+probes as the prior run. The independent [history-guidance comparison](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-prompt-guidance-v1/history-guidance-comparison.json)
+verified identical model identity, generation/GPU settings, task and trial
+order, scored support examples, empty prompts, non-history prompt, and output
+constraint. Only the history prompt block digest changed. Both runs produced
+valid JSON in all 6 trials and exact accuracy `0/9` in each arm. The new history
+arm repeated the old outputs: `[15, 16, 17]` for near probes, abstentions for
+middle probes, and `[20, 21, 22]` for far probes. They remain wrong under the
+frozen mapping; the empty arm abstained on all probes. This single paired pass
+shows that clarifying the serialized example fields did not improve immediate
+transfer, and establishes no durable learning. The package contains the frozen
+plan, raw results, six governed receipts, independent score, and payload
+diagnostic.
+
+The next useful projection experiment is a compact, record-linked rendering of
+each scored example beside its current structured form. It should keep the same
+correctness and abstention labels, task-family scope, and history/empty controls
+so the model is tested on legibility rather than being given a derived rule.
+Any prompt change should continue to preserve provenance and keep epistemic
+validity separate from action authority.

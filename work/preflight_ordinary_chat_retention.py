@@ -223,6 +223,8 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         **({"invocation_prompt_digest": digest_payload({"prompt": prompt})} if bind_invocation else {}),
         "prompt_chars": len(prompt),
         "history_block_digest": linkage.get("ordinary_developmental_history_prompt_block_digest"),
+        "history_context_posture": linkage.get(
+            "ordinary_developmental_history_context_posture"),
         "prompt_score_evidence": examples,
         **({"history_instruction": history_instruction} if capture_history_instruction else {}),
     }
