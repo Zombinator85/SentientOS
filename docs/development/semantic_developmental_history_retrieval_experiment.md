@@ -544,10 +544,16 @@ protocol digests.
 `build_durable_learning_prompt_digest_bindings()` now prepares the exact
 available/withheld acquisition and history-free delayed-probe prompt-digest
 matrix directly from frozen task descriptors, digest-bound experience records,
-and the selected feedback policy. It checks cross-phase probe disjointness,
-requires matched acquisition feedback, and returns digests without prompt
-text or oracle values. This CPU-only helper does not prove that a record exists
-in the active history owner; the runtime experience source must re-resolve it.
+and the selected feedback policy. It checks cross-phase probe disjointness and
+rejects acquisition or delayed-probe inputs found in a caller-supplied frozen
+historical-probe inventory. It also requires that inventory to cover probe
+inputs extracted from the selected source experience records. The helper hashes
+the inventory and returns digests without prompt text or oracle values, but it
+does not authenticate the inventory against the complete history owner or its
+ledger. The caller must derive it from the frozen history audit, and the
+runtime experience source must still re-resolve selected records in the active
+owner. This CPU-only binding is a preregistration aid, not evidence that the
+history is complete or that learning occurred.
 The protocol store, runtime guards, invocation receipts, independent scoring,
 writeback attribution, and elapsed-delay gates remain necessary for an
 experiment.

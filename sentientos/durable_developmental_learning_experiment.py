@@ -7676,6 +7676,7 @@ def build_durable_learning_prompt(*, task_descriptor: Mapping[str, Any],
 def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence[Any],
         delayed_probe_tasks: Sequence[Any],
         acquisition_experience_records: Sequence[Mapping[str, Any]],
+        historical_probe_inputs: Sequence[int],
         feedback_policy_digest: str,
         feedback_records_by_task: Mapping[str, Sequence[Mapping[str, Any]]] | None = None
         ) -> dict[str, Any]:
@@ -7693,6 +7694,10 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
             or not isinstance(acquisition_experience_records, Sequence)
             or isinstance(acquisition_experience_records, (str, bytes))
             or not acquisition_experience_records
+            or not isinstance(historical_probe_inputs, Sequence)
+            or isinstance(historical_probe_inputs, (str, bytes))
+            or any(type(value) is not int for value in historical_probe_inputs)
+            or len(set(historical_probe_inputs)) != len(historical_probe_inputs)
             or any(not isinstance(record, Mapping)
                 or not isinstance(record.get("source_record_id"), str)
                 or not record.get("source_record_id")
@@ -7723,6 +7728,29 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
         row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
     if acquisition_inputs.intersection(probe_inputs):
         raise ValueError("durable_learning_probe_input_overlap")
+    history_inputs = set(historical_probe_inputs)
+    if history_inputs.intersection(acquisition_inputs | probe_inputs):
+        raise ValueError("durable_learning_history_probe_input_overlap")
+
+    experience_probe_inputs: set[int] = set()
+    pending: list[Any] = [record["record"]
+        for record in acquisition_experience_records]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, Mapping):
+            for key, item in value.items():
+                if key == "probe_input" and type(item) is int:
+                    experience_probe_inputs.add(item)
+                elif key == "probe_inputs" and isinstance(item, Sequence) \
+                        and not isinstance(item, (str, bytes)):
+                    experience_probe_inputs.update(candidate
+                        for candidate in item if type(candidate) is int)
+                if isinstance(item, (Mapping, list, tuple)):
+                    pending.append(item)
+        elif isinstance(value, (list, tuple)):
+            pending.extend(value)
+    if not experience_probe_inputs.issubset(history_inputs):
+        raise ValueError("durable_learning_history_probe_inventory_incomplete")
 
     task_digests = {row["task_digest"] for row in acquisition}
     if feedback_records_by_task is None:
@@ -7786,6 +7814,11 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
         "acquisition_task_count": len(acquisition),
         "delayed_probe_task_count": len(probes),
         "probe_input_sets_disjoint": True,
+        "history_probe_input_count": len(history_inputs),
+        "history_probe_inputs_digest": digest_payload({
+            "probe_inputs": sorted(history_inputs)}),
+        "probe_inputs_disjoint_from_history": True,
+        "history_inventory_owner_verified": False,
         "prompt_text_included": False,
         "answer_key_included": False,
         "authority": False,
