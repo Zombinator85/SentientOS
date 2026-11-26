@@ -16,6 +16,7 @@ MATCHED_FIELDS = (
 )
 OUTPUT_FACTOR = "strict fenced JSON instruction injected after retrieval"
 MAPPING_FACTOR = "explicit history-field-to-row mapping injected in history guidance"
+RUN_ORDER = ("control", "strict_mapped", "mapped", "strict_control")
 
 
 def verify_matrix(control: Path, mapped: Path, strict_control: Path, strict_mapped: Path) -> dict:
@@ -85,6 +86,7 @@ def verify_matrix(control: Path, mapped: Path, strict_control: Path, strict_mapp
         "history_evidence_equal_across_all_arms": True,
         "output_factor": OUTPUT_FACTOR,
         "mapping_factor": MAPPING_FACTOR,
+        "run_order": list(RUN_ORDER),
         "runtime": reference["ollama_version"],
         "gpu_layers_for_later_inference": 24,
         "model": reference["model"],

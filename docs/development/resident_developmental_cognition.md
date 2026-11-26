@@ -6322,3 +6322,25 @@ requires `--expected-plan-sha256`; the runner aborts before generation if its
 freshly captured plan differs from the selected preflight. Completed runs
 retain a `preflight_binding.json` that the independent full-run or timeout
 verifier checks.
+
+The [matrix launcher](../../work/run_sibling_chat_recall_matrix.py) rechecks
+all four preflights before it starts, runs them in the frozen order
+control → strict+mapping → mapping → strict, verifies each completed arm, and
+packages each arm's complete capture and checksum. It stops after the first
+failed or unverifiable arm and writes a run manifest after every transition.
+To launch it from WSL after confirming the GPU is available:
+
+```bash
+repo=/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next
+cycles=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles
+install=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/runtime/ollama-v0.40.16
+models=/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models
+output=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126
+cd "$repo"
+python -m work.run_sibling_chat_recall_matrix "$cycles" "$install" "$models" "$output"
+```
+
+The launcher also requires the existing isolated Ollama model-store and HTTP
+target environment variables. It writes transient run state under the WSL
+filesystem and packages verified results under
+`artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v1/`.

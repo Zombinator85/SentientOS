@@ -50,7 +50,7 @@
     "questions",
     "profiles"
   ],
-  "matrix_sha256": "f60a607c72870457c8e677844dd85dcae9a9cfaf7b90c071b2758d5a3f6ae2f3",
+  "matrix_sha256": "bb4df25ffe81bfcf75a2e212b572d8e7bd0ea4145e139d2146c98930ad88b47f",
   "model": "sentientos-hermes4:14b-q4km",
   "model_identity": {
     "artifact_size_bytes": 924,
@@ -74,6 +74,12 @@
   },
   "planned_trials_per_arm": 8,
   "primary_outcome": "official exact trials under the preregistered full-response scorer",
+  "run_order": [
+    "control",
+    "strict_mapped",
+    "mapped",
+    "strict_control"
+  ],
   "runtime": "0.40.16",
   "schema": "sentientos.sibling_chat_recall_factorial_preflight:v1",
   "secondary_diagnostics": [
