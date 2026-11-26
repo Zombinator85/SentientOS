@@ -1,0 +1,1381 @@
+{
+  "independent_scoring": "pending",
+  "learning_established": false,
+  "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+  "trials": [
+    {
+      "arm": "history",
+      "delivered": "{\"answers\": [19, 20, 21]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [19, 20, 21]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "46fbebabfa9e2a1fc38a3e6ee7833b99a7f4b2c02bae79856aef35a60cfa96de",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+              "expires_at": 1795707276.860774,
+              "first_seen": 1795703676.860774,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "786e251333bf2ce63a88c2b3d23775a2a6b82bab9ee7cf962b6cb0b816ea402a",
+              "sampled_pressure": {
+                "composite": 0.2312,
+                "cpu": 0.0,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:34:36.860836+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:34:37.069779+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 16,
+          "eval_duration_ns": 3239714000,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 6406452126,
+          "load_duration_ns": 2905497111,
+          "prompt_eval_duration_ns": 3490089000,
+          "prompt_tokens": 2470,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 9644998376
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 9856,
+        "observed_at": "2026-11-26T14:34:46.717597+00:00",
+        "output_digest": "afba0ec8328bff332a86b6c3f0c935f6fb84ff527e7bc6a6ecbe7a3c76f66775",
+        "output_size_bytes": 25,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "75d8836118692c8b320f8ccf3573a80075e1fc1b92944ff32bcb497fb14c083a",
+        "receipt_id": "lmrec-75d8836118692c8b320f8ccf",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-d72f9f6ba91b430796693838:turn-2ea99fa80de94e71b4c71dd4",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "e988cc874fc1cb47a240007d27a4aec1833c947caea20c99af24549d83f99a60",
+            "conversation_context_snapshot_digest": "c28060eb1295c4615b9dc4599b8bbc6443bedc886435e68f2b96d03b33cd5c90",
+            "memory_retrieval_snapshot_digest": "a226f3bb6bcfa84c25f98d00e3d2309076937c1c440b22d53f2fcb7282f578dc",
+            "ordinary_developmental_history_context_posture": "selected",
+            "ordinary_developmental_history_prompt_block_digest": "27af9bb8400db0fe81fcf6c2eec040137ae718260e634f6f1fe617569bf18698",
+            "ordinary_developmental_history_record_digests": [
+              "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88"
+            ],
+            "ordinary_developmental_history_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "ordinary_developmental_history_retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "ordinary_developmental_history_selection_digest": "29682d1d86782cb1a09e2886fd84dbb1126b7429f9bcdb518514e1fe5930e514",
+            "ordinary_developmental_history_serving_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "ordinary_developmental_history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "ordinary_developmental_history_target_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "recent_session_recall": false,
+            "session_id": "session-d72f9f6ba91b430796693838",
+            "user_turn_id": "turn-2ea99fa80de94e71b4c71dd4",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "fe358a821326af18f6a576ab22f20f8c7bfd9676a63532eaa4091c09276d6b62",
+          "prompt_size": 7974,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "451bcd3af829a80ec373dace241d99f9f9de35f9d88d8379342d3f463e4e00af",
+          "request_id": "lmreq-451bcd3af829a80ec373dace",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "near",
+      "trial": 0
+    },
+    {
+      "arm": "empty",
+      "delivered": "{\"answers\": [null, null, null]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [null, null, null]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "a4053f184822ffd7fbac517f6c7224198bb78c93bf0ef03ec23021f393dfdaab",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+              "expires_at": 1795707286.738128,
+              "first_seen": 1795703686.738128,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "fe136cb194ae878d06362f5e0e11682d31b05fc131f12812a93d7459896ee795",
+              "sampled_pressure": {
+                "composite": 0.2856,
+                "cpu": 0.136,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:34:46.738185+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:34:48.855367+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 11,
+          "eval_duration_ns": 1477160000,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 777876767,
+          "load_duration_ns": 899336,
+          "prompt_eval_duration_ns": 564097000,
+          "prompt_tokens": 965,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 2254149067
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 2455,
+        "observed_at": "2026-11-26T14:34:51.111635+00:00",
+        "output_digest": "4afa4a845f8cd7687579b72dc28da2ffc642a13f31ce03da74e82e8cb5c54045",
+        "output_size_bytes": 31,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "97c05fa002e585a48afdb4ca2b8ed8063260855dad4139640ff2e43375c14871",
+        "receipt_id": "lmrec-97c05fa002e585a48afdb4ca",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-0037cdcc62b74932a4260248:turn-a29f87a64ebb4803bccb5eeb",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "6a4bb5e14c3d8a9b3cadca32b28764acdc3e4a5192154586fa5924a88204bfed",
+            "conversation_context_snapshot_digest": "6b559e23415c7a6fbd4be9442aa03e59322f1a71bba3df3b3131e22f497b25b9",
+            "memory_retrieval_snapshot_digest": "a226f3bb6bcfa84c25f98d00e3d2309076937c1c440b22d53f2fcb7282f578dc",
+            "ordinary_developmental_history_context_posture": "provider_returned_no_context",
+            "recent_session_recall": false,
+            "session_id": "session-0037cdcc62b74932a4260248",
+            "user_turn_id": "turn-a29f87a64ebb4803bccb5eeb",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "ef5b4558209ad6e67256d51faea6005d52a5c4114b6510519c9a9b0586b2936b",
+          "prompt_size": 4413,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "9e7619925a9e94917540148baf17571dc46ddf2e71639c0344341a619379add9",
+          "request_id": "lmreq-9e7619925a9e94917540148b",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "near",
+      "trial": 1
+    },
+    {
+      "arm": "empty",
+      "delivered": "{\"answers\": [null, null, null]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [null, null, null]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "194007479b808515cde6563b82738a568397fd81992016be69901de070ef59fc",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+              "expires_at": 1795707291.130901,
+              "first_seen": 1795703691.130901,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "391dafaddb56b9635a14f93061de5251908cad0a6fbbfbb3ce142648ade38f2f",
+              "sampled_pressure": {
+                "composite": 0.2932,
+                "cpu": 0.155,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:34:51.130961+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:34:51.330490+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 11,
+          "eval_duration_ns": 1473616000,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 397174316,
+          "load_duration_ns": 897446,
+          "prompt_eval_duration_ns": 388443000,
+          "prompt_tokens": 965,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 1869965390
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 2071,
+        "observed_at": "2026-11-26T14:34:53.202569+00:00",
+        "output_digest": "4afa4a845f8cd7687579b72dc28da2ffc642a13f31ce03da74e82e8cb5c54045",
+        "output_size_bytes": 31,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "5f5919a8f9d3df0fb5333e79edc11e0731a44554aff1f921289f4fbfe9960746",
+        "receipt_id": "lmrec-5f5919a8f9d3df0fb5333e79",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-6ed6f38b7fc8410e886089ff:turn-5ba02c2ef42448e2b01eecf9",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "5e8f24ba24ba20f603b5d8209d5757f706e3422dfd999f018887d2ee9e191307",
+            "conversation_context_snapshot_digest": "e72290bedfd15f2489cfa6fecacd0918ddd0629a632854f64eecf58f2ea095de",
+            "memory_retrieval_snapshot_digest": "c12eabc55ebf2eb1caad16cb895125d535f654f9c2549c40c10680d819dd4a63",
+            "ordinary_developmental_history_context_posture": "provider_returned_no_context",
+            "recent_session_recall": false,
+            "session_id": "session-6ed6f38b7fc8410e886089ff",
+            "user_turn_id": "turn-5ba02c2ef42448e2b01eecf9",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "0c427225c76b0a5574294646934d731fcbcafffdc2967a46ce65c7211a4a756e",
+          "prompt_size": 4413,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "692a460b2cad7974b0206d026df40158d4c2a668d39ee7eae732c0b3d1bc1e36",
+          "request_id": "lmreq-692a460b2cad7974b0206d02",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "middle",
+      "trial": 2
+    },
+    {
+      "arm": "history",
+      "delivered": "{\"answers\": [null, null, null]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [null, null, null]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "98a3341f0924b4bb830db757f24c144d5c3321e3caa1fcf0ec6b390911a66593",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+              "expires_at": 1795707295.96902,
+              "first_seen": 1795703695.96902,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "04398dcf1da907da9b98091ba308579bf7d093ba25da0c8a80cbd92a51c6dd6a",
+              "sampled_pressure": {
+                "composite": 0.28,
+                "cpu": 0.122,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:34:55.969082+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:34:56.167414+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 11,
+          "eval_duration_ns": 2080824999,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 2703804560,
+          "load_duration_ns": 947114,
+          "prompt_eval_duration_ns": 2692045000,
+          "prompt_tokens": 2470,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 4783708647
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 4984,
+        "observed_at": "2026-11-26T14:35:00.953513+00:00",
+        "output_digest": "4afa4a845f8cd7687579b72dc28da2ffc642a13f31ce03da74e82e8cb5c54045",
+        "output_size_bytes": 31,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "0e008ac1658d61fe775da614e6bb3b7a264de4f10d130f1fd364c2c32ba1d468",
+        "receipt_id": "lmrec-0e008ac1658d61fe775da614",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-571e13b25372438087590323:turn-fce079d9423d436181a3d1f7",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "ca1859b333495a261eb4f772c7c4ac251b928a036699cb482aa9c6a6b5edd826",
+            "conversation_context_snapshot_digest": "591ef22e5e04a7cdb934805c1dbf34d152b12cc97512a3cbc4b83c0096f10716",
+            "memory_retrieval_snapshot_digest": "c12eabc55ebf2eb1caad16cb895125d535f654f9c2549c40c10680d819dd4a63",
+            "ordinary_developmental_history_context_posture": "selected",
+            "ordinary_developmental_history_prompt_block_digest": "27af9bb8400db0fe81fcf6c2eec040137ae718260e634f6f1fe617569bf18698",
+            "ordinary_developmental_history_record_digests": [
+              "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88"
+            ],
+            "ordinary_developmental_history_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "ordinary_developmental_history_retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "ordinary_developmental_history_selection_digest": "29682d1d86782cb1a09e2886fd84dbb1126b7429f9bcdb518514e1fe5930e514",
+            "ordinary_developmental_history_serving_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "ordinary_developmental_history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "ordinary_developmental_history_target_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "recent_session_recall": false,
+            "session_id": "session-571e13b25372438087590323",
+            "user_turn_id": "turn-fce079d9423d436181a3d1f7",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "8c9638498df5d33c280a2044aa1859f9ef27458c0867b1034b195ad81bbeb889",
+          "prompt_size": 7974,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "470bc4524c3c7b89f245969fcdc9b81fa92eef5897f5aa26dcd6cdea555d68dc",
+          "request_id": "lmreq-470bc4524c3c7b89f245969f",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "middle",
+      "trial": 3
+    },
+    {
+      "arm": "history",
+      "delivered": "{\"answers\": [23, 24, 25]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [23, 24, 25]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "786a5af90d0e4fadc7c77b6b04ce8e42596ce2a4961b6bc50517d3cbb6653fa2",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+              "expires_at": 1795707303.707956,
+              "first_seen": 1795703703.707956,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "84321d8e085c743747f42bb915c67a3bce0a4795f1f5ad2e925243c07dd7a45c",
+              "sampled_pressure": {
+                "composite": 0.2868,
+                "cpu": 0.139,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:35:03.708014+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:35:03.902612+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 16,
+          "eval_duration_ns": 3218358000,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 604213176,
+          "load_duration_ns": 906900,
+          "prompt_eval_duration_ns": 592995000,
+          "prompt_tokens": 2470,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 3821747774
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 4018,
+        "observed_at": "2026-11-26T14:35:07.726718+00:00",
+        "output_digest": "6f722ada2a7df4101c46f4955de8b317d89119a1078579478ce71544d51155aa",
+        "output_size_bytes": 25,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "1b01dda6dd832e99f480c23df58908c25d75f4b2f5cde3a6593f73dd7b2a13c9",
+        "receipt_id": "lmrec-1b01dda6dd832e99f480c23d",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-c8ffef73c6fd472d85e0f0b1:turn-c525268fc7ba47ad9c2c40a7",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "4f5a42094bc56ffe24e29f23ca8ea92e3a53084b79ff9a69a74ec61b1536b18d",
+            "conversation_context_snapshot_digest": "f7c9356e1c7b2cc7348224ef5a74e31d1c532a466b08516d10533fc9dc2d77dd",
+            "memory_retrieval_snapshot_digest": "ac5a937ed9dad5df5a08c5d8b4d5ec2a0b05e821f1b52e9f0b5b4304d352786a",
+            "ordinary_developmental_history_context_posture": "selected",
+            "ordinary_developmental_history_prompt_block_digest": "27af9bb8400db0fe81fcf6c2eec040137ae718260e634f6f1fe617569bf18698",
+            "ordinary_developmental_history_record_digests": [
+              "sha256:a081ef3104dba90c9e19b7232355bda1c4e517d82660b28e0b9fdf8c71b95d88"
+            ],
+            "ordinary_developmental_history_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "ordinary_developmental_history_retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "ordinary_developmental_history_selection_digest": "29682d1d86782cb1a09e2886fd84dbb1126b7429f9bcdb518514e1fe5930e514",
+            "ordinary_developmental_history_serving_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "ordinary_developmental_history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "ordinary_developmental_history_target_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+            "recent_session_recall": false,
+            "session_id": "session-c8ffef73c6fd472d85e0f0b1",
+            "user_turn_id": "turn-c525268fc7ba47ad9c2c40a7",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "883f27b0503048e20f4e6fc45bd9ec2b9a74234bb582cc0ff72d3c185c399f63",
+          "prompt_size": 7974,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "2109fb52b471a75d1d7c4b0fe7a2d18bdd6899c0cfaedf87047891eaf956c936",
+          "request_id": "lmreq-2109fb52b471a75d1d7c4b0f",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "far",
+      "trial": 4
+    },
+    {
+      "arm": "empty",
+      "delivered": "{\"answers\": [null, null, null]}",
+      "independent_scoring": "pending",
+      "model_output": "{\"answers\": [null, null, null]}",
+      "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+      "prompt_sha256": "ec05161e1da9ece9085ab3db37364331814bebf5c5fdd104dc82f88d580c39f5",
+      "receipt": {
+        "admission_decision_record": {
+          "action_kind": "local_model_inference",
+          "actor": "chat_service",
+          "actor_source": "chat_service",
+          "admission_decision_ref": "kernel_decision:chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+          "authority_class": "local_model_inference",
+          "correlation_id": "chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+          "current_phase": "runtime",
+          "delegate_checks_consulted": [
+            "admission_dedupe",
+            "runtime_governor"
+          ],
+          "delegated_outcomes": {
+            "admission_dedupe": {
+              "correlation_id": "chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+              "expires_at": 1795707307.745612,
+              "first_seen": 1795703707.745612,
+              "key_shape": "(current_phase.value, correlation_id)",
+              "max_entries": 4096,
+              "phase": "runtime",
+              "scope": "process_local",
+              "ttl_seconds": 3600.0
+            },
+            "runtime_governor": {
+              "action_class": "local_model_inference",
+              "action_family": "local_model",
+              "action_priority": 3,
+              "allowed": true,
+              "correlation_id": "chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+              "evidence_refs": {
+                "game_frame_pressure": false,
+                "game_performance_evidence": {
+                  "status": "unavailable"
+                },
+                "game_priority_block": false,
+                "game_workload_evidence": {
+                  "game_active": false,
+                  "status": "unavailable"
+                },
+                "gaming_workload_profile_evidence": {
+                  "mode": "normal",
+                  "status": "not_selected"
+                },
+                "gaming_workload_profile_host_pressure": false,
+                "gaming_workload_profile_resource_telemetry_incomplete": false,
+                "host_pressure_during_verified_game": false,
+                "host_resource_evidence": {
+                  "status": "unavailable"
+                },
+                "observed_pressure_labels": [],
+                "optional_gpu_model_load_in_gaming_profile": false,
+                "optional_model_load_in_gaming_profile": false,
+                "resource_entitlement_evidence": {
+                  "status": "unavailable"
+                }
+              },
+              "mode": "shadow",
+              "origin": "chat_service",
+              "reason": "allowed",
+              "reason_hash": "b4ad8104055be2e24416b09b4970fa798f8452bd59b66e57298e093315386522",
+              "sampled_pressure": {
+                "composite": 0.2972,
+                "cpu": 0.165,
+                "gpu": 0.0,
+                "io": 0.9249,
+                "sampled_at": "2026-11-26T14:35:07.745699+00:00",
+                "thermal": 0.0
+              },
+              "scope": "local",
+              "subject": "chat_service"
+            }
+          },
+          "event_type": "control_plane_decision",
+          "execution_owner": "chat_service",
+          "federation_context": null,
+          "final_disposition": "allow",
+          "lifecycle_phase": "runtime",
+          "outcome": "allow",
+          "proof_budget_context": null,
+          "protected_mutation_intent": null,
+          "reason_codes": [
+            "admitted"
+          ],
+          "requested_phase": "runtime",
+          "target_subsystem": "governed_local_model_invocation",
+          "timestamp": "2026-11-26T14:35:07.937230+00:00"
+        },
+        "admission_decision_ref": "kernel_decision:chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+        "backend_completion": {
+          "backend": "ollama",
+          "completion_tokens": 11,
+          "eval_duration_ns": 1455153000,
+          "finish_reason": "stop",
+          "first_token_duration_ns": 726638319,
+          "load_duration_ns": 871467,
+          "prompt_eval_duration_ns": 515206000,
+          "prompt_tokens": 965,
+          "schema_version": "sentientos.ollama_completion_observation:v2",
+          "token_limit_reached": false,
+          "total_duration_ns": 2180984524
+        },
+        "cancellation_admission_decision": null,
+        "cancellation_admission_decision_ref": null,
+        "cancellation_admission_record": null,
+        "cancellation_resource_observation": null,
+        "effects": {
+          "action": false,
+          "adoption": false,
+          "local_model_inference": true,
+          "memory": false,
+          "provider_network": false,
+          "repository_mutation": false,
+          "tool": false
+        },
+        "fallback_occurred": false,
+        "generation_config": {
+          "actual_generation_parameters": {
+            "max_new_tokens": 160,
+            "use_model_chat_template": false
+          },
+          "max_calls_per_correlation": 1,
+          "max_input_chars": 8000,
+          "max_new_tokens": 512,
+          "max_output_chars": 4000,
+          "timeout_seconds": 120.0
+        },
+        "latency_ms": 2374,
+        "observed_at": "2026-11-26T14:35:10.120236+00:00",
+        "output_digest": "4afa4a845f8cd7687579b72dc28da2ffc642a13f31ce03da74e82e8cb5c54045",
+        "output_size_bytes": 31,
+        "output_truncated": false,
+        "purpose": "local_user_chat",
+        "reason_codes": [
+          "completed"
+        ],
+        "receipt_digest": "e863b63f2fefd2c316ab6d736555d35eb7bc6191fb218705293e7269a609f19d",
+        "receipt_id": "lmrec-e863b63f2fefd2c316ab6d73",
+        "request": {
+          "active_model_identity": {
+            "artifact_size_bytes": 924,
+            "candidate_index": 0,
+            "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+            "engine": "ollama",
+            "fallback": false,
+            "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "posture": "development_only",
+            "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+            "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+            "sidecar_metadata_digest": null
+          },
+          "allowed_effects": {
+            "local_model_inference": true
+          },
+          "authority_map_digest": "c848fa749cdfd6777127659a44fec5524a13df69166eb80c3341f36092944b21",
+          "authority_map_policy_digest": "93ec7a280f5506c84f825b488d130ba8ecbea9ec28a533b082959e29773a344d",
+          "budget": {
+            "max_calls_per_correlation": 1,
+            "max_input_chars": 8000,
+            "max_new_tokens": 512,
+            "max_output_chars": 4000,
+            "timeout_seconds": 120.0
+          },
+          "caller": "chat_service",
+          "correlation_id": "chat:session-6f3a52d9090a45898e243661:turn-2d5516390c114b5ba1ef5b6e",
+          "ephemeral_prompt_handling": "raw prompt used only for immediate local backend call",
+          "expected_output_format": "text",
+          "forbidden_effects": {
+            "action": false,
+            "adoption": false,
+            "memory": false,
+            "provider_network": false,
+            "repository_mutation": false,
+            "tool": false
+          },
+          "lifecycle_phase": "runtime",
+          "linkage": {
+            "chat_response_style": "default",
+            "client_request_id_digest": "b92bc2e2221e4568597f007aba7510882db400a0003a3a221e9f4a9b300f7515",
+            "conversation_context_snapshot_digest": "5f50b7180646158e18995f068f904b73d51d67b77a93983a4e406c4910cd8183",
+            "memory_retrieval_snapshot_digest": "ac5a937ed9dad5df5a08c5d8b4d5ec2a0b05e821f1b52e9f0b5b4304d352786a",
+            "ordinary_developmental_history_context_posture": "provider_returned_no_context",
+            "recent_session_recall": false,
+            "session_id": "session-6f3a52d9090a45898e243661",
+            "user_turn_id": "turn-2d5516390c114b5ba1ef5b6e",
+            "workload_evidence": {
+              "game_foreground": null,
+              "observed_at": null,
+              "process_name_digest": null,
+              "source": "local_development_session",
+              "status": "operator_selected",
+              "transport_provenance": null
+            },
+            "workload_mode": "normal"
+          },
+          "model_artifact_digest": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "model_id": "lma-d796b5563acda22bf8a8b29f",
+          "prompt_digest": "505359e5e5c4eb7bd3094a53282e76512db2ebca3cb6bd2b2aea4838b3f41eeb",
+          "prompt_size": 4413,
+          "purpose": "local_user_chat",
+          "raw_prompt_stored": false,
+          "request_digest": "2e0bc258b2d1a492b863343eca90cf7df985fabc1922ca82945bdecfb1ab59f9",
+          "request_id": "lmreq-2e0bc258b2d1a492b863343e",
+          "structured_output_schema": null,
+          "upstream_evidence": {}
+        },
+        "resource_allocation_digest": null,
+        "resource_attempt_id": null,
+        "resource_consumption_receipt_digests": [],
+        "schema_version": "sentientos.local_model_invocation_receipt:v8",
+        "status": "admitted_completed"
+      },
+      "resident_vram_bytes": 5743973498,
+      "tier": "far",
+      "trial": 5
+    }
+  ]
+}

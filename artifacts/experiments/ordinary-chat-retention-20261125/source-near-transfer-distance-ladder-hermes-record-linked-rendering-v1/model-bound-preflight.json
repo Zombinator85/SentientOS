@@ -1,0 +1,8 @@
+{
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+  "resident_vram_bytes": 0,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_preflight:v1"
+}

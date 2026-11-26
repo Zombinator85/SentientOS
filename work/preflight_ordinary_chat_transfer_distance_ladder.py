@@ -16,6 +16,7 @@ from sentientos.developmental_model_replacement_experiment import (
     ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY,
 )
 from sentientos.local_model_authority import digest_payload
+from sentientos.cognition_retrieval import render_ordinary_chat_integer_examples
 from sentientos.resident_developmental_cognition import _ordinary_chat_integer_experiences
 from work.preflight_ordinary_chat_retention import (
     PARAPHRASE_PROBES, PILOT, PROBES, _owner, _read_receipt, _service_request,
@@ -197,6 +198,16 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                         "the current ordinary-chat projection "
                         f"(context_posture={captures['history']['history_context_posture']!r})")
                 raise ValueError(f"{tier} query did not retrieve the exact frozen support record")
+            expected_renderings = [{
+                "record_id": evidence["record_id"],
+                "task_family_id": evidence["task_family_id"],
+                "source_run_id": evidence["source_run_id"],
+                "source_score_digest": evidence["source_score_digest"],
+                "human_readable_examples": render_ordinary_chat_integer_examples(
+                    evidence["task_family_id"], evidence["examples"]),
+            } for evidence in expected_evidence]
+            if captures["history"].get("prompt_example_renderings") != expected_renderings:
+                raise ValueError(f"{tier} rendered rows differ from the bound structured score evidence")
             normalized = bases["history"].replace(", ".join(map(str, probes)), "[PROBES]")
             normalized_bases.append(normalized)
             tier_min_distances[tier] = min(probes) - largest_support_input
@@ -226,7 +237,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         return {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
             "ladder_design": ladder_design,
             "source_report_sha256": _sha(SOURCE_REPORT.read_bytes()),
             "task_family_id": task_family,

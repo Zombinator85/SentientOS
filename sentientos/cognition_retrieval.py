@@ -28,6 +28,33 @@ def ordinary_chat_history_partition(selection: Mapping[str, Any]) -> tuple[list,
     return selected + omitted, omitted
 
 
+def render_ordinary_chat_integer_examples(task_family_id: str,
+        examples: Any) -> str | None:
+    """Render validated scored integer rows without replacing their structured source."""
+    if (not isinstance(task_family_id, str)
+            or not task_family_id.startswith("rootless_integer_affine_transfer_")
+            or not isinstance(examples, (list, tuple)) or not examples):
+        return None
+    rendered = []
+    for row in examples:
+        if not isinstance(row, Mapping):
+            return None
+        probe_input = row.get("probe_input")
+        observed_answer = row.get("observed_answer")
+        evaluator_correct = row.get("evaluator_correct")
+        abstained = row.get("abstained")
+        if (type(probe_input) is not int or type(evaluator_correct) is not bool
+                or type(abstained) is not bool
+                or (abstained and observed_answer is not None)
+                or (not abstained and type(observed_answer) is not int)):
+            return None
+        answer = "no answer" if abstained else str(observed_answer)
+        outcome = "abstained" if abstained else (
+            "correct" if evaluator_correct else "incorrect")
+        rendered.append(f"{probe_input} -> {answer} ({outcome})")
+    return "; ".join(rendered)
+
+
 _QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")
 _QUERY_NEGATION_CONTRACTION_PATTERN = re.compile(
     r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"

@@ -6927,9 +6927,36 @@ transfer, and establishes no durable learning. The package contains the frozen
 plan, raw results, six governed receipts, independent score, and payload
 diagnostic.
 
-The next useful projection experiment is a compact, record-linked rendering of
-each scored example beside its current structured form. It should keep the same
-correctness and abstention labels, task-family scope, and history/empty controls
-so the model is tested on legibility rather than being given a derived rule.
-Any prompt change should continue to preserve provenance and keep epistemic
-validity separate from action authority.
+The next projection experiment keeps each structured scored row and adds an
+adjacent `human_readable_examples` view in the same task-experience object. The
+view is deterministically derived from the structured rows, so correctness and
+abstention labels cannot drift independently. Prompt validation recomputes and
+checks the rendering before assembly. The preflight capture binds each rendering
+to its record ID, source run, score digest, and task family; the independent
+scorer continues to score only the original structured evidence.
+
+The refreshed [model-free preflight v3](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v3.json)
+reconstructed from the same parent snapshot and retrieved the same three
+score-bound examples in all history prompts. It verified the readable line
+`2 -> 5 (correct); 4 -> 9 (correct); 5 -> 11 (correct)` against those rows and
+kept empty prompts free of history and rendering. The model-bound prompts
+selected the source record and included both representations at 7,974
+characters.
+
+The pinned Hermes [record-linked rendering package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-record-linked-rendering-v1/)
+was compared with the concise-guidance structured-only run. The comparison
+verified the same model identity, generation/GPU settings, probes, task order,
+structured support rows, empty prompts, non-history prompt, and strict JSON
+constraint. All six responses were valid JSON in both runs. Exact accuracy
+remained `0/9` in each arm. The rendering changed the history guesses: near
+changed from `[15, 16, 17]` to `[19, 20, 21]`, and far from `[20, 21, 22]` to
+`[23, 24, 25]`; both sets remain incorrect under the frozen mapping. Middle
+history outputs and all empty-arm abstentions were unchanged. This one paired
+pass shows that the rendering changed immediate behavior without improving
+correctness. It does not establish durable learning or general transfer.
+
+The next evidence step is a seeded replication of the structured-only versus
+record-linked presentation contrast. Preserve the exact source record and
+labels across arms and report per-seed history-minus-empty outcomes. Any prompt
+change should continue to preserve provenance and keep epistemic validity
+separate from action authority.

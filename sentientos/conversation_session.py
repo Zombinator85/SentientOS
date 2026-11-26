@@ -21,7 +21,7 @@ from typing import IO, Any, Iterator, Mapping, Sequence
 
 from .cognition_retrieval import (
     COMPACT_CHAT_SELECTION, cognition_negation_terms, cognition_tokens,
-    ordinary_chat_history_partition,
+    ordinary_chat_history_partition, render_ordinary_chat_integer_examples,
 )
 from .local_model_authority import digest_payload
 from .platform_fcntl import fcntl, require_flock
@@ -1703,6 +1703,20 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                     != digest_payload(dict(semantic_history))
                 or len(set(packet["record_id"] for packet in packets)) != len(packets)):
             raise ValueError("ordinary_chat_developmental_history_context_invalid")
+        for packet in packets:
+            experiences = packet.get("task_relevant_experience", ())
+            if not isinstance(experiences, (list, tuple)):
+                continue
+            for experience in experiences:
+                if (not isinstance(experience, Mapping)
+                        or "human_readable_examples" not in experience):
+                    continue
+                expected_rendering = render_ordinary_chat_integer_examples(
+                    experience.get("task_family_id"), experience.get("examples"))
+                if (expected_rendering is None
+                        or experience.get("human_readable_examples") != expected_rendering):
+                    raise ValueError(
+                        "ordinary_chat_history_example_rendering_invalid")
         if selection["schema_version"] == COMPACT_CHAT_SELECTION:
             _validate_ordinary_chat_history_context(developmental_history_context)
         insert_at = lines.index("[SESSION_HISTORY_DATA]")

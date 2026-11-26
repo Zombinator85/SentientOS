@@ -90,6 +90,21 @@ def compare(control: Path, treatment: Path, control_report: Path,
                 "control_json_valid": before["strict_json_valid"],
                 "treatment_json_valid": after["strict_json_valid"],
             }
+    answer_payloads_unchanged = all(
+        outcomes[arm]["control_answers"] == outcomes[arm]["treatment_answers"]
+        for outcomes in by_tier.values() for arm in ("history", "empty"))
+    format_validity_unchanged = all(
+        outcomes[arm]["control_json_valid"] == outcomes[arm]["treatment_json_valid"]
+        for outcomes in by_tier.values() for arm in ("history", "empty"))
+    exact_accuracy_unchanged = all(
+        outcomes[arm]["control_correct"] == outcomes[arm]["treatment_correct"]
+        for outcomes in by_tier.values() for arm in ("history", "empty"))
+    response_effect = ("did not change answer payloads" if answer_payloads_unchanged
+        else "changed answer payloads")
+    format_effect = ("did not change strict-format validity" if format_validity_unchanged
+        else "changed strict-format validity")
+    accuracy_effect = ("did not change exact accuracy" if exact_accuracy_unchanged
+        else "changed exact accuracy")
     report = {
         "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_guidance_comparison:v1",
         "control_plan_sha256": control_score["plan_sha256"],
@@ -105,6 +120,9 @@ def compare(control: Path, treatment: Path, control_report: Path,
         "same_prompt_outside_history_block": same_nonhistory_prompt,
         "same_format_constraint": same_format,
         "history_prompt_block_changed": True,
+        "answer_payloads_unchanged": answer_payloads_unchanged,
+        "strict_json_validity_unchanged": format_validity_unchanged,
+        "exact_accuracy_unchanged": exact_accuracy_unchanged,
         "history_block_digests": {"control": control_blocks, "treatment": treatment_blocks},
         "strict_json_valid_trials": {
             "control": [sum(row["strict_json_valid"] for row in control_score["trials"]), 6],
@@ -117,10 +135,11 @@ def compare(control: Path, treatment: Path, control_report: Path,
             for arm in ("history", "empty")},
         "tier_results": by_tier,
         "interpretation": (
-            "In this single paired run, concise history guidance changed the history block while "
+            f"In this single paired run, the history presentation {response_effect}, "
+            f"{format_effect}, and {accuracy_effect}. The history block changed while "
             "the model, probes, scored support, empty prompts, non-history prompt, and output "
-            "constraint matched. It did not change strict-format validity or exact answers. "
-            "The history arm's guesses remained incorrect; the empty arm abstained. This does "
+            "constraint matched. The history arm's guesses remained incorrect; the empty arm "
+            "abstained. This does "
             "not establish durable learning or general transfer."),
         "learning_established": False,
     }

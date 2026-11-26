@@ -102,7 +102,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
     root.mkdir(parents=True, exist_ok=False)
     selected_report = report_path or REPORT
     protocol = read(selected_report)
-    if (protocol.get("schema") != "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1"
+    if (protocol.get("schema") not in {
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
@@ -196,7 +198,12 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                     actual = captured["prompt_score_evidence"]
                     if _evidence_signature(actual) != _evidence_signature(expected_evidence):
                         raise ValueError(f"{tier} history prompt selected different scored evidence")
-                elif captured["prompt_score_evidence"] or captured["history_block_digest"] is not None:
+                    if captured.get("prompt_example_renderings") != tier_protocol[
+                            "captures"]["history"].get("prompt_example_renderings"):
+                        raise ValueError(f"{tier} history prompt changed the bound rendering")
+                elif (captured["prompt_score_evidence"]
+                        or captured.get("prompt_example_renderings")
+                        or captured["history_block_digest"] is not None):
                     raise ValueError(f"{tier} empty control exposed developmental history")
             if base_by_condition[tier + "_history"] != base_by_condition[tier + "_empty"]:
                 raise ValueError(f"{tier} prompts differ outside the history block")

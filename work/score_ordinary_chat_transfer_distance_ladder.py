@@ -38,8 +38,13 @@ def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> d
         expected = tier_protocol["captures"]["history"]["prompt_score_evidence"]
         if not expected or history.get("prompt_score_evidence") != expected:
             raise ValueError(f"{tier} history evidence differs from the frozen model-free preflight")
+        if (history.get("prompt_example_renderings") != tier_protocol[
+                    "captures"]["history"].get("prompt_example_renderings")
+                or not history.get("prompt_example_renderings")):
+            raise ValueError(f"{tier} rendered examples differ from the frozen preflight")
         if (not history.get("history_block_digest")
                 or empty.get("prompt_score_evidence") != []
+                or empty.get("prompt_example_renderings") != []
                 or empty.get("history_block_digest") is not None):
             raise ValueError(f"{tier} history/empty evidence separation is invalid")
         history_records[tier] = [item["record_id"] for item in expected]

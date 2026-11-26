@@ -1,0 +1,12 @@
+{
+  "comparison_control": "matched history and empty arms with a record-linked readable rendering beside structured scored rows",
+  "gpu_layers": 24,
+  "inference_performed": true,
+  "learning_established": false,
+  "model_invoked": true,
+  "plan_sha256": "476788c3560052f6d55c1c388a6e2d474ce4fefdd8ce1b299c42f96b7758882a",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_full_run_package:v1",
+  "separate_receipt_count": 6,
+  "source_reference": "source-reference.json",
+  "trial_count": 6
+}

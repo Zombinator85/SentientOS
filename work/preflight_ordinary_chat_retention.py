@@ -189,7 +189,7 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
     else:
         raise ValueError("ordinary chat did not reach the capture boundary")
     start = prompt.find("[DEVELOPMENTAL_HISTORY_GUIDANCE]\n")
-    matched_base, examples = prompt, []
+    matched_base, examples, example_renderings = prompt, [], []
     history_instruction = None
     if start >= 0:
         end = prompt.index("\n[SESSION_HISTORY_DATA]", start)
@@ -216,7 +216,18 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
                            and item["source_fact_id"] == source["source_fact_id"]
                            and item["examples"] == source["examples"] for source in sources):
                     raise ValueError("service rows differ from the archived score")
-                examples.append({"record_id": stored.record_id, **item})
+                examples.append({"record_id": stored.record_id,
+                    **{key: value for key, value in item.items()
+                        if key != "human_readable_examples"}})
+                rendering = item.get("human_readable_examples")
+                if isinstance(rendering, str):
+                    example_renderings.append({
+                        "record_id": stored.record_id,
+                        "task_family_id": item["task_family_id"],
+                        "source_run_id": item["source_run_id"],
+                        "source_score_digest": item["source_score_digest"],
+                        "human_readable_examples": rendering,
+                    })
         matched_base = prompt[:start] + prompt[end + 1:]
     return matched_base, {
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
@@ -226,6 +237,7 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         "history_context_posture": linkage.get(
             "ordinary_developmental_history_context_posture"),
         "prompt_score_evidence": examples,
+        "prompt_example_renderings": example_renderings,
         **({"history_instruction": history_instruction} if capture_history_instruction else {}),
     }
 
