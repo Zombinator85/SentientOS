@@ -138,6 +138,14 @@ editing an artifact. Any future promotion requires a separately versioned,
 machine-checked evidence contract and a new protocol; this draft does not
 authorize it.
 
+The complete-boundary verifier also requires the available/withheld workers'
+inherited-handle inventories to declare the same inventory scope, and applies
+the same paired-scope check to broker-capability inventories. This prevents a
+review from treating different observation coverage as a clean condition
+comparison. Matching scope declarations do not prove that the collector saw
+every handle or capability; completeness remains a claim in the source
+artifacts that requires independent review.
+
 ## Current implementation boundary (2026-11-25)
 
 The condition worker can recover a condition-local receipt index and construct

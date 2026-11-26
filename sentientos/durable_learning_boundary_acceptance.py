@@ -281,6 +281,7 @@ def _verify_semantic(value: Any, *, sources: Mapping[str, Any]
         process_identities.add(identity_key)
         launches[condition] = launch
 
+    capability_scope_digests: dict[str, str] = {}
     for field, schema in (
             ("inherited_handles", "sentientos.durable_learning_inherited_handle_inventory:v1"),
             ("broker_capabilities", "sentientos.durable_learning_broker_capability_inventory:v1")):
@@ -296,6 +297,13 @@ def _verify_semantic(value: Any, *, sources: Mapping[str, Any]
             _verify_inventory(inventory, condition=condition,
                 expected_schema=schema, protocol_digest=protocol_digest,
                 worker_digest=worker_digests[condition])
+            scope_digest = _digest(inventory.get("inventory_scope_digest"),
+                "durable_learning_boundary_capability_scope_digest_invalid")
+            prior_scope_digest = capability_scope_digests.setdefault(
+                field, scope_digest)
+            if prior_scope_digest != scope_digest:
+                raise ValueError(
+                    "durable_learning_boundary_capability_scope_asymmetric")
             if (inventory.get("host_identity") != host["host_identity"]
                     or inventory.get("os_build") != host["os_build"]
                     or inventory.get("process_identity") !=
