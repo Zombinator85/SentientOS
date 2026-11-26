@@ -6136,3 +6136,14 @@ for new cited runs under protocol v3. The verifier keeps protocol v2's original
 scoring when checking its saved result, so historical scores remain
 reproducible and are not silently rewritten. No new model call is needed to
 apply this correction.
+
+The next extraction intervention is isolated in cited protocol v4. It adds an
+explicit mapping from each projected `examples` field to the output row,
+including the `abstained` and `evaluator_correct` cases, while preserving the
+same histories, model, scoring profiles, citation requirement, and empty-history
+control. It is only added to the experiment runner; ordinary chat behavior is
+unchanged. The plan records the exact intervention and prompts before its
+inference loop, so the baseline v2 artifact and this condition can be compared
+without editing historical results. This is a proposed prompt intervention,
+not evidence that extraction improves. Hermes/GPU testing remains paused; the
+runner's pinned local model configuration explicitly requests CPU inference.

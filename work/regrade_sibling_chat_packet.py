@@ -55,8 +55,10 @@ def regrade(source=SOURCE):
     plan_file, result_file = source / "plan.json", source / "result.json"
     plan = json.loads(plan_file.read_text(encoding="utf-8"))
     result = json.loads(result_file.read_text(encoding="utf-8"))
-    if plan["schema"] != "sentientos.sibling_chat_recall_plan:v2":
-        raise ValueError("regrade requires the cited v2 protocol")
+    if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v2",
+                              "sentientos.sibling_chat_recall_plan:v3",
+                              "sentientos.sibling_chat_recall_plan:v4"}:
+        raise ValueError("regrade requires a cited recall protocol")
 
     trials = []
     exact_model = 0
@@ -102,6 +104,8 @@ def regrade(source=SOURCE):
         "schema": "sentientos.sibling_chat_packet_regrade:v1",
         "source_plan_sha256": sha(plan_file.read_bytes()),
         "source_result_sha256": sha(result_file.read_bytes()),
+        "source_protocol": plan["schema"],
+        "intervention": plan.get("intervention", "none"),
         "original_verifier_passed": True,
         "model_invoked": False,
         "scoring_change": "accept exactly one ```json fenced object as permitted by cited v2; rows and citation still independently checked",

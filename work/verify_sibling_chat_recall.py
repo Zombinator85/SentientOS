@@ -17,10 +17,12 @@ def verify(path):
     plan_file = path / "plan.json"
     plan, result, archive = read(plan_file), read(path / "result.json"), read(SOURCE_REPORT)
     if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2",
-                              "sentientos.sibling_chat_recall_plan:v3"}:
+                              "sentientos.sibling_chat_recall_plan:v3", "sentientos.sibling_chat_recall_plan:v4"}:
         raise ValueError("unknown recall protocol")
     cited = plan["schema"].endswith((":v2", ":v3"))
+    cited = cited or plan["schema"].endswith(":v4")
     legacy_cited_scoring = plan["schema"].endswith(":v2")
+    explicit_row_mapping = plan["schema"].endswith(":v4")
     trials = conditions(cited)
     plan_hash = sha(plan_file.read_bytes())
     configuration_digest = candidate_configuration_digest_from_payload({
@@ -32,7 +34,10 @@ def verify(path):
             or configuration_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
-                                     + recall_question(s, cited) for _, s in trials}):
+                                     + recall_question(s, cited,
+                                         explicit_row_mapping=explicit_row_mapping) for _, s in trials}
+            or plan.get("intervention", "none") != ("explicit_developmental_history_field_to_row_mapping:v1"
+                                                       if explicit_row_mapping else "none")):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}
     for arm, scope in dict.fromkeys(trials):

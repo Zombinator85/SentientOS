@@ -49,14 +49,21 @@ CITED_FORMAT = (' Cite the containing record_id once. Copy each observed answer 
                 'Return one fenced JSON object with "record_id" and "rows", where each row is '
                 '[input integer, answer as a JSON integer or null, outcome as one of "correct", '
                 '"incorrect", or "abstained"]. Use record_id null and empty rows if there is no report.')
+EXPLICIT_ROW_MAPPING = (
+    ' Map each developmental-history "examples" item exactly: copy "probe_input" as the first row value '
+    'and "observed_answer" as the second value, preserving integer or null types. Set the third value to '
+    '"abstained" when "abstained" is true; otherwise use "correct" when "evaluator_correct" is true '
+    'and "incorrect" when it is false. Include every item. Do not replace values with field names or placeholders.')
 
 
 def conditions(cited):
     return TRIALS + ((("empty", "inline"),) if cited else ())
 
 
-def recall_question(scope, cited):
+def recall_question(scope, cited, *, explicit_row_mapping=False):
     question = INLINE_QUESTION if scope == "inline" else QUESTIONS["latest_" + scope]
+    if explicit_row_mapping and scope != "inline":
+        question += EXPLICIT_ROW_MAPPING
     return question + (CITED_FORMAT if cited else FORMAT)
 
 
@@ -213,7 +220,9 @@ class VerifiedChat(DevelopmentLocalChatInference):
         return self.receipt
 
 
-def run(cycles, install, models, root, *, cited=False):
+def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False):
+    if explicit_row_mapping and not cited:
+        raise ValueError("explicit row mapping requires the cited response protocol")
     root.mkdir(parents=True, exist_ok=False)
     baseline = read(SOURCE_REPORT)
     historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
@@ -246,7 +255,8 @@ def run(cycles, install, models, root, *, cited=False):
         for arm, scope in dict.fromkeys(conditions(cited)):
             owner = owners[arm]
             snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
-            question = questions[scope] = ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(scope, cited)
+            question = questions[scope] = ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(
+                scope, cited, explicit_row_mapping=explicit_row_mapping)
             base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
                                               bind_invocation=True, capture_adapter=inference)
             if bases.setdefault(scope, base) != base:
@@ -280,12 +290,15 @@ def run(cycles, install, models, root, *, cited=False):
                 if profiles.setdefault(profile, oracle) != oracle:
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
-        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + ("v3" if cited else "v1"), "model": MODEL,
+        protocol = "v4" if explicit_row_mapping else "v3" if cited else "v1"
+        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + protocol, "model": MODEL,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
                 "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
                 "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
                     k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
+                "intervention": ("explicit_developmental_history_field_to_row_mapping:v1"
+                                 if explicit_row_mapping else "none"),
                 "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
         if cited:
             plan["criterion"] = ("One JSON object with record_id and rows. A single Markdown JSON fence is accepted. "
@@ -342,5 +355,8 @@ if __name__ == "__main__":
     for arg in ("cycles", "ollama_install", "models", "new_run_directory"):
         parser.add_argument(arg, type=Path)
     parser.add_argument("--cited", action="store_true")
+    parser.add_argument("--explicit-row-mapping", action="store_true",
+                        help="Run the cited CPU protocol with an explicit history-field to output-row mapping")
     args = parser.parse_args()
-    run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited)
+    run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
+        explicit_row_mapping=args.explicit_row_mapping)
