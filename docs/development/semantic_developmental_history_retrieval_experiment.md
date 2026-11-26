@@ -523,11 +523,17 @@ from the source report. This is evidence about that prompt intervention and
 task set; it does not establish a Phase C baseline failure or a general model
 limitation. It motivates preregistering a control-competence threshold for
 each future Phase C task family before interpreting delayed nulls or positive
-deltas. The current Phase C protocol does not encode this gate; a future
-protocol version must bind it before outcomes and leave existing protocol
-digests unchanged.
+deltas. Phase C protocol v11 now binds this criterion before outcomes: it
+records the withheld-history acquisition condition, exact acquisition task
+digests, denominator, and minimum correct-probe count. The store seals an
+assessment from persisted acquisition outcomes before any delayed-probe
+attempt; a delayed attempt is rejected unless the withheld-history baseline
+meets the preregistered minimum. Earlier protocol versions retain their
+original digests and behavior. This gate makes an unqualified delayed result
+ineligible for interpretation; it does not establish learning or make a
+delayed experiment complete.
 
-The repository now has a first Phase C preregistration artifact in
+The repository now implements Phase C preregistration in
 `sentientos/durable_developmental_learning_experiment.py`. It freezes disjoint
 acquisition and probe inputs, task commitments, retained-history state digest,
 baseline history-state digest, exact target-experience digests, software and
