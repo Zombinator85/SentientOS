@@ -1,0 +1,13 @@
+{
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_source_reference:v1",
+  "execution_plan_sha256": "28f1c5c5d6d77eecd55d68c6d712dfda79852f6c774ffdf410d12e968d4bc88a",
+  "model_free_preflight": "source-preflight.json",
+  "model_bound_preflight": "model-bound-preflight.json",
+  "control_package": "../source-near-transfer-distance-ladder-hermes-prompt-guidance-v1",
+  "control_execution_plan_sha256": "bb85510917f1fcf7ad811cfd92f670bc63e2de25bb7f18399d373f9a5cd08a4f",
+  "parent_snapshot_tree_sha256": "sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0",
+  "parent_history_boundary_digest": "53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b",
+  "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "separate_inference_receipts": 6,
+  "learning_established": false
+}

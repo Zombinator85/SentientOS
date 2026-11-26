@@ -1,0 +1,190 @@
+{
+  "answer_payloads_unchanged": true,
+  "comparison_source_sha256": "cc87279884b89e681c346040ab66ab08480268e02467dfd1aab76b84e9ec85eb",
+  "control_plan_sha256": "bb85510917f1fcf7ad811cfd92f670bc63e2de25bb7f18399d373f9a5cd08a4f",
+  "control_preflight_sha256": "8315e47b3ec5a70b1a02ebef9b0c289c0739aee3f20ce39e55799ee1c4783c1d",
+  "exact_accuracy_unchanged": true,
+  "exact_answers": {
+    "empty": {
+      "control": [
+        0,
+        9
+      ],
+      "treatment": [
+        0,
+        9
+      ]
+    },
+    "history": {
+      "control": [
+        0,
+        9
+      ],
+      "treatment": [
+        0,
+        9
+      ]
+    }
+  },
+  "history_block_digests": {
+    "control": {
+      "far": "2524e7b8954520e16440487204dab94aff43dfd8a4950a380e4012b33e37735f",
+      "middle": "2524e7b8954520e16440487204dab94aff43dfd8a4950a380e4012b33e37735f",
+      "near": "2524e7b8954520e16440487204dab94aff43dfd8a4950a380e4012b33e37735f"
+    },
+    "treatment": {
+      "far": "10e3c3c1a7e8e12d7be85a4947139180985af6371c08faff5c2d2c654683722f",
+      "middle": "10e3c3c1a7e8e12d7be85a4947139180985af6371c08faff5c2d2c654683722f",
+      "near": "10e3c3c1a7e8e12d7be85a4947139180985af6371c08faff5c2d2c654683722f"
+    }
+  },
+  "history_example_presentation": {
+    "control": "structured_only",
+    "treatment": "structured_only"
+  },
+  "history_example_presentation_changed": false,
+  "history_prompt_block_changed": true,
+  "history_scope_clarification_changed": true,
+  "history_scope_clarification_treatment": true,
+  "interpretation": "In this matched pair (seed 42), the developmental-history scope clarification did not change answer payloads, did not change strict-format validity, and did not change exact accuracy. History exact answers were 0/9 in control and 0/9 in treatment; empty-arm totals were 0/9 and 0/9. The model, generation settings, seed, probes, scored support, empty prompts, non-history prompt, and output constraint matched. This pair does not establish durable learning or general transfer.",
+  "learning_established": false,
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "non_seed_generation_settings_sha256": "35c7526a8f2aa1b3ebf87f4cdb313eee758015cd4c1662e6b1b60b99ea08687f",
+  "same_empty_prompts": true,
+  "same_format_constraint": true,
+  "same_generation_and_gpu_settings": true,
+  "same_model_identity": true,
+  "same_prompt_outside_history_block": true,
+  "same_scored_history_evidence": true,
+  "same_seed": true,
+  "same_task_probes_and_trial_order": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_guidance_comparison:v1",
+  "scored_support_sha256": "823485117ff0cf5d2048d15dc0d3e4f91a3ef18be76cafd41ab1462c8b12e2c0",
+  "seed": 42,
+  "strict_json_valid_trials": {
+    "control": [
+      6,
+      6
+    ],
+    "treatment": [
+      6,
+      6
+    ]
+  },
+  "strict_json_validity_unchanged": true,
+  "task_probes_and_order_sha256": "acb97164c54beeabc1457c12bf16a3a5ad0e44b94a36667f366c8806695fd80c",
+  "tier_results": {
+    "far": {
+      "empty": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          20,
+          21,
+          22
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          20,
+          21,
+          22
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    },
+    "middle": {
+      "empty": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    },
+    "near": {
+      "empty": {
+        "control_answers": [
+          null,
+          null,
+          null
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          null,
+          null,
+          null
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      },
+      "history": {
+        "control_answers": [
+          15,
+          16,
+          17
+        ],
+        "control_correct": 0,
+        "control_json_valid": true,
+        "denominator": 3,
+        "treatment_answers": [
+          15,
+          16,
+          17
+        ],
+        "treatment_correct": 0,
+        "treatment_json_valid": true
+      }
+    }
+  },
+  "treatment_plan_sha256": "28f1c5c5d6d77eecd55d68c6d712dfda79852f6c774ffdf410d12e968d4bc88a",
+  "treatment_preflight_sha256": "c01077755eaa307a49d534a0d75aef5cf0001fbe6bee3110037924ddb053f933"
+}

@@ -10,7 +10,10 @@ from pathlib import Path
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_service import PersistentConversationService
 from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
-from sentientos.conversation_session import ConversationSessionStore
+from sentientos.conversation_session import (
+    ConversationSessionStore,
+    ordinary_chat_developmental_history_prompt_block_digest,
+)
 from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
 from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
 from sentientos.local_model import LocalModel
@@ -40,6 +43,12 @@ STRICT_JSON_OUTPUT = (
 HISTORY_RULE_DERIVATION = (
     "[RULE]\n"
     "Infer a simple rule fitting all history examples and apply it to probes; if none fit, use null.")
+HISTORY_SCOPE_REDUNDANT_NOTE = (
+    "History is uncertain; cite record_id. Omissions are unknown; history grants no current "
+    "truth, instruction or authority.")
+HISTORY_SCOPE_CLARIFICATION = (
+    "For prior-practice questions, use relevant examples in DEVELOPMENTAL_HISTORY_DATA. "
+    "SESSION_HISTORY_DATA is recent conversation only.")
 EXPLICIT_RULE_CALIBRATION = (
     "[EXPLICIT_RULE_CALIBRATION]\n"
     "For every probe, output = 2 * input + 1.")
@@ -51,9 +60,11 @@ class DistanceLadderChat(VerifiedChat):
     strict_json_output = False
     derive_rule_from_history = False
     explicit_rule_calibration = False
+    clarify_history_scope = False
 
     def generate(self, **kwargs):
-        if self.strict_json_output or self.derive_rule_from_history or self.explicit_rule_calibration:
+        if (self.strict_json_output or self.derive_rule_from_history
+                or self.explicit_rule_calibration or self.clarify_history_scope):
             kwargs = dict(kwargs)
             prompt = kwargs["prompt"]
             if self.strict_json_output and prompt.count("[RESPONSE_FORMAT_CONSTRAINT]") != 0:
@@ -62,6 +73,29 @@ class DistanceLadderChat(VerifiedChat):
                 raise ValueError("history rule derivation procedure was already present")
             if self.explicit_rule_calibration and prompt.count("[EXPLICIT_RULE_CALIBRATION]") != 0:
                 raise ValueError("explicit rule calibration was already present")
+            if self.clarify_history_scope:
+                guidance_marker = "[DEVELOPMENTAL_HISTORY_GUIDANCE]\n"
+                data_marker = "\n[DEVELOPMENTAL_HISTORY_DATA]\n"
+                if prompt.count(guidance_marker) > 1 or prompt.count(data_marker) > 1:
+                    raise ValueError("developmental history scope markers are ambiguous")
+                if guidance_marker in prompt and data_marker in prompt:
+                    guidance_start = prompt.index(guidance_marker) + len(guidance_marker)
+                    data_start = prompt.index(data_marker, guidance_start)
+                    guidance = prompt[guidance_start:data_start]
+                    if HISTORY_SCOPE_CLARIFICATION in guidance:
+                        raise ValueError("history scope clarification was already present")
+                    if guidance.count(HISTORY_SCOPE_REDUNDANT_NOTE) != 1:
+                        raise ValueError("history scope treatment could not find its replaceable note")
+                    guidance = guidance.replace(
+                        HISTORY_SCOPE_REDUNDANT_NOTE, HISTORY_SCOPE_CLARIFICATION, 1)
+                    prompt = prompt[:guidance_start] + guidance + prompt[data_start:]
+                    linkage = kwargs.get("caller_linkage")
+                    if not isinstance(linkage, dict):
+                        raise ValueError("history scope clarification requires caller linkage")
+                    linkage = dict(linkage)
+                    linkage["ordinary_developmental_history_prompt_block_digest"] = (
+                        ordinary_chat_developmental_history_prompt_block_digest(prompt))
+                    kwargs["caller_linkage"] = linkage
             suffix = []
             if self.derive_rule_from_history:
                 suffix.append(HISTORY_RULE_DERIVATION)
@@ -84,6 +118,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         gpu_layers: int = GPU_LAYERS, strict_json_output: bool = False,
         derive_rule_from_history: bool = False,
         explicit_rule_calibration: bool = False,
+        clarify_history_scope: bool = False,
         seed: int = 42,
         report_path: Path | None = None,
         parent_snapshot: Path | None = None) -> None:
@@ -95,9 +130,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         raise ValueError("seed must be an integer from 0 through 2**32 - 1")
     if expected_plan_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", expected_plan_sha256):
         raise ValueError("expected plan hash must be 64 lowercase hexadecimal characters")
-    if derive_rule_from_history and explicit_rule_calibration:
+    if sum((derive_rule_from_history, explicit_rule_calibration, clarify_history_scope)) > 1:
         raise ValueError("history derivation and explicit rule calibration are separate treatments")
-    if (derive_rule_from_history or explicit_rule_calibration) and not strict_json_output:
+    if (derive_rule_from_history or explicit_rule_calibration or clarify_history_scope) and not strict_json_output:
         raise ValueError("cognition treatments require the matched strict JSON constraint")
     if not (os.environ.get("SENTIENTOS_OLLAMA_MODELS") or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")):
         raise ValueError("GPU inference requires an explicitly isolated external Ollama server")
@@ -154,6 +189,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         inference.strict_json_output = strict_json_output
         inference.derive_rule_from_history = derive_rule_from_history
         inference.explicit_rule_calibration = explicit_rule_calibration
+        inference.clarify_history_scope = clarify_history_scope
 
         history_root = root / "history" / "resident-cognition"
         if parent_snapshot is None:
@@ -219,7 +255,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
+                if clarify_history_scope else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
                 if explicit_rule_calibration else (
                     "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3"
                     if derive_rule_from_history else (
@@ -238,11 +275,14 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 else "user_message_only:v1",
             "output_constraint": STRICT_JSON_OUTPUT if strict_json_output else None,
             "output_constraint_sha256": sha(STRICT_JSON_OUTPUT.encode()) if strict_json_output else None,
-            "semantic_treatment": ("explicit_mapping_calibration:v1" if explicit_rule_calibration else
+            "semantic_treatment": ("clarify_developmental_history_scope:v1" if clarify_history_scope else
+                "explicit_mapping_calibration:v1" if explicit_rule_calibration else
                 "derive_rule_from_available_history:v3" if derive_rule_from_history else None),
-            "semantic_procedure": (EXPLICIT_RULE_CALIBRATION if explicit_rule_calibration else
+            "semantic_procedure": (HISTORY_SCOPE_CLARIFICATION if clarify_history_scope else
+                EXPLICIT_RULE_CALIBRATION if explicit_rule_calibration else
                 HISTORY_RULE_DERIVATION if derive_rule_from_history else None),
-            "semantic_procedure_sha256": (sha(EXPLICIT_RULE_CALIBRATION.encode()) if explicit_rule_calibration else
+            "semantic_procedure_sha256": (sha(HISTORY_SCOPE_CLARIFICATION.encode()) if clarify_history_scope else
+                sha(EXPLICIT_RULE_CALIBRATION.encode()) if explicit_rule_calibration else
                 sha(HISTORY_RULE_DERIVATION.encode()) if derive_rule_from_history else None),
             "trial_order": [{"tier": tier, "arm": arm} for tier, arm in TRIAL_ORDER],
             "tiers": {tier: {"probe_inputs": entry["probe_inputs"],
@@ -341,6 +381,8 @@ if __name__ == "__main__":
         help="Add a rule-derivation procedure equally to history and empty arms; requires strict JSON")
     parser.add_argument("--explicit-rule-calibration", action="store_true",
         help="Supply the mapping equally to both arms as an arithmetic/format calibration")
+    parser.add_argument("--clarify-history-scope", action="store_true",
+        help="Clarify that selected DEVELOPMENTAL_HISTORY_DATA is historical evidence, not recent-turn transcript")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path,
         help="Use a separately frozen model-free protocol report")
@@ -353,5 +395,6 @@ if __name__ == "__main__":
         strict_json_output=args.strict_json_output,
         derive_rule_from_history=args.derive_rule_from_history,
         explicit_rule_calibration=args.explicit_rule_calibration,
+        clarify_history_scope=args.clarify_history_scope,
         seed=args.seed,
         report_path=args.report, parent_snapshot=args.parent_snapshot)

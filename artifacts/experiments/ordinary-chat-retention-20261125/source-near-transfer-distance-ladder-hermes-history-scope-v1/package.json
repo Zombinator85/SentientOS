@@ -1,0 +1,22 @@
+{
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_scope_package:v1",
+  "control_package": "../source-near-transfer-distance-ladder-hermes-prompt-guidance-v1",
+  "example_presentation": "structured_only",
+  "history_scope_treatment": "clarify_developmental_history_scope:v1",
+  "inference_performed": true,
+  "learning_established": false,
+  "max_prompt_chars": 7907,
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "plan_sha256": "28f1c5c5d6d77eecd55d68c6d712dfda79852f6c774ffdf410d12e968d4bc88a",
+  "seed": 42,
+  "separate_receipt_count": 6,
+  "strict_json_valid": 6,
+  "trial_count": 6,
+  "exact_answers": {
+    "control_history": [0, 9],
+    "treatment_history": [0, 9],
+    "control_empty": [0, 9],
+    "treatment_empty": [0, 9]
+  }
+}

@@ -73,12 +73,13 @@ def score(run_directory: Path, output: Path,
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"}
             or plan_digest != result.get("plan_sha256")
             or plan.get("source_report_sha256") != sha(selected_report.read_bytes())
             or set(plan.get("tiers", {})) != set(protocol.get("tiers", {}))):
         raise ValueError("execution plan or results do not match the frozen ladder preflight")
-    if plan["schema"].endswith((":v2", ":v3", ":v4")):
+    if plan["schema"].endswith((":v2", ":v3", ":v4", ":v5")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint_sha256") != sha(plan["output_constraint"].encode())):
             raise ValueError("post-retrieval output constraint is not bound to the execution plan")
@@ -94,6 +95,12 @@ def score(run_directory: Path, output: Path,
                     or plan.get("semantic_procedure") != EXPLICIT_RULE_CALIBRATION
                     or plan.get("semantic_procedure_sha256") != sha(EXPLICIT_RULE_CALIBRATION.encode())):
                 raise ValueError("explicit mapping calibration is not bound to the execution plan")
+        if plan["schema"].endswith(":v5"):
+            from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_SCOPE_CLARIFICATION
+            if (plan.get("semantic_treatment") != "clarify_developmental_history_scope:v1"
+                    or plan.get("semantic_procedure") != HISTORY_SCOPE_CLARIFICATION
+                    or plan.get("semantic_procedure_sha256") != sha(HISTORY_SCOPE_CLARIFICATION.encode())):
+                raise ValueError("history scope clarification is not bound to the execution plan")
     elif plan.get("format_treatment") != "user_message_only:v1" or plan.get("output_constraint") is not None:
         raise ValueError("unconstrained-format execution plan has an unexpected treatment")
     if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):

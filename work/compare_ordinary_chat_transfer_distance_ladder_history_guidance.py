@@ -39,7 +39,8 @@ def _presentation(plan: dict[str, Any]) -> str:
 
 
 def compare(control: Path, treatment: Path, control_report: Path,
-            treatment_report: Path, output: Path) -> dict[str, Any]:
+            treatment_report: Path, output: Path, *, scope_treatment: bool = False
+            ) -> dict[str, Any]:
     control_plan = _read(control / "plan.json")
     treatment_plan = _read(treatment / "plan.json")
     control_result = _read(control / "result.json")
@@ -81,9 +82,14 @@ def compare(control: Path, treatment: Path, control_report: Path,
     control_presentation = _presentation(control_plan)
     treatment_presentation = _presentation(treatment_plan)
     different_presentation = (control_presentation != treatment_presentation)
+    scope_treatment_matches = (
+        control_plan.get("semantic_treatment") is None
+        and treatment_plan.get("semantic_treatment")
+            == "clarify_developmental_history_scope:v1"
+        and control_presentation == treatment_presentation) if scope_treatment else False
     if not all((same_identity, same_generation, same_seed, same_task, same_support,
                 same_empty_prompts, same_nonhistory_prompt, same_format,
-                different_presentation)):
+                (scope_treatment_matches if scope_treatment else different_presentation))):
         raise ValueError("runs differ in model, settings, task, support, empty prompt, base prompt, or format")
 
     settings_without_seed = {
@@ -148,6 +154,8 @@ def compare(control: Path, treatment: Path, control_report: Path,
                                 if row["arm"] == "empty")
     empty_treatment_correct = sum(row["correct_count"] for row in treatment_score["trials"]
                                   if row["arm"] == "empty")
+    intervention_name = ("the developmental-history scope clarification"
+                         if scope_treatment else "the history presentation")
     report = {
         "schema": "sentientos.ordinary_chat_transfer_distance_ladder_history_guidance_comparison:v1",
         "control_plan_sha256": control_score["plan_sha256"],
@@ -173,6 +181,8 @@ def compare(control: Path, treatment: Path, control_report: Path,
         "history_example_presentation": {"control": control_presentation,
             "treatment": treatment_presentation},
         "history_example_presentation_changed": different_presentation,
+        "history_scope_clarification_treatment": scope_treatment,
+        "history_scope_clarification_changed": scope_treatment_matches,
         "history_prompt_block_changed": True,
         "answer_payloads_unchanged": answer_payloads_unchanged,
         "strict_json_validity_unchanged": format_validity_unchanged,
@@ -190,10 +200,10 @@ def compare(control: Path, treatment: Path, control_report: Path,
         "tier_results": by_tier,
         "interpretation": (
             f"In this matched pair (seed {control_plan.get('options', {}).get('seed')}), "
-            f"the history presentation {response_effect}, {format_effect}, and "
+            f"{intervention_name} {response_effect}, {format_effect}, and "
             f"{accuracy_effect}. History exact answers were {history_control_correct}/9 "
-            f"with structured-only presentation and {history_treatment_correct}/9 with "
-            f"record-linked presentation; empty-arm totals were {empty_control_correct}/9 "
+            f"in control and {history_treatment_correct}/9 in treatment; empty-arm totals were "
+            f"{empty_control_correct}/9 "
             f"and {empty_treatment_correct}/9. The model, generation settings, seed, probes, "
             "scored support, empty prompts, non-history prompt, and output constraint matched. "
             "This pair does not establish durable learning or general transfer."),
@@ -213,7 +223,10 @@ if __name__ == "__main__":
     parser.add_argument("control_preflight", type=Path)
     parser.add_argument("treatment_preflight", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--scope-treatment", action="store_true",
+        help="Compare a bound developmental-history scope clarification against the unchanged history guidance")
     args = parser.parse_args()
     result = compare(args.control_run, args.treatment_run, args.control_preflight,
-                     args.treatment_preflight, args.output)
+                     args.treatment_preflight, args.output,
+                     scope_treatment=args.scope_treatment)
     print("history_guidance_comparison_saved", result["treatment_plan_sha256"], flush=True)

@@ -7031,3 +7031,29 @@ described as absent and why the model adds prose outside a strict response
 format. Keep the retrieved record, its labels, and the empty-history control
 fixed while varying one evidence-reading or response-format intervention at a
 time.
+
+### Developmental-history scope clarification
+
+In the rule-derivation run, Hermes said that no developmental-history records
+were present even though the prompt validator confirmed the selected, scored
+record and its three correct examples. The global chat instructions separately
+scope recent-turn recall to SESSION_HISTORY_DATA. This motivated a one-factor
+test of whether the history channels were being confused.
+
+The [scope-clarification package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-history-scope-v1/)
+compares the existing structured-only strict-JSON run with a matched treatment.
+The treatment replaces a redundant uncertainty sentence in developmental-
+history guidance with a short statement that DEVELOPMENTAL_HISTORY_DATA
+supplies prior-practice examples and SESSION_HISTORY_DATA contains recent
+turns. The model, seed, probes, scored examples, presentation, format rule,
+empty prompts, and non-history prompt matched. The maximum prompt length was
+7,907 characters.
+
+Both runs produced valid strict JSON in all six trials and scored 0/9 exact
+answers in both history and empty arms. The treatment reproduced the history
+control's incorrect near and far guesses and middle-tier abstentions. It changed
+neither answer payloads nor accuracy, so this single comparison does not support
+the channel-confusion hypothesis and establishes no learning. Since the output
+schema asked only for answers, it cannot tell whether Hermes recognized the
+selected record. The next diagnostic should report an evidence-status field and
+record citation, then score those fields separately from answer accuracy.
