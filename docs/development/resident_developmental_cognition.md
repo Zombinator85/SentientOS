@@ -6160,9 +6160,9 @@ VRAM according to the isolated server's live placement report. The
 [timeout artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-explicit-mapping-timeout-v5/)
 passes an independent receipt verifier. The runner now preserves failure
 records automatically; the record for this first attempt was reconstructed
-from its governed receipt. The matched model comparison remains outstanding;
-the timeout is not evidence for or against improved extraction or learning.
-Hermes/GPU testing remains paused.
+from its governed receipt. At this point the matched model comparison remained
+outstanding; the timeout is not evidence for or against improved extraction or
+learning. The GPU follow-up is recorded below.
 
 To distinguish an oversized-model problem from a broader CPU-runtime constraint,
 the runner now accepts a second locally pinned model, `qwen3:0.6b`. Separate
@@ -6175,3 +6175,55 @@ does not resolve the current CPU timeout; they establish no result about
 cross-model cognitive continuity or the mapping intervention. Both preflights
 and the timeout receipt are in the
 [qwen3 probe artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-qwen3-06b-probe-v1/).
+
+## Matched Hermes CUDA recall probe (2026-11-26)
+
+The ordinary-chat retrieval comparison resumed on an isolated WSL Ollama
+runtime after the Windows runner was confirmed to remain CPU-only. The pinned
+`sentientos-hermes4:14b-q4km` artifact is Qwen3 14.8B Q4_K_M, manifest
+`f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce`. Ollama
+reported 24 of 41 layers offloaded to the RTX 3060; each completed trial recorded
+5,416,643,072 bytes of model residency in VRAM. The model server used a private
+one-model store. This confirms CUDA execution for these probes, not GPU-backed
+SentientOS ownership.
+
+An empty-history inline diagnostic returned syntactically valid JSON in
+59,400 ms. It reproduced the three inline rows but returned `record_id: null`
+instead of `inline-example`; the independent exact score was false. This showed
+that output shape and exact evidence attribution are separate requirements.
+That diagnostic's governed inference completed, but an outdated CPU-only
+residency assertion stopped the runner before it finalized the result. The
+result was reconstructed from the persisted assistant transcript and governed
+receipt, then passed the independent diagnostic verifier. The matched arms ran
+with the corrected placement check.
+
+The independent control and explicit-mapping preflights each captured eight
+trials and five single-record history exposures. They used the same model
+identity, runtime, generation settings, selected history evidence, and matched
+base prompts. Maximum prompt lengths were 7,665 and 7,818 characters. The full
+arms completed all eight governed calls and passed the independent receipt and
+answer regrader:
+
+- The no-mapping control scored 3/8 exact: `left_low`, `empty_wide`, and
+  `parent_wide`.
+- Explicit field-to-row mapping scored 4/8 exact: `right_wide`, `left_low`,
+  `empty_wide`, and `right_low`.
+- Mapping changed two failures to exact answers (`right_wide`, `right_low`),
+  while `parent_wide` changed from exact to malformed. Both repeated `left_wide`
+  trials and the inline condition were malformed in both arms.
+
+This is a small, mixed result: one more exact answer in the mapped arm, with a
+regression in another history condition. It supports the narrower claim that an
+explicit mapping instruction can change how this model uses retrieved history
+in ordinary chat. It does not establish durable learning, transferable
+improvement, model-independent continuity, or a general performance gain. The
+next useful step is an independent replication on a fresh task family with a
+held-out transfer condition.
+
+The [control preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-preflight-v3/),
+[mapping preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-preflight-v3/),
+[empty-inline diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-empty-inline-diagnostic-v1/),
+[control run](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-full-v1/),
+and [mapping run](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-full-v1/)
+contain independently verifiable plans and results plus checksummed complete
+capture archives.

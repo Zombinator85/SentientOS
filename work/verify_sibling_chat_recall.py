@@ -41,7 +41,8 @@ def verify(path):
             or plan["options"]["model"] != plan["model"]
             or plan["options"]["manifest_sha256"] != MODEL_MANIFESTS[plan["model"]]
             or configuration_digest != plan["model_identity"]["configuration_digest"]
-            or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
+            or type(plan["options"]["num_gpu"]) is not int
+            or not 0 <= plan["options"]["num_gpu"] <= 128 or plan["options"]["num_thread"] != 2
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
                                      + recall_question(s, cited) for _, s in trials}
             or plan.get("intervention") != expected_intervention):
@@ -87,7 +88,9 @@ def verify(path):
         disk = trial["receipt"]
         req = disk["request"]
         if (trial["trial"] != index or trial["condition"] != key or trial["plan_sha256"] != plan_hash
-                or trial["prompt_sha256"] != exposure["prompt_sha256"] or trial["resident_vram_bytes"] != 0
+                or trial["prompt_sha256"] != exposure["prompt_sha256"]
+                or (plan["options"]["num_gpu"] == 0 and trial["resident_vram_bytes"] != 0)
+                or (plan["options"]["num_gpu"] > 0 and trial["resident_vram_bytes"] <= 0)
                 or not validate_receipt(disk)[0] or disk["receipt_id"] in references
                 or not disk["admission_decision_ref"] or disk["status"] != "admitted_completed" or disk["fallback_occurred"]
                 or req["budget"]["timeout_seconds"] != plan["options"]["timeout_seconds"]

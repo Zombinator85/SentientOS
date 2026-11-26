@@ -1,0 +1,106 @@
+{
+  "created_at": "2026-11-26T07:56:19.932506+00:00",
+  "latest_activity_at": "2026-11-26T07:57:20.936474+00:00",
+  "lifecycle_state": "active",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+  "revision": 2,
+  "schema_version": "sentientos.conversation_session:v1",
+  "session_id": "session-cbd2f6f5c25e482a9583a099",
+  "title": null,
+  "turns": [
+    {
+      "byte_count": 498,
+      "character_count": 498,
+      "linkage": {
+        "client_request_id_digest": "67ced758680d7207d5d988f397061dc639a0d464f7504e95c27e6ca06c749233"
+      },
+      "retention_state": "not_requested",
+      "role": "user",
+      "sequence": 1,
+      "text": "Report inline-example. Input 47. Answer -4. Incorrect. Input 52. Abstained. Input 61. Answer 10. Correct.\nUsing the report above, what were the recorded inputs and outcomes? Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report.",
+      "text_digest": "72bc5238b4f62782283d966ddfc3f101a3146ad0cf2e35cb7be899ffe2ad81ba",
+      "timestamp": "2026-11-26T07:56:19.937137+00:00",
+      "turn_id": "turn-fa5e47b817074586ad9e25d6"
+    },
+    {
+      "byte_count": 132,
+      "character_count": 132,
+      "linkage": {
+        "active_model_identity": {
+          "artifact_size_bytes": 924,
+          "candidate_index": 0,
+          "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+          "engine": "ollama",
+          "fallback": false,
+          "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "posture": "development_only",
+          "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+          "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "sidecar_metadata_digest": null
+        },
+        "active_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+        "assistant_output_lineage": {
+          "invocation_output_digest": "a8d31bb3910c5cb6366f88cea01737987a4553fb2784fb81c73fefac4d7125dd",
+          "invocation_output_text_sha256": "2325ee3897e3561912a012a1fcb0ee2db95152e1aec012861fadd5a8c5e02fa9",
+          "output_truncated": false,
+          "status": "exact_invocation_output_match",
+          "transcript_text_digest": "e08c7f4e1e126518e236f1803122475c3c12205219db10ac93bd16322e786102",
+          "transcript_text_sha256": "2325ee3897e3561912a012a1fcb0ee2db95152e1aec012861fadd5a8c5e02fa9"
+        },
+        "context_snapshot_digest": "619a895172b39cc1865597c5777dccc94a61e0de10649736090efa14045514e3",
+        "invocation_receipt_digest": "57be45625289718dd58d21beebbc03ed77079220b0be06dde48dd18e0797c766",
+        "invocation_receipt_id": "lmrec-57be45625289718dd58d21be",
+        "legacy_sidecar_posture": "missing",
+        "loaded_model_identity": {
+          "artifact_size_bytes": 924,
+          "candidate_index": 0,
+          "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+          "engine": "ollama",
+          "fallback": false,
+          "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "posture": "development_only",
+          "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+          "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+          "sidecar_metadata_digest": null
+        },
+        "loaded_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+        "memory_retrieval_posture": "directory_missing",
+        "memory_selection_posture": "all_matching_records_selected",
+        "memory_snapshot_digest": "b4dce457f2df6225e8ada73e8c2eb51c501c48513fb982d839d97a1cc0a5b0c9",
+        "model_identity_continuity_posture": "same_exact_serving_identity_prior_receipt_unverified",
+        "omitted_memory_count": 0,
+        "ordinary_developmental_history_context_posture": "provider_returned_no_context",
+        "predecessor_invocation_reference": null,
+        "predecessor_model_identity_digest": "c689145fd3641a777fef65e71762dc6ec2471df99546483b568981bdf2587acd",
+        "request_id": "lmreq-bcd139da1c6140cac67fe1bc",
+        "response_origin": "model_generated",
+        "screen_observation_provenance": null,
+        "software_generation_attribution": {
+          "process_instance_id": null,
+          "reason_code": "not_a_production_process_observation",
+          "status": "development_only"
+        },
+        "source_user_turn_id": "turn-fa5e47b817074586ad9e25d6"
+      },
+      "retention_state": "not_requested",
+      "role": "assistant",
+      "sequence": 2,
+      "text": "```json\n{\n  \"record_id\": null,\n  \"rows\": [\n    [47, -4, \"incorrect\"],\n    [52, null, \"abstained\"],\n    [61, 10, \"correct\"]\n  ]\n}\n```",
+      "text_digest": "e08c7f4e1e126518e236f1803122475c3c12205219db10ac93bd16322e786102",
+      "timestamp": "2026-11-26T07:57:20.936474+00:00",
+      "turn_id": "turn-a3da56ee21ff413a9159bd36"
+    }
+  ]
+}

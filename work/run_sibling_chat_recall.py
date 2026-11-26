@@ -1,4 +1,4 @@
-"""Run the archived sibling-history recall comparison through governed ordinary chat on CPU."""
+"""Run the archived sibling-history recall comparison through governed ordinary chat."""
 from __future__ import annotations
 
 import argparse
@@ -42,6 +42,7 @@ MANIFEST = "f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e"
 MODEL_MANIFESTS = {
     MODEL: MANIFEST,
     "qwen3:0.6b": "6f76d4346c34ba89df6e137fb661b4bb4daf322c1151b6ef0dfda981070a851f",
+    "sentientos-hermes4:14b-q4km": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
 }
 ADDRESS = "127.0.0.2"
 BASE = f"http://{ADDRESS}:11434"
@@ -173,7 +174,7 @@ def _prepare_private_model(models, private, model, manifest_digest):
 
 @contextmanager
 def _loopback_api_forwarder(target_host, target_port):
-    """Forward the pinned loopback API to a separately isolated CPU server."""
+    """Forward the pinned loopback API to a separately isolated model server."""
     class Handler(socketserver.BaseRequestHandler):
         def handle(self):
             with socket.create_connection((target_host, target_port), timeout=10) as upstream:
@@ -201,7 +202,7 @@ def _loopback_api_forwarder(target_host, target_port):
         daemon_threads = True
 
     server = Server((ADDRESS, 11434), Handler)
-    thread = threading.Thread(target=server.serve_forever, name="cpu-model-api-forwarder", daemon=True)
+    thread = threading.Thread(target=server.serve_forever, name="model-api-forwarder", daemon=True)
     thread.start()
     try:
         yield
@@ -212,16 +213,17 @@ def _loopback_api_forwarder(target_host, target_port):
 
 
 @contextmanager
-def cpu_server(install, models, root, model, manifest_digest):
-    """Create an isolated Linux loader tree containing only CPU backends and one model."""
-    external_models = os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")
+def model_server(install, models, root, model, manifest_digest):
+    """Bind an isolated Ollama server to one pinned model artifact."""
+    external_models = (os.environ.get("SENTIENTOS_OLLAMA_MODELS")
+                       or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS"))
     if external_models:
         private = Path(external_models)
         private.mkdir(parents=True, exist_ok=True)
         manifest = _prepare_private_model(models, private, model, manifest_digest)
         target = urlsplit(os.environ.get("SENTIENTOS_OLLAMA_CPU_TARGET", ""))
         if target.scheme != "http" or not target.hostname or not target.port:
-            raise ValueError("external CPU server target must be an explicit HTTP host and port")
+            raise ValueError("external model server target must be an explicit HTTP host and port")
         with _loopback_api_forwarder(target.hostname, target.port):
             if get_api("ps")["models"]:
                 raise ValueError("external CPU server already has a resident model")
@@ -357,18 +359,26 @@ class VerifiedChat(DevelopmentLocalChatInference):
 
 
 def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False, preflight_only=False,
-        model_name=MODEL):
+        model_name=MODEL, diagnostic_condition=None, gpu_layers=0):
     if explicit_row_mapping and not cited:
         raise ValueError("explicit row mapping requires the cited response protocol")
+    if diagnostic_condition is not None and (not cited or explicit_row_mapping
+            or diagnostic_condition not in {"empty_wide", "empty_inline"}):
+        raise ValueError("diagnostic condition must be an empty cited control without treatment")
     if model_name not in MODEL_MANIFESTS:
         raise ValueError("model is not in the pinned recall model registry")
+    if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:
+        raise ValueError("GPU layer count must be an integer from 0 through 128")
+    if gpu_layers and not (os.environ.get("SENTIENTOS_OLLAMA_MODELS")
+                           or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")):
+        raise ValueError("GPU inference requires an explicitly isolated external Ollama server")
     manifest_digest = MODEL_MANIFESTS[model_name]
     root.mkdir(parents=True, exist_ok=False)
     baseline = read(SOURCE_REPORT)
     historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
-    with cpu_server(install, models, root, model_name, manifest_digest) as (manifest, version), _rootless_governance_custody(root):
+    with model_server(install, models, root, model_name, manifest_digest) as (manifest, version), _rootless_governance_custody(root):
         options = {"api_base": BASE, "model": model_name, "manifest_sha256": manifest_digest,
-                   "num_gpu": 0, "num_thread": 2, "timeout_seconds": 120, "seed": 42,
+                   "num_gpu": gpu_layers, "num_thread": 2, "timeout_seconds": 120, "seed": 42,
                    "think": False, "keep_alive": "5m"}
         config = ModelConfig([ModelCandidate(manifest, "ollama", model_name, options)], max_context_tokens=4096,
                              generation=GenerationConfig(max_new_tokens=160, temperature=0.0, top_p=1.0))
@@ -435,10 +445,13 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
         protocol = "v5" if explicit_row_mapping else "v3" if cited else "v1"
-        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + protocol, "model": model_name,
+        plan = {"schema": ("sentientos.sibling_chat_recall_diagnostic:v1" if diagnostic_condition
+                            else "sentientos.sibling_chat_recall_plan:" + protocol), "model": model_name,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
-                "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
+                "generation": config.generation.as_kwargs(),
+                "trials": ([diagnostic_condition.split("_", 1)] if diagnostic_condition
+                           else conditions(cited)), "questions": questions,
                 "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
                     k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
                 "intervention": ({"id": "explicit_developmental_history_field_to_row_mapping:v2",
@@ -446,6 +459,8 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                                   "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
                                  if explicit_row_mapping else None),
                 "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
+        if diagnostic_condition:
+            plan["diagnostic_condition"] = diagnostic_condition
         if cited:
             plan["criterion"] = ("One JSON object with record_id and rows. A single Markdown JSON fence is accepted. "
                 "Score exact rows against every profile, independently of the citation. Passing also requires the "
@@ -467,7 +482,9 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
             return
         trials = []
         inference.capture_only = False
-        for index, (arm, scope) in enumerate(conditions(cited)):
+        trial_conditions = ([tuple(diagnostic_condition.split("_", 1))] if diagnostic_condition
+                            else conditions(cited))
+        for index, (arm, scope) in enumerate(trial_conditions):
             key = arm + "_" + scope
             inference.frozen_hash = exposure[key]["prompt_sha256"]
             inference.receipt = None
@@ -493,8 +510,10 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                     or receipt.fallback_occurred or receipt.output_text is None):
                 raise ValueError("governed inference did not yield a verified model response")
             placement, = get_api("ps")["models"]
-            if placement["digest"] != manifest_digest or placement["size_vram"] != 0:
-                raise ValueError("expected exact model resident on CPU")
+            if (placement["digest"] != manifest_digest
+                    or (gpu_layers == 0 and placement["size_vram"] != 0)
+                    or (gpu_layers > 0 and placement["size_vram"] <= 0)):
+                raise ValueError("model residency differs from the selected CPU/GPU placement")
             grade = (score_cited_answer if cited else score_answer)(response.response, profiles)
             expected = ("inline" if scope == "inline" else "empty" if arm == "empty"
                         else "shared_low" if scope == "low" else key)
@@ -519,12 +538,16 @@ if __name__ == "__main__":
         parser.add_argument(arg, type=Path)
     parser.add_argument("--cited", action="store_true")
     parser.add_argument("--explicit-row-mapping", action="store_true",
-                        help="Run the cited CPU protocol with an explicit history-field to output-row mapping")
+                        help="Run the cited protocol with an explicit history-field to output-row mapping")
     parser.add_argument("--preflight-only", action="store_true",
                         help="Save and validate the complete prompt plan without invoking the model")
     parser.add_argument("--model", choices=tuple(MODEL_MANIFESTS), default=MODEL,
                         help="Select a pre-pinned local model artifact")
+    parser.add_argument("--diagnostic-condition", choices=("empty_wide", "empty_inline"),
+                        help="Run one empty-history cited control to diagnose model generation")
+    parser.add_argument("--gpu-layers", type=int, default=0,
+                        help="Offload this many Ollama model layers (0 keeps the run on CPU)")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
         explicit_row_mapping=args.explicit_row_mapping, preflight_only=args.preflight_only,
-        model_name=args.model)
+        model_name=args.model, diagnostic_condition=args.diagnostic_condition, gpu_layers=args.gpu_layers)

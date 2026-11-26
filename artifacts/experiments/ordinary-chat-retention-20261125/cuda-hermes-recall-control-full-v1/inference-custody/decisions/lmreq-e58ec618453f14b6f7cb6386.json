@@ -1,0 +1,87 @@
+{
+  "action_kind": "local_model_inference",
+  "actor": "chat_service",
+  "actor_source": "chat_service",
+  "admission_decision_ref": "kernel_decision:chat:session-fb5fb9115f9748efb57723a8:turn-885e10686add487f9ceeefcd",
+  "authority_class": "local_model_inference",
+  "correlation_id": "chat:session-fb5fb9115f9748efb57723a8:turn-885e10686add487f9ceeefcd",
+  "current_phase": "runtime",
+  "delegate_checks_consulted": [
+    "admission_dedupe",
+    "runtime_governor"
+  ],
+  "delegated_outcomes": {
+    "admission_dedupe": {
+      "correlation_id": "chat:session-fb5fb9115f9748efb57723a8:turn-885e10686add487f9ceeefcd",
+      "expires_at": 1795683913.625643,
+      "first_seen": 1795680313.625643,
+      "key_shape": "(current_phase.value, correlation_id)",
+      "max_entries": 4096,
+      "phase": "runtime",
+      "scope": "process_local",
+      "ttl_seconds": 3600.0
+    },
+    "runtime_governor": {
+      "action_class": "local_model_inference",
+      "action_family": "local_model",
+      "action_priority": 3,
+      "allowed": true,
+      "correlation_id": "chat:session-fb5fb9115f9748efb57723a8:turn-885e10686add487f9ceeefcd",
+      "evidence_refs": {
+        "game_frame_pressure": false,
+        "game_performance_evidence": {
+          "status": "unavailable"
+        },
+        "game_priority_block": false,
+        "game_workload_evidence": {
+          "game_active": false,
+          "status": "unavailable"
+        },
+        "gaming_workload_profile_evidence": {
+          "mode": "normal",
+          "status": "not_selected"
+        },
+        "gaming_workload_profile_host_pressure": false,
+        "gaming_workload_profile_resource_telemetry_incomplete": false,
+        "host_pressure_during_verified_game": false,
+        "host_resource_evidence": {
+          "status": "unavailable"
+        },
+        "observed_pressure_labels": [],
+        "optional_gpu_model_load_in_gaming_profile": false,
+        "optional_model_load_in_gaming_profile": false,
+        "resource_entitlement_evidence": {
+          "status": "unavailable"
+        }
+      },
+      "mode": "shadow",
+      "origin": "chat_service",
+      "reason": "allowed",
+      "reason_hash": "934c3bf7742fc89f4ff8954f8fc8ccb6638731f4aca271c7c7242584dc20d92e",
+      "sampled_pressure": {
+        "composite": 0.2948,
+        "cpu": 0.16,
+        "gpu": 0.0,
+        "io": 0.923,
+        "sampled_at": "2026-11-26T08:05:13.625704+00:00",
+        "thermal": 0.0
+      },
+      "scope": "local",
+      "subject": "chat_service"
+    }
+  },
+  "event_type": "control_plane_decision",
+  "execution_owner": "chat_service",
+  "federation_context": null,
+  "final_disposition": "allow",
+  "lifecycle_phase": "runtime",
+  "outcome": "allow",
+  "proof_budget_context": null,
+  "protected_mutation_intent": null,
+  "reason_codes": [
+    "admitted"
+  ],
+  "requested_phase": "runtime",
+  "target_subsystem": "governed_local_model_invocation",
+  "timestamp": "2026-11-26T08:05:13.859945+00:00"
+}

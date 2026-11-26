@@ -36,7 +36,8 @@ def verify(path: Path):
             or plan["options"]["model"] != plan["model"]
             or plan["options"]["manifest_sha256"] != MODEL_MANIFESTS[plan["model"]]
             or config_digest != plan["model_identity"]["configuration_digest"]
-            or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
+            or type(plan["options"]["num_gpu"]) is not int
+            or not 0 <= plan["options"]["num_gpu"] <= 128 or plan["options"]["num_thread"] != 2
             or plan["options"]["timeout_seconds"] != 120
             or plan["trials"] != [list(trial) for trial in conditions(True)]
             or plan["questions"] != {
