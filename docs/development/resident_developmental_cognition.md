@@ -5981,32 +5981,26 @@ or invalid pairs remain in the report and suppress the primary aggregate.
 Syntax compilation and CLI help passed; no completed behavioral scores exist
 yet, so end-to-end analysis remains pending those runs.
 
-The next rootless attempt is reserved as cycle ID
-`rootless-cognition-cycle-20261125000000000008`; a read-only check confirmed
-that its cycle directory does not exist. The pinned Ollama manifest is present
-and its SHA-256 matches the filename, and the source history root exists. When
-GPU use is available, launch from this checkout under WSL with:
+### 2026-11-26 strategy-inclusion execution attempts
 
-```bash
-cd /mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next
-export SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl
-export SENTIENTOS_HERMES_CYCLE_ID=rootless-cognition-cycle-20261125000000000008
-export SENTIENTOS_HERMES_EXPERIMENT_SEED=13688906
-export SENTIENTOS_HERMES_BACKEND_SEED=1257088909
-export SENTIENTOS_HERMES_PREREGISTRATION_DIGEST=2dc5ab908181418271a2189dfcf3814b775f71540f74305d8238ba25adf18432
-export SENTIENTOS_HERMES_MODEL=hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q4_K_M
-export SENTIENTOS_HERMES_MODEL_MANIFEST_PATH=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/ollama-model-manifests/ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989.json
-export SENTIENTOS_ROOTLESS_PRIOR_HISTORY_ROOT=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-20261124000000000009/resident-cognition/history
-export SENTIENTOS_HERMES_STRATEGY_INCLUSION_PREVIEW_PATH=/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v11.json
-export SENTIENTOS_HERMES_STRATEGY_INCLUSION_JOURNAL_ROOT=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261125-v1
-/home/zombinator/src/SentientOS/.venv/bin/python scripts/run_rootless_ollama_embodied_cognition_cycle.py
-```
+The v11 launch used cycle ID
+`rootless-cognition-cycle-20261125000000000008` and stopped in
+`model_and_runtime_preflight`. Its source-provenance record counted 22,418
+worktree status entries, exceeded the bounded inventory, and had no complete
+content digest. The failure is preserved at
+`sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-20261125000000000008/cycle-failure.json`.
+The model was not invoked and no learning claim was made. The check originally
+ran after cycle-root allocation and history copying; the runner now checks the
+initial fingerprint before setup, rechecks it immediately before allocation,
+and writes a private digest-bound preflight record on rejection.
 
-This command is a resume recipe, not a launch authorization or result. It has
-not been run in the GPU-in-use window. The runner still must complete its
-pre-inference checks and both receipt-verified arms before the intervention can
-be scored; the score will remain task-bound behavior evidence, not a durable
-learning claim.
+Two v12 launch attempts were rejected by the GPU resource guard before run-root
+allocation. Their model-identity preflight records both state
+`run_root_allocated: false`, `model_loaded: false`, and `model_invoked: false`;
+the v12 journal has no claimed arms. No v12 behavioral result exists. V13 has
+not been launched. Future attempts should use a clean WSL worktree when the
+interactive Windows checkout has accumulated unrelated untracked artifacts,
+and should proceed only when the GPU guard admits the slot.
 
 ### Evidence gate for the prepared three-probe strategy-inclusion pair
 
