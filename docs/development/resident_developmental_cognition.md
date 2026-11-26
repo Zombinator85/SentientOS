@@ -6649,5 +6649,14 @@ For execution, use a new run directory and pass
 "$py" -m work.score_ordinary_chat_transfer_distance_ladder <run-directory> <score-report.json>
 ```
 
-This turn prepared and statically checked the runner and scorer but did not
-create a Hermes-bound plan or use the GPU.
+The Hermes-bound preflight completed on 2026-11-26 with plan hash
+`c6e8906af54fbb8d4b143a35bc42e0d541ff755ae9f72e90d026b92035c5135b`.
+It binds all six prompts to Hermes 4 Q4_K_M, Ollama 0.40.16, and the 24-layer
+GPU placement. Each history condition retrieves the same three-example parent
+record; each empty condition retrieves none. The preflight receipt records no
+model invocation, no inference, and zero resident VRAM. The temporary Ollama
+service ran with GPU visibility disabled and was stopped afterward. The
+[model-bound plan](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-preflight-v1/plan.json)
+and [preflight receipt](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-preflight-v1/preflight.json)
+are preserved with exact runner/source snapshots. No
+Hermes generation has yet been run for this ladder.
