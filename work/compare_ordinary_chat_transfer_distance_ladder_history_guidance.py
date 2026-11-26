@@ -23,6 +23,17 @@ def _evidence_signature(plan: dict[str, Any]) -> dict[str, Any]:
         for tier in plan["tiers"]}
 
 
+def _presentation(plan: dict[str, Any]) -> str:
+    explicit = plan.get("example_presentation")
+    if explicit is not None:
+        return explicit
+    has_renderings = any(
+        bool(binding.get("prompt_example_renderings"))
+        for key, binding in plan.get("prompt_bindings", {}).items()
+        if key.endswith("_history"))
+    return "record_linked" if has_renderings else "structured_only"
+
+
 def compare(control: Path, treatment: Path, control_report: Path,
             treatment_report: Path, output: Path) -> dict[str, Any]:
     control_plan = _read(control / "plan.json")
@@ -49,6 +60,8 @@ def compare(control: Path, treatment: Path, control_report: Path,
     same_generation = (control_plan.get("generation") == treatment_plan.get("generation")
         and control_plan.get("options") == treatment_plan.get("options")
         and control_plan.get("gpu_layers") == treatment_plan.get("gpu_layers"))
+    same_seed = control_plan.get("options", {}).get("seed") == treatment_plan.get(
+        "options", {}).get("seed")
     same_task = (control_plan.get("task_family_id") == treatment_plan.get("task_family_id")
         and control_plan.get("tiers") == treatment_plan.get("tiers")
         and control_plan.get("trial_order") == treatment_plan.get("trial_order"))
@@ -61,8 +74,12 @@ def compare(control: Path, treatment: Path, control_report: Path,
         == treatment_plan.get("matched_base_sha256"))
     same_format = (control_plan.get("format_treatment") == treatment_plan.get("format_treatment")
         and control_plan.get("output_constraint") == treatment_plan.get("output_constraint"))
-    if not all((same_identity, same_generation, same_task, same_support,
-                same_empty_prompts, same_nonhistory_prompt, same_format)):
+    control_presentation = _presentation(control_plan)
+    treatment_presentation = _presentation(treatment_plan)
+    different_presentation = (control_presentation != treatment_presentation)
+    if not all((same_identity, same_generation, same_seed, same_task, same_support,
+                same_empty_prompts, same_nonhistory_prompt, same_format,
+                different_presentation)):
         raise ValueError("runs differ in model, settings, task, support, empty prompt, base prompt, or format")
 
     control_blocks = {tier: control_plan["prompt_bindings"][tier + "_history"][
@@ -114,11 +131,15 @@ def compare(control: Path, treatment: Path, control_report: Path,
         "comparison_source_sha256": _sha(Path(__file__).read_bytes()),
         "same_model_identity": same_identity,
         "same_generation_and_gpu_settings": same_generation,
+        "same_seed": same_seed,
         "same_task_probes_and_trial_order": same_task,
         "same_scored_history_evidence": same_support,
         "same_empty_prompts": same_empty_prompts,
         "same_prompt_outside_history_block": same_nonhistory_prompt,
         "same_format_constraint": same_format,
+        "history_example_presentation": {"control": control_presentation,
+            "treatment": treatment_presentation},
+        "history_example_presentation_changed": different_presentation,
         "history_prompt_block_changed": True,
         "answer_payloads_unchanged": answer_payloads_unchanged,
         "strict_json_validity_unchanged": format_validity_unchanged,

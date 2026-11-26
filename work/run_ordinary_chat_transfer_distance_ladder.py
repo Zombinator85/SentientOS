@@ -84,12 +84,15 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         gpu_layers: int = GPU_LAYERS, strict_json_output: bool = False,
         derive_rule_from_history: bool = False,
         explicit_rule_calibration: bool = False,
+        seed: int = 42,
         report_path: Path | None = None,
         parent_snapshot: Path | None = None) -> None:
     if type(gpu_layers) is not int or not 1 <= gpu_layers <= 128:
         raise ValueError("transfer-ladder inference requires 1 through 128 GPU layers")
     if not preflight_only and expected_plan_sha256 is None:
         raise ValueError("inference requires the reviewed model-bound plan hash")
+    if type(seed) is not int or not 0 <= seed <= 2**32 - 1:
+        raise ValueError("seed must be an integer from 0 through 2**32 - 1")
     if expected_plan_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", expected_plan_sha256):
         raise ValueError("expected plan hash must be 64 lowercase hexadecimal characters")
     if derive_rule_from_history and explicit_rule_calibration:
@@ -117,7 +120,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             _rootless_governance_custody(root):
         options = {"api_base": BASE, "model": MODEL, "manifest_sha256": manifest_digest,
                    "num_gpu": gpu_layers, "num_thread": 2, "timeout_seconds": 120,
-                   "seed": 42, "think": False, "keep_alive": "5m"}
+                   "seed": seed, "think": False, "keep_alive": "5m"}
         config = ModelConfig([ModelCandidate(manifest, "ollama", MODEL, options)],
             max_context_tokens=4096,
             generation=GenerationConfig(max_new_tokens=160, temperature=0.0, top_p=1.0))
@@ -170,6 +173,11 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             parent_cycle = history_root.parent
         kinds = _source_kinds_from_history(history_root / "history")
         history_owner = _owner(history_root, kinds, history_root.parent, historical_request)
+        example_presentation = protocol.get("example_presentation", "record_linked")
+        if example_presentation not in {"structured_only", "record_linked"}:
+            raise ValueError("model-free protocol has an unknown example presentation")
+        history_owner.include_human_readable_integer_examples = (
+            example_presentation == "record_linked")
         expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
             else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
                 "arms"]["parent"]["admitted_boundary_digest"])
@@ -219,6 +227,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                     if strict_json_output else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1")),
             "source_report_sha256": sha(selected_report.read_bytes()),
             "ladder_design": protocol.get("ladder_design", "balanced_magnitude_v1"),
+            "example_presentation": example_presentation,
             "task_family_id": protocol.get("task_family_id"),
             "parent_snapshot_tree_sha256": protocol.get("parent_snapshot_tree_sha256"),
             "model": MODEL, "model_manifest_sha256": manifest_digest,
@@ -332,6 +341,7 @@ if __name__ == "__main__":
         help="Add a rule-derivation procedure equally to history and empty arms; requires strict JSON")
     parser.add_argument("--explicit-rule-calibration", action="store_true",
         help="Supply the mapping equally to both arms as an arithmetic/format calibration")
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path,
         help="Use a separately frozen model-free protocol report")
     parser.add_argument("--parent-snapshot", type=Path,
@@ -343,4 +353,5 @@ if __name__ == "__main__":
         strict_json_output=args.strict_json_output,
         derive_rule_from_history=args.derive_rule_from_history,
         explicit_rule_calibration=args.explicit_rule_calibration,
+        seed=args.seed,
         report_path=args.report, parent_snapshot=args.parent_snapshot)

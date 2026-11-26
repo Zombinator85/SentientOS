@@ -6960,3 +6960,27 @@ record-linked presentation contrast. Preserve the exact source record and
 labels across arms and report per-seed history-minus-empty outcomes. Any prompt
 change should continue to preserve provenance and keep epistemic validity
 separate from action authority.
+
+The seeded replication protocol now has an explicit presentation setting in
+the model-free report and execution plan. The runner also accepts a bounded
+integer `--seed`; a matched pair must use the same seed, while separate pairs
+can vary it. The independent scorer validates either no readable sibling view
+(`structured_only`) or the exact record-linked view (`record_linked`). The
+paired comparator verifies that the two presentation settings differ and that
+the model, generation settings, seed, probes, scored support, empty prompts,
+and non-history prompt match.
+
+Two new model-free reports were built from the same 39-record parent snapshot
+and reconstructed byte-for-byte without invoking a model:
+[structured-only preflight v4](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-structured-only.json)
+and
+[record-linked preflight v4](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-preflight-v4-record-linked.json).
+Both reproduce parent boundary digest
+`53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b` and
+snapshot tree hash
+`sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0`.
+Each tier retrieves the same scored support record and keeps its empty prompt
+free of history; only the record-linked report contains a readable rendering.
+These reports establish protocol readiness, not an effect on model behavior.
+The multi-seed inference and comparison remain to be run when GPU time is
+available.

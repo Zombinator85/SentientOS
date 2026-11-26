@@ -31,6 +31,11 @@ def _strict_answers(raw: Any, count: int) -> tuple[bool, list[int | None] | None
 
 
 def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> dict[str, Any]:
+    presentation = protocol.get("example_presentation", "record_linked")
+    if presentation not in {"structured_only", "record_linked"}:
+        raise ValueError("unknown history example presentation")
+    if plan.get("example_presentation", "record_linked") != presentation:
+        raise ValueError("execution plan example presentation differs from the frozen preflight")
     history_records = {}
     for tier, tier_protocol in protocol["tiers"].items():
         history = plan["prompt_bindings"][tier + "_history"]
@@ -38,9 +43,11 @@ def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> d
         expected = tier_protocol["captures"]["history"]["prompt_score_evidence"]
         if not expected or history.get("prompt_score_evidence") != expected:
             raise ValueError(f"{tier} history evidence differs from the frozen model-free preflight")
-        if (history.get("prompt_example_renderings") != tier_protocol[
-                    "captures"]["history"].get("prompt_example_renderings")
-                or not history.get("prompt_example_renderings")):
+        expected_renderings = tier_protocol["captures"]["history"].get(
+            "prompt_example_renderings", [])
+        if (history.get("prompt_example_renderings", []) != expected_renderings
+                or (presentation == "record_linked" and not expected_renderings)
+                or (presentation == "structured_only" and expected_renderings)):
             raise ValueError(f"{tier} rendered examples differ from the frozen preflight")
         if (not history.get("history_block_digest")
                 or empty.get("prompt_score_evidence") != []
