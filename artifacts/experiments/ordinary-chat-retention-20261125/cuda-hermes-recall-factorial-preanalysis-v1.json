@@ -4,32 +4,33 @@
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7665,
-      "plan_sha256": "f04ed8a7d9a544731151db88ef21e521e44dfa292c9aba81618e17b4e47c30f9",
+      "plan_sha256": "34399c7452156d99dfba23c9a40ce6025efb9ac92631be8a5be476b84539a67a",
       "preflight_conditions": 8
     },
     "mapped": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7818,
-      "plan_sha256": "aa58153f3ce1eb4f812f5f0e70b9fe5b6ccea1a85f880f9d6a19f7ce2afd1ef0",
+      "plan_sha256": "adda568dd697c5ca55ecc43b992c12cb29b2bf04becbc08cdac29be68e8de3a0",
       "preflight_conditions": 8
     },
     "strict_control": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7828,
-      "plan_sha256": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
+      "plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
       "preflight_conditions": 8
     },
     "strict_mapped": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7981,
-      "plan_sha256": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc",
+      "plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
       "preflight_conditions": 8
     }
   },
   "design_status": "exploratory post-hoc protocol replication; not confirmatory",
+  "gpu_layers_for_later_inference": 24,
   "history_evidence_equal_across_all_arms": true,
   "inference_performed": false,
   "inferential_scope": "descriptive arm counts only; repeated conditions are not independent samples",
@@ -49,12 +50,12 @@
     "questions",
     "profiles"
   ],
-  "matrix_sha256": "6849ccf3acf1d50f470c0703e455c7bf57ad236541046452d5deb7eea5b1a5a0",
+  "matrix_sha256": "f60a607c72870457c8e677844dd85dcae9a9cfaf7b90c071b2758d5a3f6ae2f3",
   "model": "sentientos-hermes4:14b-q4km",
   "model_identity": {
     "artifact_size_bytes": 924,
     "candidate_index": 0,
-    "configuration_digest": "df78363c4c59838e32343ce3ab8c991df6a3bf047ecc350bdd84b4ad1876feb5",
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
     "engine": "ollama",
     "fallback": false,
     "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
@@ -66,10 +67,10 @@
   "model_invoked": false,
   "output_factor": "strict fenced JSON instruction injected after retrieval",
   "plan_sha256": {
-    "control": "f04ed8a7d9a544731151db88ef21e521e44dfa292c9aba81618e17b4e47c30f9",
-    "mapped": "aa58153f3ce1eb4f812f5f0e70b9fe5b6ccea1a85f880f9d6a19f7ce2afd1ef0",
-    "strict_control": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
-    "strict_mapped": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc"
+    "control": "34399c7452156d99dfba23c9a40ce6025efb9ac92631be8a5be476b84539a67a",
+    "mapped": "adda568dd697c5ca55ecc43b992c12cb29b2bf04becbc08cdac29be68e8de3a0",
+    "strict_control": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
+    "strict_mapped": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9"
   },
   "planned_trials_per_arm": 8,
   "primary_outcome": "official exact trials under the preregistered full-response scorer",

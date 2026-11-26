@@ -26,6 +26,10 @@ def verify(path):
     cited = cited or plan["schema"].endswith((":v4", ":v5", ":v6"))
     legacy_cited_scoring = plan["schema"].endswith(":v2")
     strict_cited_output = plan["schema"].endswith(":v6")
+    preflight_binding_required = (strict_cited_output or
+                                  (plan["options"]["num_gpu"] > 0 and plan["ollama_version"] == "0.40.16"))
+    binding_path = path / "preflight_binding.json"
+    binding = read(binding_path) if binding_path.exists() else None
     explicit_row_mapping = (plan["schema"].endswith((":v4", ":v5"))
                             or (strict_cited_output and plan.get("intervention") is not None))
     mapping_revision = "v2" if plan["schema"].endswith((":v5", ":v6")) else "v1"
@@ -38,6 +42,12 @@ def verify(path):
         "engine": "ollama", "options": plan["options"], "max_context_tokens": plan["context_tokens"],
         "generation": plan["generation"]})
     expected_output_contract = STRICT_CITED_OUTPUT_CONTRACT if strict_cited_output else None
+    expected_binding = {
+        "schema": "sentientos.sibling_chat_recall_preflight_binding:v1",
+        "preflight_plan_sha256": plan_hash,
+        "full_run_plan_sha256": plan_hash,
+        "matched": True,
+    }
     if (result["plan_sha256"] != plan_hash or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
             or (strict_cited_output and plan["source_code_sha256"] != sha(
                 Path(__file__).resolve().with_name("run_sibling_chat_recall.py").read_bytes()))
@@ -52,6 +62,8 @@ def verify(path):
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
                                      + recall_question(s, cited, strict_cited_output) for _, s in trials}
             or plan.get("output_contract") != expected_output_contract
+            or (preflight_binding_required and binding != expected_binding)
+            or (binding is not None and binding != expected_binding)
             or plan.get("intervention") != expected_intervention):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}

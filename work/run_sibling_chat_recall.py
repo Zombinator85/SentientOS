@@ -371,12 +371,16 @@ class VerifiedChat(DevelopmentLocalChatInference):
 
 
 def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=False,
-        strict_cited_output=False, preflight_only=False,
+        strict_cited_output=False, expected_plan_sha256=None, preflight_only=False,
         model_name=MODEL, diagnostic_condition=None, gpu_layers=0):
     if explicit_row_mapping and not cited:
         raise ValueError("explicit row mapping requires the cited response protocol")
     if strict_cited_output and not cited:
         raise ValueError("strict fenced output requires the cited response protocol")
+    if strict_cited_output and not preflight_only and expected_plan_sha256 is None:
+        raise ValueError("full strict-output inference requires its frozen preflight plan hash")
+    if gpu_layers and cited and not preflight_only and expected_plan_sha256 is None:
+        raise ValueError("GPU cited inference requires its frozen preflight plan hash")
     if diagnostic_condition is not None and (not cited or explicit_row_mapping
             or diagnostic_condition not in {"empty_wide", "empty_inline"}):
         raise ValueError("diagnostic condition must be an empty cited control without treatment")
@@ -386,7 +390,9 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
         raise ValueError("model is not in the pinned recall model registry")
     if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:
         raise ValueError("GPU layer count must be an integer from 0 through 128")
-    if gpu_layers and not (os.environ.get("SENTIENTOS_OLLAMA_MODELS")
+    if expected_plan_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", expected_plan_sha256):
+        raise ValueError("expected preflight plan hash must be 64 lowercase hexadecimal characters")
+    if gpu_layers and not preflight_only and not (os.environ.get("SENTIENTOS_OLLAMA_MODELS")
                            or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")):
         raise ValueError("GPU inference requires an explicitly isolated external Ollama server")
     manifest_digest = MODEL_MANIFESTS[model_name]
@@ -488,6 +494,23 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 "The scorer removes exactly one surrounding ```json fence before parsing.")
         save(root / "plan.json", plan)
         plan_hash = sha((root / "plan.json").read_bytes())
+        if expected_plan_sha256 is not None and plan_hash != expected_plan_sha256:
+            save(root / "preflight_rejection.json", {
+                "schema": "sentientos.sibling_chat_recall_preflight_rejection:v1",
+                "expected_plan_sha256": expected_plan_sha256,
+                "observed_plan_sha256": plan_hash,
+                "model_invoked": False,
+                "inference_performed": False,
+                "learning_established": False,
+            })
+            raise ValueError("fresh run plan differs from the frozen preflight; inference was not started")
+        if expected_plan_sha256 is not None and not preflight_only:
+            save(root / "preflight_binding.json", {
+                "schema": "sentientos.sibling_chat_recall_preflight_binding:v1",
+                "preflight_plan_sha256": expected_plan_sha256,
+                "full_run_plan_sha256": plan_hash,
+                "matched": True,
+            })
         if preflight_only:
             if get_api("ps")["models"]:
                 raise ValueError("preflight-only mode found a resident server model")
@@ -561,6 +584,8 @@ if __name__ == "__main__":
                         help="Run the cited protocol with an explicit history-field to output-row mapping")
     parser.add_argument("--strict-cited-output", action="store_true",
                         help="Require the cited JSON fence to be the entire response")
+    parser.add_argument("--expected-plan-sha256",
+                        help="Abort before inference unless the generated plan matches this frozen preflight")
     parser.add_argument("--preflight-only", action="store_true",
                         help="Save and validate the complete prompt plan without invoking the model")
     parser.add_argument("--model", choices=tuple(MODEL_MANIFESTS), default=MODEL,
@@ -572,5 +597,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited,
         explicit_row_mapping=args.explicit_row_mapping, strict_cited_output=args.strict_cited_output,
+        expected_plan_sha256=args.expected_plan_sha256,
         preflight_only=args.preflight_only,
         model_name=args.model, diagnostic_condition=args.diagnostic_condition, gpu_layers=args.gpu_layers)

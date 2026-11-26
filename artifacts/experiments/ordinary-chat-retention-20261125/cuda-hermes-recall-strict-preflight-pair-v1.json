@@ -3,10 +3,10 @@
     "history_exposures": 5,
     "inference_performed": false,
     "maximum_prompt_chars": 7828,
-    "plan_sha256": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
+    "plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
     "preflight_conditions": 8
   },
-  "control_plan_sha256": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
+  "control_plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
   "history_evidence_equal": true,
   "inference_performed": false,
   "intervention": "explicit_developmental_history_field_to_row_mapping:v2",
@@ -15,10 +15,10 @@
     "history_exposures": 5,
     "inference_performed": false,
     "maximum_prompt_chars": 7981,
-    "plan_sha256": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc",
+    "plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
     "preflight_conditions": 8
   },
-  "mapped_plan_sha256": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc",
+  "mapped_plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
   "matched_fields": [
     "model",
     "model_identity",
@@ -36,6 +36,6 @@
   ],
   "model_invoked": false,
   "output_contract": "fenced_json_only:v1",
-  "pair_sha256": "fe49b54d629d5b425a492fe27261dcb57fc98ab16bf412daf05c6dd45bf85ed2",
+  "pair_sha256": "35536db0eb4c50bc40a4c1f4f430e271ee7fca4c7b888db2aa77c68f064be59a",
   "schema": "sentientos.sibling_chat_recall_preflight_pair:v1"
 }

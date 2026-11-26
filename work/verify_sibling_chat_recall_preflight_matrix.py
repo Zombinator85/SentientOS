@@ -50,6 +50,8 @@ def verify_matrix(control: Path, mapped: Path, strict_control: Path, strict_mapp
         if (plan["schema"] != schema or plan.get("intervention") != intervention
                 or plan.get("output_contract") != output_contract):
             raise ValueError(f"factor assignments differ for {name}")
+        if plan["options"]["num_gpu"] != 24:
+            raise ValueError(f"{name} is not bound to the intended 24-layer GPU run")
 
     exposure_keys = set(reference["exposures"])
     for plan in plans.values():
@@ -84,6 +86,7 @@ def verify_matrix(control: Path, mapped: Path, strict_control: Path, strict_mapp
         "output_factor": OUTPUT_FACTOR,
         "mapping_factor": MAPPING_FACTOR,
         "runtime": reference["ollama_version"],
+        "gpu_layers_for_later_inference": 24,
         "model": reference["model"],
         "model_identity": reference["model_identity"],
         "planned_trials_per_arm": len(reference["trials"]),

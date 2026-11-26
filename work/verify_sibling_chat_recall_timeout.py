@@ -16,6 +16,16 @@ def verify(path: Path):
     plan_hash = sha(plan_path.read_bytes())
     schema = plan["schema"]
     strict = schema == "sentientos.sibling_chat_recall_plan:v6"
+    preflight_binding_required = (strict or
+                                  (plan["options"]["num_gpu"] > 0 and plan["ollama_version"] == "0.40.16"))
+    binding_path = path / "preflight_binding.json"
+    binding = read(binding_path) if binding_path.exists() else None
+    expected_binding = {
+        "schema": "sentientos.sibling_chat_recall_preflight_binding:v1",
+        "preflight_plan_sha256": plan_hash,
+        "full_run_plan_sha256": plan_hash,
+        "matched": True,
+    }
     mapped = (schema == "sentientos.sibling_chat_recall_plan:v5"
               or (strict and plan.get("intervention") is not None))
     diagnostic = schema == "sentientos.sibling_chat_recall_diagnostic:v1"
@@ -34,6 +44,8 @@ def verify(path: Path):
             or failure["trial"] != 0 or failure["condition"] != condition
             or failure["prompt_sha256"] != plan["exposures"][condition]["invocation_prompt_digest"]
             or plan.get("output_contract") != (STRICT_CITED_OUTPUT_CONTRACT if strict else None)
+            or (preflight_binding_required and binding != expected_binding)
+            or (binding is not None and binding != expected_binding)
             or (strict and plan["source_code_sha256"] != sha(
                 Path(__file__).resolve().with_name("run_sibling_chat_recall.py").read_bytes()))
             or not failure["model_invoked"] or failure["receipt_status"] != "timeout"

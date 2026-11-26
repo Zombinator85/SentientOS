@@ -17,8 +17,8 @@
       "prompt_sha256": "5639cede4fd22eaf6a3bc433a35a5a28a366e5e229c847f1a2d37e68706a69d9"
     },
     "left_low": {
-      "history_block_digest": "dc4fc562cf5976fe2a62e6f6f9477980d40f85ecbc10e448d45bd3090d2d9388",
-      "invocation_prompt_digest": "c2976d237d36feccc7d2798a8f201780193b6ce720228526d1a897f1948a9e12",
+      "history_block_digest": "0071204bf9ac078d6e0f8e696a4dde1b45d52c55430c919ea9b02c5d7f75152d",
+      "invocation_prompt_digest": "4bfd9338933fb2502ae4b6577bd5b7948d267f5e8c92bc523e02c304faff0255",
       "prompt_chars": 7658,
       "prompt_score_evidence": [
         {
@@ -51,11 +51,11 @@
           "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
         }
       ],
-      "prompt_sha256": "711bfd687c63ce6618ba71616d7207d3981dcfa449194508175299b19475491f"
+      "prompt_sha256": "a39a3e7391cca818d09c92bc28696e94d8d59ef8c05428214e13d1fc7e4b6c58"
     },
     "left_wide": {
-      "history_block_digest": "5662efd41197c556b9fba78ecab1944042c40074c35752e810abe1428621b24f",
-      "invocation_prompt_digest": "f3ceffd23c963352f5693ea6fe946d999ae2ebcbca2a88929da39dd7a0473b10",
+      "history_block_digest": "bc3cd149fc2bcda7f42fee8165fde10e1c13bc0a213fa384093a7e1a8c80d5c5",
+      "invocation_prompt_digest": "be3568c20c62a213ce1bd04ce7777ffdc0b8aff8b71369a6a6534c18a43fe4b4",
       "prompt_chars": 7665,
       "prompt_score_evidence": [
         {
@@ -88,11 +88,11 @@
           "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
         }
       ],
-      "prompt_sha256": "b516d9dec4a51d0e458d7694dd405586b3d4d35e63cd13f2bc60e5deb4229680"
+      "prompt_sha256": "82d5b94782cc91facbe6cec39e23c5d43cf1db74b7a70d94ec5cb6b7470345c3"
     },
     "parent_wide": {
-      "history_block_digest": "8d1b0911faed77d596cdff7bad78e7ce8bc542c1d414d3e4192fd11f8dfbd7b0",
-      "invocation_prompt_digest": "a19b585e69418f45ca793d613aee341fce303be6ac227b7face06b7a7be349f4",
+      "history_block_digest": "b8df1257e29e99e9661f2a535d266288586fdb8e624d92e05e03bf23376368f5",
+      "invocation_prompt_digest": "33123e449f18b7a1bc639cda2ab1a451392f66780620ff5c28adc5aec31751f0",
       "prompt_chars": 7663,
       "prompt_score_evidence": [
         {
@@ -125,11 +125,11 @@
           "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
         }
       ],
-      "prompt_sha256": "48764cb448794161e7b42cbd0826edaa134eca8d5dc42813528ad799f29e9ba2"
+      "prompt_sha256": "6182d73db8f1fde74e55c879267bc2df06353f6f96fedc35803d2e12328ee25e"
     },
     "right_low": {
-      "history_block_digest": "a44e5ffa39b57343ce65489180b3478da5f2ef5bcc32d63509a6214a22614536",
-      "invocation_prompt_digest": "938770abf23251ebc664ba4176f99e607a970a5ceddad2d4c21cb8ba24a74dad",
+      "history_block_digest": "cc0c651480b62050a25a876ba0eca32ec82746b1376852037ba32370b77f7a4d",
+      "invocation_prompt_digest": "bf21a609e4284dcee9a001cc4be69b4867e6a555db5109064c5a266b58f0da95",
       "prompt_chars": 7658,
       "prompt_score_evidence": [
         {
@@ -162,11 +162,11 @@
           "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
         }
       ],
-      "prompt_sha256": "8407b6ec9b0b8173062b8e8e235c8ece4df92f0fd2fce53b66c408b98cb826de"
+      "prompt_sha256": "b8df140029a2ddb8dcfeea72276cd19bc26173ae5dd8c75542c50b2cce38e271"
     },
     "right_wide": {
-      "history_block_digest": "8751aae685b133c2ff2b5e98142b1599b6b215814608a6d69146f5afba9ab34d",
-      "invocation_prompt_digest": "eee116dd33d4d86534486aa0570c8ad11db6d2e3bd376a79ec6ddbd44dfecaf3",
+      "history_block_digest": "a4f6acbeda0356209e1873df63a615142a11d5fb0e1fb352c353c1a09697e022",
+      "invocation_prompt_digest": "f3de133abcf847c13ed43923ac7c0ca5b7510cfc3cebb274afc6d676ee6ed652",
       "prompt_chars": 7665,
       "prompt_score_evidence": [
         {
@@ -199,7 +199,7 @@
           "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
         }
       ],
-      "prompt_sha256": "ec641d2e1fd1f785036d9d2910ba2b1108253cdd5ff755ba169e51db9d586eed"
+      "prompt_sha256": "d82f18af7fff4eccc7b46fb054376f10067b7767e7f36402de52d2c61c881067"
     }
   },
   "generation": {
@@ -219,7 +219,7 @@
   "model_identity": {
     "artifact_size_bytes": 924,
     "candidate_index": 0,
-    "configuration_digest": "df78363c4c59838e32343ce3ab8c991df6a3bf047ecc350bdd84b4ad1876feb5",
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
     "engine": "ollama",
     "fallback": false,
     "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
@@ -234,7 +234,7 @@
     "keep_alive": "5m",
     "manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
     "model": "sentientos-hermes4:14b-q4km",
-    "num_gpu": 0,
+    "num_gpu": 24,
     "num_thread": 2,
     "seed": 42,
     "think": false,
@@ -334,7 +334,7 @@
     "wide": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report."
   },
   "schema": "sentientos.sibling_chat_recall_plan:v3",
-  "source_code_sha256": "b21cb8a42ad4d9bf073d2f00506ffdc6c74cf73f78d0d6775c090335e3eff107",
+  "source_code_sha256": "6deacf157baec3a001d9da5d4cbde5466f66a7ac264decb7c1c56dfcd49d846c",
   "source_report_sha256": "b26bbed870338119b513a14c36362a5266f26b80fadc50012df7fd44b6fdc783",
   "trials": [
     [

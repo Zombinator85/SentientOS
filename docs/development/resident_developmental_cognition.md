@@ -6273,7 +6273,7 @@ which has no v6 schema for binding the output contract.
 The [control preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v1/)
 and [mapped preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v1/)
 each pass the independent v6 preflight verifier. Both use the same pinned
-Hermes model identity, Ollama v0.40.16 CPU-only preflight runtime,
+Hermes model identity, Ollama v0.40.16 preflight runtime,
 configuration, output contract, user questions, source report, profiles, and
 matched prompt bases. Each plans eight trials and exposes five single-record
 history conditions. The source evidence is equal across arms; the only planned
@@ -6294,7 +6294,7 @@ improves recall or that developmental learning occurred.
 The previous full Hermes comparison used Ollama v0.12.9, while the v6
 preflights bind Ollama v0.40.16. That runtime change would confound any direct
 comparison of strict-output scores against the prior full-run scores. To make
-the next inference interpretable, a new CPU-only matrix now crosses two factors:
+the next inference interpretable, a new no-inference matrix now crosses two factors:
 strict fenced output on/off and explicit history-to-row mapping on/off. All
 four preflights use the same Hermes artifact, Ollama v0.40.16, generation
 settings, user questions, source report, scoring profiles, and archived history
@@ -6315,3 +6315,10 @@ post-hoc protocol replication, not a confirmatory study; report descriptive
 counts only because the eight trials include repeated conditions. The task is
 read-only recall, so no learning claim follows from its results. No model
 inference was run to prepare this matrix.
+
+All four plans now bind the intended 24-layer placement for a later full run,
+while the preflights themselves load no model. Every new GPU-backed cited run
+requires `--expected-plan-sha256`; the runner aborts before generation if its
+freshly captured plan differs from the selected preflight. Completed runs
+retain a `preflight_binding.json` that the independent full-run or timeout
+verifier checks.
