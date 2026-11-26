@@ -6113,3 +6113,22 @@ absent history, the model stated it could not find the exercise in session
 history. These outcomes show sensitivity to history availability and format,
 alongside unreliable transcription of observed evidence. [Cited protocol](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-cited-v2/plan.json)
 and [verified replies](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-cited-v2/result.json).
+
+The cited protocol's scoring criterion allows a single fenced JSON object, but
+the original scorer passed the fence directly to `json.loads`, so it marked
+every fenced answer invalid before checking its contents. The offline
+[protocol-correct regrade](../../artifacts/experiments/ordinary-chat-retention-20261125/sibling-chat-packet-regrade-v1/report.json)
+first reruns the original receipt, prompt, source-score, and delivery verifier,
+then removes only the one fence allowed by the frozen protocol. This does not
+change the original trial artifact. The corrected regrade still finds zero
+exact model answers across eight trials: the replies contain placeholder or
+missing input values, incorrect row types or outcomes; some also fail the
+record citation requirement. A deterministic copy of each already verified
+history projection scores exactly on all seven applicable history and empty
+history trials. The eighth trial is an inline report control, so it is excluded
+from the history packet copy. This control establishes that the exposed packet
+contains enough structured information for exact transcription; it is not a
+model response and provides no evidence of learning. No inference was run to
+produce this diagnostic. The [regrade implementation](../../work/regrade_sibling_chat_packet.py)
+records both measures separately and retains hashes of the original plan and
+results.

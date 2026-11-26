@@ -1,0 +1,326 @@
+{
+  "interpretation_limit": "packet-copy controls show that the verified prompt projection contains sufficient score fields for exact transcription; they are deterministic readouts, not model behavior or evidence of learning",
+  "model_invoked": false,
+  "original_verifier_passed": true,
+  "schema": "sentientos.sibling_chat_packet_regrade:v1",
+  "scoring_change": "accept exactly one ```json fenced object as permitted by cited v2; rows and citation still independently checked",
+  "source_plan_sha256": "f26f74708f092dffb06a0daa48b9c6c4e1f44810cad56d784e0d44065d4e3164",
+  "source_result_sha256": "5d15f76171cb9afe5c5804368c2c839f6e3f0f54f6b1f006f61283149f7ad9aa",
+  "summary": {
+    "model_exact_after_protocol_correct_regrade": 0,
+    "packet_copy_applicable_trials": 7,
+    "packet_copy_exact": 7,
+    "trials": 8
+  },
+  "trials_detail": [
+    {
+      "condition": "right_wide",
+      "expected_profile": "right_wide",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "rows": [
+            [
+              5,
+              26,
+              "incorrect"
+            ],
+            [
+              7,
+              null,
+              "abstained"
+            ],
+            [
+              9,
+              null,
+              "abstained"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-ea97ca95f0c73de28d117b4f",
+          "exact_profiles": [
+            "right_wide"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "b5d20006b853d3ecb2edd8bea6dc5d18fa104775cffac0b916efa31d239367a0",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-93674510e0c28dfe",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-0f426c0ce24eb00e934af521"
+    },
+    {
+      "condition": "left_low",
+      "expected_profile": "shared_low",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "rows": [
+            [
+              2,
+              5,
+              "correct"
+            ],
+            [
+              4,
+              9,
+              "correct"
+            ],
+            [
+              5,
+              11,
+              "correct"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-a081ef3104dba90c9e19b723",
+          "exact_profiles": [
+            "shared_low"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "d3997cf7bcb5c0da77a63152014e35ff2c05bb3c9c3e2b7930149a0d02e9b2d5",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-405f89d61d7e32ae",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-f97f350bff2a1823fd95ecea"
+    },
+    {
+      "condition": "empty_wide",
+      "expected_profile": "empty",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": null,
+          "rows": []
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": null,
+          "exact_profiles": [
+            "empty"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "51e5d0cc33d289e1ad2b84cdcc9ff4085211dd019890c3ad7f5e2e958b1346e1",
+      "protocol_compliant_model_score": {
+        "cited_record": null,
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-fdf911691f2c2abd26ff3cd1"
+    },
+    {
+      "condition": "parent_wide",
+      "expected_profile": "parent_wide",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-2033fab64ae54284298c3ce7",
+          "rows": [
+            [
+              2,
+              5,
+              "correct"
+            ],
+            [
+              7,
+              null,
+              "abstained"
+            ],
+            [
+              8,
+              null,
+              "abstained"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-2033fab64ae54284298c3ce7",
+          "exact_profiles": [
+            "parent_wide"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "eb85de6267a93519b285290d675de368099c969e712e417031a6414345f9a7d8",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-2033fab64ae54284298c3ce7",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-84c3e2eaaf46f4a75cbb36a1"
+    },
+    {
+      "condition": "left_wide",
+      "expected_profile": "left_wide",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+          "rows": [
+            [
+              6,
+              26,
+              "incorrect"
+            ],
+            [
+              7,
+              null,
+              "abstained"
+            ],
+            [
+              8,
+              null,
+              "abstained"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-9fee6e3b29076a60f8c01bf2",
+          "exact_profiles": [
+            "left_wide"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "58a0d4d18a91a1a5a9588186afe54f16ac5aba1d164a7253589e5429869170f4",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-9fee6e3b29076a60f8c01bf2",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-7713ae76951f3435ab82d89e"
+    },
+    {
+      "condition": "right_low",
+      "expected_profile": "shared_low",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "rows": [
+            [
+              2,
+              5,
+              "correct"
+            ],
+            [
+              4,
+              9,
+              "correct"
+            ],
+            [
+              5,
+              11,
+              "correct"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-a081ef3104dba90c9e19b723",
+          "exact_profiles": [
+            "shared_low"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "4df6b5d07455576277070986a58a541ca23c49421f7062f26a68a91b644a8f17",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-4d16e9b7815f32cc",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-d465cd75fa52e3dac826f21d"
+    },
+    {
+      "condition": "left_wide",
+      "expected_profile": "left_wide",
+      "model_exact": false,
+      "packet_copy_control": {
+        "answer": {
+          "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+          "rows": [
+            [
+              6,
+              26,
+              "incorrect"
+            ],
+            [
+              7,
+              null,
+              "abstained"
+            ],
+            [
+              8,
+              null,
+              "abstained"
+            ]
+          ]
+        },
+        "applicable": true,
+        "exact": true,
+        "score": {
+          "cited_record": "devrec-9fee6e3b29076a60f8c01bf2",
+          "exact_profiles": [
+            "left_wide"
+          ],
+          "format": "valid"
+        }
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "58a0d4d18a91a1a5a9588186afe54f16ac5aba1d164a7253589e5429869170f4",
+      "protocol_compliant_model_score": {
+        "cited_record": "devrec-9fee6e3b29076a60f8c01bf2",
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-6e803e6bd19013bf365152ab"
+    },
+    {
+      "condition": "empty_inline",
+      "expected_profile": "inline",
+      "model_exact": false,
+      "packet_copy_control": {
+        "applicable": false,
+        "reason": "visible inline report, not developmental history"
+      },
+      "previous_saved_format": "invalid",
+      "prompt_sha256": "b4c2cf39d9b2c56265aa490e661724be4c7d69e8df3de23eff035f06a94f46b9",
+      "protocol_compliant_model_score": {
+        "cited_record": null,
+        "exact_profiles": [],
+        "format": "invalid"
+      },
+      "receipt_id": "lmrec-24c1be1b8906b2c0e4eb552c"
+    }
+  ]
+}
