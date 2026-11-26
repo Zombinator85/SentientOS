@@ -5791,6 +5791,21 @@ and the two models run at different times. These design choices limit causal
 attribution. Durable learning would require a subsequent task that measures
 the effect of retained experience after this immediate intervention.
 
+**What the examples change.** A retrospective CPU check reconstructed the
+six withheld examples from the two selected records using the owner's
+guidance projection. The ordered examples reproduced the frozen ablation
+digest on both seeds. Each record's three examples independently fit the
+same affine rule, and that rule matched the private target specification on
+both tasks. This follows the task generator's design: the low-range and
+wide-range families share coefficients, and the seed selects probe inputs.
+Both arms also retained the per-record candidate strategies. Thus the paired
+contrast measures the effect of displaying six supporting examples alongside
+an available strategy on new inputs. The three lost correct answers cannot
+be explained by applying a conflicting rule from those six examples. Which
+strategy Hermes actually used remains unknown.
+[Task generator](../../sentientos/developmental_model_replacement_experiment.py)
+and [frozen example and strategy bindings](../../artifacts/experiments/identity-neutral-current-source-refresh-lf-20261126/hermes_13688801_preflight.json).
+
 The preflight run also found and fixed policy restoration across objective
 request reconstruction and private journal reload. The private task-plan record
 now has a v2 form that durably stores the policy under the [closed task-plan
