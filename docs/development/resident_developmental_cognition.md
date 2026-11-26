@@ -6110,6 +6110,17 @@ included arm went from 3/3 correct to 0/3 correct, while the omitted arm went
 from 2/3 to 0/3. This does not replicate a stable accuracy advantage. The
 coverage shift is descriptive and abstentions remain in the fixed denominator.
 The two-task series supports no durable-learning or generalization claim.
+
+A third CPU-only pair, [v20](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v20.json),
+uses seed `13688914`. Its [v16 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v16.json)
+reloaded the task and checked the answer-key commitment, source receipt, and
+selected history. Its probes are pairwise disjoint from both completed task
+instances. Protocol digest:
+`sha256:abaa152160e1312074340acebb7f378c4b0576bf3c7af5363805d65edf46e561`.
+The preflight records no model load or invocation. The next slot uses cycle ID
+`rootless-cognition-cycle-20261126000000000021`, backend seed `1257088909`,
+the v20 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v10`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
