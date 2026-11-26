@@ -16600,6 +16600,7 @@ class ResidentDevelopmentalCognitionOwner:
                   epistemic_revision_probe_reason_code_vocabulary: tuple[str, ...] | None = None,
                   epistemic_revision_probe_prompt_preview: bool = False,
                   objective_strategy_prompt_preview: bool = False,
+                  accumulated_strategy_inclusion: str | None = None,
                   objective_invocation_prompt_preview: bool = False,
                   omit_historical_examples_prompt: bool = False,
                   historical_examples_prompt_ablation_target: str = "raw_examples",
@@ -21443,6 +21444,8 @@ class ResidentDevelopmentalCognitionOwner:
                             target_model_identity_observed=True,
                             objective_strategy_prompt_preview=(
                                 objective_strategy_prompt_preview),
+                            accumulated_strategy_inclusion=(
+                                accumulated_strategy_inclusion),
                             objective_invocation_prompt_preview=(
                                 objective_history_conditions_prompt_preview),
                             omit_historical_examples_prompt=(
