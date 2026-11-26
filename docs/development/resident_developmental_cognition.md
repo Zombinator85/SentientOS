@@ -6102,6 +6102,14 @@ it records no model load or invocation. The next slot is cycle ID
 `rootless-cognition-cycle-20261126000000000020`, backend seed `1257088909`,
 the v19 preflight path, and journal root
 `/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v9`.
+Cycle 20 completed with verified receipts and a valid score digest
+(`sha256:2667f6fd8e52c814b8764c8d700738e31c0bad92983ed9c3db8f18d2fe56a46f`).
+The included arm abstained on all three probes; the omitted arm answered all
+three and got none correct. Across the two disjoint task instances, the
+included arm went from 3/3 correct to 0/3 correct, while the omitted arm went
+from 2/3 to 0/3. This does not replicate a stable accuracy advantage. The
+coverage shift is descriptive and abstentions remain in the fixed denominator.
+The two-task series supports no durable-learning or generalization claim.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
