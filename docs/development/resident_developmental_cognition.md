@@ -6893,6 +6893,26 @@ therefore did not make the stored examples usable and reduced history-arm
 format adherence. The [derivation package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-derivation-full-v1/)
 preserves the separate receipts, score, payload diagnostic, and comparison.
 
+The next implementation step adds a short field guide to ordinary-chat history
+guidance when a retrieved packet contains a `rootless_integer_affine_transfer_*`
+experience. It explains that `probe_input` and `observed_answer` are recorded
+historical data, that `evaluator_correct` and `abstained` constrain how examples
+can be used, and that any inferred relation stays within its task family. This
+is prompt interpretation guidance, not a stored rule or a claim that the current
+model learned or transferred it. The guidance is omitted for unrelated history
+examples. A local render check confirmed both the scoped guidance and its
+omission for an unrelated example family.
+
+Before evaluating that prompt change, a replay of the source-near model-free
+preflight against its saved parent snapshot reproduced the frozen 39-record
+boundary and snapshot tree hash, but the ordinary-chat query returned no history
+block. This differs from the saved v1 capture, which contains the expected
+support packet. The source-near preflight now reports this missing-evidence case
+explicitly and must be made reproducible against the current projection before
+another model-bound transfer run. The existing v1 artifact remains the record
+of its original capture; it is not evidence that the current prompt renderer
+will retrieve the same packet.
+
 The next cognition target is the history-to-prompt projection: make the
 retrieved examples legible as evidence to ordinary chat, then repeat the
 history/empty contrast before claiming transfer. Any projection change should
