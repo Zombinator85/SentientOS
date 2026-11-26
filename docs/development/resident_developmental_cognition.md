@@ -6210,7 +6210,8 @@ answer regrader:
   `empty_wide`, and `right_low`.
 - Mapping changed two failures to exact answers (`right_wide`, `right_low`),
   while `parent_wide` changed from exact to malformed. Both repeated `left_wide`
-  trials and the inline condition were malformed in both arms.
+  trials and the inline condition failed the official full-output format or
+  citation criteria in at least one arm.
 
 This is a small, mixed result: one more exact answer in the mapped arm, with a
 regression in another history condition. It supports the narrower claim that an
@@ -6227,3 +6228,33 @@ The [control preflight](../../artifacts/experiments/ordinary-chat-retention-2026
 and [mapping run](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-full-v1/)
 contain independently verifiable plans and results plus checksummed complete
 capture archives.
+
+### Post-hoc diagnosis of cited-output failures
+
+The saved full outputs were independently re-opened with
+[`analyze_sibling_chat_recall_outputs.py`](../../work/analyze_sibling_chat_recall_outputs.py).
+This diagnostic first reruns the original verifiers and confirms the matched
+model, configuration, prompts, and source evidence. It then separately parses
+the single fenced JSON object, records whether prose occurs outside it, and
+compares the fenced rows and citation with each trial's expected answer. It
+does not change or replace the official full-response score.
+
+The original score remains control 3/8 and mapping 4/8. In a post-hoc
+fenced-content regrade, control is 4/8 and mapping is 6/8 exact. Five control
+outputs and four mapping outputs have prose outside their JSON fence, which
+explains why some otherwise exact fenced answers fail the original format
+criterion. In particular, mapped `parent_wide` and one repeated `left_wide`
+have exact rows and citations inside the fence but still fail the official
+format rule. The other mapped `left_wide` has an incorrect citation, and the
+inline control has a null citation instead of `inline-example`; these remain
+content/attribution failures even when the rows are present.
+
+This is a diagnostic observation on the same eight outputs per arm, not a new
+trial or an unbiased estimate of performance. It motivates a separately
+versioned follow-up prompt that explicitly forbids text outside the required
+JSON fence. Any such follow-up must retain the strict original scoring rule
+and use a new matched preflight before inference. The
+[diagnostic artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-output-diagnostic-v1/analysis.json)
+stores per-trial official and exploratory scores, output hashes, and the
+matched-configuration bindings. No model was loaded or inference run to create
+it.
