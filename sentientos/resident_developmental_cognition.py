@@ -15315,25 +15315,82 @@ class ResidentDevelopmentalCognitionOwner:
             return self._ordinary_chat_developmental_history_state_snapshot_locked()
 
     def _ordinary_chat_developmental_history_state_snapshot_locked(
-            self) -> dict[str, Any]:
+            self, *, completed_records: Sequence[tuple[Any, Any]] | None = None
+            ) -> dict[str, Any]:
         """Build the canonical history inventory while the composition lock is held."""
-        try:
-            completed = self.writeback.inspect_completed_records()
-        except DevelopmentalWritebackError as exc:
-            raise ResidentDevelopmentalCognitionError(
-                "ordinary_chat_history_state_inventory_unverified") from exc
+        if completed_records is None:
+            try:
+                completed_records = self.writeback.inspect_completed_records()
+            except DevelopmentalWritebackError as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "ordinary_chat_history_state_inventory_unverified") from exc
         records = sorted(({
             "record_id": record.record_id,
             "record_digest": record.record_digest,
             "receipt_id": receipt.receipt_id,
             "receipt_digest": receipt.receipt_digest,
-        } for record, receipt in completed), key=lambda row: row["record_id"])
+        } for record, receipt in completed_records),
+            key=lambda row: row["record_id"])
         history_state_digest = _digest({
             "schema_version": "sentientos.resident_history_state_digest:v1",
             "records": records, "authority": False})
         return {"schema_version": "sentientos.resident_history_state_snapshot:v1",
             "history_state_digest": history_state_digest,
             "record_refs": records, "authority": False}
+
+    def ordinary_chat_developmental_history_probe_input_inventory(
+            self) -> dict[str, Any]:
+        """Atomically derive prior integer probes from complete retained history."""
+        with self._composition_lock():
+            try:
+                completed = self.writeback.inspect_completed_records()
+            except DevelopmentalWritebackError as exc:
+                raise ResidentDevelopmentalCognitionError(
+                    "ordinary_chat_history_probe_inventory_unverified") from exc
+            snapshot = self._ordinary_chat_developmental_history_state_snapshot_locked(
+                completed_records=completed)
+            record_refs = sorted(({
+                "record_id": record.record_id,
+                "record_digest": record.record_digest,
+                "receipt_id": receipt.receipt_id,
+                "receipt_digest": receipt.receipt_digest,
+            } for record, receipt in completed), key=lambda row: row["record_id"])
+            if len(completed) > 4096:
+                raise ResidentDevelopmentalCognitionError(
+                    "ordinary_chat_history_probe_inventory_over_bound")
+
+            probe_inputs: set[int] = set()
+            pending: list[Any] = [record.candidate for record, _receipt in completed]
+            while pending:
+                value = pending.pop()
+                if isinstance(value, Mapping):
+                    for key, item in value.items():
+                        if key == "probe_input" and type(item) is int:
+                            probe_inputs.add(item)
+                        elif (key == "probe_inputs"
+                                and isinstance(item, Sequence)
+                                and not isinstance(item, (str, bytes))):
+                            probe_inputs.update(candidate for candidate in item
+                                if type(candidate) is int)
+                        if isinstance(item, (Mapping, list, tuple)):
+                            pending.append(item)
+                elif isinstance(value, (list, tuple)):
+                    pending.extend(value)
+            ordered_inputs = sorted(probe_inputs)
+            body = {
+                "schema_version":
+                    "sentientos.resident_history_probe_input_inventory:v1",
+                "history_state_digest": snapshot["history_state_digest"],
+                "record_count": len(record_refs),
+                "record_refs_digest": digest_payload({
+                    "record_refs": record_refs}),
+                "probe_inputs": ordered_inputs,
+                "probe_inputs_digest": digest_payload({
+                    "probe_inputs": ordered_inputs}),
+                "owner_verified": True,
+                "authority": False,
+            }
+            return {**body, "inventory_digest": digest_payload(body)}
 
     def verify_history_conditioned_writeback(self, *, record_id: str,
             record_digest: str) -> dict[str, Any] | None:

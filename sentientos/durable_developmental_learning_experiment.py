@@ -7676,15 +7676,18 @@ def build_durable_learning_prompt(*, task_descriptor: Mapping[str, Any],
 def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence[Any],
         delayed_probe_tasks: Sequence[Any],
         acquisition_experience_records: Sequence[Mapping[str, Any]],
-        historical_probe_inputs: Sequence[int],
+        experience_source: ResidentDevelopmentalLearningExperienceSource,
+        baseline_history_state_digest: str,
         feedback_policy_digest: str,
         feedback_records_by_task: Mapping[str, Sequence[Mapping[str, Any]]] | None = None
         ) -> dict[str, Any]:
     """Derive prompt bindings for preregistration without invoking a model.
 
     The result contains digests only. It binds the exact available-history
-    records and matched acquisition feedback to every task, and enforces
-    history-free, feedback-free delayed probes before the protocol is saved.
+    records and matched acquisition feedback to every task. It obtains the
+    complete historical probe-input inventory from the resident owner,
+    verifies it against the frozen baseline, and enforces history-free,
+    feedback-free delayed probes before the protocol is saved.
     """
     if (not isinstance(feedback_policy_digest, str)
             or _HEX_DIGEST.fullmatch(feedback_policy_digest) is None
@@ -7694,10 +7697,11 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
             or not isinstance(acquisition_experience_records, Sequence)
             or isinstance(acquisition_experience_records, (str, bytes))
             or not acquisition_experience_records
-            or not isinstance(historical_probe_inputs, Sequence)
-            or isinstance(historical_probe_inputs, (str, bytes))
-            or any(type(value) is not int for value in historical_probe_inputs)
-            or len(set(historical_probe_inputs)) != len(historical_probe_inputs)
+            or not isinstance(experience_source,
+                ResidentDevelopmentalLearningExperienceSource)
+            or not isinstance(baseline_history_state_digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                baseline_history_state_digest) is None
             or any(not isinstance(record, Mapping)
                 or not isinstance(record.get("source_record_id"), str)
                 or not record.get("source_record_id")
@@ -7728,7 +7732,37 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
         row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
     if acquisition_inputs.intersection(probe_inputs):
         raise ValueError("durable_learning_probe_input_overlap")
-    history_inputs = set(historical_probe_inputs)
+    history_inventory = experience_source.history_probe_input_inventory()
+    if not isinstance(history_inventory, Mapping):
+        raise ValueError("durable_learning_history_probe_inventory_invalid")
+    inventory_body = {key: value for key, value in history_inventory.items()
+        if key != "inventory_digest"}
+    if (set(history_inventory) != {"schema_version", "history_state_digest",
+            "record_count", "record_refs_digest", "probe_inputs",
+            "probe_inputs_digest", "owner_verified", "authority",
+            "inventory_digest"}
+            or history_inventory.get("schema_version") !=
+            "sentientos.resident_history_probe_input_inventory:v1"
+            or history_inventory.get("history_state_digest") !=
+                baseline_history_state_digest
+            or type(history_inventory.get("record_count")) is not int
+            or history_inventory["record_count"] < 0
+            or not isinstance(history_inventory.get("record_refs_digest"), str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                history_inventory["record_refs_digest"]) is None
+            or history_inventory.get("owner_verified") is not True
+            or history_inventory.get("authority") is not False
+            or not isinstance(history_inventory.get("probe_inputs"), list)
+            or any(type(value) is not int
+                for value in history_inventory["probe_inputs"])
+            or history_inventory["probe_inputs"] != sorted(set(
+                history_inventory["probe_inputs"]))
+            or history_inventory.get("probe_inputs_digest") != digest_payload({
+                "probe_inputs": history_inventory["probe_inputs"]})
+            or history_inventory.get("inventory_digest") !=
+                digest_payload(inventory_body)):
+        raise ValueError("durable_learning_history_probe_inventory_invalid")
+    history_inputs = set(history_inventory["probe_inputs"])
     if history_inputs.intersection(acquisition_inputs | probe_inputs):
         raise ValueError("durable_learning_history_probe_input_overlap")
 
@@ -7817,8 +7851,10 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
         "history_probe_input_count": len(history_inputs),
         "history_probe_inputs_digest": digest_payload({
             "probe_inputs": sorted(history_inputs)}),
+        "history_inventory_digest": history_inventory["inventory_digest"],
+        "history_inventory_record_count": history_inventory["record_count"],
         "probe_inputs_disjoint_from_history": True,
-        "history_inventory_owner_verified": False,
+        "history_inventory_owner_verified": True,
         "prompt_text_included": False,
         "answer_key_included": False,
         "authority": False,
@@ -8017,6 +8053,18 @@ class ResidentDevelopmentalLearningExperienceSource:
         if not callable(resolver):
             raise ValueError("durable_learning_state_snapshot_owner_unavailable")
         return _resolve_history_state_snapshot(resolver)
+
+    def history_probe_input_inventory(self) -> dict[str, Any]:
+        """Read the atomically verified owner-derived historical probe set."""
+        resolver = getattr(self._owner,
+            "ordinary_chat_developmental_history_probe_input_inventory", None)
+        if not callable(resolver):
+            raise ValueError(
+                "durable_learning_history_probe_inventory_owner_unavailable")
+        inventory = resolver()
+        if not isinstance(inventory, Mapping):
+            raise ValueError("durable_learning_history_probe_inventory_invalid")
+        return dict(inventory)
 
     def baseline_history_state_digest(self) -> str:
         """Read the owner state digest to freeze as the protocol baseline."""

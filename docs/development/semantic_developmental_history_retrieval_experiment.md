@@ -545,15 +545,16 @@ protocol digests.
 available/withheld acquisition and history-free delayed-probe prompt-digest
 matrix directly from frozen task descriptors, digest-bound experience records,
 and the selected feedback policy. It checks cross-phase probe disjointness and
-rejects acquisition or delayed-probe inputs found in a caller-supplied frozen
-historical-probe inventory. It also requires that inventory to cover probe
-inputs extracted from the selected source experience records. The helper hashes
-the inventory and returns digests without prompt text or oracle values, but it
-does not authenticate the inventory against the complete history owner or its
-ledger. The caller must derive it from the frozen history audit, and the
-runtime experience source must still re-resolve selected records in the active
-owner. This CPU-only binding is a preregistration aid, not evidence that the
-history is complete or that learning occurred.
+obtains historical probe inputs from the resident source's complete,
+receipt-verified record inventory. The owner snapshot and completed-record
+inventory must contain identical record and receipt references, and the
+snapshot digest must equal the frozen baseline digest. Acquisition and delayed
+probe inputs that appear anywhere in the retained record candidates are
+rejected. The returned inventory digest exposes the exact source inventory;
+prompt text and oracle values remain excluded. Runtime checks still
+re-resolve selected records in the active owner. This model-free binding is a
+preregistration aid, not evidence that the history changed cognition or that
+learning occurred.
 The protocol store, runtime guards, invocation receipts, independent scoring,
 writeback attribution, and elapsed-delay gates remain necessary for an
 experiment.
