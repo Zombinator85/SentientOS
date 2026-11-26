@@ -7,6 +7,11 @@
     13688907,
     13688908
   ],
+  "expected_cycle_ids": [
+    "rootless-cognition-cycle-20261125000000000008",
+    "rootless-cognition-cycle-20261126000000000012",
+    "rootless-cognition-cycle-20261126000000000013"
+  ],
   "task_instance_count": 3,
   "probes_per_task_instance": 3,
   "conditions": {
@@ -53,6 +58,19 @@
     "Each score's probe bindings match that task's frozen preflight; task-level probe sets are pairwise disjoint.",
     "All three tasks use the same source receipt, selected history set, strategy digest, target model identity, and generation configuration."
   ],
+  "runtime_input_manifest": {
+    "schema_version": "sentientos.strategy_inclusion_runtime_inputs:v1",
+    "task_instances": "Exactly three entries, in the same order as expected_task_seeds and expected_cycle_ids.",
+    "entry_fields": {
+      "task_seed": "Integer equal to the frozen task seed.",
+      "cycle_id": "Exact frozen cycle ID.",
+      "cycle_root": "Absolute path to the cycle root.",
+      "journal_root": "Absolute path to the private developmental experiment journal.",
+      "attempt_status": "One of not_started, failed, completed, or unknown.",
+      "failure_code": "Optional bounded recorded failure code.",
+      "inference_performed": "Optional boolean report from the cycle evidence; null/omission means unknown."
+    }
+  },
   "claim_boundary": {
     "maximum_supported_interpretation": "A consistent included-versus-omitted difference would be descriptive evidence of task-bounded strategy-conditioned behavior for this target identity and fixed history.",
     "durable_learning_established": false,

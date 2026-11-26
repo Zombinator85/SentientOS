@@ -4,7 +4,7 @@
   "all_selected_history_records_verified": true,
   "all_source_receipts_verified": true,
   "analysis_protocol": "strategy_inclusion_matched_task_analysis_protocol_v1.json",
-  "analysis_protocol_digest": "sha256:6a40e539e594981e0aa3f7dff13f79be161ce50170ea4dc89d956f1bdb32bff3",
+  "analysis_protocol_digest": "sha256:981cb8df5d533ba91d1474fe085473b7eb2e49374f48c37ec08d2c3ff31124f1",
   "authority": false,
   "history_task_family_ids": [
     "rootless_integer_affine_transfer_low_range_v6",
@@ -31,6 +31,7 @@
     "v12 is the first increasing seed after v11 with no probe overlap against v11",
     "v13 is the first increasing seed after v12 with no probe overlap against v11 or v12"
   ],
+  "shared_generation_config_digest": "sha256:c2db4be100bbd68c30b52b9b57b60d0fbde3ef8eca19f52b08253baf2ef5f1b2",
   "shared_selected_history_set_digest": "sha256:145954a9bef5246777e602b8a9581e9b47baafa2e99dacd261f252da5e6859fd",
   "shared_source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
   "shared_strategy_digest": "sha256:3772a000c13d9cfd3f5b99e4cd16f9d009eb6848e1ea1d26f32196912fad9d3d",

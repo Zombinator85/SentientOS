@@ -5955,6 +5955,16 @@ counts only, with no p-value or significance claim. Even a consistent
 contrast supports only task-bounded strategy-conditioned behavior; a later
 held-out session without the strategy prompt is still required to assess
 durability.
+The CPU-only [series analyzer](../../work/analyze_strategy_inclusion_preflight_series.py)
+consumes a runtime-input manifest with one entry per frozen task seed and
+cycle, plus its cycle root, journal root, attempt status, and any failure
+code. It reopens the per-task preflight and verification artifacts, checks the
+runner binding, runtime protocol, stored score digest, and both persisted arm
+receipt bindings, then reports each task's correct/incorrect/abstained counts
+and paired transitions. It reads answer-free score outcomes only. Incomplete
+or invalid pairs remain in the report and suppress the primary aggregate.
+Syntax compilation and CLI help passed; no completed behavioral scores exist
+yet, so end-to-end analysis remains pending those runs.
 
 The next rootless attempt is reserved as cycle ID
 `rootless-cognition-cycle-20261125000000000008`; a read-only check confirmed
