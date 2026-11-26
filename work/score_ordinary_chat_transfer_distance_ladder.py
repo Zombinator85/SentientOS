@@ -31,6 +31,26 @@ def _strict_answers(raw: Any, count: int) -> tuple[bool, list[int | None] | None
     return True, payload["answers"]
 
 
+def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> dict[str, Any]:
+    history_records = {}
+    for tier, tier_protocol in protocol["tiers"].items():
+        history = plan["prompt_bindings"][tier + "_history"]
+        empty = plan["prompt_bindings"][tier + "_empty"]
+        expected = tier_protocol["captures"]["history"]["prompt_score_evidence"]
+        if not expected or history.get("prompt_score_evidence") != expected:
+            raise ValueError(f"{tier} history evidence differs from the frozen model-free preflight")
+        if (not history.get("history_block_digest")
+                or empty.get("prompt_score_evidence") != []
+                or empty.get("history_block_digest") is not None):
+            raise ValueError(f"{tier} history/empty evidence separation is invalid")
+        history_records[tier] = [item["record_id"] for item in expected]
+    return {
+        "history_matches_model_free_preflight": True,
+        "empty_arm_exposed_no_history": True,
+        "history_record_ids_by_tier": history_records,
+    }
+
+
 def score(run_directory: Path, output: Path) -> dict[str, Any]:
     plan_path = run_directory / "plan.json"
     plan, result = read(plan_path), read(run_directory / "result.json")
@@ -58,6 +78,7 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
         raise ValueError("unconstrained-format execution plan has an unexpected treatment")
     if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):
         raise ValueError("trial order differs from preregistration")
+    evidence_validation = _validate_plan_evidence(plan, protocol)
     mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
     summaries: dict[str, dict[str, Any]] = {}
     trial_rows = []
@@ -106,10 +127,11 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
             "denominator_per_arm": len(probes),
         }
     report = {
-        "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v1",
+        "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2",
         "plan_sha256": plan_digest,
         "preflight_sha256": sha(REPORT.read_bytes()),
         "scorer_source_sha256": sha(Path(__file__).read_bytes()),
+        "prompt_evidence_validation": evidence_validation,
         "format_treatment": plan.get("format_treatment"),
         "tier_summaries": summaries,
         "trials": trial_rows,

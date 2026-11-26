@@ -6722,7 +6722,10 @@ examples. It does not state the mapping or require a visible reasoning trace.
 The identical procedure is appended to both history and empty prompts, leaving
 the history contrast and strict output requirement intact. Plan schema v3
 records the exact procedure and digest; independent scoring rejects a missing
-or altered procedure binding.
+or altered procedure binding. The scorer also independently compares the
+model-bound history evidence with the model-free preflight and rejects scored
+history evidence or a history block in the empty control before counting
+answers.
 
 Once GPU time is available, create a fresh model-bound preflight and plan with
 both `--strict-json-output` and `--derive-rule-from-history`, inspect the bound
