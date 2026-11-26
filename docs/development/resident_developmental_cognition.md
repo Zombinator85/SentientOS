@@ -7055,5 +7055,10 @@ control's incorrect near and far guesses and middle-tier abstentions. It changed
 neither answer payloads nor accuracy, so this single comparison does not support
 the channel-confusion hypothesis and establishes no learning. Since the output
 schema asked only for answers, it cannot tell whether Hermes recognized the
-selected record. The next diagnostic should report an evidence-status field and
-record citation, then score those fields separately from answer accuracy.
+selected record. The later cited-recall factorial follow-up adds record
+citations and separates citation, payload, and strict full-response scores;
+its results and limits are summarized in the matched 2×2 section above. That
+follow-up is still immediate, read-only recall. The next cognition experiment
+should test whether an experience changes later behavior after a delay on a
+new task family, with acquisition evidence and held-out scoring frozen before
+inference. Citation accuracy alone cannot establish that developmental link.
