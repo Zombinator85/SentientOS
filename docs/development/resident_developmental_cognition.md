@@ -6030,15 +6030,27 @@ the answer-key commitment, source receipt, and selected history records, and
 confirmed no model load or invocation. Its protocol digest is
 `sha256:d16103bcf4ec0119420389a58208a066900577357077effecb659e0e04bb5da0`.
 Cycle 15 stopped before the arm coordinator with
-`strategy_inclusion_live_preview_reconstruction_failed`; the diagnostic
-request semantics had been added outside the owner preview digest. No arm was
-claimed, and the model was not loaded or invoked. The preview now includes
-those in-memory semantics inside its digest, and the verifier checks them
-against the two bound request digests. The v5 journal still has no arm claims.
-The next diagnostic slot uses cycle ID
-`rootless-cognition-cycle-20261126000000000016`, backend seed `1257088909`,
-the v15 preflight path, and journal root
-`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v5`.
+`strategy_inclusion_live_preview_reconstruction_failed`; no arm was claimed
+and the model was not loaded or invoked. Cycle 16 reached the digest gate and
+its private diagnostic isolated five differences under
+`upstream_evidence.task_family_history_prompt_projection`: historical
+confidence-effect count, confidence-effect records, projection digest,
+projected records, and schema version. Prompt text and semantic values were
+excluded. The cause was that v5/v6 task families included confidence-history
+effects in the preview but not in actual strategy-arm execution; both paths
+now include that projection so the frozen pair compares like with like. Cycle
+16's one-shot claim is retained, with no model call or learning claim.
+
+The corrected [v16 preflight](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v16.json)
+and [v12 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v12.json)
+use seed `13688910`; the verifier reloaded the private task and protocol,
+validated the answer-key commitment, source receipt, and selected history,
+and confirmed no model load or invocation. Its protocol digest is
+`sha256:a945d8398526e3e5b8b294d52cd88e446a3ec51b0a1829ec46072186b36ad00f`.
+The next slot uses cycle ID
+`rootless-cognition-cycle-20261126000000000017`, backend seed `1257088909`,
+the v16 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v6`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
