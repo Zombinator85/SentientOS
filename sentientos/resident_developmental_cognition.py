@@ -17555,6 +17555,7 @@ class ResidentDevelopmentalCognitionOwner:
                             omit_accumulated_candidate_strategy),
                         include_confidence_history_effect=(
                             (objective_strategy_prompt_preview
+                                or accumulated_strategy_inclusion is not None
                                 or (historical_examples_intervention_authorized
                                     and historical_examples_prompt_ablation_target ==
                                         "negative_guidance")
