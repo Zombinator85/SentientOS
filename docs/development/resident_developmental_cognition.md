@@ -6121,9 +6121,33 @@ The preflight records no model load or invocation. The next slot uses cycle ID
 `rootless-cognition-cycle-20261126000000000021`, backend seed `1257088909`,
 the v20 preflight path, and journal root
 `/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v10`.
+Cycle 21 completed both arms with verified receipts and score digest
+`sha256:73eb3317d304866a2d39e4f23fab7ab67c04f9216040ddd9ae45b1b054f1bad5`.
+The included arm abstained on all three probes; the omitted arm answered all
+three and got all three correct. The score digest and both receipts were
+independently revalidated, and the runner verified Hermes was unloaded after
+the cycle. Learning, improvement, and authority remain false.
+
+The user later reported that they had been using the GPU during this testing
+window. The run guard admitted these slots, but it did not measure or control
+other GPU workloads. This is a hardware-load confound for reproducibility and
+latency; it does not change the frozen inputs or scoring, and no causal claim
+about GPU contention is made. Future model runs should occur only in a window
+the user confirms is clear and after the resource guard admits the slot.
+
+Across the three disjoint task instances (cycles 19–21), the included arm got
+3/9 probes correct and answered 3/9; the omitted arm got 5/9 correct and
+answered 9/9. Per-task correct counts for included versus omitted were 3/3 vs
+2/3, 0/3 vs 0/3, and 0/3 vs 3/3. These descriptive counts include abstentions
+in the fixed denominator and show no stable accuracy advantage for inclusion.
+They do not establish durable learning, generalization, or a reliable effect
+across task draws. The next useful experiment should target a specific
+mechanism, such as whether strategy history improves calibrated abstention,
+and preregister a measure that distinguishes abstention quality from simple
+coverage changes.
+
 Future attempts should use a clean WSL worktree when the interactive Windows
-checkout has accumulated unrelated untracked artifacts, and should proceed
-only when the GPU guard admits the slot.
+checkout has accumulated unrelated untracked artifacts.
 
 ### Evidence gate for the prepared three-probe strategy-inclusion pair
 
