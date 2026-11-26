@@ -7,8 +7,9 @@ branch IDs and routed contexts; v8 preregisters consolidation and projection
 policies. V9 freezes the signed exclusion-audit, prompt-template, and
 strategy/control machinery but leaves probe consumption unregistered and
 cannot run delayed probes. Opt-in v10 preregisters consumption and connects
-that machinery to the runner, recovery, and finalization. V8 remains the
-default.
+that machinery to the runner, recovery, and finalization. Protocol v11 is now
+the public constructor default; v8 remains available only when explicitly
+requested to rebuild a legacy protocol.
 
 V10 can execute only in explicitly enabled descriptive-only mode because the
 protocol verifier deliberately leaves `retention_contrast_eligible=false`.
@@ -25,7 +26,9 @@ same qualification rule, and the retained-gate inventory reports incomplete,
 missing, or present qualification evidence. V11 remains descriptive-only:
 baseline competence does not show a history effect or establish durable
 learning. V5-v10 protocol identities and historical evidence shapes remain
-unchanged; V8 remains the default.
+unchanged. A newly constructed v11 protocol must provide its minimum withheld-
+acquisition correct-probe count; earlier protocol versions remain explicitly
+selectable for compatible legacy work.
 The assessment persistence check and delayed-attempt journal now share a
 custody-root lock on Windows and POSIX. This serializes the check-and-publish
 boundary across runner processes, preventing a delayed invocation attempt from
@@ -444,8 +447,10 @@ experiment.
    projection from reloaded writeback evidence. This proves lineage and
    artifact integrity, not answer-example exclusion or causal use; those and
    probe eligibility remain false.
-5. Protocol v9 is an opt-in preregistration schema; v8 remains the default
-   and keeps its original digest contract. V9 freezes digests for the strategy
+5. Protocol v9 was an opt-in preregistration schema and retains its original
+   digest contract. The public constructor now defaults to v11, which adds the
+   withheld-acquisition competence gate described above. Explicitly selected
+   legacy versions retain their original digest contracts. V9 freezes digests for the strategy
    slot, neutral control, projection-consumption policy, and exclusion-audit
    policy, and requires a distinct Ed25519 exclusion-auditor identity and
    software digest before protocol creation. This registers the auditor key,
@@ -1315,28 +1320,29 @@ is machine-checked and bound into a new protocol, the recovery owner remains
 constructed with `enabled=False`, its invoker rejects model calls, and
 `consolidate_branch` may only reconcile an already completed owner tick.
 
-The next implementation step is a separate, versioned boundary-acceptance
-artifact and verifier. It must bind the exact protocol and worker executable,
-both condition process identities and launch configuration, the complete
-inherited-handle and broker-capability inventory, condition-local persistent
-state inventories (including filesystem, registry, profile, service, and
-recovery state), scorer custody, and the independent reviewer disposition.
-The verifier must derive each claim from reloaded source artifacts, reject
-missing or asymmetric inventories, and keep the current access-matrix result
-as a cited but insufficient input. A protocol may refer to an accepted
-boundary artifact only if its protocol digest, worker digest, host build, and
-condition pair match exactly. Changing any of those inputs requires a new
-artifact and protocol; an edited review record cannot promote an old run.
+The versioned v1 boundary-acceptance artifact and source-reloading verifier
+are implemented in `durable_learning_boundary_acceptance.py`; the experiment
+store can persist, reload, and revalidate their source artifacts. The
+contract binds the exact protocol and worker executable, both condition
+process identities and launch configuration, inherited-handle and
+broker-capability inventories, condition-local filesystem, registry, profile,
+service, recovery, and history state, scorer custody, and reviewer
+disposition. Its verifier rejects missing or asymmetric inventories and keeps
+the bounded access-matrix result as cited but insufficient evidence. It fixes
+process and filesystem isolation, retention eligibility, and worker mutation
+eligibility to false. No target-host boundary artifact has been accepted.
 
-The resulting gate should expose a single derived capability such as
-`worker_mutation_eligible`, defaulting to false and computed only from the
-verified boundary artifact plus the existing protocol-specific preregistration
-and baseline evidence. It must not accept a caller-supplied boolean, turn the
-bounded sentinel review into isolation proof, or alter the fixed
-`process_isolation_verified`, `filesystem_isolation_verified`, and
-`retention_contrast_eligible` fields. Until that artifact, verifier, and
-separate review exist, the worker's current `worker_consolidation_execution_not_enabled`
-response remains the required outcome for a not-started tick.
+The remaining gate work is to produce complete target-host inventories and a
+separate review, then integrate an accepted artifact into protocol-specific
+eligibility. That integration must reopen the evidence and match the exact
+protocol digest, worker pair, host build, and condition pair; changes require
+a new artifact and protocol. It must derive `worker_mutation_eligible` from
+the verified boundary artifact plus preregistration and baseline evidence,
+never from a caller-supplied boolean. It must not promote the bounded
+sentinel review or alter the fixed process-isolation, filesystem-isolation,
+and retention-eligibility claims. Until accepted evidence and this gate
+integration exist, `worker_consolidation_execution_not_enabled` remains the
+required result for a not-started tick.
 
 Restart reconciliation must compare the owner tick ID, snapshot ID and digest,
 condition history policy, typed observation, append-only history delta, and
