@@ -6353,6 +6353,22 @@ learning or durable developmental change. The experiment made no history
 updates. Its matrix hash is
 `b9f710499af1486f75e6399ce9b94ca98e3bb0d3f03b1ab02993cb79e4fc4c90`.
 
+The [factorial output diagnostic](../../work/analyze_sibling_chat_recall_factorial_outputs.py)
+regrades the fenced payload separately from the full response, while retaining
+official scores unchanged. It operationalizes the preanalysis's secondary
+content, citation, and outer-prose diagnostics. The control and mapping-only
+arms had correct fenced content plus citation on 2/8 and 7/8 trials despite
+0/8 official exact scores in each arm; seven responses in each arm included
+outer prose. By comparison, strict control and strict+mapping were 4/8 and
+5/8 on both official exact scores and fenced-content-plus-citation scores.
+Across the strict-output factor, fenced-content-plus-citation was 9/16 with
+strict output and 9/16 without it, while official full-response exactness was
+9/16 versus 0/16. This separates wrapper compliance from payload correctness
+in this run. Across mapping, the secondary payload score was 12/16 with mapping
+and 6/16 without it, a candidate signal that needs fresh, independent task
+conditions before it can support a general claim. The report is saved as
+`factorial-output-diagnostic.json` beside the verified matrix results.
+
 An initial v1 launcher attempt completed control and then stopped before
 inference on the next arm because Ollama-generated model metadata was rejected
 by the private-store check. That partial run remains marked failed in its own

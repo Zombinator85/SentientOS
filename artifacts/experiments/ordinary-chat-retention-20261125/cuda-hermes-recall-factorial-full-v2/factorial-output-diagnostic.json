@@ -1,0 +1,724 @@
+{
+  "arms": {
+    "control": {
+      "fenced_json_content_exact_count_exploratory": 2,
+      "fenced_json_exact_with_citation_count_exploratory": 2,
+      "fenced_json_valid_format_count": 6,
+      "official_exact_count": 0,
+      "official_valid_format_count": 0,
+      "outer_prose_count": 7,
+      "plan_sha256": "4aec42ca14eead95826433f635476a284f6e62522bddab885584133ebeed3d16",
+      "single_fence_count": 7,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "expected_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "expected_profile": "right_wide",
+          "fenced_json_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "c83f58ef30106494b53243abbe9e66bb3929865c0a9ba9a322d3f9c23e27e6f3",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 0
+        },
+        {
+          "condition": "left_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "553d30d7f5b3fa08364168dcfe95b230d1313ccf427f886ccbb41098eacb9f7f",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 1
+        },
+        {
+          "condition": "empty_wide",
+          "expected_citation": null,
+          "expected_profile": "empty",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "empty"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "589b283bc45bbfd7742d1663837e54da787b28993d2f99b330c7cb43f4dba1ed",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": false,
+          "trial": 2
+        },
+        {
+          "condition": "parent_wide",
+          "expected_citation": "devrec-2033fab64ae54284298c3ce7",
+          "expected_profile": "parent_wide",
+          "fenced_json_citation": "devrec-2033fab64ae54284298c3ce7",
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "invalid",
+          "model_output_sha256": "e6ba57c5e4a2fb2c691c4bddc38492c310e1dca25bd151075d1f92db42e9c75d",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 3
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "9fc228c44d9bf2ea4e9cfbc6eaf0643641b73a5d438ae183f89309458659a080",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 4
+        },
+        {
+          "condition": "right_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "5c228f5297df3063c2a27ad97f249f682193e5752f7d8128501fa438ad677cb0",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 5
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "08045dd88bc53bcc6ee05aabe2db2174672e0ff119aabe3b2e8f5f3279403cf3",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 6
+        },
+        {
+          "condition": "empty_inline",
+          "expected_citation": "inline-example",
+          "expected_profile": "inline",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 0,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": null,
+          "model_output_sha256": "6058eef28f9fe32b42ae8ea5febda8f4bd0a5cbf8c00f574fc22430b975e64f8",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 7
+        }
+      ]
+    },
+    "mapped": {
+      "fenced_json_content_exact_count_exploratory": 7,
+      "fenced_json_exact_with_citation_count_exploratory": 7,
+      "fenced_json_valid_format_count": 7,
+      "official_exact_count": 0,
+      "official_valid_format_count": 0,
+      "outer_prose_count": 7,
+      "plan_sha256": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+      "single_fence_count": 7,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "expected_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "expected_profile": "right_wide",
+          "fenced_json_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "right_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "facd9348783d71bc405659bf52ff88667ad239e72baabc522e2c607d3cf6bde6",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 0
+        },
+        {
+          "condition": "left_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "8365e1ac030cf9c150339712f4b10a33e080aa7c232b92f377ad171f427b2def",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 1
+        },
+        {
+          "condition": "empty_wide",
+          "expected_citation": null,
+          "expected_profile": "empty",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "empty"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "589b283bc45bbfd7742d1663837e54da787b28993d2f99b330c7cb43f4dba1ed",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": false,
+          "trial": 2
+        },
+        {
+          "condition": "parent_wide",
+          "expected_citation": "devrec-2033fab64ae54284298c3ce7",
+          "expected_profile": "parent_wide",
+          "fenced_json_citation": "devrec-2033fab64ae54284298c3ce7",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "parent_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "ffba14d87b61d4ac8e8dbe84fd4908a599dcffb11ecbe3f19dc958c7a77dba64",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": true,
+          "trial": 3
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "left_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "eed551c7f27cf2137d8ab152bc2ddb2d35fce0b990b3aaf73f0d685101b15d4f",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 4
+        },
+        {
+          "condition": "right_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "61742032bef32ce46689f40599652f661a90ada58bb13cb5b445d92bad04ce12",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 5
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "left_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "02533e85db74c58183f031fc3ff8453fffb6166686c8f42dee1d5c1c2e23e5c0",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": true,
+          "outer_prose_before_fence": true,
+          "trial": 6
+        },
+        {
+          "condition": "empty_inline",
+          "expected_citation": "inline-example",
+          "expected_profile": "inline",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 0,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": null,
+          "model_output_sha256": "6058eef28f9fe32b42ae8ea5febda8f4bd0a5cbf8c00f574fc22430b975e64f8",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 7
+        }
+      ]
+    },
+    "strict_control": {
+      "fenced_json_content_exact_count_exploratory": 5,
+      "fenced_json_exact_with_citation_count_exploratory": 4,
+      "fenced_json_valid_format_count": 6,
+      "official_exact_count": 4,
+      "official_valid_format_count": 6,
+      "outer_prose_count": 0,
+      "plan_sha256": "f35b4c5a5a1317b684e700b050149acfabd2cbd2eaac1c96ec869e1163f1d3d6",
+      "single_fence_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "expected_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "expected_profile": "right_wide",
+          "fenced_json_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "4d62cd502b1a707e82c73d32c38f03a907cde80b8acdffdd48787453b61ed79c",
+          "official_exact": false,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 0
+        },
+        {
+          "condition": "left_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "e91c1c9bb8263c634df0ab0e19acbf5317234d026873193f577b65b12b4b1e24",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 1
+        },
+        {
+          "condition": "empty_wide",
+          "expected_citation": null,
+          "expected_profile": "empty",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "empty"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "d37feb622b959f3b9a17e944454de77311c292de094d19a805fe46c11a604e84",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 2
+        },
+        {
+          "condition": "parent_wide",
+          "expected_citation": "devrec-2033fab64ae54284298c3ce7",
+          "expected_profile": "parent_wide",
+          "fenced_json_citation": "devrec-2033fab64ae54284298c3ce7",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "parent_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "72a18bb1452c4db03e8499cc31e6fc35713c0648f391fac85bf5900acfb0d2ab",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 3
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "invalid",
+          "model_output_sha256": "b05c94ec15db19069e87d26f5b6ab42cfb1a50c778adfeaf0e1d6bfce4907123",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 4
+        },
+        {
+          "condition": "right_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "e91c1c9bb8263c634df0ab0e19acbf5317234d026873193f577b65b12b4b1e24",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 5
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "invalid",
+          "model_output_sha256": "b05c94ec15db19069e87d26f5b6ab42cfb1a50c778adfeaf0e1d6bfce4907123",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 6
+        },
+        {
+          "condition": "empty_inline",
+          "expected_citation": "inline-example",
+          "expected_profile": "inline",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "inline"
+          ],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "2325ee3897e3561912a012a1fcb0ee2db95152e1aec012861fadd5a8c5e02fa9",
+          "official_exact": false,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 7
+        }
+      ]
+    },
+    "strict_mapped": {
+      "fenced_json_content_exact_count_exploratory": 6,
+      "fenced_json_exact_with_citation_count_exploratory": 5,
+      "fenced_json_valid_format_count": 6,
+      "official_exact_count": 5,
+      "official_valid_format_count": 6,
+      "outer_prose_count": 0,
+      "plan_sha256": "e5914340ca08ee9785e30a82ea0b5ce7739f4584dc0fa8010450e1647403e6b3",
+      "single_fence_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "expected_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "expected_profile": "right_wide",
+          "fenced_json_citation": "devrec-ea97ca95f0c73de28d117b4f",
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "invalid",
+          "model_output_sha256": "bd0eb9788ebeb08aaf0da9353f32343d46aff1c43d267bec82c88a36f095f7b2",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 0
+        },
+        {
+          "condition": "left_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "e91c1c9bb8263c634df0ab0e19acbf5317234d026873193f577b65b12b4b1e24",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 1
+        },
+        {
+          "condition": "empty_wide",
+          "expected_citation": null,
+          "expected_profile": "empty",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "empty"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "d37feb622b959f3b9a17e944454de77311c292de094d19a805fe46c11a604e84",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 2
+        },
+        {
+          "condition": "parent_wide",
+          "expected_citation": "devrec-2033fab64ae54284298c3ce7",
+          "expected_profile": "parent_wide",
+          "fenced_json_citation": "devrec-2033fab64ae54284298c3ce7",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "parent_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "72a18bb1452c4db03e8499cc31e6fc35713c0648f391fac85bf5900acfb0d2ab",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 3
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": false,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "invalid",
+          "model_output_sha256": "492a06bcd86094fddbcb0bc0d847a8babda1ac7161bfbb56ae34a5c6edf70b61",
+          "official_exact": false,
+          "official_format": "invalid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 4
+        },
+        {
+          "condition": "right_low",
+          "expected_citation": "devrec-a081ef3104dba90c9e19b723",
+          "expected_profile": "shared_low",
+          "fenced_json_citation": "devrec-a081ef3104dba90c9e19b723",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "shared_low"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "e91c1c9bb8263c634df0ab0e19acbf5317234d026873193f577b65b12b4b1e24",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 5
+        },
+        {
+          "condition": "left_wide",
+          "expected_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "expected_profile": "left_wide",
+          "fenced_json_citation": "devrec-9fee6e3b29076a60f8c01bf2",
+          "fenced_json_citation_exact_exploratory": true,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "left_wide"
+          ],
+          "fenced_json_exact_with_citation_exploratory": true,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "dde7c01967f4f29bcda2a023acd7ec052c0e372629df329ec4c1c6b5a430d751",
+          "official_exact": true,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 6
+        },
+        {
+          "condition": "empty_inline",
+          "expected_citation": "inline-example",
+          "expected_profile": "inline",
+          "fenced_json_citation": null,
+          "fenced_json_citation_exact_exploratory": false,
+          "fenced_json_content_exact_exploratory": true,
+          "fenced_json_count": 1,
+          "fenced_json_exact_profiles": [
+            "inline"
+          ],
+          "fenced_json_exact_with_citation_exploratory": false,
+          "fenced_json_format": "valid",
+          "model_output_sha256": "2325ee3897e3561912a012a1fcb0ee2db95152e1aec012861fadd5a8c5e02fa9",
+          "official_exact": false,
+          "official_format": "valid",
+          "outer_prose_after_fence": false,
+          "outer_prose_before_fence": false,
+          "trial": 7
+        }
+      ]
+    }
+  },
+  "descriptive_factor_counts": {
+    "interpretation": "descriptive secondary diagnostics only; repeated conditions are not independent samples",
+    "mapping_off_content_and_citation_exact": {
+      "count": 6,
+      "trials": 16
+    },
+    "mapping_off_content_exact": {
+      "count": 7,
+      "trials": 16
+    },
+    "mapping_on_content_and_citation_exact": {
+      "count": 12,
+      "trials": 16
+    },
+    "mapping_on_content_exact": {
+      "count": 13,
+      "trials": 16
+    },
+    "strict_output_off_content_and_citation_exact": {
+      "count": 9,
+      "trials": 16
+    },
+    "strict_output_off_content_exact": {
+      "count": 9,
+      "trials": 16
+    },
+    "strict_output_on_content_and_citation_exact": {
+      "count": 9,
+      "trials": 16
+    },
+    "strict_output_on_content_exact": {
+      "count": 11,
+      "trials": 16
+    }
+  },
+  "inference_performed": true,
+  "interpretation": "post-hoc payload diagnosis only; official full-response scores remain primary; fenced-content and citation are registered secondary diagnostics; no learning claim; repeated conditions are not independent samples",
+  "learning_established": false,
+  "matrix_sha256": "b9f710499af1486f75e6399ce9b94ca98e3bb0d3f03b1ab02993cb79e4fc4c90",
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_invoked": true,
+  "ollama_version": "0.40.16",
+  "run_manifest_sha256": "ec095f0f5f92bec304ed09f3153bbb5c167ef6808972289aa423ffec085e41d1",
+  "schema": "sentientos.sibling_chat_recall_factorial_output_diagnostic:v1"
+}
