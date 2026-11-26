@@ -6047,10 +6047,21 @@ use seed `13688910`; the verifier reloaded the private task and protocol,
 validated the answer-key commitment, source receipt, and selected history,
 and confirmed no model load or invocation. Its protocol digest is
 `sha256:a945d8398526e3e5b8b294d52cd88e446a3ec51b0a1829ec46072186b36ad00f`.
+Cycle 17 then stopped on a `NameError` because the strategy-arm condition had
+not been passed into `_cognize`; this occurred before model invocation. Its
+one-shot claim is retained. The condition is now explicitly threaded through
+the owner call.
+
+The resulting [v17 preflight](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v17.json)
+and [v13 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v13.json)
+use seed `13688911`; verification reloaded the private task and protocol,
+validated the answer-key commitment, source receipt, and selected history,
+and confirmed no model load or invocation. Its protocol digest is
+`sha256:7da2ca3197e371f0ffee7fb7487c8029b32ef8521a0ebb76e7845468332b7105`.
 The next slot uses cycle ID
-`rootless-cognition-cycle-20261126000000000017`, backend seed `1257088909`,
-the v16 preflight path, and journal root
-`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v6`.
+`rootless-cognition-cycle-20261126000000000018`, backend seed `1257088909`,
+the v17 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v7`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
