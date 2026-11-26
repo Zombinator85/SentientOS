@@ -6029,8 +6029,14 @@ use seed `13688909`; the verifier reloaded the task and protocol, validated
 the answer-key commitment, source receipt, and selected history records, and
 confirmed no model load or invocation. Its protocol digest is
 `sha256:d16103bcf4ec0119420389a58208a066900577357077effecb659e0e04bb5da0`.
+Cycle 15 stopped before the arm coordinator with
+`strategy_inclusion_live_preview_reconstruction_failed`; the diagnostic
+request semantics had been added outside the owner preview digest. No arm was
+claimed, and the model was not loaded or invoked. The preview now includes
+those in-memory semantics inside its digest, and the verifier checks them
+against the two bound request digests. The v5 journal still has no arm claims.
 The next diagnostic slot uses cycle ID
-`rootless-cognition-cycle-20261126000000000015`, backend seed `1257088909`,
+`rootless-cognition-cycle-20261126000000000016`, backend seed `1257088909`,
 the v15 preflight path, and journal root
 `/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v5`.
 Future attempts should use a clean WSL worktree when the interactive Windows
