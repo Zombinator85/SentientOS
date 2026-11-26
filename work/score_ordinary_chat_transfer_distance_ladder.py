@@ -59,12 +59,13 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
     if (plan.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"}
             or plan_digest != result.get("plan_sha256")
             or plan.get("source_report_sha256") != sha(REPORT.read_bytes())
             or set(plan.get("tiers", {})) != set(protocol.get("tiers", {}))):
         raise ValueError("execution plan or results do not match the frozen ladder preflight")
-    if plan["schema"].endswith((":v2", ":v3")):
+    if plan["schema"].endswith((":v2", ":v3", ":v4")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint_sha256") != sha(plan["output_constraint"].encode())):
             raise ValueError("post-retrieval output constraint is not bound to the execution plan")
@@ -74,6 +75,12 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
                     or plan.get("semantic_procedure") != HISTORY_RULE_DERIVATION
                     or plan.get("semantic_procedure_sha256") != sha(HISTORY_RULE_DERIVATION.encode())):
                 raise ValueError("history rule-derivation procedure is not bound to the execution plan")
+        if plan["schema"].endswith(":v4"):
+            from work.run_ordinary_chat_transfer_distance_ladder import EXPLICIT_RULE_CALIBRATION
+            if (plan.get("semantic_treatment") != "explicit_mapping_calibration:v1"
+                    or plan.get("semantic_procedure") != EXPLICIT_RULE_CALIBRATION
+                    or plan.get("semantic_procedure_sha256") != sha(EXPLICIT_RULE_CALIBRATION.encode())):
+                raise ValueError("explicit mapping calibration is not bound to the execution plan")
     elif plan.get("format_treatment") != "user_message_only:v1" or plan.get("output_constraint") is not None:
         raise ValueError("unconstrained-format execution plan has an unexpected treatment")
     if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):
