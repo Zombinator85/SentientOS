@@ -380,6 +380,8 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
     if diagnostic_condition is not None and (not cited or explicit_row_mapping
             or diagnostic_condition not in {"empty_wide", "empty_inline"}):
         raise ValueError("diagnostic condition must be an empty cited control without treatment")
+    if diagnostic_condition is not None and strict_cited_output:
+        raise ValueError("strict cited output requires the matched v6 comparison protocol")
     if model_name not in MODEL_MANIFESTS:
         raise ValueError("model is not in the pinned recall model registry")
     if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:

@@ -6267,6 +6267,8 @@ after ordinary-chat history retrieval, keeping it out of the retrieval
 question. This preserves the original question and selected evidence while
 changing only the model-facing response-format instruction. Protocols v1
 through v5 retain their original prompt construction and verification rules.
+The runner rejects combining v6 with the older single-condition diagnostic,
+which has no v6 schema for binding the output contract.
 
 The [control preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v1/)
 and [mapped preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v1/)
