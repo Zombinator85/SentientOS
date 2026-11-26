@@ -1,0 +1,12 @@
+{
+  "gpu_layers": 24,
+  "inference_performed": true,
+  "learning_established": false,
+  "model_invoked": true,
+  "payload_diagnostic_source_sha256": "d5937d6a4712e1228b4316a84ca55e73769e75766e6bad3978e0bb2884b68709",
+  "plan_sha256": "f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f",
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_full_run_package:v1",
+  "separate_receipt_count": 6,
+  "source_reference": "../balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/",
+  "trial_count": 6
+}

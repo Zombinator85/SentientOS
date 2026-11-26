@@ -6728,42 +6728,8 @@ model-bound history evidence with the model-free preflight and rejects scored
 history evidence or a history block in the empty control before counting
 answers.
 
-Once GPU time is available, execute the frozen model-bound plan below only
-against its reviewed hash. Score with the independent ladder scorer and
-compare against the strict-format control using:
-
-```bash
-python -m work.compare_ordinary_chat_transfer_distance_ladder_derivation \
-  <strict-format-control-run> <rule-derivation-run> <comparison.json> \
-  --control-score <strict-format-control-score-v2.json> \
-  --derivation-score <rule-derivation-score-v2.json>
-```
-
-The comparator requires matching model identity, generation/GPU settings,
-probe questions and order, output-format constraint, and scored history
-evidence, and requires current v2 score reports that independently validate
-history/empty evidence separation. Re-score both the strict-format control and
-the derivation run with the current scorer, saving separate score files so
-older reports remain intact, then pass those paths via `--control-score` and
-`--derivation-score`. Report correct answers and format validity separately
-for both arms at all three distances. An empty-arm improvement would indicate
-the procedure helped solve the task generally; an additional history-arm
-improvement would be evidence that history contributed under the scaffold.
-Neither result alone would establish durable learning or carryover across
-sessions/models.
-
-The CPU-only model-bound plan preflight for treatment v3 completed on
-2026-11-26 with plan hash
-`f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f`.
-It made no model invocation or inference and recorded zero resident VRAM. The
-six assembled prompts retained the same history/empty evidence separation as
-the model-free preflight; the longest was 7,991 characters, under the 8,000
-character history-prompt bound. Its [frozen plan and source snapshots](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/)
-preserve the exact treatment. The isolated CPU-only Ollama process was stopped
-after preflight.
-
-With the isolated server on `127.0.0.1:11436` configured for GPU inference and
-the GPU free, execute only against that preflight hash:
+The six-trial GPU run completed against this frozen hash. Its exact execution
+command was:
 
 ```bash
 export SENTIENTOS_OLLAMA_MODELS=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-ollama-store-20261126
@@ -6774,8 +6740,55 @@ export SENTIENTOS_OLLAMA_CPU_TARGET=http://127.0.0.1:11436
   --expected-plan-sha256 f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f
 ```
 
+The comparator requires matching model identity, generation/GPU settings,
+probe questions and order, output-format constraint, and scored history
+evidence. It also requires current v2 score reports from the same scorer source
+that independently validate history/empty evidence separation. Both the
+strict-format control and derivation run were rescored without replacing prior
+reports. The paired comparison was produced with:
+
+```bash
+python -m work.compare_ordinary_chat_transfer_distance_ladder_derivation \
+  <strict-format-control-run> <rule-derivation-run> <comparison.json> \
+  --control-score <strict-format-control-score-v2.json> \
+  --derivation-score <rule-derivation-score-v2.json>
+```
+
+It [confirmed](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-full-v1/derivation-comparison.json)
+that all comparison controls matched.
+
+The derivation treatment produced `0/18` correct answers, exactly like its
+strict-format control. In all three tiers, the empty arm returned valid
+all-null JSON (`3/3` valid); the history arm returned fenced JSON followed by
+explanation (`0/3` valid) and still answered all probes with null. The model's
+explanations referred to the retrieved low-range examples but said they did
+not support extrapolation, especially at larger magnitudes. The evidence
+validator confirmed the same three correct examples were present in each
+history prompt and absent from each empty prompt. Thus this treatment did not
+produce transfer and regressed strict-format adherence in the history arm;
+it does not establish durable learning or show that transfer is impossible.
+
+The CPU-only model-bound plan preflight for treatment v3 completed on
+2026-11-26 with plan hash
+`f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f`.
+It made no model invocation or inference and recorded zero resident VRAM. The
+six assembled prompts retained the same history/empty evidence separation as
+the model-free preflight; the longest was 7,991 characters, under the 8,000
+character history-prompt bound. Its [frozen plan and source snapshots](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-preflight-v3/)
+preserve the exact treatment. The isolated CPU-only Ollama process was stopped
+after preflight. The completed execution above used an isolated server on
+`127.0.0.1:11436` with GPU visibility enabled; it was stopped afterward.
+
 The strict-format control was rescored with the strengthened v2 independent
 scorer. It reconfirmed `0/3` correct for both arms at each distance while
 independently validating that history matched the preflight and the empty arm
 exposed no history. The new [evidence-audited control score](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-strict-full-v1/independent-score-evidence-v2.json)
-is stored alongside, without replacing, the original score.
+is stored alongside, without replacing, the original score. The [completed
+derivation run package](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-full-v1/)
+preserves the frozen plan, raw results, six governed receipts, independent
+score, and paired comparison. The isolated inference server was stopped after
+the run and GPU usage returned to its idle baseline. A separate [payload
+diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-rule-derivation-full-v1/payload-diagnostic.json)
+recovered valid answer arrays from all six outputs, but all 18 values were
+null, confirming no correct answers even when ignoring the history arm's
+fences and trailing explanation.

@@ -1,0 +1,45 @@
+{
+  "comparison_source_sha256": "e598fe2caa4bb350f6cec7cb134529624f8c9ee360fbd1db0dce5abcbb1a65d1",
+  "control_plan_sha256": "5f42f94a03ca5ed9dba7a2f5c759d9bf55af746a771298011f1da0b7ea43a958",
+  "derivation_plan_sha256": "f452f032326835fbb2e762bd5cee32520ee324a628040134c14aec22646bfa5f",
+  "interpretation": "This contrast estimates the effect of an equal rule-derivation procedure under history and empty controls. It does not by itself establish durable learning or attribute the original acquisition of history.",
+  "learning_established": false,
+  "same_generation_and_gpu_settings": true,
+  "same_model_identity": true,
+  "same_output_format_constraint": true,
+  "same_questions_probe_tiers_and_order": true,
+  "same_scored_history_evidence": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_derivation_comparison:v1",
+  "tier_results": {
+    "far": {
+      "control_empty_correct": 0,
+      "control_empty_json_valid": true,
+      "control_history_correct": 0,
+      "control_history_json_valid": true,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    },
+    "middle": {
+      "control_empty_correct": 0,
+      "control_empty_json_valid": true,
+      "control_history_correct": 0,
+      "control_history_json_valid": true,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    },
+    "near": {
+      "control_empty_correct": 0,
+      "control_empty_json_valid": true,
+      "control_history_correct": 0,
+      "control_history_json_valid": true,
+      "derivation_empty_correct": 0,
+      "derivation_empty_json_valid": true,
+      "derivation_history_correct": 0,
+      "derivation_history_json_valid": false
+    }
+  }
+}
