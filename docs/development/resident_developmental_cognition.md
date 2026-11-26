@@ -5995,12 +5995,19 @@ initial fingerprint before setup, rechecks it immediately before allocation,
 and writes a private digest-bound preflight record on rejection.
 
 Two v12 launch attempts were rejected by the GPU resource guard before run-root
-allocation. Their model-identity preflight records both state
-`run_root_allocated: false`, `model_loaded: false`, and `model_invoked: false`;
-the v12 journal has no claimed arms. No v12 behavioral result exists. V13 has
-not been launched. Future attempts should use a clean WSL worktree when the
-interactive Windows checkout has accumulated unrelated untracked artifacts,
-and should proceed only when the GPU guard admits the slot.
+allocation. A later admitted attempt reached the first-arm request binding and
+stopped with `objective_strategy_arm_request_digest_mismatch`; it made no
+behavioral observation or learning claim. The arm's at-most-once journal claim
+is retained, so v12 must not be retried. The mismatch came from the owner
+preview recording a raw request digest while the v6 protocol and execution
+gate compare request semantics after the declared custody/authority-map
+normalization. The owner now emits its preview digest under that same posture.
+This is a protocol binding correction, not a behavioral result. V13 remains a
+separate unused task instance and may be launched after the corrected source
+is pinned into the clean WSL worktree and its resource guard admits the slot.
+Future attempts should use a clean WSL worktree when the interactive Windows
+checkout has accumulated unrelated untracked artifacts, and should proceed
+only when the GPU guard admits the slot.
 
 ### Evidence gate for the prepared three-probe strategy-inclusion pair
 

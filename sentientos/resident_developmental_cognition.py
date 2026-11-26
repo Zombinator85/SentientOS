@@ -19928,6 +19928,12 @@ class ResidentDevelopmentalCognitionOwner:
                 "objective_strategy_prompt_preview_requires_task_family_history")
 
         previews: dict[str, dict[str, Any]] = {}
+        # The protocol binds request semantics after normalizing per-session
+        # custody and the volatile authority-map snapshot. Have the preview
+        # emit its digest under that same posture; otherwise execution's
+        # pre-inference gate compares normalized semantics to a raw digest.
+        from work.strategy_inclusion_intervention import (
+            REQUEST_DIGEST_BINDING_POSTURE)
         for mode in ("included", "omitted"):
             preview_tick_id = f"{tick_id}:strategy-preview:{mode}"
             result = self._run_tick(snapshot=snapshot, tick_id=preview_tick_id,
@@ -19935,7 +19941,9 @@ class ResidentDevelopmentalCognitionOwner:
                 objective_task=objective_task, objective_only=True,
                 objective_request_id=None, objective_request_digest=None,
                 accumulated_strategy_inclusion=mode,
-                objective_strategy_prompt_preview=True)
+                objective_strategy_prompt_preview=True,
+                expected_strategy_request_digest_binding_posture=(
+                    REQUEST_DIGEST_BINDING_POSTURE))
             if (result.status != "objective_strategy_prompt_preview_completed"
                     or not isinstance(result.prompt_preview, Mapping)):
                 raise ResidentDevelopmentalCognitionError(
