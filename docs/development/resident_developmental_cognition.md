@@ -6150,8 +6150,16 @@ selection digest, and retrieval question unchanged. The new
 status record without starting generation. The independently verified
 [v5 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-explicit-mapping-preflight-v5/)
 contains eight planned trials: five history exposures each retain the same
-single scored record as the archived comparison, and the empty-history controls remain empty. Prompts range from 7,812 to 7,819
-characters. The pinned model was not resident and inference was not performed.
-The matched two-thread CPU model comparison remains outstanding; this preflight
-does not establish improved extraction or learning. Hermes/GPU testing remains
-paused.
+single scored record as the archived comparison, and the empty-history controls
+remain empty. Prompts range from 7,812 to 7,819 characters. The pinned model was
+not resident and inference was not performed.
+The first full v5 attempt used the unchanged two-thread, 120-second CPU
+configuration and timed out on its first trial after 120,361 ms. Its governed
+receipt records a terminated timeout, zero output bytes, no fallback, and zero
+VRAM according to the isolated server's live placement report. The
+[timeout artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-explicit-mapping-timeout-v5/)
+passes an independent receipt verifier. The runner now preserves failure
+records automatically; the record for this first attempt was reconstructed
+from its governed receipt. The matched model comparison remains outstanding;
+the timeout is not evidence for or against improved extraction or learning.
+Hermes/GPU testing remains paused.

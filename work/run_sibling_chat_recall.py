@@ -97,6 +97,33 @@ def save(path, data):
         out.write("\n")
 
 
+def record_failed_trial(root, trial_root, *, index, condition, plan_hash, prompt_hash, error):
+    """Bind an interrupted trial to any governed receipt so failures remain auditable."""
+    matches = []
+    receipts = root / "inference-custody" / "receipts"
+    if receipts.exists():
+        for path in receipts.glob("*.json"):
+            disk = read(path)
+            if disk.get("request", {}).get("prompt_digest") == prompt_hash:
+                matches.append(disk)
+    if len(matches) > 1:
+        raise ValueError("failed trial has ambiguous governed receipts") from error
+    receipt = matches[0] if matches else None
+    save(trial_root / "failure.json", {
+        "schema": "sentientos.sibling_chat_recall_trial_failure:v1",
+        "plan_sha256": plan_hash, "trial": index, "condition": condition,
+        "prompt_sha256": prompt_hash, "exception_type": type(error).__name__,
+        "exception": str(error), "model_invoked": receipt is not None,
+        "receipt_id": receipt.get("receipt_id") if receipt else None,
+        "receipt_digest": receipt.get("receipt_digest") if receipt else None,
+        "receipt_status": receipt.get("status") if receipt else None,
+        "reason_codes": receipt.get("reason_codes") if receipt else [],
+        "latency_ms": receipt.get("latency_ms") if receipt else None,
+        "output_size_bytes": receipt.get("output_size_bytes") if receipt else None,
+        "fallback_occurred": receipt.get("fallback_occurred") if receipt else None,
+    })
+
+
 def get_api(path):
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     with opener.open(BASE + "/api/" + path, timeout=3) as response:
@@ -442,7 +469,12 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 session_store=ConversationSessionStore(trial_root / "sessions"),
                 memory_store=CanonicalMemoryStore(trial_root / "memory"),
                 resident_cognition_bridge=ResidentDevelopmentalCompanionBridge(owners[arm], cognition_available=lambda: False))
-            response = service.chat(questions[scope], session_id=service.create_session(), request_id="sibling-recall")
+            try:
+                response = service.chat(questions[scope], session_id=service.create_session(), request_id="sibling-recall")
+            except Exception as error:
+                record_failed_trial(root, trial_root, index=index, condition=key,
+                    plan_hash=plan_hash, prompt_hash=exposure[key]["invocation_prompt_digest"], error=error)
+                raise
             receipt = inference.receipt
             disk = read(root / "inference-custody/receipts" / (receipt.receipt_id + ".json"))
             if (not validate_receipt(disk)[0] or disk["receipt_digest"] != receipt.receipt_digest

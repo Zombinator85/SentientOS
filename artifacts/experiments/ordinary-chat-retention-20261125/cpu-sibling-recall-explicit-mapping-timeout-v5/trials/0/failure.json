@@ -1,0 +1,20 @@
+{
+  "condition": "right_wide",
+  "exception": "governed_inference_not_completed:timeout",
+  "exception_type": "RuntimeError",
+  "fallback_occurred": false,
+  "latency_ms": 120361,
+  "model_invoked": true,
+  "output_size_bytes": 0,
+  "plan_sha256": "a0406d591c85b95cb5043b7e2ff5a905b528a99a0659e3ffe8d5985df2d6c41b",
+  "prompt_sha256": "39fd596696ec023682812e733f6a455dba5a4e06f443d0a74b0daf7f4a45e175",
+  "reason_codes": [
+    "timeout_worker_terminated",
+    "timeout"
+  ],
+  "receipt_digest": "6d859b2042d18ba166dbdbc5d4c51da81494939cfc00284e8f589fb5f477f8f4",
+  "receipt_id": "lmrec-6d859b2042d18ba166dbdbc5",
+  "receipt_status": "timeout",
+  "schema": "sentientos.sibling_chat_recall_trial_failure:v1",
+  "trial": 0
+}
