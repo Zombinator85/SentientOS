@@ -6610,3 +6610,44 @@ the original acquisition of that record. Reconstruct the evidence with:
 ```bash
 python -m work.preflight_ordinary_chat_transfer_distance_ladder <cycles-root> --verify-report <report.json>
 ```
+
+### Model-bound distance-ladder execution
+
+`work.run_ordinary_chat_transfer_distance_ladder` binds the six history/empty
+prompts to the pinned Hermes artifact and identity, generation settings, GPU
+placement, counterbalanced trial order, source preflight, and implementation
+digests. `--preflight-only` captures the model-bound plan and requires the
+isolated Ollama service to have the pinned model tag but no resident model; it
+does not generate a response. Full inference requires the exact printed plan
+hash. Each response is tied to a governed receipt and verified prompt digest;
+the runner checks that the history store remains unchanged. The separate
+`work.score_ordinary_chat_transfer_distance_ladder` scorer checks receipts,
+recomputes each tier's answer-key commitment, and reports exact-answer counts
+and strict-format validity separately.
+
+Example WSL setup and model-bound preflight:
+
+```bash
+repo=/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next
+cycles=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles
+install=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/runtime/ollama-v0.40.16
+models=/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models
+py=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/venvs/rootless-cognition/bin/python
+model_store=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-ollama-store-20261126
+export SENTIENTOS_OLLAMA_MODELS="$model_store"
+export SENTIENTOS_OLLAMA_CPU_TARGET=http://127.0.0.1:11435
+cd "$repo"
+"$py" -m work.run_ordinary_chat_transfer_distance_ladder "$cycles" "$install" "$models" \
+  /home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/transfer-ladder-plan-v1 \
+  --preflight-only
+```
+
+For execution, use a new run directory and pass
+`--expected-plan-sha256 <reviewed-hash>` without `--preflight-only`; then run:
+
+```bash
+"$py" -m work.score_ordinary_chat_transfer_distance_ladder <run-directory> <score-report.json>
+```
+
+This turn prepared and statically checked the runner and scorer but did not
+create a Hermes-bound plan or use the GPU.
