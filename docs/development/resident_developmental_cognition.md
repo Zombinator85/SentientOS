@@ -6837,3 +6837,20 @@ support range and verify disjointness from every prior probe; only after that
 baseline should it increase magnitude. This distinguishes difficulty
 inferring a rule from the additional burden of extrapolating it far beyond the
 observed values.
+
+The existing novel-range task family begins at input 1,001, so it cannot host
+a genuinely source-near tier. The model-free ladder builder now supports a
+separate `rootless_integer_affine_transfer_source_near_v9` family covering
+inputs 10–1,000, with frozen progression tiers 11/13/17, 23/29/31, and
+47/59/61. These values avoid the documented pilot and prior retention probes;
+the builder still checks every value against the live parent history and the
+complete frozen probe inventory before it emits a qualified report. The
+existing wide-magnitude ladder remains the default and its report is not
+rewritten.
+
+To build the source-near report, use the same archived cycles root as the
+ordinary-chat preflight and pass `--tier-set source-near`. The report can then
+be supplied to the runner with `--report` and to the independent scorer with
+`--preflight-report`; both bind the selected report hash and task family into
+their artifacts. The cycles archive was not present in this checkout during
+this update, so no source-near report or inference result is claimed yet.

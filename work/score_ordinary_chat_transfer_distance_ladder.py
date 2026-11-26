@@ -8,7 +8,6 @@ from typing import Any
 
 from sentientos.developmental_model_replacement_experiment import (
     FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
-    ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
 )
 from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model_authority import digest_payload
@@ -51,10 +50,12 @@ def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> d
     }
 
 
-def score(run_directory: Path, output: Path) -> dict[str, Any]:
+def score(run_directory: Path, output: Path,
+          preflight_report: Path | None = None) -> dict[str, Any]:
     plan_path = run_directory / "plan.json"
     plan, result = read(plan_path), read(run_directory / "result.json")
-    protocol = read(REPORT)
+    selected_report = preflight_report or REPORT
+    protocol = read(selected_report)
     plan_digest = sha(plan_path.read_bytes())
     if (plan.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
@@ -62,7 +63,7 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"}
             or plan_digest != result.get("plan_sha256")
-            or plan.get("source_report_sha256") != sha(REPORT.read_bytes())
+            or plan.get("source_report_sha256") != sha(selected_report.read_bytes())
             or set(plan.get("tiers", {})) != set(protocol.get("tiers", {}))):
         raise ValueError("execution plan or results do not match the frozen ladder preflight")
     if plan["schema"].endswith((":v2", ":v3", ":v4")):
@@ -86,14 +87,17 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
     if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):
         raise ValueError("trial order differs from preregistration")
     evidence_validation = _validate_plan_evidence(plan, protocol)
-    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
+    task_family = protocol["task_family_id"]
+    if plan.get("task_family_id", task_family) != task_family:
+        raise ValueError("execution plan task family differs from the frozen preflight")
+    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
     summaries: dict[str, dict[str, Any]] = {}
     trial_rows = []
     for tier, tier_protocol in protocol["tiers"].items():
         probes = tier_protocol["probe_inputs"]
         key = [mapping[0] * probe + mapping[1] for probe in probes]
         commitment = "sha256:" + digest_payload({
-            "task_family_id": ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+            "task_family_id": task_family,
             "probe_inputs": probes, "expected_outputs": key,
         })
         if plan["tiers"][tier].get("answer_key_commitment") != commitment:
@@ -136,7 +140,8 @@ def score(run_directory: Path, output: Path) -> dict[str, Any]:
     report = {
         "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2",
         "plan_sha256": plan_digest,
-        "preflight_sha256": sha(REPORT.read_bytes()),
+        "preflight_sha256": sha(selected_report.read_bytes()),
+        "ladder_design": protocol.get("ladder_design", "balanced_magnitude_v1"),
         "scorer_source_sha256": sha(Path(__file__).read_bytes()),
         "prompt_evidence_validation": evidence_validation,
         "format_treatment": plan.get("format_treatment"),
@@ -158,6 +163,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_directory", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--preflight-report", type=Path,
+        help="The protocol report bound by the execution plan")
     args = parser.parse_args()
-    report = score(args.run_directory, args.output)
+    report = score(args.run_directory, args.output, args.preflight_report)
     print("independent_ladder_score_saved", report["plan_sha256"], flush=True)

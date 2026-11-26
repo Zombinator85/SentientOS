@@ -12,11 +12,12 @@ from sentientos.developmental_model_replacement_experiment import (
     FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
     FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES,
     ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+    ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY,
 )
 from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import _ordinary_chat_integer_experiences
 from work.preflight_ordinary_chat_retention import (
-    PARAPHRASE_PROBES, PROBES, _owner, _read_receipt, _service_request,
+    PARAPHRASE_PROBES, PILOT, PROBES, _owner, _read_receipt, _service_request,
     _source_kinds_from_history,
 )
 from work.preflight_sibling_chat_histories import (
@@ -25,12 +26,15 @@ from work.preflight_sibling_chat_histories import (
 
 
 SOURCE_REPORT = ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json"
-PILOT = ROOT / "artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v11.json"
-TASK_FAMILY = ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY
 TIERS = {
     "near": (1001, 1013, 1097),
     "middle": (5003, 7777, 10007),
     "far": (60013, 200003, 900001),
+}
+SOURCE_NEAR_TIERS = {
+    "near": (11, 13, 17),
+    "middle": (23, 29, 31),
+    "far": (47, 59, 61),
 }
 QUESTION_TEMPLATE = (
     "Earlier we practiced a number prediction exercise. What outputs should go "
@@ -44,30 +48,32 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _answer_commitment(inputs: tuple[int, ...]) -> str:
-    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[TASK_FAMILY]
+def _answer_commitment(inputs: tuple[int, ...], task_family: str) -> str:
+    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
     return "sha256:" + digest_payload({
-        "task_family_id": TASK_FAMILY,
+        "task_family_id": task_family,
         "probe_inputs": list(inputs),
         "expected_outputs": [mapping[0] * item + mapping[1] for item in inputs],
     })
 
 
-def build_report(cycles_root: Path) -> dict[str, Any]:
+def build_report(cycles_root: Path, tiers_by_name: dict[str, tuple[int, ...]] = TIERS,
+                 ladder_design: str = "balanced_magnitude_v1",
+                 task_family: str = ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY) -> dict[str, Any]:
     cycles = cycles_root
     target_cycle = cycles / ("rootless-cognition-cycle-" + TARGET)
     parent_cycle = cycles / ("rootless-cognition-cycle-" + CYCLES["parent"])
     prior = read(SOURCE_REPORT)
     request = _read_receipt(target_cycle)[1]["request"]
     identity = request["active_model_identity"]
-    ranges = FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[TASK_FAMILY]
-    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[TASK_FAMILY]
+    ranges = FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[task_family]
+    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
     if (mapping != FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[
             "rootless_integer_affine_transfer_low_range_v6"]
             or mapping != FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[
                 "rootless_integer_affine_transfer_wide_range_v7"]):
         raise ValueError("source and novel task families do not share the preregistered mapping")
-    all_inputs = [value for values in TIERS.values() for value in values]
+    all_inputs = [value for values in tiers_by_name.values() for value in values]
     if (len(all_inputs) != len(set(all_inputs))
             or any(not any(lower <= value <= upper for lower, upper in ranges)
                    for value in all_inputs)):
@@ -120,7 +126,11 @@ def build_report(cycles_root: Path) -> dict[str, Any]:
 
         tiers: dict[str, Any] = {}
         normalized_bases: list[str] = []
-        for tier, probes in TIERS.items():
+        largest_support_input = max(row["probe_input"] for row in
+                                    prior["questions"]["novel_range_transfer"][
+                                        "captures"]["parent"]["prompt_score_evidence"][0]["examples"])
+        tier_min_distances = {}
+        for tier, probes in tiers_by_name.items():
             question = QUESTION_TEMPLATE.format(inputs=", ".join(map(str, probes)))
             captures: dict[str, Any] = {}
             bases: dict[str, str] = {}
@@ -138,18 +148,22 @@ def build_report(cycles_root: Path) -> dict[str, Any]:
                 raise ValueError(f"{tier} query did not retrieve the exact frozen support record")
             normalized = bases["history"].replace(", ".join(map(str, probes)), "[PROBES]")
             normalized_bases.append(normalized)
+            tier_min_distances[tier] = min(probes) - largest_support_input
             tiers[tier] = {
                 "probe_inputs": list(probes),
                 "input_distance_from_largest_source_example": {
                     "minimum": min(probes) - max(row["probe_input"] for row in expected_evidence[0]["examples"]),
                     "maximum": max(probes) - max(row["probe_input"] for row in expected_evidence[0]["examples"]),
                 },
-                "answer_key_commitment": _answer_commitment(probes),
+                "answer_key_commitment": _answer_commitment(probes, task_family),
                 "question": question,
                 "captures": captures,
             }
         if len(set(normalized_bases)) != 1:
             raise ValueError("distance tiers differ outside the probe values")
+        if any(tier_min_distances[left] >= tier_min_distances[right]
+               for left, right in zip(tiers_by_name, list(tiers_by_name)[1:])):
+            raise ValueError("distance tiers must increase strictly beyond the largest support input")
 
         source_files = (
             "work/preflight_ordinary_chat_transfer_distance_ladder.py",
@@ -162,8 +176,9 @@ def build_report(cycles_root: Path) -> dict[str, Any]:
         )
         return {
             "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
+            "ladder_design": ladder_design,
             "source_report_sha256": _sha(SOURCE_REPORT.read_bytes()),
-            "task_family_id": TASK_FAMILY,
+            "task_family_id": task_family,
             "source_task_family_ids": [
                 "rootless_integer_affine_transfer_low_range_v6",
                 "rootless_integer_affine_transfer_wide_range_v7",
@@ -196,8 +211,14 @@ def main() -> None:
     parser.add_argument("cycles_root", type=Path)
     parser.add_argument("output", type=Path, nargs="?")
     parser.add_argument("--verify-report", type=Path)
+    parser.add_argument("--tier-set", choices=("balanced", "source-near"), default="balanced")
     args = parser.parse_args()
-    report = build_report(args.cycles_root)
+    tiers, design, family = ((SOURCE_NEAR_TIERS, "source_near_progression_v1",
+                              ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY)
+                     if args.tier_set == "source-near" else
+                     (TIERS, "balanced_magnitude_v1",
+                      ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY))
+    report = build_report(args.cycles_root, tiers, design, family)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.verify_report is not None:
         if json.loads(args.verify_report.read_text(encoding="utf-8")) != report:

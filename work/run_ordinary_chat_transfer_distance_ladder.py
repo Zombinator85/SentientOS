@@ -81,7 +81,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         expected_plan_sha256: str | None = None, preflight_only: bool = False,
         gpu_layers: int = GPU_LAYERS, strict_json_output: bool = False,
         derive_rule_from_history: bool = False,
-        explicit_rule_calibration: bool = False) -> None:
+        explicit_rule_calibration: bool = False,
+        report_path: Path | None = None) -> None:
     if type(gpu_layers) is not int or not 1 <= gpu_layers <= 128:
         raise ValueError("transfer-ladder inference requires 1 through 128 GPU layers")
     if not preflight_only and expected_plan_sha256 is None:
@@ -96,7 +97,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         raise ValueError("GPU inference requires an explicitly isolated external Ollama server")
     manifest_digest = MODEL_MANIFESTS[MODEL]
     root.mkdir(parents=True, exist_ok=False)
-    protocol = read(REPORT)
+    selected_report = report_path or REPORT
+    protocol = read(selected_report)
     if (protocol.get("schema") != "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1"
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
@@ -171,7 +173,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                     if derive_rule_from_history else (
                     "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2"
                     if strict_json_output else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1")),
-            "source_report_sha256": sha(REPORT.read_bytes()),
+            "source_report_sha256": sha(selected_report.read_bytes()),
+            "ladder_design": protocol.get("ladder_design", "balanced_magnitude_v1"),
+            "task_family_id": protocol.get("task_family_id"),
             "model": MODEL, "model_manifest_sha256": manifest_digest,
             "model_identity": identity, "ollama_version": version,
             "options": options, "context_tokens": config.max_context_tokens,
@@ -283,10 +287,13 @@ if __name__ == "__main__":
         help="Add a rule-derivation procedure equally to history and empty arms; requires strict JSON")
     parser.add_argument("--explicit-rule-calibration", action="store_true",
         help="Supply the mapping equally to both arms as an arithmetic/format calibration")
+    parser.add_argument("--report", type=Path,
+        help="Use a separately frozen model-free protocol report")
     args = parser.parse_args()
     run(args.cycles, args.ollama_install, args.models, args.new_run_directory,
         expected_plan_sha256=args.expected_plan_sha256,
         preflight_only=args.preflight_only, gpu_layers=args.gpu_layers,
         strict_json_output=args.strict_json_output,
         derive_rule_from_history=args.derive_rule_from_history,
-        explicit_rule_calibration=args.explicit_rule_calibration)
+        explicit_rule_calibration=args.explicit_rule_calibration,
+        report_path=args.report)
