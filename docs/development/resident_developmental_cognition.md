@@ -6328,6 +6328,10 @@ all four preflights before it starts, runs them in the frozen order
 control → strict+mapping → mapping → strict, verifies each completed arm, and
 packages each arm's complete capture and checksum. It stops after the first
 failed or unverifiable arm and writes a run manifest after every transition.
+After the first verified arm, it permits reuse only when the external Ollama
+server has exactly one resident model and its digest matches the pinned
+Hermes artifact. That model can remain resident for the configured five-minute
+keep-alive after the last arm.
 To launch it from WSL after confirming the GPU is available:
 
 ```bash

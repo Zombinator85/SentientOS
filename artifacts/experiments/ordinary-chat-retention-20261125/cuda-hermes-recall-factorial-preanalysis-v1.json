@@ -4,28 +4,28 @@
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7665,
-      "plan_sha256": "34399c7452156d99dfba23c9a40ce6025efb9ac92631be8a5be476b84539a67a",
+      "plan_sha256": "f138138cae8d92e0ea63f2a666dd1e9454a108878775765d640c47270709ca9b",
       "preflight_conditions": 8
     },
     "mapped": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7818,
-      "plan_sha256": "adda568dd697c5ca55ecc43b992c12cb29b2bf04becbc08cdac29be68e8de3a0",
+      "plan_sha256": "565170754d1155e0a6b8a48bcea6a75408d12ec36e3333e32554c1ee262064a4",
       "preflight_conditions": 8
     },
     "strict_control": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7828,
-      "plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
+      "plan_sha256": "910732421149fe2a3df199e01ef15784ce775b82e3ab66198553a299dd9b64ab",
       "preflight_conditions": 8
     },
     "strict_mapped": {
       "history_exposures": 5,
       "inference_performed": false,
       "maximum_prompt_chars": 7981,
-      "plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
+      "plan_sha256": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753",
       "preflight_conditions": 8
     }
   },
@@ -50,7 +50,7 @@
     "questions",
     "profiles"
   ],
-  "matrix_sha256": "bb4df25ffe81bfcf75a2e212b572d8e7bd0ea4145e139d2146c98930ad88b47f",
+  "matrix_sha256": "b00d21a73050e4ce12b8addc98364deb8eaf248df2e5f3b403a8598a81734a4f",
   "model": "sentientos-hermes4:14b-q4km",
   "model_identity": {
     "artifact_size_bytes": 924,
@@ -67,10 +67,10 @@
   "model_invoked": false,
   "output_factor": "strict fenced JSON instruction injected after retrieval",
   "plan_sha256": {
-    "control": "34399c7452156d99dfba23c9a40ce6025efb9ac92631be8a5be476b84539a67a",
-    "mapped": "adda568dd697c5ca55ecc43b992c12cb29b2bf04becbc08cdac29be68e8de3a0",
-    "strict_control": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
-    "strict_mapped": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9"
+    "control": "f138138cae8d92e0ea63f2a666dd1e9454a108878775765d640c47270709ca9b",
+    "mapped": "565170754d1155e0a6b8a48bcea6a75408d12ec36e3333e32554c1ee262064a4",
+    "strict_control": "910732421149fe2a3df199e01ef15784ce775b82e3ab66198553a299dd9b64ab",
+    "strict_mapped": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753"
   },
   "planned_trials_per_arm": 8,
   "primary_outcome": "official exact trials under the preregistered full-response scorer",

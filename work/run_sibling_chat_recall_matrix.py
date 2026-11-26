@@ -100,7 +100,7 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
         raise ValueError("transient run data and packaged artifacts need separate directories")
     if artifact_root.exists():
         raise FileExistsError(f"matrix artifact directory already exists: {artifact_root}")
-    for arm in RUN_ORDER:
+    for arm_index, arm in enumerate(RUN_ORDER):
         if (output_root / arm).exists():
             raise FileExistsError(f"matrix arm output already exists: {output_root / arm}")
 
@@ -111,6 +111,9 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
         "matrix_sha256": matrix["matrix_sha256"],
         "preflight_plan_sha256": matrix["plan_sha256"],
         "run_order": list(RUN_ORDER),
+        "pinned_model_reuse_policy": (
+            "first arm requires an empty server; later arms allow only one resident model "
+            "with the pinned digest"),
         "model_invoked": False,
         "inference_performed": False,
         "learning_established": False,
@@ -135,7 +138,10 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
             "expected_plan_sha256": matrix["plan_sha256"][arm],
         }
         _write_json(manifest_path, manifest)
-        completed = subprocess.run(command, cwd=repository, check=False)
+        child_environment = os.environ.copy()
+        if arm_index:
+            child_environment["SENTIENTOS_OLLAMA_RECALL_MATRIX_REUSE_PINNED"] = "1"
+        completed = subprocess.run(command, cwd=repository, env=child_environment, check=False)
         scores = None
         verification_error = None
         if completed.returncode == 0:
@@ -187,3 +193,5 @@ if __name__ == "__main__":
     result = execute_matrix(args.cycles, args.ollama_install, args.models, args.output_root,
                             args.preflight_root, args.artifact_root)
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    if result.get("status") != "all_arms_verified":
+        raise SystemExit(1)

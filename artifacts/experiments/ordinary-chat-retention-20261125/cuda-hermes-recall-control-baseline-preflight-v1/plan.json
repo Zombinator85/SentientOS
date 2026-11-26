@@ -334,7 +334,7 @@
     "wide": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report."
   },
   "schema": "sentientos.sibling_chat_recall_plan:v3",
-  "source_code_sha256": "6deacf157baec3a001d9da5d4cbde5466f66a7ac264decb7c1c56dfcd49d846c",
+  "source_code_sha256": "b7ce4420826ecc3a15b14f97a73f2202533a1bec23197af7934ef458379e60a3",
   "source_report_sha256": "b26bbed870338119b513a14c36362a5266f26b80fadc50012df7fd44b6fdc783",
   "trials": [
     [

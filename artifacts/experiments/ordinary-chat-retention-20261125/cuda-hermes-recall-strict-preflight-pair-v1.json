@@ -3,10 +3,10 @@
     "history_exposures": 5,
     "inference_performed": false,
     "maximum_prompt_chars": 7828,
-    "plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
+    "plan_sha256": "910732421149fe2a3df199e01ef15784ce775b82e3ab66198553a299dd9b64ab",
     "preflight_conditions": 8
   },
-  "control_plan_sha256": "4363c4de30418a437f03dadf06d053fb92bd42620acaf9fdce7b8cc9abacb01d",
+  "control_plan_sha256": "910732421149fe2a3df199e01ef15784ce775b82e3ab66198553a299dd9b64ab",
   "history_evidence_equal": true,
   "inference_performed": false,
   "intervention": "explicit_developmental_history_field_to_row_mapping:v2",
@@ -15,10 +15,10 @@
     "history_exposures": 5,
     "inference_performed": false,
     "maximum_prompt_chars": 7981,
-    "plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
+    "plan_sha256": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753",
     "preflight_conditions": 8
   },
-  "mapped_plan_sha256": "41da7519a50a24fb7a3dd5f336851ed2ef7557ba7738bc13860e432554dfdfa9",
+  "mapped_plan_sha256": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753",
   "matched_fields": [
     "model",
     "model_identity",
@@ -36,6 +36,6 @@
   ],
   "model_invoked": false,
   "output_contract": "fenced_json_only:v1",
-  "pair_sha256": "35536db0eb4c50bc40a4c1f4f430e271ee7fca4c7b888db2aa77c68f064be59a",
+  "pair_sha256": "ff63e3292dcd1802355f0d318da4740df0dda195974c48c8656bfed8d809f6bd",
   "schema": "sentientos.sibling_chat_recall_preflight_pair:v1"
 }

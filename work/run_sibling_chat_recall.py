@@ -221,7 +221,7 @@ def _loopback_api_forwarder(target_host, target_port):
 
 
 @contextmanager
-def model_server(install, models, root, model, manifest_digest):
+def model_server(install, models, root, model, manifest_digest, *, allow_pinned_resident=False):
     """Bind an isolated Ollama server to one pinned model artifact."""
     external_models = (os.environ.get("SENTIENTOS_OLLAMA_MODELS")
                        or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS"))
@@ -233,8 +233,11 @@ def model_server(install, models, root, model, manifest_digest):
         if target.scheme != "http" or not target.hostname or not target.port:
             raise ValueError("external model server target must be an explicit HTTP host and port")
         with _loopback_api_forwarder(target.hostname, target.port):
-            if get_api("ps")["models"]:
-                raise ValueError("external CPU server already has a resident model")
+            resident = get_api("ps")["models"]
+            if resident:
+                if (not allow_pinned_resident or len(resident) != 1
+                        or resident[0].get("digest") != manifest_digest):
+                    raise ValueError("external server has a resident model outside the permitted pinned reuse")
             version = get_api("version")["version"]
             tagged, = [item for item in get_api("tags")["models"] if item["name"] == model]
             if tagged["digest"] != manifest_digest:
@@ -399,7 +402,9 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
     root.mkdir(parents=True, exist_ok=False)
     baseline = read(SOURCE_REPORT)
     historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
-    with model_server(install, models, root, model_name, manifest_digest) as (manifest, version), _rootless_governance_custody(root):
+    allow_pinned_resident = os.environ.get("SENTIENTOS_OLLAMA_RECALL_MATRIX_REUSE_PINNED") == "1"
+    with model_server(install, models, root, model_name, manifest_digest,
+                      allow_pinned_resident=allow_pinned_resident) as (manifest, version), _rootless_governance_custody(root):
         options = {"api_base": BASE, "model": model_name, "manifest_sha256": manifest_digest,
                    "num_gpu": gpu_layers, "num_thread": 2, "timeout_seconds": 120, "seed": 42,
                    "think": False, "keep_alive": "5m"}

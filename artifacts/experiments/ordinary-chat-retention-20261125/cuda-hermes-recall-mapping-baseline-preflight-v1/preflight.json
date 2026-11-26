@@ -3,7 +3,7 @@
   "inference_performed": false,
   "learning_established": false,
   "model_invoked": false,
-  "plan_sha256": "adda568dd697c5ca55ecc43b992c12cb29b2bf04becbc08cdac29be68e8de3a0",
+  "plan_sha256": "565170754d1155e0a6b8a48bcea6a75408d12ec36e3333e32554c1ee262064a4",
   "resident_vram_bytes": 0,
   "runtime_condition_created": false,
   "schema": "sentientos.sibling_chat_recall_preflight:v1"
