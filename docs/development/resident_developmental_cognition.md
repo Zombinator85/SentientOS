@@ -6062,6 +6062,25 @@ The next slot uses cycle ID
 `rootless-cognition-cycle-20261126000000000018`, backend seed `1257088909`,
 the v17 preflight path, and journal root
 `/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v7`.
+Cycle 18 passed the request-semantic gate and produced one included-arm
+inference, but pair receipt validation rejected it because the frozen
+generation-config digest carried a companion response schema instead of the
+objective-answer schema. The receipt is preserved in the private cycle; no arm
+score or pair contrast was accepted, and no learning claim was made. Hermes
+has unloaded. The preflight now projects the owner-built objective schema
+onto the source receipt's otherwise matching bounded generation settings,
+while receipt verification still checks the full runtime generation config.
+
+The corrected [v18 preflight](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v18.json)
+and [v14 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v14.json)
+use seed `13688912`; verification reloaded the private task and protocol,
+validated the answer-key commitment, source receipt, and selected history,
+and recorded no model load or invocation. The protocol digest is
+`sha256:31e2083c2662d630a620a047f0b390d02bc1835e3dbb5f31062c6164f7270b97`.
+The next slot uses cycle ID
+`rootless-cognition-cycle-20261126000000000019`, backend seed `1257088909`,
+the v18 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v8`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
