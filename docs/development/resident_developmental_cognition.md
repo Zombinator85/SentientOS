@@ -6091,6 +6091,17 @@ was unloaded under governed release, and the score records inference performed
 with learning, improvement, and authority all false. This is a task-bounded
 behavioral contrast on one task instance; it does not establish durable
 learning, generalization, or stable improvement.
+
+A second CPU-only strategy pair, [v19](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v19.json),
+uses seed `13688913`. Its [v15 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v15.json)
+reloaded and checked the private task, answer-key commitment, source receipt,
+and selected history. Its three probe inputs are disjoint from the completed
+cycle 19 task's probes. The new protocol digest is
+`sha256:5333e91a38613c4fb0771ef6f75b7c2fb69a604ba41310f9ed0c9f5a430baa35`;
+it records no model load or invocation. The next slot is cycle ID
+`rootless-cognition-cycle-20261126000000000020`, backend seed `1257088909`,
+the v19 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v9`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
