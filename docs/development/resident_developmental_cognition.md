@@ -6707,3 +6707,38 @@ would help distinguish failure to infer the mapping from failure to use
 retrieved history, while keeping content scoring independent from format
 compliance. The isolated Ollama server was stopped after scoring; GPU usage
 returned to the idle baseline.
+
+### Matched history rule-derivation procedure
+
+The all-null strict-format result does not distinguish failure to retrieve or
+use the examples from a conservative response strategy. The ladder runner now
+supports a separately bound `derive_rule_from_available_history:v1` treatment
+on top of the existing strict JSON constraint. After retrieval, it instructs
+the model to use available developmental-history examples to identify a
+candidate mapping, check it against the examples, and apply it to the probes;
+it still uses null when the examples are absent or do not determine a unique
+answer. It does not state the mapping or require a visible reasoning trace.
+The identical procedure is appended to both history and empty prompts, leaving
+the history contrast and strict output requirement intact. Plan schema v3
+records the exact procedure and digest; independent scoring rejects a missing
+or altered procedure binding.
+
+Once GPU time is available, create a fresh model-bound preflight and plan with
+both `--strict-json-output` and `--derive-rule-from-history`, inspect the bound
+suffix and plan hash, then run the six trials only against that reviewed hash.
+Score with the independent ladder scorer and compare against the strict-format
+control using:
+
+```bash
+python -m work.compare_ordinary_chat_transfer_distance_ladder_derivation \
+  <strict-format-control-run> <rule-derivation-run> <comparison.json>
+```
+
+The comparator requires matching model identity, generation/GPU settings,
+probe questions and order, output-format constraint, and scored history
+evidence. Report correct answers and format validity separately for both arms
+at all three distances. An empty-arm improvement would indicate the procedure
+helped solve the task generally; an additional history-arm improvement would
+be evidence that history contributed under the scaffold. Neither result alone
+would establish durable learning or carryover across sessions/models. No
+model-bound preflight or inference has been run for this new treatment yet.
