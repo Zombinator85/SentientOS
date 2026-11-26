@@ -1669,6 +1669,7 @@ class PersistentConversationService:
     def __init__(self, *, inference: ChatInference, session_store: ConversationSessionStore,
                  memory_store: CanonicalMemoryStore, context_budget_chars: int = 4000,
                  memory_budget_chars: int = 1600, admission_gate: ExplicitRetentionAdmissionGate | None = None,
+                 inference_timeout_seconds: float = 30.0,
                  avatar_output: ChatAvatarOutput | None = None,
                  speech_output: ChatSpeechOutput | None = None,
                  screen_observer: Callable[[], Mapping[str, object] | None] | None = None,
@@ -1678,6 +1679,9 @@ class PersistentConversationService:
                      [str, str], Mapping[str, Any] | None
                  ] | None = None) -> None:
         self._inference = inference; self.sessions = session_store; self.memories = memory_store
+        if type(inference_timeout_seconds) not in (float, int) or not 0 < inference_timeout_seconds <= 180:
+            raise ValueError("chat_inference_timeout_out_of_range")
+        self._inference_timeout_seconds = float(inference_timeout_seconds)
         self._avatar_output = avatar_output
         self._avatar_workload_sync_lock = threading.Lock()
         self._avatar_workload_mode_apply_lock = threading.Lock()
@@ -5056,7 +5060,8 @@ class PersistentConversationService:
         if isinstance(client_request_digest, str):
             linkage["client_request_id_digest"] = client_request_digest
         invocation_correlation_id = f"chat:{session['session_id']}:{user_turn['turn_id']}"
-        invocation_budget = LocalModelInvocationBudget(max_input_chars=8000)
+        invocation_budget = LocalModelInvocationBudget(max_input_chars=8000,
+            timeout_seconds=self._inference_timeout_seconds)
         streamed_model_chunks: list[str] = []
         inference_started_ns = time.monotonic_ns()
         if on_content_chunk is None:

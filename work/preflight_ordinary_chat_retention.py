@@ -26,6 +26,7 @@ from sentientos.conversation_session import (
     verify_ordinary_chat_history_projection_triplet,
 )
 from sentientos.governed_local_model_invocation import validate_receipt
+from sentientos.local_model_authority import digest_payload
 from sentientos.resident_developmental_cognition import (
     ResidentDevelopmentalCognitionConfig, ResidentDevelopmentalCognitionOwner,
     _task_family_history_examples,
@@ -158,7 +159,7 @@ class _CapturedRequest(Exception):
         self.linkage = linkage
 
 
-def _service_request(owner, root, identity, question=QUESTION):
+def _service_request(owner, root, identity, question=QUESTION, *, bind_invocation=False, capture_adapter=None):
     class CaptureOnly:
         def current_conversation_model_identity(self):
             return identity
@@ -166,7 +167,7 @@ def _service_request(owner, root, identity, question=QUESTION):
         def generate(self, *, prompt, caller_linkage, **kwargs):
             raise _CapturedRequest(prompt, caller_linkage)
 
-    service = PersistentConversationService(inference=CaptureOnly(),
+    service = PersistentConversationService(inference=capture_adapter or CaptureOnly(),
         session_store=ConversationSessionStore(root / "sessions"),
         memory_store=CanonicalMemoryStore(root / "memory"),
         resident_cognition_bridge=ResidentDevelopmentalCompanionBridge(
@@ -205,6 +206,7 @@ def _service_request(owner, root, identity, question=QUESTION):
         matched_base = prompt[:start] + prompt[end + 1:]
     return matched_base, {
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
+        **({"invocation_prompt_digest": digest_payload({"prompt": prompt})} if bind_invocation else {}),
         "prompt_chars": len(prompt),
         "history_block_digest": linkage.get("ordinary_developmental_history_prompt_block_digest"),
         "prompt_score_evidence": examples,

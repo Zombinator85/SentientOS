@@ -1,0 +1,282 @@
+"""Run the archived sibling-history recall comparison through governed ordinary chat on CPU."""
+from __future__ import annotations
+
+import argparse
+from contextlib import contextmanager
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import signal
+import socket
+import subprocess
+import tempfile
+import time
+import urllib.request
+
+from sentientos.canonical_memory import CanonicalMemoryStore
+from sentientos.chat_service import DevelopmentLocalChatInference, PersistentConversationService
+from sentientos.config import GenerationConfig, ModelCandidate, ModelConfig
+from sentientos.conversation_session import ConversationSessionStore
+from sentientos.developmental_companion_bridge import ResidentDevelopmentalCompanionBridge
+from sentientos.governed_local_model_invocation import GovernedLocalModelInvoker, validate_receipt
+from sentientos.local_model import LocalModel
+from sentientos.local_model_authority import build_local_model_authority_map, digest_payload, stream_sha256
+from sentientos.rootless_experimental_local_model import _resource_governed_kernel, _rootless_governance_custody
+from work.preflight_ordinary_chat_retention import (
+    _CapturedRequest, _owner, _read_receipt, _service_request, _source_kinds_from_history,
+)
+from work.preflight_sibling_chat_histories import CYCLES, QUESTIONS, TARGET, archive, admitted_boundary, read
+
+
+MODEL = "qwen2.5:1.5b-instruct-q4_K_M"
+MANIFEST = "f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e"
+ADDRESS = "127.0.0.2"
+BASE = f"http://{ADDRESS}:11434"
+SOURCE_REPORT = Path(__file__).resolve().parents[1] / (
+    "artifacts/experiments/ordinary-chat-retention-20261125/sibling_history_after.json")
+FORMAT = (' Reply only with a JSON array of rows. Each row is [input, observed answer, outcome]. '
+          'Use an integer or null for the observed answer. Use "correct", "incorrect", or "abstained" '
+          'for the outcome. If you have no recorded exercise, return an empty array.')
+TRIALS = (("right", "wide"), ("left", "low"), ("empty", "wide"), ("parent", "wide"),
+          ("left", "wide"), ("right", "low"), ("left", "wide"))
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def save(path, data):
+    with path.open("x", encoding="utf-8") as out:
+        json.dump(data, out, indent=2, sort_keys=True)
+        out.write("\n")
+
+
+def get_api(path):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open(BASE + "/api/" + path, timeout=3) as response:
+        return json.load(response)
+
+
+@contextmanager
+def cpu_server(install, models, root):
+    """Create an isolated Linux loader tree containing only CPU backends and one model."""
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        probe.bind((ADDRESS, 11434))
+    with tempfile.TemporaryDirectory(dir=root, prefix="cpu-runtime-") as temp:
+        base = Path(temp)
+        binary = base / "bin/ollama"
+        binary.parent.mkdir()
+        os.link((install / "bin/ollama").resolve(strict=True), binary)
+        lib = base / "lib/ollama"
+        lib.mkdir(parents=True)
+        for f in (install / "lib/ollama").iterdir():
+            if f.is_file() and (f.name.startswith(("libggml-cpu-", "libggml.", "libggml-base.",
+                    "libgomp.", "libllama.", "libllama-common.", "libllama-server-impl.", "libmtmd."))
+                    or f.name == "llama-server"):
+                os.link(f.resolve(strict=True), lib / f.name)
+        relative = Path("manifests/registry.ollama.ai/library") / MODEL.replace(":", "/")
+        manifest = models / relative
+        if sha(manifest.read_bytes()) != MANIFEST:
+            raise ValueError("unexpected model manifest")
+        private = base / "models"
+        (private / relative).parent.mkdir(parents=True)
+        (private / relative).write_bytes(manifest.read_bytes())
+        (private / "blobs").mkdir()
+        manifest_data = read(manifest)
+        for layer in [manifest_data["config"], *manifest_data["layers"]]:
+            digest = layer["digest"].removeprefix("sha256:")
+            filename = "sha256-" + digest
+            blob = models / "blobs" / filename
+            if stream_sha256(blob) != (digest, layer["size"]):
+                raise ValueError("model layer differs from pinned manifest")
+            os.link(blob, private / "blobs" / filename)
+        env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "ROCR_VISIBLE_DEVICES": "-1",
+               "OLLAMA_VULKAN": "0", "OLLAMA_HOST": ADDRESS + ":11434", "OLLAMA_MODELS": str(private),
+               "OLLAMA_NO_CLOUD": "1", "OLLAMA_NOPRUNE": "1", "OLLAMA_NUM_PARALLEL": "1"}
+        with (root / "ollama.log").open("xb") as log:
+            process = subprocess.Popen([binary, "serve"], env=env, stdout=log,
+                                       stderr=subprocess.STDOUT, start_new_session=True)
+            try:
+                for _ in range(80):
+                    if process.poll() is not None:
+                        raise RuntimeError("dedicated server stopped during startup")
+                    try:
+                        version = get_api("version")["version"]
+                    except OSError:
+                        time.sleep(0.25)
+                        continue
+                    break
+                else:
+                    raise RuntimeError("dedicated server did not start")
+                if get_api("ps")["models"]:
+                    raise ValueError("dedicated server already has a resident model")
+                yield manifest, version
+            finally:
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGTERM)
+                    try:
+                        process.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait()
+
+
+def score_answer(text, profiles):
+    """Grade the delivered text against every profile without knowing which arm generated it."""
+    try:
+        rows = json.loads(text)
+    except ValueError:
+        rows = None
+    if not isinstance(rows, list) or any(not isinstance(r, list) or len(r) != 3
+            or type(r[0]) is not int or (r[1] is not None and type(r[1]) is not int)
+            or r[2] not in ("correct", "incorrect", "abstained")
+            or ((r[1] is None) != (r[2] == "abstained")) for r in rows):
+        return {"format": "invalid", "exact_profiles": []}
+    if len({r[0] for r in rows}) != len(rows):
+        return {"format": "duplicate_input", "exact_profiles": []}
+    return {"format": "valid", "exact_profiles": [k for k, v in profiles.items() if sorted(v) == sorted(rows)]}
+
+
+def source_rows(owner, evidence):
+    run = owner.experiments.load_run(evidence["source_run_id"])
+    result, = [r["score"] for r in run["objective_scores"] if r["condition_id"] == "history_present"]
+    if result["score_digest"] != evidence["source_score_digest"]:
+        raise ValueError("oracle differs from source score")
+    return [[r["probe_input"], r["observed_answer"], "abstained" if r.get("abstained")
+             else "correct" if r["correct"] else "incorrect"] for r in result["probe_results"]]
+
+
+class VerifiedChat(DevelopmentLocalChatInference):
+    capture_only = True
+
+    def generate(self, **kwargs):
+        if self.capture_only:
+            raise _CapturedRequest(kwargs["prompt"], kwargs["caller_linkage"])
+        if sha(kwargs["prompt"].encode()) != self.frozen_hash:
+            raise ValueError("ordinary chat prompt differs from preregistration")
+        self.receipt = super().generate(**kwargs)
+        return self.receipt
+
+
+def run(cycles, install, models, root):
+    root.mkdir(parents=True, exist_ok=False)
+    baseline = read(SOURCE_REPORT)
+    historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
+    with cpu_server(install, models, root) as (manifest, version), _rootless_governance_custody(root):
+        options = {"api_base": BASE, "model": MODEL, "manifest_sha256": MANIFEST,
+                   "num_gpu": 0, "num_thread": 2, "timeout_seconds": 120, "seed": 42,
+                   "think": False, "keep_alive": "5m"}
+        config = ModelConfig([ModelCandidate(manifest, "ollama", MODEL, options)], max_context_tokens=4096,
+                             generation=GenerationConfig(max_new_tokens=160, temperature=0.0, top_p=1.0))
+        authority = build_local_model_authority_map(config, allowed_roots=[manifest.parent])
+        model = LocalModel.load_candidate(0, config=config)
+        identity = model.active_identity.to_dict()
+        if not authority.record_for_active_identity(model.active_identity, "local_user_chat"):
+            raise ValueError("ordinary chat model identity is ineligible")
+        inference = VerifiedChat(GovernedLocalModelInvoker(model=model, authority_map=authority,
+            kernel=_resource_governed_kernel(root), runtime_root=root / "inference-custody"))
+        owners, snapshots, source_owners = {}, {}, {}
+        for arm, suffix in CYCLES.items():
+            cycle = cycles / ("rootless-cognition-cycle-" + suffix)
+            resident = root / arm / "resident-cognition"
+            archive(cycle, resident)
+            kinds = _source_kinds_from_history(resident / "history")
+            owner = _owner(resident, kinds, resident.parent, historical_request)
+            if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline["arms"][arm]["admitted_boundary_digest"]:
+                raise ValueError("archive differs from sibling comparison")
+            owners[arm] = owner
+            source_owners[cycle.name] = owner
+        owners["empty"] = _owner(root / "empty", kinds, cycle, historical_request)
+        profiles, questions, exposure, bases = {"empty": []}, {}, {}, {}
+        for arm, scope in dict.fromkeys(TRIALS):
+            owner = owners[arm]
+            snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
+            question = questions[scope] = QUESTIONS["latest_" + scope] + FORMAT
+            base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
+                                              bind_invocation=True, capture_adapter=inference)
+            if bases.setdefault(scope, base) != base:
+                raise ValueError("unmatched prompts outside the history block")
+            key = arm + "_" + scope
+            evidence = captured["prompt_score_evidence"]
+            if arm == "empty":
+                if evidence or captured["history_block_digest"] is not None:
+                    raise ValueError("empty control exposed history")
+            else:
+                actual, = evidence
+                prior, = baseline["questions"]["latest_" + scope]["captures"][arm]["prompt_score_evidence"]
+                if actual["source_score_digest"] != prior["source_score_digest"] or actual["record_id"] != prior["record_id"]:
+                    raise ValueError("question format or target identity changed the source observation")
+                profile = "shared_low" if scope == "low" else key
+                record = owner.writeback.store.get(prior["record_id"])
+                origin = record.correlation_id.split(":", 1)[0]
+                if not re.fullmatch(r"rootless-cognition-cycle-[0-9a-f]{20}", origin):
+                    raise ValueError("invalid source cycle in admitted record")
+                if origin not in source_owners:
+                    original = root / "oracles" / origin / "resident-cognition"
+                    archive(cycles / origin, original)
+                    source_owners[origin] = _owner(original, _source_kinds_from_history(original / "history"),
+                                                   original.parent, historical_request)
+                source_owner = source_owners[origin]
+                if source_owner.writeback.store.get(record.record_id).record_digest != record.record_digest:
+                    raise ValueError("inherited record differs from its origin")
+                oracle = source_rows(source_owner, prior)
+                if profiles.setdefault(profile, oracle) != oracle:
+                    raise ValueError("unmatched shared low-range oracle")
+            exposure[key] = captured
+        plan = {"schema": "sentientos.sibling_chat_recall_plan:v1", "model": MODEL,
+                "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
+                "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
+                "generation": config.generation.as_kwargs(), "trials": TRIALS, "questions": questions,
+                "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
+                    k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
+                "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
+        save(root / "plan.json", plan)
+        plan_hash = sha((root / "plan.json").read_bytes())
+        trials = []
+        inference.capture_only = False
+        for index, (arm, scope) in enumerate(TRIALS):
+            key = arm + "_" + scope
+            inference.frozen_hash = exposure[key]["prompt_sha256"]
+            inference.receipt = None
+            trial_root = root / "trials" / str(index)
+            service = PersistentConversationService(inference=inference,
+                inference_timeout_seconds=options["timeout_seconds"],
+                session_store=ConversationSessionStore(trial_root / "sessions"),
+                memory_store=CanonicalMemoryStore(trial_root / "memory"),
+                resident_cognition_bridge=ResidentDevelopmentalCompanionBridge(owners[arm], cognition_available=lambda: False))
+            response = service.chat(questions[scope], session_id=service.create_session(), request_id="sibling-recall")
+            receipt = inference.receipt
+            disk = read(root / "inference-custody/receipts" / (receipt.receipt_id + ".json"))
+            if (not validate_receipt(disk)[0] or disk["receipt_digest"] != receipt.receipt_digest
+                    or disk["request"]["active_model_identity"] != identity
+                    or disk["request"]["prompt_digest"] != exposure[key]["invocation_prompt_digest"]
+                    or disk["output_digest"] != digest_payload({"output": receipt.output_text})
+                    or disk["status"] != "admitted_completed" or not receipt.admission_decision_ref
+                    or receipt.fallback_occurred or receipt.output_text is None):
+                raise ValueError("governed inference did not yield a verified model response")
+            placement, = get_api("ps")["models"]
+            if placement["digest"] != MANIFEST or placement["size_vram"] != 0:
+                raise ValueError("expected exact model resident on CPU")
+            grade = score_answer(response.response, profiles)
+            expected = "empty" if arm == "empty" else "shared_low" if scope == "low" else key
+            result = {"trial": index, "condition": key, "plan_sha256": plan_hash,
+                      "prompt_sha256": inference.frozen_hash, "receipt": disk, "resident_vram_bytes": placement["size_vram"],
+                      "model_output": receipt.output_text, "delivered": response.response, "score": grade,
+                      "expected_profile": expected, "exact": expected in grade["exact_profiles"]}
+            save(trial_root / "result.json", result)
+            trials.append(result)
+            print(index, key, grade, flush=True)
+        if any(owner.ordinary_chat_developmental_history_state_snapshot() != snapshots[k] for k, owner in owners.items()):
+            raise ValueError("resident history changed during the read-only comparison")
+        save(root / "result.json", {"plan_sha256": plan_hash, "trials": trials})
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    for arg in ("cycles", "ollama_install", "models", "new_run_directory"):
+        parser.add_argument(arg, type=Path)
+    args = parser.parse_args()
+    run(args.cycles, args.ollama_install, args.models, args.new_run_directory)
