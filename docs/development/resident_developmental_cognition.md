@@ -5830,6 +5830,14 @@ This closes the runner dispatch gap for the accumulated-strategy intervention.
 The runner was syntax-parsed only in this GPU-in-use window; no arm was executed,
 no model was loaded, and no learning or improvement claim is made. A later
 available-GPU run is still required to test the behavioral comparison.
+The source-worktree fingerprint is now required both at process start and
+again immediately before cycle-root allocation. An incomplete or changed
+fingerprint writes a private `source_provenance_preflight:v1` artifact and
+fails before creating the run root or copying prior history. This matters for
+workspaces with many accumulated untracked experiment outputs: exceeding the
+fingerprint's bounded inventory no longer leaves a partial cycle behind. Use a
+clean isolated worktree for GPU runs when the active checkout has unrelated
+untracked artifacts; the fingerprint limit remains in force.
 The runner also recovers a claimed arm after interruption by searching bounded
 prior rootless-cycle receipt stores for its session-normalized frozen request
 identity, then reopening each candidate through historical rootless receipt

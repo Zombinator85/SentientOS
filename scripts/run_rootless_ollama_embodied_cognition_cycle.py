@@ -98,6 +98,7 @@ HISTORY_SEED_EVIDENCE: dict[str, Any] = {
 ACTIVE_HISTORY_CAMPAIGN_BINDING: dict[str, Any] | None = None
 WIDE_TRANSFER_PROBE_PREFLIGHT: dict[str, Any] | None = None
 HISTORICAL_PAIR_MODEL_IDENTITY_PREFLIGHT_PATH: str | None = None
+SOURCE_PROVENANCE_PREFLIGHT_EVIDENCE_PATH: str | None = None
 governance_root = RUN_ROOT / "resource-governance"
 os.environ["SENTIENTOS_GOVERNOR_ROOT"] = str(governance_root / "governor")
 os.environ["SENTIENTOS_FEDERATION_ROOT"] = str(governance_root / "federation")
@@ -3405,6 +3406,38 @@ def _persist_historical_pair_model_identity_preflight(
     return report_path
 
 
+def _persist_source_provenance_preflight(*, initial: Mapping[str, Any],
+        observed: Mapping[str, Any]) -> Path:
+    """Persist a bounded, non-promoting source-integrity preflight record."""
+    global SOURCE_PROVENANCE_PREFLIGHT_EVIDENCE_PATH
+    report_root = (workspace / "sentientos-data" / "rootless-experimental"
+        / "preflight-failures")
+    _no_symlink_path(report_root)
+    report_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(report_root, 0o700)
+    semantic = {
+        "schema_version": "sentientos.source_provenance_preflight:v1",
+        "run_id": RUN_ID,
+        "initial_source_provenance": dict(initial),
+        "observed_source_provenance": dict(observed),
+        "source_provenance_stable": dict(initial) == dict(observed),
+        "source_provenance_complete": (
+            observed.get("observation_status") == "observed"
+            and observed.get("worktree_content_status") == "complete"
+            and isinstance(observed.get("worktree_content_digest"), str)),
+        "model_loaded": False, "model_invoked": False,
+        "inference_performed": False, "learning_established": False,
+        "authority": False,
+    }
+    artifact_digest = "sha256:" + digest_payload(semantic)
+    evidence = {**semantic, "artifact_digest": artifact_digest}
+    report_path = report_root / (
+        str(RUN_ID) + "-source-provenance-" + secrets.token_hex(8) + ".json")
+    _write_private_json_exclusive(report_path, evidence)
+    SOURCE_PROVENANCE_PREFLIGHT_EVIDENCE_PATH = str(report_path)
+    return report_path
+
+
 def _preflight_historical_pair_model_identity(*, context: Mapping[str, Any],
         manifest_path: Path, manifest_digest: str,
         manifest_size: int) -> dict[str, Any]:
@@ -5890,6 +5923,16 @@ def run() -> dict[str, Any]:
             and os.environ.get("SENTIENTOS_HERMES_CAMPAIGN_PLAN_PATH")):
         raise RootlessExperimentalError(
             "historical_examples_pair_cannot_mix_campaign_cycle_mode")
+    if (RUN_SOURCE_PROVENANCE.get("observation_status") != "observed"
+            or RUN_SOURCE_PROVENANCE.get("worktree_content_status") != "complete"
+            or not isinstance(RUN_SOURCE_PROVENANCE.get(
+                "worktree_content_digest"), str)):
+        RUN_SOURCE_PROVENANCE_AT_END = dict(RUN_SOURCE_PROVENANCE)
+        _persist_source_provenance_preflight(
+            initial=RUN_SOURCE_PROVENANCE,
+            observed=RUN_SOURCE_PROVENANCE)
+        raise RootlessExperimentalError(
+            "source_provenance_incomplete_before_run_allocation")
     _set_run_stage("model_and_runtime_preflight")
     (campaign_plan, campaign_prior_boundary_digest,
         campaign_prior_admission_boundary, campaign_prior_recovery_boundary) = (
@@ -5949,6 +5992,17 @@ def run() -> dict[str, Any]:
     # a stale model identity; dependency enforcement still precedes run-root
     # allocation and every model load.
     _require_experiment_runtime_dependencies()
+    source_provenance_at_start = _source_provenance()
+    if (source_provenance_at_start != RUN_SOURCE_PROVENANCE
+            or source_provenance_at_start.get("observation_status") != "observed"
+            or source_provenance_at_start.get("worktree_content_status") != "complete"
+            or not isinstance(source_provenance_at_start.get(
+                "worktree_content_digest"), str)):
+        RUN_SOURCE_PROVENANCE_AT_END = source_provenance_at_start
+        _persist_source_provenance_preflight(
+            initial=RUN_SOURCE_PROVENANCE, observed=source_provenance_at_start)
+        raise RootlessExperimentalError(
+            "source_provenance_incomplete_or_changed_before_run_allocation")
     RUN_ROOT.mkdir(parents=True, exist_ok=False, mode=0o700)
     _no_symlink_path(RUN_ROOT)
     if historical_pair_context is not None:
@@ -5988,15 +6042,6 @@ def run() -> dict[str, Any]:
             expected_admission_boundary=campaign_prior_admission_boundary,
             expected_recovery_boundary=campaign_prior_recovery_boundary)
     _set_run_stage(RUN_STAGE)
-    source_provenance_at_start = _source_provenance()
-    if (source_provenance_at_start != RUN_SOURCE_PROVENANCE
-            or RUN_SOURCE_PROVENANCE.get("observation_status") != "observed"
-            or RUN_SOURCE_PROVENANCE.get("worktree_content_status") != "complete"
-            or not isinstance(RUN_SOURCE_PROVENANCE.get(
-                "worktree_content_digest"), str)):
-        RUN_SOURCE_PROVENANCE_AT_END = source_provenance_at_start
-        raise RootlessExperimentalError(
-            "source_provenance_incomplete_or_changed_before_inference")
     try:
         ConsequenceStore._require_secure_platform()
     except EmbodiedConsequenceError as exc:
@@ -8059,6 +8104,8 @@ if __name__ == "__main__":
             "stage": RUN_STAGE, "failure_type": type(exc).__name__,
             "failure_code": _failure_code(exc),
             "python_failure_diagnostic": python_failure_diagnostic,
+            "source_provenance_preflight_evidence_path": (
+                SOURCE_PROVENANCE_PREFLIGHT_EVIDENCE_PATH),
             "model_identity_preflight_evidence_path":
                 HISTORICAL_PAIR_MODEL_IDENTITY_PREFLIGHT_PATH,
             "failure_artifact": str(failure_artifact) if failure_artifact else None,
