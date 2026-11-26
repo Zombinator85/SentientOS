@@ -5684,6 +5684,35 @@ The resulting proof is included in run resource evidence. This prevents a later
 scored run from silently using a different history set than the CPU parity
 reproduction; it does not establish behavioral parity or learning.
 
+### Current-source identity-neutral cross-model replay (2026-11-26)
+
+After the cycle runner added a per-cycle GPU-availability confirmation, the
+Hermes and Qwen owner preflights were reconstructed from the clean WSL source
+checkout at commit `a2e976ee`. Both v7 report verifiers passed, and the
+matched-task verifier confirmed distinct target identities, a shared task
+commitment, the same source cycle and receipt, and the same two-record history
+allowlist. The reports use wide-range task seed `13688803`, 12 held-out probes,
+and task digest
+`sha256:14a17b925dad093bd39a8cba4f55d71b35024ac2a5286302db89392a109d07ab`.
+
+The v4 prompt-parity audit reports
+`cross_model_prompt_comparison_ready: true`. Hermes and Qwen selected the same
+two verified records and produced equal model-visible prompt digests in both
+the examples-included and examples-omitted arms. The source record identities
+are distinct from both targets, and the identity-neutral policy keeps target
+identity out of the shared prompt. Audit digest:
+`sha256:308cb615a7d5e2aa57e4bb2e089ba6f6ba12436eecf5ebf9d95f83e579d03357`.
+
+The six files in
+[`identity-neutral-owner-gate-preflight-20261126`](../../artifacts/experiments/identity-neutral-owner-gate-preflight-20261126/)
+preserve both reports, their verifications, the pair receipt, and the parity
+audit. No model was loaded or invoked, no runtime condition was created, and
+learning and authority remain false. This establishes current-source owner
+prompt parity only. It does not prove either model uses the history or that
+cognitive continuity survives model replacement. The execution plans still
+need a fresh full source pin after the runner change; another model run also
+requires the per-cycle availability confirmation and passing resource checks.
+
 The preflight run also found and fixed policy restoration across objective
 request reconstruction and private journal reload. The private task-plan record
 now has a v2 form that durably stores the policy under the [closed task-plan
