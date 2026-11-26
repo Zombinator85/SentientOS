@@ -523,7 +523,7 @@ from the source report. This is evidence about that prompt intervention and
 task set; it does not establish a Phase C baseline failure or a general model
 limitation. It motivates preregistering a control-competence threshold for
 each future Phase C task family before interpreting delayed nulls or positive
-deltas. Phase C protocol v11 now binds this criterion before outcomes: it
+deltas. Phase C protocol v11 binds this criterion before outcomes: it
 records the withheld-history acquisition condition, exact acquisition task
 digests, denominator, and minimum correct-probe count. The store seals an
 assessment from persisted acquisition outcomes before any delayed-probe
@@ -533,28 +533,37 @@ original digests and behavior. This gate makes an unqualified delayed result
 ineligible for interpretation; it does not establish learning or make a
 delayed experiment complete.
 
-New calls to `make_durable_learning_protocol()` now default to v11, and the
-public `PROTOCOL_SCHEMA` constant names that current version. A caller must
-provide the v11 withheld-acquisition minimum; an omitted threshold fails
-protocol construction. `PROTOCOL_SCHEMA_V8` remains available for explicitly
-rebuilding legacy plans. This default prevents newly created protocols from
-silently skipping the competence gate, while preserving verification of older
-protocol digests.
+Protocol v12 retains that competence gate and additionally freezes the
+owner-derived set of historical integer probe inputs and its complete
+record-inventory digest. New protocol construction obtains the set from the
+resident experience source and rejects any acquisition or delayed input that
+reuses a historical input. The protocol verifier independently checks the
+frozen set against both task phases. V11 and earlier protocols retain their
+original fields and digests.
+
+New calls to `make_durable_learning_protocol()` now default to v12, and the
+public `PROTOCOL_SCHEMA` constant names that current version. Construction
+requires a resident `experience_source` and the v11 withheld-acquisition
+minimum; missing either fails closed. `PROTOCOL_SCHEMA_V11` remains available
+for explicitly rebuilding or creating v11 protocols, and `PROTOCOL_SCHEMA_V8`
+remains available for legacy plans.
 
 `build_durable_learning_prompt_digest_bindings()` now prepares the exact
 available/withheld acquisition and history-free delayed-probe prompt-digest
 matrix directly from frozen task descriptors, digest-bound experience records,
-and the selected feedback policy. It checks cross-phase probe disjointness and
-obtains historical probe inputs from the resident source's complete,
-receipt-verified record inventory. The owner snapshot and completed-record
-inventory must contain identical record and receipt references, and the
-snapshot digest must equal the frozen baseline digest. Acquisition and delayed
-probe inputs that appear anywhere in the retained record candidates are
-rejected. The returned inventory digest exposes the exact source inventory;
-prompt text and oracle values remain excluded. Runtime checks still
-re-resolve selected records in the active owner. This model-free binding is a
-preregistration aid, not evidence that the history changed cognition or that
-learning occurred.
+and the selected feedback policy. It obtains historical inputs from the
+resident source's complete, receipt-verified record inventory while holding
+the composition lock. The owner snapshot and completed-record inventory use
+the same record and receipt references, and the snapshot digest must equal
+the frozen baseline digest. The helper and v12 protocol constructor reject
+acquisition or delayed inputs that appear anywhere in retained record
+candidates. The returned inventory digest excludes prompt text and oracle
+values. Runtime checks still re-resolve selected records in the active owner.
+At baseline branch preflight, v12 rechecks that each owner matches the bound
+inventory digest. After consolidation, it allows the expected history growth
+but rechecks that the live retained probes remain disjoint from delayed tasks.
+This model-free binding is a preregistration aid, not evidence that the
+history changed cognition or that learning occurred.
 The protocol store, runtime guards, invocation receipts, independent scoring,
 writeback attribution, and elapsed-delay gates remain necessary for an
 experiment.

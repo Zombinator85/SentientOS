@@ -1284,6 +1284,13 @@ score counts. It does not turn execution progress into a learning claim.
 V11 remains unrun: the threshold is now enforceable in the protocol, but its
 value still needs preregistration for a specific study and the independent
 scoring and isolation requirements remain outstanding.
+Protocol v12 is now the public default. It requires the resident history
+experience source during protocol construction, atomically derives the full
+integer probe-input set from receipt-verified retained records, and freezes
+both that set and the inventory digest with the protocol. The verifier rejects
+acquisition or delayed probes that reuse any frozen historical input. V11
+remains explicitly selectable with its original digest contract. This
+preregistration check does not establish a history effect or durable learning.
 This is distinct from the rootless Hermes cognition cycles, which have their
 own persisted, objectively scored observations. Earlier cycles showed
 acquisition without transfer and unstable restoration. A new source-bound

@@ -31,8 +31,12 @@ PROTOCOL_SCHEMA_V10 = "sentientos.durable_developmental_learning_protocol:v10"
 _PROTOCOL_SCHEMA_V10 = PROTOCOL_SCHEMA_V10
 PROTOCOL_SCHEMA_V11 = "sentientos.durable_developmental_learning_protocol:v11"
 _PROTOCOL_SCHEMA_V11 = PROTOCOL_SCHEMA_V11
-CURRENT_PROTOCOL_SCHEMA = PROTOCOL_SCHEMA_V11
-_V10_PROTOCOL_SCHEMAS = {_PROTOCOL_SCHEMA_V10, _PROTOCOL_SCHEMA_V11}
+PROTOCOL_SCHEMA_V12 = "sentientos.durable_developmental_learning_protocol:v12"
+_PROTOCOL_SCHEMA_V12 = PROTOCOL_SCHEMA_V12
+CURRENT_PROTOCOL_SCHEMA = PROTOCOL_SCHEMA_V12
+_V11_PLUS_PROTOCOL_SCHEMAS = {_PROTOCOL_SCHEMA_V11, _PROTOCOL_SCHEMA_V12}
+_V10_PROTOCOL_SCHEMAS = {
+    _PROTOCOL_SCHEMA_V10, *_V11_PLUS_PROTOCOL_SCHEMAS}
 _COMPETENCE_ASSESSMENT_SCHEMA_V1 = (
     "sentientos.durable_learning_competence_assessment:v1")
 _COMPETENCE_ASSESSMENT_PREFIX = (
@@ -843,6 +847,7 @@ _SUPPORTED_PROTOCOL_SCHEMAS = (_PROTOCOL_SCHEMA_V5, _PROTOCOL_SCHEMA_V6,
     *_STRATEGY_PROBE_PROTOCOL_SCHEMAS)
 PROTOCOL_ID_PREFIX = "devexp-durable-learning-protocol-"
 MAX_TASKS_PER_PHASE = 255
+MAX_HISTORY_PROBE_INPUTS = 65_536
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}")
 MAX_RETAINED_STATE_SNAPSHOT_BYTES = 56 * 1024
 _CONDITIONS = ("relevant_experience_available",
@@ -1484,7 +1489,9 @@ def _build_durable_learning_protocol_artifact(*, acquisition_tasks: Sequence[Any
         exclusion_auditor_public_key: str | None = None,
         exclusion_auditor_software_digest: str | None = None,
         _answer_exclusion_policy_version: int = 2,
-        minimum_withheld_acquisition_correct_probe_count: int | None = None
+        minimum_withheld_acquisition_correct_probe_count: int | None = None,
+        historical_probe_input_inventory_digest: str | None = None,
+        historical_probe_inputs: Sequence[int] | None = None
         ) -> dict[str, Any]:
     """Rebuild a frozen protocol; policy v1 exists only for legacy replay."""
     if (not isinstance(_protocol_schema, str)
@@ -1588,7 +1595,26 @@ def _build_durable_learning_protocol_artifact(*, acquisition_tasks: Sequence[Any
         row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
     if acquisition_inputs.intersection(probe_inputs):
         raise ValueError("durable_learning_probe_input_overlap")
-    if _protocol_schema == _PROTOCOL_SCHEMA_V11:
+    if _protocol_schema == _PROTOCOL_SCHEMA_V12:
+        if (not isinstance(historical_probe_input_inventory_digest, str)
+                or _HEX_DIGEST.fullmatch(
+                    historical_probe_input_inventory_digest) is None
+                or not isinstance(historical_probe_inputs, Sequence)
+                or isinstance(historical_probe_inputs, (str, bytes))
+                or len(historical_probe_inputs) > MAX_HISTORY_PROBE_INPUTS
+                or any(type(value) is not int for value in historical_probe_inputs)
+                or list(historical_probe_inputs) != sorted(set(
+                    historical_probe_inputs))):
+            raise ValueError(
+                "durable_learning_v12_history_probe_inventory_invalid")
+        if set(historical_probe_inputs).intersection(
+                acquisition_inputs | probe_inputs):
+            raise ValueError("durable_learning_history_probe_input_overlap")
+    elif (historical_probe_input_inventory_digest is not None
+            or historical_probe_inputs is not None):
+        raise ValueError(
+            "durable_learning_history_probe_inventory_version_invalid")
+    if _protocol_schema in _V11_PLUS_PROTOCOL_SCHEMAS:
         if (type(minimum_withheld_acquisition_correct_probe_count) is not int
                 or not 1 <= minimum_withheld_acquisition_correct_probe_count
                     <= acquisition_probe_count):
@@ -1651,7 +1677,7 @@ def _build_durable_learning_protocol_artifact(*, acquisition_tasks: Sequence[Any
         })
     if _protocol_schema in _V10_PROTOCOL_SCHEMAS:
         condition_contract["projection_probe_consumption_preregistered"] = True
-    if _protocol_schema == _PROTOCOL_SCHEMA_V11:
+    if _protocol_schema in _V11_PLUS_PROTOCOL_SCHEMAS:
         condition_contract["withheld_acquisition_competence_criterion"] = {
             "schema_version":
                 "sentientos.durable_learning_competence_criterion:v1",
@@ -1683,6 +1709,10 @@ def _build_durable_learning_protocol_artifact(*, acquisition_tasks: Sequence[Any
         "protocol_nonce": protocol_nonce,
         "claims_posture": "preregistered_no_outcome_or_learning_claim:v1",
         "authority": False}
+    if _protocol_schema == _PROTOCOL_SCHEMA_V12:
+        semantic["historical_probe_input_inventory_digest"] = (
+            historical_probe_input_inventory_digest)
+        semantic["historical_probe_inputs"] = list(historical_probe_inputs or ())
     try:
         encoded = json.dumps(semantic, ensure_ascii=False, sort_keys=True,
             separators=(",", ":"), allow_nan=False).encode("utf-8")
@@ -1711,13 +1741,15 @@ def make_durable_learning_protocol(*, acquisition_tasks: Sequence[Any],
         condition_branch_ids: Mapping[str, str] | None = None,
         exclusion_auditor_public_key: str | None = None,
         exclusion_auditor_software_digest: str | None = None,
-        minimum_withheld_acquisition_correct_probe_count: int | None = None
+        minimum_withheld_acquisition_correct_probe_count: int | None = None,
+        experience_source: ResidentDevelopmentalLearningExperienceSource | None = None
         ) -> dict[str, Any]:
-    """Create a protocol using v11's preregistered competence gate by default.
+    """Create a protocol using v12's history-overlap and competence gates.
 
     Older schemas remain available through explicit ``protocol_schema`` or
     the legacy private ``_protocol_schema`` argument for digest-preserving
-    replay. A new v11 protocol must set its withheld-acquisition threshold.
+    replay. A new v12 protocol derives and binds prior probe inputs from the
+    resident owner and requires its withheld-acquisition threshold.
     """
     if protocol_schema is not None:
         if _protocol_schema is not None:
@@ -1727,6 +1759,27 @@ def make_durable_learning_protocol(*, acquisition_tasks: Sequence[Any],
         _protocol_schema = PROTOCOL_SCHEMA
     if _protocol_schema not in _SUPPORTED_PROTOCOL_SCHEMAS:
         raise ValueError("durable_learning_protocol_schema_unsupported")
+    history_inventory_digest = None
+    history_inputs = None
+    if _protocol_schema == _PROTOCOL_SCHEMA_V12:
+        from .resident_developmental_cognition import (
+            ResidentDevelopmentalCognitionOwner)
+        if (not isinstance(experience_source,
+                ResidentDevelopmentalLearningExperienceSource)
+                or not isinstance(experience_source._owner,
+                    ResidentDevelopmentalCognitionOwner)):
+            raise ValueError(
+                "durable_learning_v12_history_inventory_owner_required")
+        inventory = _verify_history_probe_input_inventory(
+            experience_source.history_probe_input_inventory())
+        if inventory.get("history_state_digest") != baseline_history_state_digest:
+            raise ValueError(
+                "durable_learning_v12_history_inventory_invalid")
+        history_inventory_digest = inventory["inventory_digest"]
+        history_inputs = inventory["probe_inputs"]
+    elif experience_source is not None:
+        raise ValueError(
+            "durable_learning_history_inventory_version_invalid")
     return _build_durable_learning_protocol_artifact(
         acquisition_tasks=acquisition_tasks,
         delayed_probe_tasks=delayed_probe_tasks,
@@ -1747,7 +1800,9 @@ def make_durable_learning_protocol(*, acquisition_tasks: Sequence[Any],
         exclusion_auditor_software_digest=exclusion_auditor_software_digest,
         _answer_exclusion_policy_version=2,
         minimum_withheld_acquisition_correct_probe_count=(
-            minimum_withheld_acquisition_correct_probe_count))
+            minimum_withheld_acquisition_correct_probe_count),
+        historical_probe_input_inventory_digest=history_inventory_digest,
+        historical_probe_inputs=history_inputs)
 
 
 def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, Any]:
@@ -1765,6 +1820,9 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
         "minimum_delay_seconds", "condition_contract", "protocol_nonce",
         "claims_posture", "authority", "protocol_id", "protocol_digest"}
     schema_version = protocol.get("schema_version")
+    if schema_version == _PROTOCOL_SCHEMA_V12:
+        fields |= {"historical_probe_input_inventory_digest",
+            "historical_probe_inputs"}
     if (set(protocol) != fields
             or schema_version not in _SUPPORTED_PROTOCOL_SCHEMAS):
         raise ValueError("durable_learning_protocol_invalid")
@@ -1790,7 +1848,7 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
     minimum_withheld_acquisition_correct_probe_count = None
     condition_contract = protocol.get("condition_contract")
     competence_field = "withheld_acquisition_competence_criterion"
-    if schema_version == _PROTOCOL_SCHEMA_V11:
+    if schema_version in _V11_PLUS_PROTOCOL_SCHEMAS:
         criterion = (condition_contract.get(competence_field)
             if isinstance(condition_contract, Mapping) else None)
         if (not isinstance(criterion, Mapping)
@@ -1887,7 +1945,12 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
             if schema_version in _STRATEGY_PROBE_PROTOCOL_SCHEMAS else None),
         _answer_exclusion_policy_version=answer_exclusion_policy_version,
         minimum_withheld_acquisition_correct_probe_count=(
-            minimum_withheld_acquisition_correct_probe_count))
+            minimum_withheld_acquisition_correct_probe_count),
+        historical_probe_input_inventory_digest=(
+            protocol.get("historical_probe_input_inventory_digest")
+            if schema_version == _PROTOCOL_SCHEMA_V12 else None),
+        historical_probe_inputs=(protocol.get("historical_probe_inputs")
+            if schema_version == _PROTOCOL_SCHEMA_V12 else None))
     if rebuilt != dict(protocol):
         raise ValueError("durable_learning_protocol_digest_mismatch")
     expected_orders = {tuple(_CONDITIONS), tuple(reversed(_CONDITIONS))}
@@ -1923,8 +1986,8 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
         schema_version in _STRATEGY_PROBE_PROTOCOL_SCHEMAS)
     is_v10 = schema_version in _V10_PROTOCOL_SCHEMAS
     is_v8_or_v9 = schema_version in _POLICY_PROTOCOL_SCHEMAS
-    retention_protocol_prerequisites = ([] if schema_version ==
-        _PROTOCOL_SCHEMA_V11 else [
+    retention_protocol_prerequisites = ([] if schema_version in
+        _V11_PLUS_PROTOCOL_SCHEMAS else [
             "withheld_acquisition_competence_threshold_preregistered"])
     retention_runtime_prerequisites = [
         "withheld_acquisition_competence_gate_evaluated_before_delayed_probes",
@@ -1953,6 +2016,13 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
         "protocol_id": protocol["protocol_id"],
         "protocol_digest": protocol["protocol_digest"],
         "task_sets_disjoint": True,
+        "historical_probe_input_inventory_bound":
+            schema_version == _PROTOCOL_SCHEMA_V12,
+        "historical_probe_input_count": (
+            len(protocol["historical_probe_inputs"])
+            if schema_version == _PROTOCOL_SCHEMA_V12 else None),
+        "historical_probe_inputs_disjoint_from_tasks":
+            schema_version == _PROTOCOL_SCHEMA_V12,
         "condition_order_counterbalanced": True,
         "condition_order_assignment": condition_order_assignment,
         "condition_order_summary": order_summary,
@@ -1971,7 +2041,7 @@ def verify_durable_learning_protocol(protocol: Mapping[str, Any]) -> dict[str, A
             "eligible": False,
             "runtime_evidence_assessment": "not_performed_by_protocol_verifier",
             "withheld_acquisition_competence_threshold_preregistered":
-                schema_version == _PROTOCOL_SCHEMA_V11,
+                schema_version in _V11_PLUS_PROTOCOL_SCHEMAS,
             "protocol_requirements_not_registered":
                 retention_protocol_prerequisites,
             "prerequisites_requiring_runtime_evidence":
@@ -5788,7 +5858,7 @@ class DurableDevelopmentalLearningProtocolStore:
                             "bounded_access_observation_accepted"]}
                         for review in host_reviews]},
             }
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             acquisition_outcomes = self.load_outcomes(protocol,
                 phase="acquisition")
             expected_acquisition_count = len(_CONDITIONS) * len(
@@ -5849,7 +5919,7 @@ class DurableDevelopmentalLearningProtocolStore:
                 for artifact in boundary_acceptances]}
         evidence["withheld_acquisition_competence_assessment"] = (
             competence_inventory)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             delayed_outcomes = self.load_outcomes(protocol,
                 phase="delayed_probe")
             expected_delayed_count = len(_CONDITIONS) * len(
@@ -5956,7 +6026,7 @@ class DurableDevelopmentalLearningProtocolStore:
         self._require_protocol_persisted(protocol)
         verify_durable_learning_outcome(protocol, outcome,
             invocation_receipt_verifier=self._receipt_verifier)
-        if (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+        if (protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 and outcome.get("phase") == "delayed_probe"):
             competence = self.load_withheld_acquisition_competence_assessment(
                 protocol=protocol)
@@ -5981,7 +6051,7 @@ class DurableDevelopmentalLearningProtocolStore:
             acquisition_outcomes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         """Seal the V11 control-competence result before delayed inference."""
         self._require_protocol_persisted(protocol)
-        if protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS:
             raise ValueError("durable_learning_competence_assessment_version_invalid")
         persisted = self._require_persisted_acquisition_outcomes(
             protocol, acquisition_outcomes)
@@ -6015,7 +6085,7 @@ class DurableDevelopmentalLearningProtocolStore:
             protocol: Mapping[str, Any]) -> dict[str, Any]:
         """Reload and reconstruct the V11 competence assessment from outcomes."""
         self._require_protocol_persisted(protocol)
-        if protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS:
             raise ValueError("durable_learning_competence_assessment_version_invalid")
         outcomes = self.load_outcomes(protocol, phase="acquisition")
         verify_durable_learning_acquisition_outcomes(protocol, outcomes,
@@ -6252,7 +6322,7 @@ class DurableDevelopmentalLearningProtocolStore:
             phase: str, condition: str, task_digest: str,
             prompt_digest: str) -> str:
         """Durably journal intent before a model effect; never overwrite it."""
-        if (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+        if (protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 and phase == "delayed_probe"):
             with _durable_learning_v11_gate_lock(self._store):
                 return self._begin_invocation_attempt_unlocked(protocol,
@@ -6274,7 +6344,7 @@ class DurableDevelopmentalLearningProtocolStore:
                 or _HEX_DIGEST.fullmatch(prompt_digest) is None):
             raise ValueError("durable_learning_attempt_binding_invalid")
         competence = None
-        if (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+        if (protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 and phase == "delayed_probe"):
             competence = self.load_withheld_acquisition_competence_assessment(
                 protocol=protocol)
@@ -6349,7 +6419,7 @@ class DurableDevelopmentalLearningProtocolStore:
                     or path.name != value.get("attempt_id") + ".json"
                     or key in journaled):
                 raise ValueError("durable_learning_attempt_journal_invalid")
-            if (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+            if (protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                     and value.get("phase") == "delayed_probe"):
                 assessment = self.load_withheld_acquisition_competence_assessment(
                     protocol=protocol)
@@ -6371,7 +6441,7 @@ class DurableDevelopmentalLearningProtocolStore:
     def load_v11_competence_authorization_receipts(self, *,
             protocol: Mapping[str, Any]) -> list[dict[str, Any]]:
         """Return the verified V11 delayed-attempt authorization artifacts."""
-        if protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS:
             raise ValueError(
                 "durable_learning_competence_authorization_version_invalid")
         assessment = self.load_withheld_acquisition_competence_assessment(
@@ -6498,7 +6568,7 @@ class DurableDevelopmentalLearningProtocolStore:
     def persist_evaluation(self, protocol: Mapping[str, Any],
             outcomes: Sequence[Mapping[str, Any]]) -> str:
         self._require_protocol_persisted(protocol)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             competence = self.load_withheld_acquisition_competence_assessment(
                 protocol=protocol)
             if competence.get("qualified") is not True:
@@ -6509,7 +6579,7 @@ class DurableDevelopmentalLearningProtocolStore:
         competence_authorizations = (
             self.load_v11_competence_authorization_receipts(
                 protocol=protocol)
-            if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11 else None)
+            if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS else None)
         persisted_outcomes = []
         for outcome in outcomes:
             stored = self._load_outcome(protocol, outcome.get("outcome_id"),
@@ -6539,7 +6609,7 @@ class DurableDevelopmentalLearningProtocolStore:
             acquisition_outcomes: Sequence[Mapping[str, Any]],
             gate: Mapping[str, Any]) -> str:
         self._require_protocol_persisted(protocol)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             competence = self.load_withheld_acquisition_competence_assessment(
                 protocol=protocol)
             if competence.get("qualified") is not True:
@@ -6848,7 +6918,7 @@ class DurableDevelopmentalLearningProtocolStore:
             competence_authorization_receipts=(
                 self.load_v11_competence_authorization_receipts(
                     protocol=protocol)
-                if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+                if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 else None))
         if protocol.get("schema_version") in _V10_PROTOCOL_SCHEMAS:
             self._verify_v10_evaluation_exclusion_evidence(protocol=protocol,
@@ -7689,6 +7759,8 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
     verifies it against the frozen baseline, and enforces history-free,
     feedback-free delayed probes before the protocol is saved.
     """
+    from .resident_developmental_cognition import (
+        ResidentDevelopmentalCognitionOwner)
     if (not isinstance(feedback_policy_digest, str)
             or _HEX_DIGEST.fullmatch(feedback_policy_digest) is None
             or feedback_policy_digest not in {
@@ -7699,6 +7771,8 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
             or not acquisition_experience_records
             or not isinstance(experience_source,
                 ResidentDevelopmentalLearningExperienceSource)
+            or not isinstance(experience_source._owner,
+                ResidentDevelopmentalCognitionOwner)
             or not isinstance(baseline_history_state_digest, str)
             or re.fullmatch(r"sha256:[0-9a-f]{64}",
                 baseline_history_state_digest) is None
@@ -7732,36 +7806,10 @@ def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence
         row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
     if acquisition_inputs.intersection(probe_inputs):
         raise ValueError("durable_learning_probe_input_overlap")
-    history_inventory = experience_source.history_probe_input_inventory()
-    if not isinstance(history_inventory, Mapping):
-        raise ValueError("durable_learning_history_probe_inventory_invalid")
-    inventory_body = {key: value for key, value in history_inventory.items()
-        if key != "inventory_digest"}
-    if (set(history_inventory) != {"schema_version", "history_state_digest",
-            "record_count", "record_refs_digest", "probe_inputs",
-            "probe_inputs_digest", "owner_verified", "authority",
-            "inventory_digest"}
-            or history_inventory.get("schema_version") !=
-            "sentientos.resident_history_probe_input_inventory:v1"
-            or history_inventory.get("history_state_digest") !=
-                baseline_history_state_digest
-            or type(history_inventory.get("record_count")) is not int
-            or history_inventory["record_count"] < 0
-            or not isinstance(history_inventory.get("record_refs_digest"), str)
-            or re.fullmatch(r"[0-9a-f]{64}",
-                history_inventory["record_refs_digest"]) is None
-            or history_inventory.get("owner_verified") is not True
-            or history_inventory.get("authority") is not False
-            or not isinstance(history_inventory.get("probe_inputs"), list)
-            or any(type(value) is not int
-                for value in history_inventory["probe_inputs"])
-            or history_inventory["probe_inputs"] != sorted(set(
-                history_inventory["probe_inputs"]))
-            or history_inventory.get("probe_inputs_digest") != digest_payload({
-                "probe_inputs": history_inventory["probe_inputs"]})
-            or history_inventory.get("inventory_digest") !=
-                digest_payload(inventory_body)):
-        raise ValueError("durable_learning_history_probe_inventory_invalid")
+    history_inventory = _verify_history_probe_input_inventory(
+        experience_source.history_probe_input_inventory())
+    if history_inventory["history_state_digest"] != baseline_history_state_digest:
+        raise ValueError("durable_learning_history_probe_inventory_baseline_mismatch")
     history_inputs = set(history_inventory["probe_inputs"])
     if history_inputs.intersection(acquisition_inputs | probe_inputs):
         raise ValueError("durable_learning_history_probe_input_overlap")
@@ -8190,6 +8238,11 @@ def verify_durable_learning_condition_branches(*, protocol: Mapping[str, Any],
     from pathlib import Path
     from .conversation_session import MAX_SESSION_LIST_ENTRIES
     protocol_verification = verify_durable_learning_protocol(protocol)
+    if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12:
+        from .resident_developmental_cognition import (
+            ResidentDevelopmentalCognitionOwner)
+    else:
+        ResidentDevelopmentalCognitionOwner = None
     expected_branch_ids = protocol_verification.get("condition_branch_ids")
     if (protocol.get("schema_version") not in _BRANCH_PROTOCOL_SCHEMAS
             or not isinstance(expected_branch_ids, Mapping)
@@ -8211,12 +8264,19 @@ def verify_durable_learning_condition_branches(*, protocol: Mapping[str, Any],
     session_id_digests: dict[str, str] = {}
     sessions: dict[str, Mapping[str, Any]] = {}
     snapshots: dict[str, dict[str, Any]] = {}
+    delayed_probe_inputs = {value
+        for row in protocol.get("delayed_probe_tasks", ())
+        for value in row.get("task", {}).get("probe_inputs",
+            [row.get("task", {}).get("probe_input")])}
     for condition in _CONDITIONS:
         branch = branches[condition]
         if (not isinstance(branch, DurableLearningConditionBranch)
                 or branch.branch_id != expected_branch_ids.get(condition)
                 or not isinstance(branch.experience_source,
                     ResidentDevelopmentalLearningExperienceSource)
+                or (ResidentDevelopmentalCognitionOwner is not None
+                    and not isinstance(branch.experience_source._owner,
+                        ResidentDevelopmentalCognitionOwner))
                 or not callable(branch.retained_state_snapshot_resolver)
                 or not callable(branch.invocation_executor)
                 or not callable(branch.conversation_context)
@@ -8267,6 +8327,11 @@ def verify_durable_learning_condition_branches(*, protocol: Mapping[str, Any],
                 branch.conversation_session_store.root).resolve(strict=True)
             session_store_stat = session_store_root.stat()
             source_snapshot = branch.experience_source.current_history_state_snapshot()
+            history_probe_inventory = (
+                _verify_history_probe_input_inventory(
+                    branch.experience_source.history_probe_input_inventory())
+                if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12
+                else None)
             runtime_snapshot = _resolve_history_state_snapshot(
                 branch.retained_state_snapshot_resolver)
             session = branch.conversation_session_store.load(branch.session_id)
@@ -8278,6 +8343,21 @@ def verify_durable_learning_condition_branches(*, protocol: Mapping[str, Any],
                 or (require_baseline and source_snapshot[
                     "history_state_digest"] != protocol.get(
                         "baseline_history_state_digest"))
+                or (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12
+                    and (not isinstance(history_probe_inventory, Mapping)
+                        or history_probe_inventory.get("history_state_digest")
+                            != source_snapshot.get("history_state_digest")
+                        or (require_baseline and (
+                            history_probe_inventory.get("history_state_digest")
+                                != protocol.get("baseline_history_state_digest")
+                            or history_probe_inventory.get("inventory_digest")
+                                != protocol.get(
+                                    "historical_probe_input_inventory_digest")
+                            or history_probe_inventory.get("probe_inputs")
+                                != protocol.get("historical_probe_inputs")))
+                        or (not require_baseline and bool(set(
+                            history_probe_inventory["probe_inputs"])
+                            & delayed_probe_inputs))))
             or not isinstance(session, Mapping)
                 or session.get("session_id") != branch.session_id
                 or session.get("lifecycle_state") != "active"):
@@ -8421,6 +8501,11 @@ def verify_durable_learning_condition_branches(*, protocol: Mapping[str, Any],
         "condition_session_id_digests": session_id_digests,
         "shared_baseline_history_state_digest":
             protocol["baseline_history_state_digest"],
+        "historical_probe_input_inventory_matches_baseline": (
+            protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12
+            and require_baseline),
+        "live_history_probe_inputs_disjoint_from_delayed_probes": (
+            protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12),
         "both_branch_snapshots_match_baseline": require_baseline,
         "current_branch_snapshots_match_owner_sources": True,
         "branch_owner_instances_distinct": True,
@@ -9857,6 +9942,39 @@ def _verify_history_state_refs(digest: Any, refs: Any) -> list[dict[str, Any]]:
     if digest_payload(semantic) != digest[7:]:
         raise ValueError("durable_learning_state_snapshot_digest_mismatch")
     return [dict(ref) for ref in refs]
+
+
+def _verify_history_probe_input_inventory(value: Any) -> dict[str, Any]:
+    """Validate the closed owner-derived inventory used by protocol v12."""
+    fields = {"schema_version", "history_state_digest", "record_count",
+        "record_refs_digest", "probe_inputs", "probe_inputs_digest",
+        "owner_verified", "authority", "inventory_digest"}
+    if (not isinstance(value, Mapping) or set(value) != fields
+            or value.get("schema_version") !=
+                "sentientos.resident_history_probe_input_inventory:v1"
+            or not isinstance(value.get("history_state_digest"), str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                value["history_state_digest"]) is None
+            or type(value.get("record_count")) is not int
+            or not 0 <= value["record_count"] <= 4096
+            or not isinstance(value.get("record_refs_digest"), str)
+            or _HEX_DIGEST.fullmatch(value["record_refs_digest"]) is None
+            or not isinstance(value.get("probe_inputs"), list)
+            or len(value["probe_inputs"]) > MAX_HISTORY_PROBE_INPUTS
+            or any(type(item) is not int for item in value["probe_inputs"])
+            or value["probe_inputs"] != sorted(set(value["probe_inputs"]))
+            or value.get("probe_inputs_digest") != digest_payload({
+                "probe_inputs": value["probe_inputs"]})
+            or value.get("owner_verified") is not True
+            or value.get("authority") is not False):
+        raise ValueError("durable_learning_history_probe_inventory_invalid")
+    body = {key: item for key, item in value.items()
+        if key != "inventory_digest"}
+    if (not isinstance(value.get("inventory_digest"), str)
+            or _HEX_DIGEST.fullmatch(value["inventory_digest"]) is None
+            or value["inventory_digest"] != digest_payload(body)):
+        raise ValueError("durable_learning_history_probe_inventory_digest_invalid")
+    return dict(value)
 
 
 def _verify_append_only_consolidation_state(baseline_refs: Any,
@@ -12176,7 +12294,7 @@ def _build_withheld_acquisition_competence_assessment(*,
         protocol: Mapping[str, Any],
         acquisition_outcomes: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """Bind the V11 control-competence decision to verified acquisition scores."""
-    if protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11:
+    if protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS:
         raise ValueError("durable_learning_competence_assessment_version_invalid")
     contract = protocol.get("condition_contract")
     criterion = (contract.get("withheld_acquisition_competence_criterion")
@@ -12261,7 +12379,7 @@ def _build_v11_competence_authorization(*, protocol: Mapping[str, Any],
         assessment: Mapping[str, Any],
         attempt: Mapping[str, Any]) -> dict[str, Any]:
     """Bind one delayed attempt to its persisted, qualified baseline assessment."""
-    if (protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11
+    if (protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS
             or assessment.get("protocol_id") != protocol.get("protocol_id")
             or assessment.get("protocol_digest") != protocol.get("protocol_digest")
             or assessment.get("qualified") is not True
@@ -12312,7 +12430,7 @@ def _v11_competence_authorization_refs(*, protocol: Mapping[str, Any],
         assessment: Mapping[str, Any],
         authorizations: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Validate the complete one-to-one receipt set for V11 delayed outcomes."""
-    if (protocol.get("schema_version") != _PROTOCOL_SCHEMA_V11
+    if (protocol.get("schema_version") not in _V11_PLUS_PROTOCOL_SCHEMAS
             or not isinstance(authorizations, Sequence)
             or isinstance(authorizations, (str, bytes))):
         raise ValueError("durable_learning_competence_authorization_set_invalid")
@@ -12849,7 +12967,7 @@ def verify_durable_learning_outcome_set(protocol: Mapping[str, Any],
     competence_assessment = (
         _build_withheld_acquisition_competence_assessment(
             protocol=protocol, acquisition_outcomes=acquisition_rows)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11 else None)
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS else None)
     if (competence_assessment is not None
             and competence_assessment.get("qualified") is not True):
         raise ValueError(
@@ -13263,7 +13381,7 @@ def make_durable_learning_evaluation(protocol: Mapping[str, Any],
         "outcome_digest": row["outcome_digest"]} for row in outcomes),
         key=lambda row: row["outcome_id"])
     evaluation_schema = ("sentientos.durable_learning_evaluation:v34"
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11 else
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS else
         "sentientos.durable_learning_evaluation:v32")
     semantic = {"schema_version": evaluation_schema,
         "protocol_id": protocol["protocol_id"],
@@ -13289,7 +13407,7 @@ def verify_durable_learning_evaluation(protocol: Mapping[str, Any],
     if not isinstance(evaluation, Mapping):
         raise ValueError("durable_learning_evaluation_invalid")
     legacy_schema = evaluation.get("schema_version")
-    if (protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+    if (protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
             and legacy_schema != "sentientos.durable_learning_evaluation:v34"):
         raise ValueError(
             "durable_learning_v11_evaluation_authorization_binding_required")
@@ -13354,7 +13472,7 @@ def verify_durable_learning_evaluation(protocol: Mapping[str, Any],
         "evaluation_digest": evaluation["evaluation_digest"],
         "outcomes_recomputed": True,
         "competence_authorizations_recomputed": (
-            protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11),
+            protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS),
         "learning_established": False,
         "authority": False}
 
@@ -16325,7 +16443,7 @@ class DurableDevelopmentalLearningRunner:
         verify_durable_learning_acquisition_outcomes(protocol,
             verified_acquisition_outcomes,
             invocation_receipt_verifier=self._receipt_verifier)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             competence = self._store.persist_withheld_acquisition_competence_assessment(
                 protocol=protocol,
                 acquisition_outcomes=verified_acquisition_outcomes)
@@ -16432,7 +16550,7 @@ class DurableDevelopmentalLearningRunner:
             competence_authorization_receipts=(
                 self._store.load_v11_competence_authorization_receipts(
                     protocol=protocol)
-                if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+                if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 else None))
         return [dict(results[key]) for key in sorted(results)]
 
@@ -16694,7 +16812,7 @@ class DurableDevelopmentalLearningRunner:
             competence_authorization_receipts=(
                 self._store.load_v11_competence_authorization_receipts(
                     protocol=protocol)
-                if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11
+                if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS
                 else None))
         return [dict(results[key]) for key in sorted(results)]
 
@@ -16723,7 +16841,7 @@ class DurableDevelopmentalLearningRunner:
         if protocol.get("schema_version") in _V10_PROTOCOL_SCHEMAS:
             self._verify_v9_finalization_evidence(protocol=protocol,
                 outcomes=persisted)
-        if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V11:
+        if protocol.get("schema_version") in _V11_PLUS_PROTOCOL_SCHEMAS:
             competence = self._store.load_withheld_acquisition_competence_assessment(
                 protocol=protocol)
             if competence.get("qualified") is not True:

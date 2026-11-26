@@ -7,9 +7,11 @@ branch IDs and routed contexts; v8 preregisters consolidation and projection
 policies. V9 freezes the signed exclusion-audit, prompt-template, and
 strategy/control machinery but leaves probe consumption unregistered and
 cannot run delayed probes. Opt-in v10 preregisters consumption and connects
-that machinery to the runner, recovery, and finalization. Protocol v11 is now
-the public constructor default; v8 remains available only when explicitly
-requested to rebuild a legacy protocol.
+that machinery to the runner, recovery, and finalization. Protocol v11 added
+the withheld-history competence criterion. Protocol v12 is now the public
+constructor default; it retains that gate and binds the complete historical
+integer probe-input inventory. V8 and v11 remain explicitly selectable for
+legacy protocol construction and verification.
 
 V10 can execute only in explicitly enabled descriptive-only mode because the
 protocol verifier deliberately leaves `retention_contrast_eligible=false`.
@@ -26,9 +28,11 @@ same qualification rule, and the retained-gate inventory reports incomplete,
 missing, or present qualification evidence. V11 remains descriptive-only:
 baseline competence does not show a history effect or establish durable
 learning. V5-v10 protocol identities and historical evidence shapes remain
-unchanged. A newly constructed v11 protocol must provide its minimum withheld-
-acquisition correct-probe count; earlier protocol versions remain explicitly
-selectable for compatible legacy work.
+unchanged. New v12 construction requires its minimum withheld-acquisition
+correct-probe count plus a resident owner from which the historical probe
+inventory is derived. The exact prior input set and inventory digest are
+frozen in the protocol, and protocol verification rejects overlap with either
+task phase. V11 remains available with its original digest contract.
 The assessment persistence check and delayed-attempt journal now share a
 custody-root lock on Windows and POSIX. This serializes the check-and-publish
 boundary across runner processes, preventing a delayed invocation attempt from
@@ -448,9 +452,10 @@ experiment.
    artifact integrity, not answer-example exclusion or causal use; those and
    probe eligibility remain false.
 5. Protocol v9 was an opt-in preregistration schema and retains its original
-   digest contract. The public constructor now defaults to v11, which adds the
-   withheld-acquisition competence gate described above. Explicitly selected
-   legacy versions retain their original digest contracts. V9 freezes digests for the strategy
+   digest contract. The public constructor now defaults to v12, which carries
+   the withheld-acquisition competence gate and historical-probe inventory
+   binding. Explicitly selected legacy versions retain their original digest
+   contracts. V9 freezes digests for the strategy
    slot, neutral control, projection-consumption policy, and exclusion-audit
    policy, and requires a distinct Ed25519 exclusion-auditor identity and
    software digest before protocol creation. This registers the auditor key,

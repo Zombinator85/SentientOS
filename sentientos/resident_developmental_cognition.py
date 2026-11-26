@@ -944,6 +944,7 @@ SELF_MODEL_QUALIFIER_INSTRUCTION = (
 )
 MAX_FACTS = 16
 MAX_HISTORY = 16
+MAX_HISTORY_PROBE_INPUTS = 65_536
 MAX_COGNITION_REQUEST_QUESTION_CHARS = 1200
 MAX_RECOVERED_TICKS = 4096
 MAX_RECOVERED_FACT_IDS = 65_536
@@ -15377,6 +15378,9 @@ class ResidentDevelopmentalCognitionOwner:
                 elif isinstance(value, (list, tuple)):
                     pending.extend(value)
             ordered_inputs = sorted(probe_inputs)
+            if len(ordered_inputs) > MAX_HISTORY_PROBE_INPUTS:
+                raise ResidentDevelopmentalCognitionError(
+                    "ordinary_chat_history_probe_inventory_over_bound")
             body = {
                 "schema_version":
                     "sentientos.resident_history_probe_input_inventory:v1",
