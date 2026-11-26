@@ -159,10 +159,12 @@ def _prepare_private_model(models, private, model, manifest_digest):
     (private / "blobs").mkdir(exist_ok=True)
     manifest_data = read(manifest)
     expected_files = {relative.as_posix()}
+    runtime_metadata_files = set()
     for layer in [manifest_data["config"], *manifest_data["layers"]]:
         digest = layer["digest"].removeprefix("sha256:")
         filename = "sha256-" + digest
         expected_files.add("blobs/" + filename)
+        runtime_metadata_files.add("metadata/" + filename + ".json")
         source = models / "blobs" / filename
         if stream_sha256(source) != (digest, layer["size"]):
             raise ValueError("model layer differs from pinned manifest")
@@ -175,8 +177,14 @@ def _prepare_private_model(models, private, model, manifest_digest):
         if stream_sha256(destination) != (digest, layer["size"]):
             raise ValueError("private model layer differs from pinned manifest")
     actual_files = {path.relative_to(private).as_posix() for path in private.rglob("*") if path.is_file()}
-    if actual_files != expected_files:
+    extra_files = actual_files - expected_files
+    if actual_files & expected_files != expected_files or not extra_files <= runtime_metadata_files:
         raise ValueError("private model store contains unexpected files")
+    for relative_metadata in extra_files:
+        metadata = read(private / relative_metadata)
+        if (not isinstance(metadata, dict) or not isinstance(metadata.get("ollama_version"), str)
+                or not isinstance(metadata.get("kv"), dict)):
+            raise ValueError("private model store has invalid Ollama runtime metadata")
     return manifest
 
 

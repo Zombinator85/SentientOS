@@ -6302,10 +6302,10 @@ evidence. Each arm plans eight trials; all four expose the same five
 single-record history conditions.
 
 The [matrix verifier](../../work/verify_sibling_chat_recall_preflight_matrix.py)
-checks all four plans together. The [baseline control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-baseline-preflight-v1/)
-and [baseline mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-baseline-preflight-v1/)
-preflights now match the existing [strict control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v1/)
-and [strict mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v1/)
+checks all four plans together. The refreshed [baseline control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-baseline-preflight-v2/)
+and [baseline mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-baseline-preflight-v2/)
+preflights match the refreshed [strict control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v2/)
+and [strict mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v2/)
 preflights on model/runtime/task bindings and source evidence. Mapping is the
 only history-treatment difference; the strict instruction is added to the
 final model prompt only after retrieval. The [factorial preanalysis record](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-preanalysis-v1.json)
@@ -6315,6 +6315,9 @@ post-hoc protocol replication, not a confirmatory study; report descriptive
 counts only because the eight trials include repeated conditions. The task is
 read-only recall, so no learning claim follows from its results. No model
 inference was run to prepare this matrix.
+All four plans were regenerated after a narrow runner change to permit only
+Ollama-generated metadata files named for pinned model layers in the isolated
+model store; their source-code hashes therefore bind the same updated runner.
 
 All four plans now bind the intended 24-layer placement for a later full run,
 while the preflights themselves load no model. Every new GPU-backed cited run
@@ -6331,7 +6334,30 @@ failed or unverifiable arm and writes a run manifest after every transition.
 After the first verified arm, it permits reuse only when the external Ollama
 server has exactly one resident model and its digest matches the pinned
 Hermes artifact. That model can remain resident for the configured five-minute
-keep-alive after the last arm.
+keep-alive after the last arm. The private-store pinning check allows the
+runtime metadata generated for pinned layers while rejecting other files.
+After all arms pass, it writes a
+[matrix verification report](../../work/verify_sibling_chat_recall_factorial_run.py)
+that reopens each checksummed capture, regrades every response, and confirms the
+four full-run hashes against the frozen preflight matrix. The report is saved
+as `matrix-verification.json` beside the run manifest.
+The full v2 matrix completed with all four arms independently verified. Its
+official exact/valid-format counts were: control 0/8 and 0/8; mapping only
+0/8 and 0/8; strict output only 4/8 and 6/8; strict output plus mapping 5/8
+and 6/8. Descriptively, strict output coincided with 12/16 valid-format and
+9/16 exact responses, compared with 0/16 valid-format and 0/16 exact without
+it. The mapping contrast was 5/16 versus 4/16 exact responses. These are
+small, repeated-condition counts, not independent-sample estimates. The run
+shows a response-format difference under this setup; it does not establish
+learning or durable developmental change. The experiment made no history
+updates. Its matrix hash is
+`b9f710499af1486f75e6399ce9b94ca98e3bb0d3f03b1ab02993cb79e4fc4c90`.
+
+An initial v1 launcher attempt completed control and then stopped before
+inference on the next arm because Ollama-generated model metadata was rejected
+by the private-store check. That partial run remains marked failed in its own
+artifact directory and is excluded from the v2 counts. The runner now permits
+only metadata tied to pinned model-layer digests.
 To launch it from WSL after confirming the GPU is available:
 
 ```bash
@@ -6339,12 +6365,19 @@ repo=/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next
 cycles=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles
 install=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/runtime/ollama-v0.40.16
 models=/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models
-output=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126
+output=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126-v2
+py=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/venvs/rootless-cognition/bin/python
+model_store=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-ollama-store-20261126
+export SENTIENTOS_OLLAMA_MODELS="$model_store"
+export SENTIENTOS_OLLAMA_CPU_TARGET=http://127.0.0.1:11435
 cd "$repo"
-python -m work.run_sibling_chat_recall_matrix "$cycles" "$install" "$models" "$output"
+"$py" -m work.run_sibling_chat_recall_matrix "$cycles" "$install" "$models" "$output" \
+  --preflight-root "$repo/artifacts/experiments/ordinary-chat-retention-20261125" \
+  --artifact-root "$repo/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2"
 ```
 
 The launcher also requires the existing isolated Ollama model-store and HTTP
-target environment variables. It writes transient run state under the WSL
-filesystem and packages verified results under
-`artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v1/`.
+target environment variables. The isolated Ollama instance must serve on the
+configured target using the same private store. The launcher writes transient
+run state under the WSL filesystem and packages verified results under
+`artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/`.

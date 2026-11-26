@@ -1,0 +1,267 @@
+{
+  "arms": {
+    "control": {
+      "exit_code": 0,
+      "expected_plan_sha256": "4aec42ca14eead95826433f635476a284f6e62522bddab885584133ebeed3d16",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/control-full-v1",
+        "capture_sha256": "067dfcfa02ba58827b5b8fe795ba383d0e916114aff7d479f890d88c51b05a73",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126-v2/control",
+        "verification": {
+          "exit_code": 0,
+          "inference_performed": true,
+          "learning_established": false,
+          "model_invoked": true,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": [
+            {
+              "condition": "right_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "parent_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "right_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_inline",
+              "exact": false,
+              "format": "invalid"
+            }
+          ],
+          "verified": true
+        }
+      },
+      "status": "verified",
+      "verification_error": null
+    },
+    "mapped": {
+      "exit_code": 0,
+      "expected_plan_sha256": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/mapped-full-v1",
+        "capture_sha256": "f17d800eef4ca62a7f16ef9ac1e9a492969fb8e3376352c3530f40d8c2bc6e82",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126-v2/mapped",
+        "verification": {
+          "exit_code": 0,
+          "inference_performed": true,
+          "learning_established": false,
+          "model_invoked": true,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": [
+            {
+              "condition": "right_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "parent_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "right_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_inline",
+              "exact": false,
+              "format": "invalid"
+            }
+          ],
+          "verified": true
+        }
+      },
+      "status": "verified",
+      "verification_error": null
+    },
+    "strict_control": {
+      "exit_code": 0,
+      "expected_plan_sha256": "f35b4c5a5a1317b684e700b050149acfabd2cbd2eaac1c96ec869e1163f1d3d6",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/strict_control-full-v1",
+        "capture_sha256": "2119c2a9f95f8a39a5b23f351c383af397ff47e9872cc73a3c854d12fda7ca48",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126-v2/strict_control",
+        "verification": {
+          "exit_code": 0,
+          "inference_performed": true,
+          "learning_established": false,
+          "model_invoked": true,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": [
+            {
+              "condition": "right_wide",
+              "exact": false,
+              "format": "valid"
+            },
+            {
+              "condition": "left_low",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "empty_wide",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "parent_wide",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "right_low",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_inline",
+              "exact": false,
+              "format": "valid"
+            }
+          ],
+          "verified": true
+        }
+      },
+      "status": "verified",
+      "verification_error": null
+    },
+    "strict_mapped": {
+      "exit_code": 0,
+      "expected_plan_sha256": "e5914340ca08ee9785e30a82ea0b5ce7739f4584dc0fa8010450e1647403e6b3",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/strict_mapped-full-v1",
+        "capture_sha256": "789b69d4a0daa90708c39f7b572d6a8ed4e2bc197ac3b351818c4e5b7930abf9",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126-v2/strict_mapped",
+        "verification": {
+          "exit_code": 0,
+          "inference_performed": true,
+          "learning_established": false,
+          "model_invoked": true,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": [
+            {
+              "condition": "right_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_low",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "empty_wide",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "parent_wide",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "right_low",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": true,
+              "format": "valid"
+            },
+            {
+              "condition": "empty_inline",
+              "exact": false,
+              "format": "valid"
+            }
+          ],
+          "verified": true
+        }
+      },
+      "status": "verified",
+      "verification_error": null
+    }
+  },
+  "inference_performed": true,
+  "learning_established": false,
+  "matrix_sha256": "b9f710499af1486f75e6399ce9b94ca98e3bb0d3f03b1ab02993cb79e4fc4c90",
+  "model_invoked": true,
+  "pinned_model_reuse_policy": "first arm requires an empty server; later arms allow only one resident model with the pinned digest",
+  "preflight_plan_sha256": {
+    "control": "4aec42ca14eead95826433f635476a284f6e62522bddab885584133ebeed3d16",
+    "mapped": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+    "strict_control": "f35b4c5a5a1317b684e700b050149acfabd2cbd2eaac1c96ec869e1163f1d3d6",
+    "strict_mapped": "e5914340ca08ee9785e30a82ea0b5ce7739f4584dc0fa8010450e1647403e6b3"
+  },
+  "run_order": [
+    "control",
+    "strict_mapped",
+    "mapped",
+    "strict_control"
+  ],
+  "schema": "sentientos.sibling_chat_recall_factorial_run:v1",
+  "status": "all_arms_verified"
+}

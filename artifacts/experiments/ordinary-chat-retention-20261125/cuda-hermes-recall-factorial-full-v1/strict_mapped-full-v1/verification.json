@@ -1,0 +1,9 @@
+{
+  "exit_code": 1,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+  "scores": null,
+  "verified": false
+}

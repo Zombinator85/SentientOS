@@ -1,0 +1,50 @@
+{
+  "exit_code": 0,
+  "inference_performed": true,
+  "learning_established": false,
+  "model_invoked": true,
+  "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+  "scores": [
+    {
+      "condition": "right_wide",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "left_low",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "empty_wide",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "parent_wide",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "left_wide",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "right_low",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "left_wide",
+      "exact": false,
+      "format": "invalid"
+    },
+    {
+      "condition": "empty_inline",
+      "exact": false,
+      "format": "invalid"
+    }
+  ],
+  "verified": true
+}

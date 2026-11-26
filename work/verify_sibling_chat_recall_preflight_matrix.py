@@ -17,6 +17,12 @@ MATCHED_FIELDS = (
 OUTPUT_FACTOR = "strict fenced JSON instruction injected after retrieval"
 MAPPING_FACTOR = "explicit history-field-to-row mapping injected in history guidance"
 RUN_ORDER = ("control", "strict_mapped", "mapped", "strict_control")
+PREFLIGHT_NAMES = {
+    "control": "cuda-hermes-recall-control-baseline-preflight-v2",
+    "mapped": "cuda-hermes-recall-mapping-baseline-preflight-v2",
+    "strict_control": "cuda-hermes-recall-control-strict-preflight-v2",
+    "strict_mapped": "cuda-hermes-recall-mapping-strict-preflight-v2",
+}
 
 
 def verify_matrix(control: Path, mapped: Path, strict_control: Path, strict_mapped: Path) -> dict:

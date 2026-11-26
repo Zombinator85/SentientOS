@@ -1,0 +1,6 @@
+{
+  "full_run_plan_sha256": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+  "matched": true,
+  "preflight_plan_sha256": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+  "schema": "sentientos.sibling_chat_recall_preflight_binding:v1"
+}

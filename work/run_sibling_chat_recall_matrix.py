@@ -15,7 +15,10 @@ from urllib.parse import urlsplit
 
 from work.run_sibling_chat_recall import MODEL_MANIFESTS
 from work.verify_sibling_chat_recall import verify as verify_full_run
-from work.verify_sibling_chat_recall_preflight_matrix import RUN_ORDER, verify_matrix
+from work.verify_sibling_chat_recall_preflight_matrix import (
+    PREFLIGHT_NAMES, RUN_ORDER, verify_matrix,
+)
+from work.verify_sibling_chat_recall_factorial_run import verify_factorial_run
 
 
 MODEL = "sentientos-hermes4:14b-q4km"
@@ -24,12 +27,6 @@ ARM_FLAGS = {
     "strict_mapped": ("--explicit-row-mapping", "--strict-cited-output"),
     "mapped": ("--explicit-row-mapping",),
     "strict_control": ("--strict-cited-output",),
-}
-PREFLIGHT_NAMES = {
-    "control": "cuda-hermes-recall-control-baseline-preflight-v1",
-    "mapped": "cuda-hermes-recall-mapping-baseline-preflight-v1",
-    "strict_control": "cuda-hermes-recall-control-strict-preflight-v1",
-    "strict_mapped": "cuda-hermes-recall-mapping-strict-preflight-v1",
 }
 
 
@@ -100,7 +97,7 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
         raise ValueError("transient run data and packaged artifacts need separate directories")
     if artifact_root.exists():
         raise FileExistsError(f"matrix artifact directory already exists: {artifact_root}")
-    for arm_index, arm in enumerate(RUN_ORDER):
+    for arm in RUN_ORDER:
         if (output_root / arm).exists():
             raise FileExistsError(f"matrix arm output already exists: {output_root / arm}")
 
@@ -123,7 +120,7 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
     _write_json(manifest_path, manifest)
     repository = Path(__file__).resolve().parents[1]
 
-    for arm in RUN_ORDER:
+    for arm_index, arm in enumerate(RUN_ORDER):
         run_root = output_root / arm
         command = [
             sys.executable, "-m", "work.run_sibling_chat_recall",
@@ -175,6 +172,14 @@ def execute_matrix(cycles: Path, ollama_install: Path, models: Path, output_root
     manifest.pop("active_arm", None)
     manifest["status"] = "all_arms_verified"
     _write_json(manifest_path, manifest)
+    try:
+        verification = verify_factorial_run(artifact_root, preflight_root)
+    except Exception as error:
+        manifest["status"] = "matrix_verification_failed"
+        manifest["matrix_verification_error"] = f"{type(error).__name__}: {error}"
+        _write_json(manifest_path, manifest)
+        return manifest
+    _write_json(artifact_root / "matrix-verification.json", verification)
     return manifest
 
 

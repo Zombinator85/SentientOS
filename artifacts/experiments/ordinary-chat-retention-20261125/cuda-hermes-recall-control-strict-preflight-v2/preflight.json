@@ -1,0 +1,10 @@
+{
+  "authority": false,
+  "inference_performed": false,
+  "learning_established": false,
+  "model_invoked": false,
+  "plan_sha256": "f35b4c5a5a1317b684e700b050149acfabd2cbd2eaac1c96ec869e1163f1d3d6",
+  "resident_vram_bytes": 0,
+  "runtime_condition_created": false,
+  "schema": "sentientos.sibling_chat_recall_preflight:v1"
+}

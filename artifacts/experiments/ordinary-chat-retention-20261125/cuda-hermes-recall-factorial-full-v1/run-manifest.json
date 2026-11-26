@@ -1,0 +1,111 @@
+{
+  "active_arm": "strict_mapped",
+  "arms": {
+    "control": {
+      "exit_code": 0,
+      "expected_plan_sha256": "f138138cae8d92e0ea63f2a666dd1e9454a108878775765d640c47270709ca9b",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v1/control-full-v1",
+        "capture_sha256": "cd24d3f51285ae63accc9dc9a8a8629a0404e24e278aa33ec4e9929de3d901f2",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126/control",
+        "verification": {
+          "exit_code": 0,
+          "inference_performed": true,
+          "learning_established": false,
+          "model_invoked": true,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": [
+            {
+              "condition": "right_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "parent_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "right_low",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "left_wide",
+              "exact": false,
+              "format": "invalid"
+            },
+            {
+              "condition": "empty_inline",
+              "exact": false,
+              "format": "invalid"
+            }
+          ],
+          "verified": true
+        }
+      },
+      "status": "verified",
+      "verification_error": null
+    },
+    "mapped": {
+      "status": "pending"
+    },
+    "strict_control": {
+      "status": "pending"
+    },
+    "strict_mapped": {
+      "exit_code": 1,
+      "expected_plan_sha256": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753",
+      "package": {
+        "artifact_directory": "/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next/artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v1/strict_mapped-full-v1",
+        "capture_sha256": "9997177b70d734d879f5b52a19d8489e8f025038aa328ee5816b4d82552d4a15",
+        "run_directory": "/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-run-20261126/strict_mapped",
+        "verification": {
+          "exit_code": 1,
+          "inference_performed": false,
+          "learning_established": false,
+          "model_invoked": false,
+          "schema": "sentientos.sibling_chat_recall_full_arm_verification:v1",
+          "scores": null,
+          "verified": false
+        }
+      },
+      "status": "failed_or_unverified",
+      "verification_error": null
+    }
+  },
+  "inference_performed": true,
+  "learning_established": false,
+  "matrix_sha256": "b00d21a73050e4ce12b8addc98364deb8eaf248df2e5f3b403a8598a81734a4f",
+  "model_invoked": true,
+  "pinned_model_reuse_policy": "first arm requires an empty server; later arms allow only one resident model with the pinned digest",
+  "preflight_plan_sha256": {
+    "control": "f138138cae8d92e0ea63f2a666dd1e9454a108878775765d640c47270709ca9b",
+    "mapped": "565170754d1155e0a6b8a48bcea6a75408d12ec36e3333e32554c1ee262064a4",
+    "strict_control": "910732421149fe2a3df199e01ef15784ce775b82e3ab66198553a299dd9b64ab",
+    "strict_mapped": "a45dd9acf5c4132c8771d5beeb712b88c02d548c62ffbbc83e76dbebd8c5d753"
+  },
+  "run_order": [
+    "control",
+    "strict_mapped",
+    "mapped",
+    "strict_control"
+  ],
+  "schema": "sentientos.sibling_chat_recall_factorial_run:v1",
+  "status": "stopped_after_arm_failure"
+}

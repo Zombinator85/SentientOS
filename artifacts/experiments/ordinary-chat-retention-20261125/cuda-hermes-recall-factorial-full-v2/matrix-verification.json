@@ -1,0 +1,241 @@
+{
+  "arms": {
+    "control": {
+      "capture_sha256": "067dfcfa02ba58827b5b8fe795ba383d0e916114aff7d479f890d88c51b05a73",
+      "official_exact_count": 0,
+      "official_valid_format_count": 0,
+      "plan_sha256": "4aec42ca14eead95826433f635476a284f6e62522bddab885584133ebeed3d16",
+      "trial_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_low",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "empty_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "parent_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "right_low",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "empty_inline",
+          "exact": false,
+          "format": "invalid"
+        }
+      ]
+    },
+    "mapped": {
+      "capture_sha256": "f17d800eef4ca62a7f16ef9ac1e9a492969fb8e3376352c3530f40d8c2bc6e82",
+      "official_exact_count": 0,
+      "official_valid_format_count": 0,
+      "plan_sha256": "63834ace89582e9f994278a711f93183a377a1ac87f7d10601cdcd75a74f3c0d",
+      "trial_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_low",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "empty_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "parent_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "right_low",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "empty_inline",
+          "exact": false,
+          "format": "invalid"
+        }
+      ]
+    },
+    "strict_control": {
+      "capture_sha256": "2119c2a9f95f8a39a5b23f351c383af397ff47e9872cc73a3c854d12fda7ca48",
+      "official_exact_count": 4,
+      "official_valid_format_count": 6,
+      "plan_sha256": "f35b4c5a5a1317b684e700b050149acfabd2cbd2eaac1c96ec869e1163f1d3d6",
+      "trial_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "exact": false,
+          "format": "valid"
+        },
+        {
+          "condition": "left_low",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "empty_wide",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "parent_wide",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "right_low",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "empty_inline",
+          "exact": false,
+          "format": "valid"
+        }
+      ]
+    },
+    "strict_mapped": {
+      "capture_sha256": "789b69d4a0daa90708c39f7b572d6a8ed4e2bc197ac3b351818c4e5b7930abf9",
+      "official_exact_count": 5,
+      "official_valid_format_count": 6,
+      "plan_sha256": "e5914340ca08ee9785e30a82ea0b5ce7739f4584dc0fa8010450e1647403e6b3",
+      "trial_count": 8,
+      "trials": [
+        {
+          "condition": "right_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "left_low",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "empty_wide",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "parent_wide",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": false,
+          "format": "invalid"
+        },
+        {
+          "condition": "right_low",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "left_wide",
+          "exact": true,
+          "format": "valid"
+        },
+        {
+          "condition": "empty_inline",
+          "exact": false,
+          "format": "valid"
+        }
+      ]
+    }
+  },
+  "descriptive_factor_counts": {
+    "interpretation": "descriptive counts only; repeated conditions are not independent samples",
+    "mapping_off": {
+      "exact": 4,
+      "trials": 16
+    },
+    "mapping_on": {
+      "exact": 5,
+      "trials": 16
+    },
+    "strict_output_off": {
+      "exact": 0,
+      "trials": 16
+    },
+    "strict_output_on": {
+      "exact": 9,
+      "trials": 16
+    }
+  },
+  "gpu_layers_requested": 24,
+  "inference_performed": true,
+  "learning_established": false,
+  "matrix_sha256": "b9f710499af1486f75e6399ce9b94ca98e3bb0d3f03b1ab02993cb79e4fc4c90",
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_invoked": true,
+  "ollama_version": "0.40.16",
+  "run_manifest_sha256": "ec095f0f5f92bec304ed09f3153bbb5c167ef6808972289aa423ffec085e41d1",
+  "schema": "sentientos.sibling_chat_recall_factorial_run_verification:v1",
+  "status": "all_arms_independently_verified"
+}
