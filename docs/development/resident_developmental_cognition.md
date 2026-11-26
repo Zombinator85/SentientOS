@@ -5709,9 +5709,53 @@ preserve both reports, their verifications, the pair receipt, and the parity
 audit. No model was loaded or invoked, no runtime condition was created, and
 learning and authority remain false. This establishes current-source owner
 prompt parity only. It does not prove either model uses the history or that
-cognitive continuity survives model replacement. The execution plans still
-need a fresh full source pin after the runner change; another model run also
-requires the per-cycle availability confirmation and passing resource checks.
+cognitive continuity survives model replacement. The two-seed execution-plan
+refresh and its remaining evidence limits are recorded below.
+
+### Current-source two-seed cross-model execution plans (2026-11-26)
+
+The follow-up restored the `Ubuntu-24.04` WSL workspace and used a clean LF
+source worktree at commit `d735b62f`. This matters because the Windows checkout
+uses CRLF working files, while the source-pinned preflight records raw file
+hashes. Replaying against the CRLF checkout changed those hashes despite an
+unchanged task; that report was excluded from the final cohort. The final
+preflights bind source hashes `e5a990ac…`, `18d41d80…`, and `bbafe63c…` for the
+preflight, resident-cognition, and task-factory implementations.
+
+Both target-specific cohorts contain task seeds `13688801` and `13688803`,
+12 held-out probes per task, and 24 unique probe inputs per model. Seed
+`13688801` was reconstructed from the shared private journal with the frozen
+arm-order seed; seed `13688803` uses the previously verified identity-neutral
+cross-model preflights. The Qwen seed-3 protocol was replayed into the same
+private journal before cohort construction. Cohort digests are:
+
+- Hermes: `sha256:d08469bc296833497440eeae06455b2eb8dc4f9baba865dc485df004c78aa5bf`
+- Qwen: `sha256:902459f1ce449e8765849d5b1ef344c063dfec2992f1da7245f70ab154cd6ef2`
+
+Independent-rescoring analysis plans were frozen before inference. The Hermes
+and Qwen execution-plan digests are
+`sha256:5d63748b19f844bd0e41a17f87de13b5cb3fa34bf6d3b06c1c349f3509625574`
+and
+`sha256:976cc175a49f3e5890913c822b640cc82066523d4bea1654256386d453e286aa`.
+Both CPU slot audits report `all_slots_verified: true`. The plans require all
+four model-arm slots per target to complete; they prohibit replacing an
+incomplete trial or retrying an ambiguous invocation.
+
+The frozen cycle IDs, in task-seed order, are `592bae58895244a78566` and
+`213f7c6c602c4a71abd5` for Hermes, then `b839e396debd4ec3a0be` and
+`c17201efc98f485da836` for Qwen. The reports, cohorts, analysis plans,
+execution plans, and slot audits are preserved in the
+[`identity-neutral-current-source-refresh-lf-20261126` artifact directory](../../artifacts/experiments/identity-neutral-current-source-refresh-lf-20261126/).
+
+No model was loaded or invoked while preparing these plans. The user has
+resumed GPU use, so Hermes and Qwen inference remain paused. On resumption,
+each one-shot run must set
+`SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to its exact frozen cycle ID and
+pass the runner's resource checks. Raw receipts must then be independently
+rescored under the frozen analysis plans. Until then, these artifacts prove
+current-source preflight parity and launch readiness only; they do not prove
+history use, developmental learning, transfer, or model-independent cognitive
+continuity.
 
 The preflight run also found and fixed policy restoration across objective
 request reconstruction and private journal reload. The private task-plan record
