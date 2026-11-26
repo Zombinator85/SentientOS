@@ -6016,11 +6016,23 @@ was loaded or invoked. It uses the same task seed as the unused v13 preflight bu
 salted private task commitment and a fresh journal root; it is a replacement
 attempt, not an additional independent task instance. Its protocol digest is
 `sha256:449276cdc9aa65f106af8249465fafef9a60f4773c31b4eeca2d7c14df760cef`.
-It records no model load, invocation, learning, or authority. For the fresh
-behavioral attempt, use cycle ID
-`rootless-cognition-cycle-20261126000000000014`, seed `13688908`, backend seed
-`1257088909`, the v14 preflight path, and journal root
-`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v4`.
+V14 was launched on the corrected source and stopped at the same request-digest
+gate before inference. Its one-shot arm claim is retained; no model call,
+observation, or learning claim exists. This shows the mismatch is not only a
+stale preflight digest. The runtime now compares the live preview's normalized
+request semantics with the pre-inference request and records differing field
+paths plus request digests, with semantic values and prompt text excluded.
+
+The fresh diagnostic preflight [v15](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v15.json)
+and [v11 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v11.json)
+use seed `13688909`; the verifier reloaded the task and protocol, validated
+the answer-key commitment, source receipt, and selected history records, and
+confirmed no model load or invocation. Its protocol digest is
+`sha256:d16103bcf4ec0119420389a58208a066900577357077effecb659e0e04bb5da0`.
+The next diagnostic slot uses cycle ID
+`rootless-cognition-cycle-20261126000000000015`, backend seed `1257088909`,
+the v15 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v5`.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
