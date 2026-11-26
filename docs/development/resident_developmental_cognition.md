@@ -6077,10 +6077,20 @@ use seed `13688912`; verification reloaded the private task and protocol,
 validated the answer-key commitment, source receipt, and selected history,
 and recorded no model load or invocation. The protocol digest is
 `sha256:31e2083c2662d630a620a047f0b390d02bc1835e3dbb5f31062c6164f7270b97`.
-The next slot uses cycle ID
+The completed slot used cycle ID
 `rootless-cognition-cycle-20261126000000000019`, backend seed `1257088909`,
 the v18 preflight path, and journal root
 `/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v8`.
+
+Cycle 19 completed both arms with verified receipt bindings and a valid stored
+score digest (`sha256:013d07e492fc3f628a737e0328f96b16bb0b1c84bfa9f82accdb92b2158de722`).
+On this one three-probe task, the strategy-included arm answered all three
+correctly and the omitted arm answered two correctly. Two probes were correct
+in both conditions; one favored inclusion. There were no abstentions. Hermes
+was unloaded under governed release, and the score records inference performed
+with learning, improvement, and authority all false. This is a task-bounded
+behavioral contrast on one task instance; it does not establish durable
+learning, generalization, or stable improvement.
 Future attempts should use a clean WSL worktree when the interactive Windows
 checkout has accumulated unrelated untracked artifacts, and should proceed
 only when the GPU guard admits the slot.
