@@ -7673,6 +7673,125 @@ def build_durable_learning_prompt(*, task_descriptor: Mapping[str, Any],
     return prompt
 
 
+def build_durable_learning_prompt_digest_bindings(*, acquisition_tasks: Sequence[Any],
+        delayed_probe_tasks: Sequence[Any],
+        acquisition_experience_records: Sequence[Mapping[str, Any]],
+        feedback_policy_digest: str,
+        feedback_records_by_task: Mapping[str, Sequence[Mapping[str, Any]]] | None = None
+        ) -> dict[str, Any]:
+    """Derive prompt bindings for preregistration without invoking a model.
+
+    The result contains digests only. It binds the exact available-history
+    records and matched acquisition feedback to every task, and enforces
+    history-free, feedback-free delayed probes before the protocol is saved.
+    """
+    if (not isinstance(feedback_policy_digest, str)
+            or _HEX_DIGEST.fullmatch(feedback_policy_digest) is None
+            or feedback_policy_digest not in {
+                NO_FEEDBACK_POLICY_DIGEST,
+                *SCORED_OUTCOME_FEEDBACK_POLICY_DIGESTS}
+            or not isinstance(acquisition_experience_records, Sequence)
+            or isinstance(acquisition_experience_records, (str, bytes))
+            or not acquisition_experience_records
+            or any(not isinstance(record, Mapping)
+                or not isinstance(record.get("source_record_id"), str)
+                or not record.get("source_record_id")
+                or not isinstance(record.get("source_record_digest"), str)
+                or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                    record["source_record_digest"]) is None
+                or record.get("experience_digest") !=
+                    record.get("source_record_digest")
+                or not isinstance(record.get("record"), Mapping)
+                or record["record"].get("record_id") !=
+                    record.get("source_record_id")
+                or record["record"].get("record_digest") !=
+                    record.get("source_record_digest")
+                for record in acquisition_experience_records)
+            or len({record["source_record_id"]
+                for record in acquisition_experience_records}) !=
+                    len(acquisition_experience_records)
+            or len({record["experience_digest"]
+                for record in acquisition_experience_records}) !=
+                    len(acquisition_experience_records)):
+        raise ValueError("durable_learning_prompt_binding_preflight_input_invalid")
+
+    acquisition = _task_rows(acquisition_tasks, phase="acquisition")
+    probes = _task_rows(delayed_probe_tasks, phase="delayed_probe")
+    acquisition_inputs = {value for row in acquisition for value in
+        row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
+    probe_inputs = {value for row in probes for value in
+        row["task"].get("probe_inputs", [row["task"].get("probe_input")])}
+    if acquisition_inputs.intersection(probe_inputs):
+        raise ValueError("durable_learning_probe_input_overlap")
+
+    task_digests = {row["task_digest"] for row in acquisition}
+    if feedback_records_by_task is None:
+        feedback_by_task: Mapping[str, Sequence[Mapping[str, Any]]] = {
+            digest: () for digest in task_digests}
+    elif (not isinstance(feedback_records_by_task, Mapping)
+            or set(feedback_records_by_task) != task_digests):
+        raise ValueError("durable_learning_prompt_feedback_binding_invalid")
+    else:
+        feedback_by_task = feedback_records_by_task
+    no_feedback = feedback_policy_digest == NO_FEEDBACK_POLICY_DIGEST
+    for records in feedback_by_task.values():
+        if (not isinstance(records, Sequence)
+                or isinstance(records, (str, bytes))
+                or any(not isinstance(record, Mapping)
+                    or record.get("feedback_digest") !=
+                        _feedback_record_digest(record)
+                    or record.get("feedback_policy_digest") !=
+                        feedback_policy_digest
+                    or not isinstance(record.get("feedback_source_id"), str)
+                    or not record.get("feedback_source_id")
+                    for record in records)
+                or len({record["feedback_source_id"] for record in records})
+                    != len(records)
+                or (no_feedback and bool(records))
+                or (not no_feedback and not records)):
+            raise ValueError(
+                "durable_learning_prompt_feedback_binding_invalid")
+
+    experiences = [dict(record)
+        for record in acquisition_experience_records]
+    bindings: dict[str, dict[str, dict[str, str]]] = {
+        "acquisition": {condition: {} for condition in _CONDITIONS},
+        "delayed_probe": {condition: {} for condition in _CONDITIONS},
+    }
+    for row in acquisition:
+        digest = row["task_digest"]
+        feedback = [dict(record) for record in feedback_by_task[digest]]
+        for condition in _CONDITIONS:
+            prompt = build_durable_learning_prompt(
+                task_descriptor=row["descriptor"], phase="acquisition",
+                condition=condition,
+                experience_records=(experiences
+                    if condition == _CONDITIONS[0] else ()),
+                feedback_records=feedback)
+            bindings["acquisition"][condition][digest] = digest_payload(
+                {"prompt": prompt})
+    for row in probes:
+        digest = row["task_digest"]
+        prompt = build_durable_learning_prompt(
+            task_descriptor=row["descriptor"], phase="delayed_probe",
+            condition=_CONDITIONS[0])
+        prompt_digest = digest_payload({"prompt": prompt})
+        for condition in _CONDITIONS:
+            bindings["delayed_probe"][condition][digest] = prompt_digest
+    return {
+        "schema_version": "sentientos.durable_learning_prompt_digest_bindings:v1",
+        "prompt_digest_bindings": bindings,
+        "acquisition_experience_digests": [record["experience_digest"]
+            for record in experiences],
+        "acquisition_task_count": len(acquisition),
+        "delayed_probe_task_count": len(probes),
+        "probe_input_sets_disjoint": True,
+        "prompt_text_included": False,
+        "answer_key_included": False,
+        "authority": False,
+    }
+
+
 def build_durable_learning_strategy_probe_prompt(*, protocol: Mapping[str, Any],
         condition: str, task_digest: str,
         branch: DurableLearningConditionBranch,

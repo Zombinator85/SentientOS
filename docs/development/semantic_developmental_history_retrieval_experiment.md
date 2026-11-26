@@ -541,6 +541,17 @@ rebuilding legacy plans. This default prevents newly created protocols from
 silently skipping the competence gate, while preserving verification of older
 protocol digests.
 
+`build_durable_learning_prompt_digest_bindings()` now prepares the exact
+available/withheld acquisition and history-free delayed-probe prompt-digest
+matrix directly from frozen task descriptors, digest-bound experience records,
+and the selected feedback policy. It checks cross-phase probe disjointness,
+requires matched acquisition feedback, and returns digests without prompt
+text or oracle values. This CPU-only helper does not prove that a record exists
+in the active history owner; the runtime experience source must re-resolve it.
+The protocol store, runtime guards, invocation receipts, independent scoring,
+writeback attribution, and elapsed-delay gates remain necessary for an
+experiment.
+
 The repository now implements Phase C preregistration in
 `sentientos/durable_developmental_learning_experiment.py`. It freezes disjoint
 acquisition and probe inputs, task commitments, retained-history state digest,
