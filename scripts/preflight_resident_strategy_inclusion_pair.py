@@ -506,7 +506,31 @@ def build_preflight(*, cycle_root: Path, seed: int,
             generation_config_source = (
                 "governed_invoker_request_projection_without_resource_context")
         else:
-            generation_config_source = "historical_receipt_generation_config"
+            # A historical companion receipt has the same bounded generation
+            # budget but a different structured-output schema from this
+            # objective task. Bind the task owner's exact schema into that
+            # no-load configuration projection; receipt validation will still
+            # compare the full runtime generation config against this digest.
+            arm_requests = [item for item in invoker.requests
+                if "objective_task_plan_digest" in item.upstream_evidence]
+            schemas = [item.structured_output_schema for item in arm_requests]
+            if (len(arm_requests) != 2
+                    or any(not isinstance(value, Mapping) for value in schemas)
+                    or schemas[0] != schemas[1]):
+                raise ValueError(
+                    "objective_task_generation_schema_preflight_invalid")
+            actual_parameters = generation_config.get(
+                "actual_generation_parameters")
+            if not isinstance(actual_parameters, Mapping):
+                raise ValueError(
+                    "historical_receipt_actual_generation_parameters_invalid")
+            generation_config = dict(generation_config)
+            generation_config["actual_generation_parameters"] = {
+                **dict(actual_parameters),
+                "structured_output_schema": dict(schemas[0]),
+            }
+            generation_config_source = (
+                "historical_receipt_generation_config_with_objective_schema")
         generation_config_digest = "sha256:" + digest_payload(
             dict(generation_config))
         prepared = prepare_strategy_inclusion_pair(
