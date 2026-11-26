@@ -8,32 +8,39 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
-    FORMAT, MANIFEST, MODEL, QUESTIONS, SOURCE_REPORT, TRIALS, read, score_answer, sha,
+    INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
+    score_answer, score_cited_answer, sha,
 )
 
 
 def verify(path):
     plan_file = path / "plan.json"
     plan, result, archive = read(plan_file), read(path / "result.json"), read(SOURCE_REPORT)
+    if plan["schema"] not in {"sentientos.sibling_chat_recall_plan:v1", "sentientos.sibling_chat_recall_plan:v2"}:
+        raise ValueError("unknown recall protocol")
+    cited = plan["schema"].endswith(":v2")
+    trials = conditions(cited)
     plan_hash = sha(plan_file.read_bytes())
     configuration_digest = candidate_configuration_digest_from_payload({
         "engine": "ollama", "options": plan["options"], "max_context_tokens": plan["context_tokens"],
         "generation": plan["generation"]})
     if (result["plan_sha256"] != plan_hash or plan["source_report_sha256"] != sha(SOURCE_REPORT.read_bytes())
-            or plan["trials"] != [list(t) for t in TRIALS] or len(result["trials"]) != len(TRIALS)
+            or plan["trials"] != [list(t) for t in trials] or len(result["trials"]) != len(trials)
             or plan["model"] != MODEL or plan["model_identity"]["model_content_sha256"] != MANIFEST
             or configuration_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
-            or plan["questions"] != {s: QUESTIONS["latest_" + s] + FORMAT for _, s in TRIALS}):
+            or plan["questions"] != {s: recall_question(s, cited) for _, s in trials}):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}
-    for arm, scope in dict.fromkeys(TRIALS):
+    for arm, scope in dict.fromkeys(trials):
         exposure = plan["exposures"][arm + "_" + scope]
         if arm == "empty":
             if exposure["history_block_digest"] is not None or exposure["prompt_score_evidence"]:
                 raise ValueError("empty control contains history")
             if exposure["prompt_sha256"] != plan["matched_base_sha256"][scope]:
                 raise ValueError("empty control differs outside the history block")
+            if scope == "inline":
+                profiles["inline"] = INLINE_ROWS
             continue
         oracle, = archive["questions"]["latest_" + scope]["captures"][arm]["prompt_score_evidence"]
         evidence, = exposure["prompt_score_evidence"]
@@ -52,7 +59,7 @@ def verify(path):
     if profiles != plan["profiles"]:
         raise ValueError("scoring profiles differ from archived scores")
     references, scores = set(), []
-    for index, ((arm, scope), trial) in enumerate(zip(TRIALS, result["trials"], strict=True)):
+    for index, ((arm, scope), trial) in enumerate(zip(trials, result["trials"], strict=True)):
         key = arm + "_" + scope
         exposure = plan["exposures"][key]
         disk = trial["receipt"]
@@ -70,9 +77,14 @@ def verify(path):
         references.add(disk["receipt_id"])
         if trial["delivered"] != trial["model_output"].strip():
             raise ValueError("delivered text differs from the receipted model response")
-        grade = score_answer(trial["delivered"], profiles)
-        expected = "empty" if arm == "empty" else "shared_low" if scope == "low" else key
+        grade = (score_cited_answer if cited else score_answer)(trial["delivered"], profiles)
+        expected = ("inline" if scope == "inline" else "empty" if arm == "empty"
+                    else "shared_low" if scope == "low" else key)
         exact = expected in grade["exact_profiles"]
+        if cited:
+            records = exposure["prompt_score_evidence"]
+            expected_citation = "inline-example" if scope == "inline" else records[0]["record_id"] if records else None
+            exact = exact and grade["cited_record"] == expected_citation
         if (trial["expected_profile"] != expected or grade != trial["score"] or trial["exact"] is not exact):
             raise ValueError("saved score differs from blind regrade")
         scores.append((key, grade["format"], exact))

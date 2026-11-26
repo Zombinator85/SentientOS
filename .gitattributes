@@ -1,3 +1,6 @@
 *.gguf filter=lfs diff=lfs merge=lfs -text
 
 *.sig text
+
+# The recall protocols bind the exact bytes of the archived JSON sources.
+artifacts/experiments/ordinary-chat-retention-20261125/** text eol=lf

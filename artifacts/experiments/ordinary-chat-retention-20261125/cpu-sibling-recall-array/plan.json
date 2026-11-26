@@ -1,0 +1,342 @@
+{
+  "context_tokens": 4096,
+  "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass.",
+  "exposures": {
+    "empty_wide": {
+      "history_block_digest": null,
+      "invocation_prompt_digest": "ce454386626fb637bac741c7429c8de6e0c6679d1b0861f1e3ab8e17f7367454",
+      "prompt_chars": 4449,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "898d41bd19cce4757dd60db0967111c7fb532f5cf19ba4b6b0dd08e0fc28fda3"
+    },
+    "left_low": {
+      "history_block_digest": "27fe97af021d4130a4a7308a6f9733c231d8a3b484603ce42d98ae31fbcbca10",
+      "invocation_prompt_digest": "129cc63e05bfe6049942c42d2370373496363a2a4786027340b1ec07293d8c07",
+      "prompt_chars": 7584,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "eb7c2afc5bb1902629c03dd2cabaf0767a2393e68dc3c4d963e98c3c70398d4b"
+    },
+    "left_wide": {
+      "history_block_digest": "e5b0471f63224bc50c011ab055f8dd2181f3aa13126d710475acd0b7c567bff0",
+      "invocation_prompt_digest": "98a6109f1436910c5aa33c5bce7ead19e50abd1bbfd4c0fd3782a728da9a5d7f",
+      "prompt_chars": 7591,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 6
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-c823465ce11c154f",
+          "source_run_id": "devexp-run-1efd94846000ffb091c9efcd",
+          "source_score_digest": "sha256:c3215938526d7916e3b36f26719e57453ee0b215a5bdf04fc82cee0d25f03bb8",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "9be54f4fb1467385c5e0e518bab4767adc547df2ce45e2ba047c92a83cdb913a"
+    },
+    "parent_wide": {
+      "history_block_digest": "91ede7ba4c7dc3f365888b22797a80764d7a86946cafeb5e8262c5870bdbc0ee",
+      "invocation_prompt_digest": "c21f1b6ee44fc3dff11ffb64a6c6081084d32878082c0222b69b1ec989cbd29d",
+      "prompt_chars": 7589,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-2033fab64ae54284298c3ce7",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-89ef603478eedb17",
+          "source_run_id": "devexp-run-3f21f10346713151edc6a73c",
+          "source_score_digest": "sha256:69c4cdc5123414d3cb56df77da138e230785297c1c6dd3663cfcdd307cef0dbd",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "1ff8df99bb00a461a829fcdf56e856a998dd57eced93fdb236d1238311482d91"
+    },
+    "right_low": {
+      "history_block_digest": "24457fd26ad6c4a3e60de300770fe687975e05272ada141ccd112204df604be1",
+      "invocation_prompt_digest": "fc61220218b71e5cd17cae9f679421cfbcb36cd4fe72498462152f045d34e878",
+      "prompt_chars": 7584,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "995d2bf0b189d2578c35dfce2b360fbc4e9f79249543019ce43c8d8e8b81901d"
+    },
+    "right_wide": {
+      "history_block_digest": "f5393fe532627610b3a35abdb3a3ea3c2575ec620f894fba83daf4202a2c3215",
+      "invocation_prompt_digest": "220540f77617fce0e9075c0142a23ae41c8222c13e48e4272da0b5eca9eee978",
+      "prompt_chars": 7591,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 5
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 9
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-99b0e5c9dff7bde0",
+          "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+          "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "dfa560f92ead8702fb17877c6a7f4322a42514892cc26510d3b49c080765cae1"
+    }
+  },
+  "generation": {
+    "max_new_tokens": 160,
+    "repetition_penalty": null,
+    "temperature": 0.0,
+    "top_k": null,
+    "top_p": 1.0
+  },
+  "matched_base_sha256": {
+    "low": "425da66377cb92733cf235eb820b18dbbeac6dee61be3922afa55b6718378d83",
+    "wide": "898d41bd19cce4757dd60db0967111c7fb532f5cf19ba4b6b0dd08e0fc28fda3"
+  },
+  "model": "qwen2.5:1.5b-instruct-q4_K_M",
+  "model_identity": {
+    "artifact_size_bytes": 1020,
+    "candidate_index": 0,
+    "configuration_digest": "1121eefaa30e8e64b68feb7c434ba72668b2e8c0cdc20b2e1d3c9dab7df3804d",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.ollama/models/manifests/registry.ollama.ai/library/qwen2.5/1.5b-instruct-q4_K_M",
+    "semantic_artifact_identity": "sha256:f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e",
+    "sidecar_metadata_digest": null
+  },
+  "ollama_version": "0.40.16",
+  "options": {
+    "api_base": "http://127.0.0.2:11434",
+    "keep_alive": "5m",
+    "manifest_sha256": "f2b0a490f661d58f20c4b98e5797ecf55e6e96293a88b71e96e7cc389f658f7e",
+    "model": "qwen2.5:1.5b-instruct-q4_K_M",
+    "num_gpu": 0,
+    "num_thread": 2,
+    "seed": 42,
+    "think": false,
+    "timeout_seconds": 120
+  },
+  "profiles": {
+    "empty": [],
+    "left_wide": [
+      [
+        6,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "parent_wide": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "right_wide": [
+      [
+        5,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        9,
+        null,
+        "abstained"
+      ]
+    ],
+    "shared_low": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        4,
+        9,
+        "correct"
+      ],
+      [
+        5,
+        11,
+        "correct"
+      ]
+    ]
+  },
+  "questions": {
+    "low": "On our most recent scored low-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Reply only with a JSON array of rows. Each row is [input, observed answer, outcome]. Use an integer or null for the observed answer. Use \"correct\", \"incorrect\", or \"abstained\" for the outcome. If you have no recorded exercise, return an empty array.",
+    "wide": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Reply only with a JSON array of rows. Each row is [input, observed answer, outcome]. Use an integer or null for the observed answer. Use \"correct\", \"incorrect\", or \"abstained\" for the outcome. If you have no recorded exercise, return an empty array."
+  },
+  "schema": "sentientos.sibling_chat_recall_plan:v1",
+  "source_code_sha256": "1fdbf6bd655ed4456e42f9224b6afb83e8ae1030cdee763d88331f5d2597b709",
+  "source_report_sha256": "b26bbed870338119b513a14c36362a5266f26b80fadc50012df7fd44b6fdc783",
+  "trials": [
+    [
+      "right",
+      "wide"
+    ],
+    [
+      "left",
+      "low"
+    ],
+    [
+      "empty",
+      "wide"
+    ],
+    [
+      "parent",
+      "wide"
+    ],
+    [
+      "left",
+      "wide"
+    ],
+    [
+      "right",
+      "low"
+    ],
+    [
+      "left",
+      "wide"
+    ]
+  ]
+}

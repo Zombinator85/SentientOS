@@ -6073,3 +6073,30 @@ prompt outside the history block across residents. Capture stopped at the
 ordinary chat inference boundary. Whether the acquired difference changes a
 model's response or improves a later decision remains an open behavioral
 question. [After the change](../../artifacts/experiments/ordinary-chat-retention-20261125/sibling_history_after.json)
+
+### CPU behavioral replay of the sibling histories
+
+Qwen2.5 1.5B Instruct ran through the ordinary chat service and its local
+inference governor. Both acquisition branches, the common parent and the
+empty control used the same evaluation model, seed, two CPU threads and
+fresh conversation sessions. The evaluation model differed from the archived
+acquisition model. The runner recorded each rendered prompt and expected
+score by digest before inference, checked the admitted receipt against the
+prompt, and observed zero resident model bytes in VRAM after each reply.
+The private scoring profiles came from the original acquisition runs.
+
+In the first seven calls, every delivered reply was an empty JSON array in
+a Markdown fence. This included the two different wide-range records, the
+parent, both shared low-range controls, the empty store and a repeat of the
+left wide-range question. The specified bare-array format scored zero exact
+answers. Even ignoring the fence, all six history-bearing calls omitted the
+recorded observations. This experiment had a conflict between its requested
+array format and the resident's instruction to cite the source record.
+[Frozen array protocol](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-array/plan.json)
+and [responses with governed receipts](../../artifacts/experiments/ordinary-chat-retention-20261125/cpu-sibling-recall-array/result.json).
+
+During setup, an inherited low-range score was reopened from the originating
+cycle, and prompt capture was aligned with the live adapter's model and
+workload metadata. Neither mismatch reached inference. A separate initial
+CPU invocation timed out at 30 seconds while processing the prompt. The
+completed experimental run used a 120-second service budget.

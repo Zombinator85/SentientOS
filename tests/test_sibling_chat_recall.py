@@ -5,7 +5,7 @@ import pytest
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_service import PersistentConversationService
 from sentientos.conversation_session import ConversationSessionStore
-from work.run_sibling_chat_recall import score_answer
+from work.run_sibling_chat_recall import score_answer, score_cited_answer
 
 pytestmark = pytest.mark.no_legacy_skip
 
@@ -24,6 +24,16 @@ def test_blind_recall_score_checks_every_row_and_grade():
     for invalid in ([[True, 26, "incorrect"]], [[7, 0, "abstained"]], [[7, None, "incorrect"]]):
         assert grade(invalid)["format"] == "invalid"
     assert score_answer("No evidence available.", profiles) == {"format": "invalid", "exact_profiles": []}
+
+
+def test_cited_score_preserves_a_wrong_citation_and_tolerates_one_fence():
+    profiles = {"first": [[6, 26, "incorrect"]]}
+    answer = json.dumps({"record_id": "some-other-record", "rows": profiles["first"]})
+    expected = {"format": "valid", "exact_profiles": ["first"], "cited_record": "some-other-record"}
+    assert score_cited_answer(answer, profiles) == expected
+    assert score_cited_answer("```json\n" + answer + "\n```", profiles) == expected
+    assert score_cited_answer(answer + "\n" + answer, profiles)["format"] == "invalid"
+    assert score_cited_answer('{"rows":[]}', profiles)["format"] == "invalid"
 
 
 @pytest.mark.parametrize("timeout,expected", [({}, 30.0), ({"inference_timeout_seconds": 120}, 120.0)])

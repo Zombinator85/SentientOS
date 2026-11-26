@@ -41,6 +41,23 @@ FORMAT = (' Reply only with a JSON array of rows. Each row is [input, observed a
           'for the outcome. If you have no recorded exercise, return an empty array.')
 TRIALS = (("right", "wide"), ("left", "low"), ("empty", "wide"), ("parent", "wide"),
           ("left", "wide"), ("right", "low"), ("left", "wide"))
+CITED_FORMAT = (' Consult the scored observations if available. Return one JSON object with "record_id" '
+                'and "rows". Cite the containing record_id once for all rows. Each row is [input, observed '
+                'answer, outcome]. Use an integer or null for the answer and "correct", "incorrect", or '
+                '"abstained" for the outcome. With no source, use null for record_id and an empty rows array.')
+INLINE_QUESTION = ('Read this supplied exercise report, named inline-example. At input 47 the answer was '
+                   'minus four and was marked incorrect. At input 52 there was an abstention. At input 61 '
+                   'the answer was ten and was marked correct. Use inline-example as the citation.')
+INLINE_ROWS = [[47, -4, "incorrect"], [52, None, "abstained"], [61, 10, "correct"]]
+
+
+def conditions(cited):
+    return TRIALS + ((("empty", "inline"),) if cited else ())
+
+
+def recall_question(scope, cited):
+    question = INLINE_QUESTION if scope == "inline" else QUESTIONS["latest_" + scope]
+    return question + (CITED_FORMAT if cited else FORMAT)
 
 
 def sha(data):
@@ -140,6 +157,20 @@ def score_answer(text, profiles):
     return {"format": "valid", "exact_profiles": [k for k, v in profiles.items() if sorted(v) == sorted(rows)]}
 
 
+def score_cited_answer(text, profiles):
+    """Allow a single JSON fence. Score row content independently of the stated citation."""
+    text = text.strip()
+    fenced = re.fullmatch(r"```(?:json)?[ \t]*\r?\n(.*?)\r?\n```", text, re.DOTALL)
+    try:
+        value = json.loads(fenced.group(1) if fenced else text)
+    except ValueError:
+        value = None
+    if (not isinstance(value, dict) or set(value) != {"record_id", "rows"}
+            or not (value["record_id"] is None or isinstance(value["record_id"], str))):
+        return {"format": "invalid", "exact_profiles": [], "cited_record": None}
+    return {**score_answer(json.dumps(value["rows"]), profiles), "cited_record": value["record_id"]}
+
+
 def source_rows(owner, evidence):
     run = owner.experiments.load_run(evidence["source_run_id"])
     result, = [r["score"] for r in run["objective_scores"] if r["condition_id"] == "history_present"]
@@ -161,7 +192,7 @@ class VerifiedChat(DevelopmentLocalChatInference):
         return self.receipt
 
 
-def run(cycles, install, models, root):
+def run(cycles, install, models, root, *, cited=False):
     root.mkdir(parents=True, exist_ok=False)
     baseline = read(SOURCE_REPORT)
     historical_request = _read_receipt(cycles / ("rootless-cognition-cycle-" + TARGET))[1]["request"]
@@ -191,10 +222,10 @@ def run(cycles, install, models, root):
             source_owners[cycle.name] = owner
         owners["empty"] = _owner(root / "empty", kinds, cycle, historical_request)
         profiles, questions, exposure, bases = {"empty": []}, {}, {}, {}
-        for arm, scope in dict.fromkeys(TRIALS):
+        for arm, scope in dict.fromkeys(conditions(cited)):
             owner = owners[arm]
             snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
-            question = questions[scope] = QUESTIONS["latest_" + scope] + FORMAT
+            question = questions[scope] = recall_question(scope, cited)
             base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
                                               bind_invocation=True, capture_adapter=inference)
             if bases.setdefault(scope, base) != base:
@@ -204,6 +235,8 @@ def run(cycles, install, models, root):
             if arm == "empty":
                 if evidence or captured["history_block_digest"] is not None:
                     raise ValueError("empty control exposed history")
+                if scope == "inline":
+                    profiles["inline"] = INLINE_ROWS
             else:
                 actual, = evidence
                 prior, = baseline["questions"]["latest_" + scope]["captures"][arm]["prompt_score_evidence"]
@@ -226,18 +259,22 @@ def run(cycles, install, models, root):
                 if profiles.setdefault(profile, oracle) != oracle:
                     raise ValueError("unmatched shared low-range oracle")
             exposure[key] = captured
-        plan = {"schema": "sentientos.sibling_chat_recall_plan:v1", "model": MODEL,
+        plan = {"schema": "sentientos.sibling_chat_recall_plan:" + ("v2" if cited else "v1"), "model": MODEL,
                 "source_report_sha256": sha(SOURCE_REPORT.read_bytes()), "model_identity": identity,
                 "ollama_version": version, "options": options, "context_tokens": config.max_context_tokens,
-                "generation": config.generation.as_kwargs(), "trials": TRIALS, "questions": questions,
+                "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
                 "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
                     k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
                 "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
+        if cited:
+            plan["criterion"] = ("One JSON object with record_id and rows. A single Markdown JSON fence is accepted. "
+                "Score exact rows against every profile, independently of the citation. Passing also requires the "
+                "source record ID, null for empty history, or inline-example for the direct-reading control.")
         save(root / "plan.json", plan)
         plan_hash = sha((root / "plan.json").read_bytes())
         trials = []
         inference.capture_only = False
-        for index, (arm, scope) in enumerate(TRIALS):
+        for index, (arm, scope) in enumerate(conditions(cited)):
             key = arm + "_" + scope
             inference.frozen_hash = exposure[key]["prompt_sha256"]
             inference.receipt = None
@@ -260,12 +297,16 @@ def run(cycles, install, models, root):
             placement, = get_api("ps")["models"]
             if placement["digest"] != MANIFEST or placement["size_vram"] != 0:
                 raise ValueError("expected exact model resident on CPU")
-            grade = score_answer(response.response, profiles)
-            expected = "empty" if arm == "empty" else "shared_low" if scope == "low" else key
+            grade = (score_cited_answer if cited else score_answer)(response.response, profiles)
+            expected = ("inline" if scope == "inline" else "empty" if arm == "empty"
+                        else "shared_low" if scope == "low" else key)
+            records = exposure[key]["prompt_score_evidence"]
+            citation = "inline-example" if scope == "inline" else records[0]["record_id"] if records else None
             result = {"trial": index, "condition": key, "plan_sha256": plan_hash,
                       "prompt_sha256": inference.frozen_hash, "receipt": disk, "resident_vram_bytes": placement["size_vram"],
                       "model_output": receipt.output_text, "delivered": response.response, "score": grade,
-                      "expected_profile": expected, "exact": expected in grade["exact_profiles"]}
+                      "expected_profile": expected, "exact": expected in grade["exact_profiles"]
+                           and (not cited or grade["cited_record"] == citation)}
             save(trial_root / "result.json", result)
             trials.append(result)
             print(index, key, grade, flush=True)
@@ -278,5 +319,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for arg in ("cycles", "ollama_install", "models", "new_run_directory"):
         parser.add_argument(arg, type=Path)
+    parser.add_argument("--cited", action="store_true")
     args = parser.parse_args()
-    run(args.cycles, args.ollama_install, args.models, args.new_run_directory)
+    run(args.cycles, args.ollama_install, args.models, args.new_run_directory, cited=args.cited)
