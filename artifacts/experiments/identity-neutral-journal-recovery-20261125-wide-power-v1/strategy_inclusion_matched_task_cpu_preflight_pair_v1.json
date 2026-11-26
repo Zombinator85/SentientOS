@@ -1,0 +1,58 @@
+{
+  "authority": false,
+  "cross_instance_probe_overlap_count": 0,
+  "history_task_family_ids": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "input_digests": {
+    "v11_preflight": "sha256:961995209ec8048c3aa1c9934d20d2798537741ab48285f0f7b870198bf63e97",
+    "v11_verification": "sha256:b6cda0cc49e8e8666c9f1cbc06aacaabbbf0d312b99188cb36e4a88e5722565b",
+    "v12_preflight": "sha256:425533e1055280ffcd74e046a5c806e6647f25eecd6fdfc6b2d667befa71db3c",
+    "v12_verification": "sha256:ebe4a8f8f893dd381578a8295dd0013f7a431f557c9794e2caee94df48f569ef"
+  },
+  "interpretation": "This freezes two task instances for a later matched strategy-inclusion behavioral contrast against the same receipt-bound history and target identity. It is preflight and provenance evidence only; no responses or learning outcomes have been observed.",
+  "intervention_changed_context_fields": [
+    "task_family_accumulated_candidate_strategy"
+  ],
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "preflight_verification": {
+    "both_answer_key_commitments_verified": true,
+    "both_private_task_plans_reloaded": true,
+    "both_selected_history_records_verified": true,
+    "both_source_receipts_verified": true,
+    "v11_report_digest": "sha256:961995209ec8048c3aa1c9934d20d2798537741ab48285f0f7b870198bf63e97",
+    "v11_verification_digest": "sha256:b6cda0cc49e8e8666c9f1cbc06aacaabbbf0d312b99188cb36e4a88e5722565b",
+    "v12_report_digest": "sha256:425533e1055280ffcd74e046a5c806e6647f25eecd6fdfc6b2d667befa71db3c",
+    "v12_verification_digest": "sha256:ebe4a8f8f893dd381578a8295dd0013f7a431f557c9794e2caee94df48f569ef"
+  },
+  "schema_version": "sentientos.strategy_inclusion_matched_task_cpu_preflight_pair:v1",
+  "seed_selection_rule": "v12 is the first increasing task seed after v11 with zero overlap against v11 transfer probes; selected before behavioral outcomes",
+  "shared_selected_history_set_digest": "sha256:145954a9bef5246777e602b8a9581e9b47baafa2e99dacd261f252da5e6859fd",
+  "shared_source_receipt_digest": "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b",
+  "shared_strategy_digest": "sha256:3772a000c13d9cfd3f5b99e4cd16f9d009eb6848e1ea1d26f32196912fad9d3d",
+  "shared_target_model_identity_digest": "sha256:1a5c442c5bb4b6dec398f2d6f384cf456e9d7f7bd79b023817ab0bb2bf1e5ff3",
+  "source_checkout_commit": "3552b00d2bf7b3093ec1ad14952abc9f015d7a04",
+  "status": "both_receipt_bound_preflights_verified",
+  "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+  "task_instances": [
+    {
+      "answer_key_digest": "sha256:ca7f315f8cc9bfaa112096d81aa7998b0ef44baa6a2b512aa71e00b62d320117",
+      "probe_count": 3,
+      "probe_set_digest": "sha256:907bc9c4c9245433d28a65b1c35dcc64ca495bcafa86022821882259b6c80568",
+      "protocol_digest": "sha256:2dc5ab908181418271a2189dfcf3814b775f71540f74305d8238ba25adf18432",
+      "task_digest": "sha256:9350230f52e725a153f585199261b7d9489c79acc8842d2240406ed5a5df9ba9",
+      "task_seed": 13688906
+    },
+    {
+      "answer_key_digest": "sha256:d2e019f9353e737dd4516b57b2d5e6c9c13f18c0852ac6f63213bf3ab11218db",
+      "probe_count": 3,
+      "probe_set_digest": "sha256:bdd485d995aee471fabc085aa0db5072a8cf9d226acca509aefcd0fc09080bd3",
+      "protocol_digest": "sha256:96920ca57d32364b742a84d7465c215f5ab79e77fbb89f9585e45551a62d565b",
+      "task_digest": "sha256:5de47e967b5fa2deabcf56b1c58d9b53a03a844151ae05a3cb67f3eac9098135",
+      "task_seed": 13688907
+    }
+  ]
+}

@@ -5906,6 +5906,29 @@ answer-key commitment, withholds relation/answer values, and reloads two
 history records. These checks establish intervention construction and custody,
 not that the model will use the accumulated strategy or answer better.
 
+A second matched task preflight, [v12](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v12.json),
+uses seed `13688907`, the first increasing task seed after v11 whose three
+transfer probes do not overlap v11's. The [v8 verifier](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v8.json)
+reloaded its private task and protocol and verified the answer-key
+commitment, historical receipt, and both selected history records. V11 and
+v12 bind the same target identity, source receipt, selected-history set, and
+strategy digest; each pair changes only
+`task_family_accumulated_candidate_strategy`. Their probes are disjoint. The
+[matched-pair record](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_matched_task_cpu_preflight_pair_v1.json)
+binds both reports, verifiers, and probe-set digests. Both remain CPU-only
+preflight evidence; no behavioral result or learning claim exists.
+
+V12 is ready for a separate behavioral cycle using cycle ID
+`rootless-cognition-cycle-20261126000000000012` (confirmed absent when
+prepared). Starting from the v11 launch recipe below, substitute task seed
+`13688907`, preregistration digest
+`96920ca57d32364b742a84d7465c215f5ab79e77fbb89f9585e45551a62d565b`, the v12
+preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v2`.
+Keep the backend seed and pinned model identity from v11 so the only planned
+differences between task instances are the task seed and private task
+commitment. This recipe is not a launch or a result.
+
 The next rootless attempt is reserved as cycle ID
 `rootless-cognition-cycle-20261125000000000008`; a read-only check confirmed
 that its cycle directory does not exist. The pinned Ollama manifest is present
