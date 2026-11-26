@@ -47,6 +47,10 @@
       "then": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory_artifact:v2" } } }
     },
     {
+      "if": { "properties": { "baseline_inventory": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v4" } }, "required": ["schema_version"] } }, "required": ["baseline_inventory"] },
+      "then": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory_artifact:v2" } } }
+    },
+    {
       "if": { "properties": { "baseline_ready": { "const": true } }, "required": ["baseline_ready"] },
       "then": {
         "properties": {
@@ -62,6 +66,10 @@
           }
         }
       }
+    },
+    {
+      "if": { "properties": { "baseline_ready": { "const": true }, "baseline_inventory": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v4" } }, "required": ["schema_version"] } }, "required": ["baseline_ready", "baseline_inventory"] },
+      "then": { "properties": { "baseline_inventory": { "properties": { "history_probe_inventory_matches_protocol": { "const": true } } } } }
     }
   ]
 }

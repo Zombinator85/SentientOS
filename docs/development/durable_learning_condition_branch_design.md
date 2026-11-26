@@ -1016,6 +1016,16 @@ The same reciprocal-pair check runs when a setup artifact is persisted and
 reloaded, so individually valid but mutually inconsistent manifests cannot
 become durable setup evidence.
 
+Protocol v12 also requires the condition worker's baseline report to include
+the complete receipt-verified historical integer probe inventory. Baseline
+inventory v4 carries the exact sorted inputs and inventory digest; the
+supervisor reconstructs the inventory digest, binds the history snapshot, and
+compares both values with the v12 protocol before accepting a completed
+baseline. This closes the history-overlap check across the worker boundary.
+Older protocols retain their v2/v3 report shapes. This remains model-free
+preflight evidence and does not itself establish worker isolation or authorize
+an inference run.
+
 The v3 baseline inventory also carries a live, non-mutating branch-root
 access matrix. From inside each worker, it opens each of its four own roots
 with list/read-attributes access and compares the opened directory identity

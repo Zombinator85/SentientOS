@@ -456,13 +456,23 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
             inventory_v3 = (type(result) is dict and result.get(
                 "schema_version") ==
                     "sentientos.durable_learning_worker_baseline_inventory:v3")
+            inventory_v4 = (type(result) is dict and result.get(
+                "schema_version") ==
+                    "sentientos.durable_learning_worker_baseline_inventory:v4")
             if inventory_v3:
                 expected_fields |= {"branch_root_access_matrix",
                     "branch_root_access_matrix_verified"}
+            if inventory_v4:
+                expected_fields |= {"history_probe_input_inventory",
+                    "history_probe_inventory_matches_protocol"}
+                if "branch_root_access_matrix" in result:
+                    expected_fields |= {"branch_root_access_matrix",
+                        "branch_root_access_matrix_verified"}
             if (type(result) is not dict or set(result) != expected_fields
                     or result.get("schema_version") not in {
                         "sentientos.durable_learning_worker_baseline_inventory:v2",
-                        "sentientos.durable_learning_worker_baseline_inventory:v3"}
+                        "sentientos.durable_learning_worker_baseline_inventory:v3",
+                        "sentientos.durable_learning_worker_baseline_inventory:v4"}
                     or result.get("protocol_id") != checked_request["protocol_id"]
                     or result.get("protocol_digest") !=
                         checked_request["protocol_digest"]
@@ -485,7 +495,49 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
                         value["result_digest"]):
                 raise ConditionWorkerRPCError(
                     "durable_learning_worker_rpc_baseline_inventory_invalid")
-            if inventory_v3:
+            if inventory_v4:
+                from .local_model_authority import digest_payload
+                inventory = result.get("history_probe_input_inventory")
+                inventory_fields = {"schema_version", "history_state_digest",
+                    "record_count", "record_refs_digest", "probe_inputs",
+                    "probe_inputs_digest", "owner_verified", "authority",
+                    "inventory_digest"}
+                inventory_body = ({key: item for key, item in inventory.items()
+                    if key != "inventory_digest"}
+                    if isinstance(inventory, Mapping) else {})
+                probe_inputs = (inventory.get("probe_inputs")
+                    if isinstance(inventory, Mapping) else None)
+                if (not isinstance(inventory, Mapping)
+                        or set(inventory) != inventory_fields
+                        or inventory.get("schema_version") !=
+                            "sentientos.resident_history_probe_input_inventory:v1"
+                        or not isinstance(inventory.get("history_state_digest"), str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                            inventory["history_state_digest"]) is None
+                        or type(inventory.get("record_count")) is not int
+                        or not 0 <= inventory["record_count"] <= 4096
+                        or not _require_digest(inventory.get("record_refs_digest"))
+                        or not isinstance(probe_inputs, list)
+                        or len(probe_inputs) > 65_536
+                        or any(type(item) is not int for item in probe_inputs)
+                        or probe_inputs != sorted(set(probe_inputs))
+                        or inventory.get("probe_inputs_digest") !=
+                            digest_payload({"probe_inputs": probe_inputs})
+                        or inventory.get("owner_verified") is not True
+                        or inventory.get("authority") is not False
+                        or inventory.get("inventory_digest") !=
+                            digest_payload(inventory_body)
+                        or type(result.get(
+                            "history_probe_inventory_matches_protocol")) is not bool
+                        or result.get("history_state_digest") !=
+                            inventory.get("history_state_digest")
+                        or (value["status"] == "completed"
+                            and result.get(
+                                "history_probe_inventory_matches_protocol") is not True)):
+                    raise ConditionWorkerRPCError(
+                        "durable_learning_worker_rpc_history_probe_inventory_invalid")
+            if inventory_v3 or (inventory_v4
+                    and "branch_root_access_matrix" in result):
                 matrix = result.get("branch_root_access_matrix")
                 if not isinstance(matrix, Mapping):
                     raise ConditionWorkerRPCError(

@@ -3345,16 +3345,28 @@ class DurableDevelopmentalLearningProtocolStore:
         report_v3 = (isinstance(report, Mapping) and report.get(
             "schema_version") ==
                 "sentientos.durable_learning_worker_baseline_inventory:v3")
+        report_v4 = (isinstance(report, Mapping) and report.get(
+            "schema_version") ==
+                "sentientos.durable_learning_worker_baseline_inventory:v4")
         if report_v3:
             report_fields |= {"branch_root_access_matrix",
                 "branch_root_access_matrix_verified"}
+        if report_v4:
+            report_fields |= {"history_probe_input_inventory",
+                "history_probe_inventory_matches_protocol"}
+            if "branch_root_access_matrix" in report:
+                report_fields |= {"branch_root_access_matrix",
+                    "branch_root_access_matrix_verified"}
         if (not isinstance(report, Mapping) or set(report) != report_fields
                 or report.get("schema_version") not in {
                     "sentientos.durable_learning_worker_baseline_inventory:v2",
-                    "sentientos.durable_learning_worker_baseline_inventory:v3"}
+                    "sentientos.durable_learning_worker_baseline_inventory:v3",
+                    "sentientos.durable_learning_worker_baseline_inventory:v4"}
                 or report.get("protocol_id") != protocol.get("protocol_id")
                 or report.get("protocol_digest") != protocol.get("protocol_digest")
                 or report.get("condition") != artifact.get("condition")
+                or ((protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12)
+                    != report_v4)
                 or not isinstance(branch_ids, Mapping)
                 or report.get("branch_id") != branch_ids.get(artifact["condition"])
                 or not isinstance(report.get("history_state_digest"), str)
@@ -3375,11 +3387,13 @@ class DurableDevelopmentalLearningProtocolStore:
                 or report.get("authority") is not False):
             raise ValueError(
                 "durable_learning_worker_baseline_report_invalid")
-        if report_v3:
+        if report_v3 or report_v4:
             if artifact.get("schema_version") != (
                     "sentientos.durable_learning_worker_baseline_inventory_artifact:v2"):
                 raise ValueError(
                     "durable_learning_worker_baseline_v3_exit_evidence_missing")
+        if report_v3 or (report_v4
+                and "branch_root_access_matrix" in report):
             setup = self.load_condition_worker_baseline_runtime_setup(
                 protocol=protocol)
             manifests = (setup.get("baseline_runtime_manifests")
@@ -3410,6 +3424,28 @@ class DurableDevelopmentalLearningProtocolStore:
                         "branch_root_access_matrix_verified") is not True):
                 raise ValueError(
                     "durable_learning_worker_baseline_completed_without_access_matrix")
+        if report_v4:
+            inventory = report.get("history_probe_input_inventory")
+            checked_inventory = _verify_history_probe_input_inventory(inventory)
+            expected_history_inventory = (
+                protocol.get("historical_probe_input_inventory_digest")
+                if protocol.get("schema_version") == _PROTOCOL_SCHEMA_V12 else None)
+            history_inventory_matches_protocol = (
+                checked_inventory.get("history_state_digest") ==
+                    protocol.get("baseline_history_state_digest")
+                and checked_inventory.get("inventory_digest") ==
+                    expected_history_inventory
+                and checked_inventory.get("probe_inputs") ==
+                    protocol.get("historical_probe_inputs"))
+            if (protocol.get("schema_version") != _PROTOCOL_SCHEMA_V12
+                    or report.get("history_probe_inventory_matches_protocol")
+                        is not history_inventory_matches_protocol
+                    or report.get("history_state_digest") !=
+                        checked_inventory.get("history_state_digest")
+                    or (artifact.get("response_status") == "completed"
+                        and not history_inventory_matches_protocol)):
+                raise ValueError(
+                    "durable_learning_worker_baseline_history_probe_inventory_mismatch")
         journal = report.get("operation_journal_inventory")
         if journal is None:
             if report.get("operation_journal_empty_verified") is not False:
@@ -3470,7 +3506,11 @@ class DurableDevelopmentalLearningProtocolStore:
                         and report.get("history_matches_protocol_baseline")
                         and report.get("active_empty_session_verified")
                         and report.get("branch_roots_disjoint")
-                        and report.get("operation_journal_empty_verified")))):
+                        and report.get("operation_journal_empty_verified")
+                        and (protocol.get("schema_version") !=
+                            _PROTOCOL_SCHEMA_V12
+                            or report.get(
+                                "history_probe_inventory_matches_protocol") is True)))):
             raise ValueError(
                 "durable_learning_worker_baseline_acceptance_invalid")
         from .durable_learning_condition_worker_rpc import (

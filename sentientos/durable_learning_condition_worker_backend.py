@@ -294,6 +294,10 @@ class _ReadOnlyConditionBaselineOwner:
     def ordinary_chat_developmental_history_state_snapshot(self
             ) -> dict[str, Any]:
         completed = self.writeback.store.inspect_completed_records()
+        return self._snapshot_from_completed_records(completed)
+
+    @staticmethod
+    def _snapshot_from_completed_records(completed: Any) -> dict[str, Any]:
         refs = sorted(({
             "record_id": record.record_id,
             "record_digest": record.record_digest,
@@ -307,6 +311,48 @@ class _ReadOnlyConditionBaselineOwner:
                 "sentientos.resident_history_state_snapshot:v1",
             "history_state_digest": "sha256:" + history_digest,
             "record_refs": refs, "authority": False}
+
+    def ordinary_chat_developmental_history_probe_input_inventory(
+            self) -> dict[str, Any]:
+        """Derive v12's historical probe set from the verified read-only store."""
+        from collections.abc import Sequence
+        from .durable_developmental_learning_experiment import (
+            MAX_HISTORY_PROBE_INPUTS)
+
+        completed = self.writeback.store.inspect_completed_records()
+        snapshot = self._snapshot_from_completed_records(completed)
+        refs = snapshot["record_refs"]
+        if len(completed) > 4096:
+            raise ValueError("durable_learning_worker_history_inventory_over_bound")
+        inputs: set[int] = set()
+        pending: list[Any] = [record.candidate for record, _receipt in completed]
+        while pending:
+            value = pending.pop()
+            if isinstance(value, Mapping):
+                for key, item in value.items():
+                    if key == "probe_input" and type(item) is int:
+                        inputs.add(item)
+                    elif (key == "probe_inputs"
+                            and isinstance(item, Sequence)
+                            and not isinstance(item, (str, bytes))):
+                        inputs.update(candidate for candidate in item
+                            if type(candidate) is int)
+                    if isinstance(item, (Mapping, list, tuple)):
+                        pending.append(item)
+            elif isinstance(value, (list, tuple)):
+                pending.extend(value)
+        ordered = sorted(inputs)
+        if len(ordered) > MAX_HISTORY_PROBE_INPUTS:
+            raise ValueError("durable_learning_worker_history_inventory_over_bound")
+        body = {"schema_version":
+                "sentientos.resident_history_probe_input_inventory:v1",
+            "history_state_digest": snapshot["history_state_digest"],
+            "record_count": len(refs),
+            "record_refs_digest": digest_payload({"record_refs": refs}),
+            "probe_inputs": ordered,
+            "probe_inputs_digest": digest_payload({"probe_inputs": ordered}),
+            "owner_verified": True, "authority": False}
+        return {**body, "inventory_digest": digest_payload(body)}
 
     def ordinary_chat_developmental_history_context(self, **_kwargs: Any
             ) -> Mapping[str, Any]:
@@ -1165,6 +1211,24 @@ class DurableLearningConditionWorkerBackend:
         source = self._branch.experience_source.current_history_state_snapshot()
         retained = _resolve_history_state_snapshot(
             self._branch.retained_state_snapshot_resolver)
+        history_probe_inventory = None
+        history_probe_inventory_matches_protocol = None
+        if self._protocol.get("schema_version") == (
+                "sentientos.durable_developmental_learning_protocol:v12"):
+            from .durable_developmental_learning_experiment import (
+                _verify_history_probe_input_inventory)
+            history_probe_inventory = _verify_history_probe_input_inventory(
+                self._branch.experience_source.history_probe_input_inventory())
+            history_probe_inventory_matches_protocol = (
+                history_probe_inventory.get("history_state_digest") ==
+                    source.get("history_state_digest")
+                and history_probe_inventory.get("history_state_digest") ==
+                    self._protocol.get("baseline_history_state_digest")
+                and history_probe_inventory.get("inventory_digest") ==
+                    self._protocol.get(
+                        "historical_probe_input_inventory_digest")
+                and history_probe_inventory.get("probe_inputs") ==
+                    self._protocol.get("historical_probe_inputs"))
         owner = self._branch.experience_source._owner
         config = getattr(owner, "config", None)
         writeback = getattr(owner, "writeback", None)
@@ -1222,7 +1286,9 @@ class DurableLearningConditionWorkerBackend:
             except Exception:
                 journal_inventory = None
         evidence = {"schema_version":
-                ("sentientos.durable_learning_worker_baseline_inventory:v3"
+                ("sentientos.durable_learning_worker_baseline_inventory:v4"
+                    if history_probe_inventory is not None else
+                 "sentientos.durable_learning_worker_baseline_inventory:v3"
                     if isinstance(self._baseline_runtime_manifest, Mapping)
                     and self._baseline_runtime_manifest.get("schema_version") ==
                         "sentientos.durable_learning_worker_baseline_runtime_manifest:v2"
@@ -1240,6 +1306,10 @@ class DurableLearningConditionWorkerBackend:
             "operation_journal_inventory": journal_inventory,
             "operation_journal_empty_verified": journal_empty,
             "authority": False}
+        if history_probe_inventory is not None:
+            evidence["history_probe_input_inventory"] = history_probe_inventory
+            evidence["history_probe_inventory_matches_protocol"] = (
+                history_probe_inventory_matches_protocol)
         if (isinstance(self._baseline_runtime_manifest, Mapping)
                 and self._baseline_runtime_manifest.get("schema_version") ==
                     "sentientos.durable_learning_worker_baseline_runtime_manifest:v2"):
@@ -1257,7 +1327,8 @@ class DurableLearningConditionWorkerBackend:
             "expected_baseline_inventory_digest")
         if ((expected is not None and expected != inventory_digest)
                 or not (history_baseline
-                and session_baseline and roots_disjoint and journal_empty)):
+                and session_baseline and roots_disjoint and journal_empty
+                and history_probe_inventory_matches_protocol is not False)):
             return {"status": "rejected", "result": evidence}
         if branch_root_access_verified is False:
             return {"status": "rejected", "result": evidence}

@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "history_state_digest", "history_snapshot_matches_retained_state", "history_matches_protocol_baseline", "active_empty_session_verified", "branch_roots_disjoint", "branch_root_identity_digests", "operation_journal_inventory", "operation_journal_empty_verified", "authority"],
   "properties": {
-    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_inventory:v2", "sentientos.durable_learning_worker_baseline_inventory:v3"] },
+    "schema_version": { "enum": ["sentientos.durable_learning_worker_baseline_inventory:v2", "sentientos.durable_learning_worker_baseline_inventory:v3", "sentientos.durable_learning_worker_baseline_inventory:v4"] },
     "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
     "protocol_digest": { "$ref": "#/$defs/digest" },
     "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
@@ -22,10 +22,27 @@
     "operation_journal_empty_verified": { "type": "boolean" },
     "branch_root_access_matrix": { "$ref": "#/$defs/branchRootAccessMatrix" },
     "branch_root_access_matrix_verified": { "type": "boolean" },
+    "history_probe_input_inventory": { "$ref": "#/$defs/historyProbeInputInventory" },
+    "history_probe_inventory_matches_protocol": { "type": "boolean" },
     "authority": { "const": false }
   },
   "$defs": {
     "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "historyProbeInputInventory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "history_state_digest", "record_count", "record_refs_digest", "probe_inputs", "probe_inputs_digest", "owner_verified", "authority", "inventory_digest"],
+      "properties": {
+        "schema_version": { "const": "sentientos.resident_history_probe_input_inventory:v1" },
+        "history_state_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "record_count": { "type": "integer", "minimum": 0, "maximum": 4096 },
+        "record_refs_digest": { "$ref": "#/$defs/digest" },
+        "probe_inputs": { "type": "array", "maxItems": 65536, "uniqueItems": true, "items": { "type": "integer" } },
+        "probe_inputs_digest": { "$ref": "#/$defs/digest" },
+        "owner_verified": { "const": true },
+        "authority": { "const": false },
+        "inventory_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
     "journalInventory": {
       "type": "object",
       "additionalProperties": false,
@@ -136,11 +153,15 @@
   "allOf": [
     {
       "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v3" } }, "required": ["schema_version"] },
-      "then": { "required": ["branch_root_access_matrix", "branch_root_access_matrix_verified"] }
+      "then": { "required": ["branch_root_access_matrix", "branch_root_access_matrix_verified"], "not": { "anyOf": [ { "required": ["history_probe_input_inventory"] }, { "required": ["history_probe_inventory_matches_protocol"] } ] } }
+    },
+    {
+      "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v4" } }, "required": ["schema_version"] },
+      "then": { "required": ["history_probe_input_inventory", "history_probe_inventory_matches_protocol"], "allOf": [ { "oneOf": [ { "required": ["branch_root_access_matrix", "branch_root_access_matrix_verified"] }, { "not": { "anyOf": [ { "required": ["branch_root_access_matrix"] }, { "required": ["branch_root_access_matrix_verified"] } ] } } ] } ] }
     },
     {
       "if": { "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_baseline_inventory:v2" } }, "required": ["schema_version"] },
-      "then": { "not": { "anyOf": [ { "required": ["branch_root_access_matrix"] }, { "required": ["branch_root_access_matrix_verified"] } ] } }
+      "then": { "not": { "anyOf": [ { "required": ["branch_root_access_matrix"] }, { "required": ["branch_root_access_matrix_verified"] }, { "required": ["history_probe_input_inventory"] }, { "required": ["history_probe_inventory_matches_protocol"] } ] } }
     }
   ]
 }
