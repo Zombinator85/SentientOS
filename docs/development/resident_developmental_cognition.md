@@ -3993,6 +3993,14 @@ performance improvement. The cycle54 strategy-inclusion preflight failed
 closed with `task_family_strategy_ablation_candidate_unavailable`; that
 preflight did not emit a source-family eligibility breakdown, so its failure
 does not establish that the cross-range examples were absent or ineligible.
+The CPU strategy-inclusion preflight now attaches a bounded diagnostic to this
+failure: per declared source family it reports matching record/experience
+counts and whether that family independently produces a candidate under the
+same fitter. These standalone checks are explicitly not a decomposition of
+the joint candidate gate; raw answers remain withheld, and the gate is
+unchanged. The preflight CLI emits the diagnostic as structured JSON on
+stderr. The historical cycle54 artifact remains unchanged because the new
+diagnostic was not captured during its original preflight.
 
 The [cycle53](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/53_cycle_summary_v1.json)
 and [cycle54](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/54_cycle_summary_v1.json)

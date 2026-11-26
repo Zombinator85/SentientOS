@@ -17848,12 +17848,13 @@ class ResidentDevelopmentalCognitionOwner:
                         and objective_task_descriptor.get(
                             "history_task_family_ids")
                     else (task_family_id,))
+                unsettled_strategy_groups = set(getattr(projection,
+                    "task_family_unsettled_outcome_groups", ()))
                 expected_accumulated_strategy = (
                     _candidate_integer_affine_strategy_from_history(
                         history_packets, task_family_id=task_family_id,
                         history_task_family_ids=history_task_family_ids,
-                        unsettled_outcome_groups=set(getattr(projection,
-                            "task_family_unsettled_outcome_groups", ()))))
+                        unsettled_outcome_groups=unsettled_strategy_groups))
                 compact_strategy_projection = task_family_evidence.get(
                     "schema_version") in {
                         "sentientos.task_family_history_prompt_projection:v32",
@@ -17883,8 +17884,61 @@ class ResidentDevelopmentalCognitionOwner:
                         raise ResidentDevelopmentalCognitionError(
                             "task_family_strategy_ablation_projection_binding_invalid")
                     if expected_accumulated_strategy is None:
+                        family_diagnostics: list[dict[str, Any]] = []
+                        for source_family_id in history_task_family_ids:
+                            matching_record_count = 0
+                            matching_experience_count = 0
+                            for packet in history_packets:
+                                if not isinstance(packet, Mapping):
+                                    continue
+                                experiences = packet.get(
+                                    "task_relevant_experience", ())
+                                if not isinstance(experiences, (list, tuple)):
+                                    continue
+                                family_experiences = [experience
+                                    for experience in experiences
+                                    if isinstance(experience, Mapping)
+                                    and experience.get("task_family_id")
+                                        == source_family_id]
+                                if family_experiences:
+                                    matching_record_count += 1
+                                    matching_experience_count += len(
+                                        family_experiences)
+                            standalone_candidate = (
+                                _candidate_integer_affine_strategy_from_history(
+                                    history_packets,
+                                    task_family_id=source_family_id,
+                                    history_task_family_ids=(source_family_id,),
+                                    unsettled_outcome_groups=(
+                                        unsettled_strategy_groups)))
+                            family_diagnostics.append({
+                                "task_family_id": source_family_id,
+                                "matching_record_count": matching_record_count,
+                                "matching_experience_count": (
+                                    matching_experience_count),
+                                "standalone_candidate_available": (
+                                    standalone_candidate is not None),
+                                "supporting_run_count": (
+                                    standalone_candidate.get(
+                                        "supporting_run_count", 0)
+                                    if standalone_candidate is not None else 0),
+                                "supporting_distinct_input_count": (
+                                    standalone_candidate.get(
+                                        "supporting_distinct_input_count", 0)
+                                    if standalone_candidate is not None else 0),
+                            })
                         raise ResidentDevelopmentalCognitionError(
-                            "task_family_strategy_ablation_candidate_unavailable")
+                            "task_family_strategy_ablation_candidate_unavailable",
+                            diagnostic={
+                                "schema_version": (
+                                    "sentientos.strategy_candidate_eligibility_diagnostic:v1"),
+                                "scope": (
+                                    "standalone_per_family_checks_do_not_decompose_"
+                                    "joint_candidate_eligibility"),
+                                "family_diagnostics": family_diagnostics,
+                                "answer_values_included": False,
+                                "eligibility_gate_changed": False,
+                            })
                     expected_prompt_strategy = None
                 if (task_family_evidence.get(
                         "accumulated_candidate_integer_affine_strategy")

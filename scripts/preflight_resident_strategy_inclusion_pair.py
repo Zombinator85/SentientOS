@@ -633,5 +633,10 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (OSError, TypeError, ValueError, RuntimeError) as exc:
-        print(f"preflight failed: {exc}", file=sys.stderr)
+        failure = {"failure_code": str(exc)}
+        diagnostic = getattr(exc, "diagnostic", None)
+        if isinstance(diagnostic, Mapping):
+            failure["diagnostic"] = dict(diagnostic)
+        print("preflight failed: " + json.dumps(failure, sort_keys=True,
+            separators=(",", ":")), file=sys.stderr)
         raise SystemExit(2)
