@@ -6740,9 +6740,14 @@ python -m work.compare_ordinary_chat_transfer_distance_ladder_derivation \
 
 The comparator requires matching model identity, generation/GPU settings,
 probe questions and order, output-format constraint, and scored history
-evidence. Report correct answers and format validity separately for both arms
-at all three distances. An empty-arm improvement would indicate the procedure
-helped solve the task generally; an additional history-arm improvement would
-be evidence that history contributed under the scaffold. Neither result alone
-would establish durable learning or carryover across sessions/models. No
-model-bound preflight or inference has been run for this new treatment yet.
+evidence, and requires current v2 score reports that independently validate
+history/empty evidence separation. Re-score both the strict-format control and
+the derivation run with the current scorer, saving separate score files so
+older reports remain intact, then pass those paths via `--control-score` and
+`--derivation-score`. Report correct answers and format validity separately
+for both arms at all three distances. An empty-arm improvement would indicate
+the procedure helped solve the task generally; an additional history-arm
+improvement would be evidence that history contributed under the scaffold.
+Neither result alone would establish durable learning or carryover across
+sessions/models. No model-bound preflight or inference has been run for this
+new treatment yet.

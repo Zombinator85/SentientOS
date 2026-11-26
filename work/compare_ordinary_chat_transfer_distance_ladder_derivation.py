@@ -25,14 +25,24 @@ def _support_signature(plan: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def compare(control: Path, derivation: Path, output: Path) -> dict[str, Any]:
+def compare(control: Path, derivation: Path, output: Path, *,
+            control_score_path: Path | None = None,
+            derivation_score_path: Path | None = None) -> dict[str, Any]:
     control_plan, derivation_plan = _read(control / "plan.json"), _read(derivation / "plan.json")
-    control_score, derivation_score = _read(control / "independent-score.json"), _read(
-        derivation / "independent-score.json")
+    control_score_path = control_score_path or (control / "independent-score.json")
+    derivation_score_path = derivation_score_path or (derivation / "independent-score.json")
+    control_score, derivation_score = _read(control_score_path), _read(derivation_score_path)
+    expected_scorer_sha256 = _sha(Path(__file__).with_name("score_ordinary_chat_transfer_distance_ladder.py"))
     for directory, plan, score in ((control, control_plan, control_score),
                                    (derivation, derivation_plan, derivation_score)):
         if score.get("plan_sha256") != _sha(directory / "plan.json"):
             raise ValueError("independent score does not bind to its frozen plan")
+        evidence_validation = score.get("prompt_evidence_validation", {})
+        if (score.get("schema") != "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2"
+                or score.get("scorer_source_sha256") != expected_scorer_sha256
+                or evidence_validation.get("history_matches_model_free_preflight") is not True
+                or evidence_validation.get("empty_arm_exposed_no_history") is not True):
+            raise ValueError("both runs must be rescored with the independent prompt-evidence validator")
         result = _read(directory / "result.json")
         if result.get("plan_sha256") != score["plan_sha256"]:
             raise ValueError("run result and score bind to different plans")
@@ -97,6 +107,11 @@ if __name__ == "__main__":
     parser.add_argument("strict_format_control_run", type=Path)
     parser.add_argument("derivation_run", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--control-score", type=Path,
+        help="v2 score report for the strict-format control (defaults to run/independent-score.json)")
+    parser.add_argument("--derivation-score", type=Path,
+        help="v2 score report for the rule-derivation run (defaults to run/independent-score.json)")
     args = parser.parse_args()
-    report = compare(args.strict_format_control_run, args.derivation_run, args.output)
+    report = compare(args.strict_format_control_run, args.derivation_run, args.output,
+        control_score_path=args.control_score, derivation_score_path=args.derivation_score)
     print("ladder_derivation_comparison_saved", report["derivation_plan_sha256"], flush=True)
