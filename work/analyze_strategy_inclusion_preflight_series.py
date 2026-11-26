@@ -86,6 +86,8 @@ def _load_and_verify_task(*, task: Mapping[str, Any], analysis: Mapping[str, Any
     attempt_status = runtime_entry.get("attempt_status")
     if attempt_status not in {"not_started", "failed", "completed", "unknown"}:
         raise SeriesAnalysisError("runtime_manifest_attempt_status_invalid")
+    if attempt_status != "completed":
+        raise SeriesAnalysisError("strategy_pair_attempt_not_completed")
     reported_failure_code = runtime_entry.get("failure_code")
     if (reported_failure_code is not None
             and (not isinstance(reported_failure_code, str)
@@ -394,7 +396,9 @@ def analyze_series(*, series_path: Path, analysis_path: Path,
             or analysis.get("preflight_series") != series_path.name
             or [item for item in analysis.get("expected_cycle_ids", ())]
                 != [item.get("cycle_id") for item in entries]
-            or len(set(item.get("cycle_id") for item in entries)) != len(entries)):
+            or len(set(item.get("cycle_id") for item in entries)) != len(entries)
+            or len(set(item.get("cycle_root") for item in entries)) != len(entries)
+            or len(set(item.get("journal_root") for item in entries)) != len(entries)):
         raise SeriesAnalysisError("series_runtime_input_set_invalid")
     series_root = series_path.parent
     outcomes: list[dict[str, Any]] = []
