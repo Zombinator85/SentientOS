@@ -6129,11 +6129,20 @@ independently revalidated, and the runner verified Hermes was unloaded after
 the cycle. Learning, improvement, and authority remain false.
 
 The user later reported that they had been using the GPU during this testing
-window. The run guard admitted these slots, but it did not measure or control
-other GPU workloads. This is a hardware-load confound for reproducibility and
-latency; it does not change the frozen inputs or scoring, and no causal claim
-about GPU contention is made. Future model runs should occur only in a window
-the user confirms is clear and after the resource guard admits the slot.
+window. The saved resource evidence shows 1–2% host-wide utilization at each
+preload check and a maximum of 95%, 100%, and 100% during inference in cycles
+19, 20, and 21 respectively; the minimum reported free VRAM was 3,203–3,270
+MiB. These samples are device-wide and do not attribute use to Hermes or the
+user's application, so they cannot quantify contention. The user's report
+does mean the runs overlapped their GPU use, which is a coordination and
+reproducibility caveat even though the frozen inputs and scoring remain bound.
+
+The runner now requires `SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to equal
+the exact one-shot cycle ID before it allocates the run root or loads Hermes.
+This records an operator's per-cycle availability confirmation; GPU telemetry
+does not substitute for that confirmation. Future GPU runs also retain the
+resource guard's utilization, memory, and thermal checks. The new source change
+requires refreshed source-pinned CPU preflights before another model run.
 
 Across the three disjoint task instances (cycles 19–21), the included arm got
 3/9 probes correct and answered 3/9; the omitted arm got 5/9 correct and

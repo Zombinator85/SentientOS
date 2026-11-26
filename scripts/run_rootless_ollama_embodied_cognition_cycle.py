@@ -4013,6 +4013,29 @@ _MAX_PREINFERENCE_GPU_ATTEMPTS = 3
 _PREINFERENCE_GPU_RETRY_INTERVAL_SECONDS = 1.0
 _INFERENCE_GPU_SAMPLE_INTERVAL_SECONDS = 1.0
 _MAX_DURING_INFERENCE_GPU_SAMPLES = 512
+_GPU_OWNER_AVAILABILITY_CONFIRMATION_ENV = (
+    "SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE")
+
+
+def _require_gpu_owner_availability_confirmation() -> dict[str, Any]:
+    """Require a per-cycle operator confirmation before a model run is allocated.
+
+    Telemetry measures device load, not whether the owner has reserved the GPU
+    for another application. The environment value is an explicit operator
+    assertion and is deliberately bound to this one-shot cycle ID.
+    """
+    confirmation = os.environ.get(_GPU_OWNER_AVAILABILITY_CONFIRMATION_ENV)
+    if confirmation != RUN_ID:
+        raise RootlessExperimentalError(
+            "gpu_owner_availability_confirmation_missing_or_mismatched")
+    return {
+        "schema_version": "sentientos.gpu_owner_availability_confirmation:v1",
+        "status": "operator_confirmed_available_for_cycle",
+        "cycle_id": RUN_ID,
+        "confirmation_source": "per_cycle_environment_assertion",
+        "telemetry_substitutes_for_confirmation": False,
+        "confirmed_at": _now(),
+    }
 
 
 def _model_weight_bytes(manifest_path: Path) -> int:
@@ -5982,6 +6005,7 @@ def run() -> dict[str, Any]:
     model_weight_bytes = _model_weight_bytes(manifest_path)
     if manifest_digest != manifest_path.stem:
         raise RootlessExperimentalError("pinned_hermes_manifest_digest_mismatch")
+    gpu_owner_availability = _require_gpu_owner_availability_confirmation()
     if pair_execution_context is not None:
         _preflight_historical_pair_model_identity(
             context=pair_execution_context, manifest_path=manifest_path,
@@ -6072,6 +6096,8 @@ def run() -> dict[str, Any]:
     kernel, resource_coordinator = _enforcing_resource_runtime()
     initial_resource_evidence = _refresh_resource_evidence(resource_coordinator,
         correlation_id=f"{RUN_ID}-initial-preflight")
+    initial_resource_evidence["gpu_owner_availability_confirmation"] = (
+        gpu_owner_availability)
     initial_resource_evidence["gpu_layers_requested"] = GPU_LAYERS
     initial_gpu = _require_gpu_headroom(_gpu_snapshot(), model_weight_bytes)
     initial_resource_evidence["gpu_memory_free_mib"] = initial_gpu["memory_free_mib"]
