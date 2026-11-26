@@ -6659,4 +6659,25 @@ service ran with GPU visibility disabled and was stopped afterward. The
 [model-bound plan](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-preflight-v1/plan.json)
 and [preflight receipt](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-preflight-v1/preflight.json)
 are preserved with exact runner/source snapshots. No
-Hermes generation has yet been run for this ladder.
+Hermes generation occurred during preflight; the full run below executed later
+against this plan.
+
+The six-trial Hermes run later completed against that exact hash. Independent
+scoring gave `0/3` in both history and empty conditions at near, middle, and
+far distance; all three history-minus-empty differences were zero. Strict
+JSON validity was `0/6`. A separate [payload diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-full-v1/payload-diagnostic.json)
+recovered all three numeric answers from the middle/history response, but all
+were incorrect; the other recoverable payloads were all-null abstentions. The
+near/history response explicitly described the retrieved record but then
+abstained, despite its three mapping-consistent examples. These observations
+show no transfer under this model and prompt setup; they do not establish that
+the system can never transfer. The strict-format failure remains a separate
+limitation, although lenient payload scoring also found no correct answers.
+
+The [full run artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/balanced-transfer-distance-ladder-hermes-full-v1/)
+contains the frozen plan, six raw outputs, six governed receipts, independent
+score, payload diagnostic, and code snapshots. The isolated Ollama server is
+stopped and GPU memory has returned to its idle baseline. A follow-up can
+constrain the JSON format after retrieval while keeping the same history and
+distance contrast, then report content accuracy separately from format
+compliance again.
