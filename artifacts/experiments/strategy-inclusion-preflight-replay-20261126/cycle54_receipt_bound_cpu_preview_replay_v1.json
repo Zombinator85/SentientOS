@@ -1,0 +1,53 @@
+{
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-20261124000000000025",
+  "current_checkout_commit": "e3ca20c579d0e54d9e88f38c4a1565a8805d0303",
+  "cycle_id": "rootless-cognition-cycle-20261124000000000054",
+  "input_digests": {
+    "campaign_plan": "sha256:1a32f0f7bf926afa675d0b977e1e6d875db18e31502a09601ab118db21d8e6dc",
+    "cycle_summary": "sha256:6b0f58e3557d4632258104d99bec358968854fa58360ed0c3b97c444db44d540",
+    "full_cpu_preview_output": "sha256:b9928c36f72fc4f32ba611474d498a028cdf10aabf259fa92b3f9ca83126b3bc",
+    "original_preflight_outcome": "sha256:8979406119a14392074e1ec543bdae1c9a1ae25c9e9a5af5bad63c8e9c33c4f8"
+  },
+  "interpretation": "Current checkout can reconstruct a provisional strategy candidate from saved cycle54 history. This retrospective receipt-bound preview does not verify the frozen campaign source implementation and does not upgrade the original preflight rejection or establish learning.",
+  "learning_established": false,
+  "model_invoked": false,
+  "model_loaded": false,
+  "original_failure_code": "task_family_strategy_ablation_candidate_unavailable",
+  "original_preflight_status": "preflight_rejected",
+  "plan_bound_replay_failure_code": "history_campaign_model_identity_implementation_mismatch",
+  "plan_digest": "fddb4ad3372cf0e52da80581af75c9c4b8eb06ec0cca006c8cf237cc398dcf71",
+  "replay_mode": "receipt_bound_unplanned_current_checkout",
+  "schema_version": "sentientos.strategy_inclusion_cpu_preview_replay:v1",
+  "source_history_mutated": false,
+  "status": "receipt_bound_cpu_preview_succeeded",
+  "strategy_evidence_summary": {
+    "authority": false,
+    "comparison_unavailable_source_count": 3,
+    "cross_run_probe_overlap_count": 0,
+    "current_truth": false,
+    "historical_only": true,
+    "history_task_family_ids": [
+      "rootless_integer_affine_transfer_low_range_v6",
+      "rootless_integer_affine_transfer_wide_range_v7"
+    ],
+    "independent_input_anchor_run_count": 2,
+    "learning_established": false,
+    "performance_transfer_established": false,
+    "posture": "provisional_relation_fit_to_score_bound_examples_accumulated_across_runs",
+    "relation_withheld": true,
+    "schema_version": "sentientos.accumulated_strategy_evidence_summary:v2",
+    "source_run_model_identity_relation_counts": {
+      "different_active_model_identity": 2,
+      "model_identity_unbound": 0,
+      "same_active_model_identity": 1
+    },
+    "strategy_digest": "sha256:d8207a10eafd0f2e6a2e3de21b7b78afef26b7a9b302803f4bb745744df71593",
+    "supporting_answer_values_withheld": true,
+    "supporting_distinct_input_count": 7,
+    "supporting_model_identity_count": 3,
+    "supporting_run_count": 3,
+    "supporting_source_count": 3,
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+  }
+}

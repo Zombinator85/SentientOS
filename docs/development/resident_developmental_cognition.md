@@ -4002,6 +4002,16 @@ unchanged. The preflight CLI emits the diagnostic as structured JSON on
 stderr. The historical cycle54 artifact remains unchanged because the new
 diagnostic was not captured during its original preflight.
 
+A separate [receipt-bound CPU replay](../../artifacts/experiments/strategy-inclusion-preflight-replay-20261126/cycle54_receipt_bound_cpu_preview_replay_v1.json)
+on the current checkout did construct a provisional strategy candidate from
+cycle54's saved history: 3 supporting runs and 7 distinct inputs across the
+declared v6 and v7 families. The model was neither loaded nor invoked, and the
+source history was not mutated. The plan-bound replay stopped at the frozen
+source-implementation check, so this is retrospective evidence about the
+current checkout and saved history; it does not validate the frozen campaign
+implementation, revise the original preflight rejection, or establish
+learning.
+
 The [cycle53](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/53_cycle_summary_v1.json)
 and [cycle54](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/54_cycle_summary_v1.json)
 answer-free summaries and [chain audit](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/chain_audit_v1.json)
