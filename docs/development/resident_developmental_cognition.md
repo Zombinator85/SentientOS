@@ -5747,15 +5747,49 @@ The frozen cycle IDs, in task-seed order, are `592bae58895244a78566` and
 execution plans, and slot audits are preserved in the
 [`identity-neutral-current-source-refresh-lf-20261126` artifact directory](../../artifacts/experiments/identity-neutral-current-source-refresh-lf-20261126/).
 
-No model was loaded or invoked while preparing these plans. The user has
-resumed GPU use, so Hermes and Qwen inference remain paused. On resumption,
-each one-shot run must set
-`SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to its exact frozen cycle ID and
-pass the runner's resource checks. Raw receipts must then be independently
-rescored under the frozen analysis plans. Until then, these artifacts prove
-current-source preflight parity and launch readiness only; they do not prove
-history use, developmental learning, transfer, or model-independent cognitive
-continuity.
+#### Correction after reading the arm journals
+
+The v1 slot audit checked the protocol, task and model bindings. Its result
+was previously described here as launch readiness. The journal keys each
+one-shot arm by protocol digest and condition. Assigning a new cycle ID to
+the same protocol leaves its existing claim and receipt in place.
+
+All four Hermes arms have verified receipts from the November 25 runs. The
+new Hermes IDs are superseded for execution. All four Qwen arms were
+unstarted in the shared journal at the time of the audit. The runner on
+commit `0db806e9` rejected both Hermes slots before model load and reproduced
+the Qwen target identity for both slots on CPU. A Qwen launch still requires
+the operator's GPU window and the per-cycle resource checks.
+[Hermes arm states](../../artifacts/experiments/identity-neutral-arm-attribution-20261126/hermes_journal_slots_v2.json)
+and [Qwen arm states](../../artifacts/experiments/identity-neutral-arm-attribution-20261126/qwen_journal_slots_v2.json).
+
+Independent CPU rescoring reproduced the original Hermes score. The
+execution-aware cohort scorer follows each receipt to its run's preregistration
+and from there to the original execution plan. It rejected the same receipts
+under the November 26 Hermes plan. In both tasks, coverage was identical
+between arms. On three probes the omitted arm was correct and the included
+arm was incorrect. On all other probes both arms had the same outcome class.
+
+| Task seed | Correct with examples | Correct without examples | Answered per arm |
+| --- | ---: | ---: | ---: |
+| 13688801 | 0/12 | 1/12 | 1/12 |
+| 13688803 | 3/12 | 5/12 | 12/12 |
+
+The descriptive mean accuracy difference was −12.5 percentage points across
+two tasks. This result belongs to the original run IDs and source revision.
+[Hermes score with receipt origins](../../artifacts/experiments/identity-neutral-arm-attribution-20261126/hermes_original_runs_score_v4.json).
+
+For the next GPU window, execute the two Qwen slots only. Independently
+rescore each pair and pass `--execution-plan execution_qwen_v1.json` and
+`--cycle-roots` (the directory containing the run preregistrations) to
+`score_historical_examples_pair_cohort.py` along with the frozen cohort,
+analysis plan, journal and independent verifications. Compare the
+included-minus-omitted accuracy difference within each seed against the
+archived Hermes difference. Report both paired comparisons and label the
+Hermes baseline retrospective. The omitted arm comes first on both seeds,
+and the two models run at different times. These design choices limit causal
+attribution. Durable learning would require a subsequent task that measures
+the effect of retained experience after this immediate intervention.
 
 The preflight run also found and fixed policy restoration across objective
 request reconstruction and private journal reload. The private task-plan record

@@ -16,9 +16,10 @@ from sentientos.developmental_history_intervention_experiment import (
     DevelopmentalExperimentStore, MAX_EXPERIMENT_ARTIFACT_BYTES,
 )
 from sentientos.historical_examples_analysis_plan import verify_analysis_plan
+from sentientos.local_runtime_provisioning import semantic_digest
 from scripts.verify_historical_examples_pair_score import verify_pair_score
 from work.historical_examples_intervention import (
-    HistoricalExamplesPairJournal, _digest,
+    HistoricalExamplesPairJournal, _digest, validate_historical_examples_pair_execution_plan,
 )
 
 
@@ -135,9 +136,48 @@ def _verify_score(score: Mapping[str, Any], trial: Mapping[str, Any], *,
             "denominator": probe_count}}
 
 
+def _attribute_execution(*, execution_plan: Mapping[str, Any], cycle_roots: Path,
+        cohort: Mapping[str, Any], analysis_plan: Mapping[str, Any],
+        journal: HistoricalExamplesPairJournal) -> list[dict[str, Any]]:
+    """Link each archived receipt to the run that registered this execution plan."""
+    slots = execution_plan.get("trials")
+    if (not isinstance(slots, list) or not slots
+            or not all(isinstance(slot, Mapping) for slot in slots)):
+        raise ValueError("historical_examples_cohort_execution_roster_invalid")
+    run_ids = [slot.get("runner_cycle_id") for slot in slots]
+    validate_historical_examples_pair_execution_plan(cohort=cohort,
+        analysis_plan=analysis_plan, runner_cycle_ids=run_ids,
+        backend_seed=slots[0].get("backend_seed"), plan=execution_plan)
+    external_digest = execution_plan["execution_plan_digest"].removeprefix("sha256:")
+    attributed = []
+    for slot in slots:
+        run_id = slot["runner_cycle_id"]
+        arms = {arm: journal.arm_execution_history(
+            protocol_digest=slot["protocol_digest"], arm=arm) for arm in slot["arm_order"]}
+        if any(arm["status"] != "completed" or arm["receipt_run_id"] != run_id
+                for arm in arms.values()):
+            raise ValueError("historical_examples_cohort_receipt_run_mismatch:" + run_id)
+        path = cycle_roots.absolute() / run_id / "preregistration.json"
+        if any(parent.is_symlink() for parent in path.parents):
+            raise ValueError("historical_examples_cohort_run_path_invalid")
+        registration = _read_object(path, code="historical_examples_cohort_run_preregistration")
+        digest = registration.pop("preregistration_digest", None)
+        if (registration.get("schema_version") != "sentientos.rootless_hermes_cycle_preregistration:v1"
+                or digest != semantic_digest(registration) or registration.get("run_id") != run_id
+                or registration.get("experiment_seed") != slot["task_generation_seed"]
+                or registration.get("external_protocol_digest") != external_digest
+                or any(arm["run_preregistration_digest"] != digest for arm in arms.values())):
+            raise ValueError("historical_examples_cohort_run_preregistration_mismatch:" + run_id)
+        attributed.append({"runner_cycle_id": run_id, "protocol_digest": slot["protocol_digest"],
+            "run_preregistration_digest": digest,
+            "receipt_digests": {name: arm["receipt_digest"] for name, arm in arms.items()}})
+    return attributed
+
+
 def score_cohort(*, cohort: Mapping[str, Any], plan: Mapping[str, Any],
         journal: HistoricalExamplesPairJournal,
-        independent_verifications: Sequence[Mapping[str, Any]] | None = None
+        independent_verifications: Sequence[Mapping[str, Any]] | None = None,
+        execution_plan: Mapping[str, Any] | None = None, cycle_roots: Path | None = None
         ) -> dict[str, Any]:
     """Require every frozen pair and produce the preregistered descriptive mean."""
     semantic_cohort = {key: value for key, value in cohort.items()
@@ -151,6 +191,12 @@ def score_cohort(*, cohort: Mapping[str, Any], plan: Mapping[str, Any],
             or cohort.get("authority") is not False):
         raise ValueError("historical_examples_cohort_manifest_invalid")
     verify_analysis_plan(cohort=cohort, plan=plan)
+    if (execution_plan is None) != (cycle_roots is None):
+        raise ValueError("historical_examples_cohort_execution_plan_and_cycle_roots_required")
+    attribution = None
+    if execution_plan is not None and cycle_roots is not None:
+        attribution = _attribute_execution(execution_plan=execution_plan, cycle_roots=cycle_roots,
+            cohort=cohort, analysis_plan=plan, journal=journal)
     independent_scorer_required = plan.get("schema_version") == (
         "sentientos.historical_examples_pair_cohort_analysis_plan:v2")
     expected_scorer_digest = None
@@ -334,17 +380,23 @@ def score_cohort(*, cohort: Mapping[str, Any], plan: Mapping[str, Any],
         "general_transfer_established": False,
         "model_independence_established": False,
         "learning_established": False, "authority": False}
+    if attribution is not None and execution_plan is not None:
+        semantic.update(schema_version="sentientos.historical_examples_pair_cohort_score:v4",
+            execution_plan_digest=execution_plan["execution_plan_digest"],
+            receipt_run_attribution=attribution)
     return {**semantic, "cohort_score_digest": _digest(semantic)}
 
 
 def verify_cohort_score(*, saved_score: Mapping[str, Any],
         cohort: Mapping[str, Any], plan: Mapping[str, Any],
         journal: HistoricalExamplesPairJournal,
-        independent_verifications: Sequence[Mapping[str, Any]] | None = None
+        independent_verifications: Sequence[Mapping[str, Any]] | None = None,
+        execution_plan: Mapping[str, Any] | None = None, cycle_roots: Path | None = None
         ) -> dict[str, Any]:
     """Reconstruct a saved aggregate from frozen inputs and journal scores."""
     expected = score_cohort(cohort=cohort, plan=plan, journal=journal,
-        independent_verifications=independent_verifications)
+        independent_verifications=independent_verifications, execution_plan=execution_plan,
+        cycle_roots=cycle_roots)
     if not isinstance(saved_score, Mapping) or dict(saved_score) != expected:
         raise ValueError("historical_examples_cohort_score_reconstruction_mismatch")
     return {"schema_version":
@@ -365,6 +417,10 @@ def main() -> int:
     parser.add_argument("--journal-root", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--verify-score", type=Path)
+    parser.add_argument("--execution-plan", type=Path,
+        help="bind the score to the exact run IDs and execution plan cited by the receipts")
+    parser.add_argument("--cycle-roots", type=Path,
+        help="developmental-cognition-cycles directory containing those runs' preregistrations")
     parser.add_argument("--independent-verifications", type=Path, nargs="+",
         help="one independent raw-receipt rescore verification per frozen trial")
     args = parser.parse_args()
@@ -372,6 +428,8 @@ def main() -> int:
         raise ValueError("historical_examples_cohort_score_output_mode_required")
     cohort = _read_object(args.cohort, code="historical_examples_cohort")
     plan = _read_object(args.plan, code="historical_examples_analysis_plan")
+    execution_plan = (_read_object(args.execution_plan, code="historical_examples_execution_plan")
+        if args.execution_plan is not None else None)
     journal = HistoricalExamplesPairJournal(
         store=DevelopmentalExperimentStore(args.journal_root))
     independent_verifications = ([ _read_object(path,
@@ -383,11 +441,13 @@ def main() -> int:
             saved_score=_read_object(args.verify_score,
                 code="historical_examples_cohort_score"),
             cohort=cohort, plan=plan, journal=journal,
-            independent_verifications=independent_verifications)
+            independent_verifications=independent_verifications, execution_plan=execution_plan,
+            cycle_roots=args.cycle_roots)
         print(json.dumps(verification, sort_keys=True, indent=2))
         return 0
     result = score_cohort(cohort=cohort, plan=plan, journal=journal,
-        independent_verifications=independent_verifications)
+        independent_verifications=independent_verifications, execution_plan=execution_plan,
+        cycle_roots=args.cycle_roots)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8", newline="\n") as stream:
         stream.write(json.dumps(result, sort_keys=True, indent=2) + "\n")
