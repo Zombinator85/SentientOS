@@ -6288,3 +6288,30 @@ No model inference was run for v6. The prior Hermes result remains the only
 full comparison. A future full pair still needs a matched runtime and strict
 full-output scoring; this preflight is not evidence that the new instruction
 improves recall or that developmental learning occurred.
+
+### Matched 2×2 response-format and mapping preflight
+
+The previous full Hermes comparison used Ollama v0.12.9, while the v6
+preflights bind Ollama v0.40.16. That runtime change would confound any direct
+comparison of strict-output scores against the prior full-run scores. To make
+the next inference interpretable, a new CPU-only matrix now crosses two factors:
+strict fenced output on/off and explicit history-to-row mapping on/off. All
+four preflights use the same Hermes artifact, Ollama v0.40.16, generation
+settings, user questions, source report, scoring profiles, and archived history
+evidence. Each arm plans eight trials; all four expose the same five
+single-record history conditions.
+
+The [matrix verifier](../../work/verify_sibling_chat_recall_preflight_matrix.py)
+checks all four plans together. The [baseline control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-baseline-preflight-v1/)
+and [baseline mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-baseline-preflight-v1/)
+preflights now match the existing [strict control](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-control-strict-preflight-v1/)
+and [strict mapping](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-mapping-strict-preflight-v1/)
+preflights on model/runtime/task bindings and source evidence. Mapping is the
+only history-treatment difference; the strict instruction is added to the
+final model prompt only after retrieval. The [factorial preanalysis record](../../artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-preanalysis-v1.json)
+freezes the official full-response exact count as the primary outcome and
+fenced-content/format diagnostics as secondary. This is an exploratory,
+post-hoc protocol replication, not a confirmatory study; report descriptive
+counts only because the eight trials include repeated conditions. The task is
+read-only recall, so no learning claim follows from its results. No model
+inference was run to prepare this matrix.

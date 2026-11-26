@@ -1,0 +1,373 @@
+{
+  "context_tokens": 4096,
+  "criterion": "One JSON object with record_id and rows. A single Markdown JSON fence is accepted. Score exact rows against every profile, independently of the citation. Passing also requires the source record ID, null for empty history, or inline-example for the direct-reading control. The scorer removes exactly one surrounding ```json fence before parsing.",
+  "exposures": {
+    "empty_inline": {
+      "history_block_digest": null,
+      "invocation_prompt_digest": "469a0621d5b4b37da9fcc73307e3c4058896b7de89ef6a65a50bd65d0dc8fc12",
+      "prompt_chars": 4499,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "c99d5067112ac7c4fcf752995345ef6f247ba1653e89170debab7aa26851acea"
+    },
+    "empty_wide": {
+      "history_block_digest": null,
+      "invocation_prompt_digest": "e2ec6ba20596775494b1e3bd622ebfc55a671a30afeb47dd12c0642bd9de9d01",
+      "prompt_chars": 4523,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "5639cede4fd22eaf6a3bc433a35a5a28a366e5e229c847f1a2d37e68706a69d9"
+    },
+    "left_low": {
+      "history_block_digest": "dc4fc562cf5976fe2a62e6f6f9477980d40f85ecbc10e448d45bd3090d2d9388",
+      "invocation_prompt_digest": "c2976d237d36feccc7d2798a8f201780193b6ce720228526d1a897f1948a9e12",
+      "prompt_chars": 7658,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "711bfd687c63ce6618ba71616d7207d3981dcfa449194508175299b19475491f"
+    },
+    "left_wide": {
+      "history_block_digest": "5662efd41197c556b9fba78ecab1944042c40074c35752e810abe1428621b24f",
+      "invocation_prompt_digest": "f3ceffd23c963352f5693ea6fe946d999ae2ebcbca2a88929da39dd7a0473b10",
+      "prompt_chars": 7665,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 6
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-c823465ce11c154f",
+          "source_run_id": "devexp-run-1efd94846000ffb091c9efcd",
+          "source_score_digest": "sha256:c3215938526d7916e3b36f26719e57453ee0b215a5bdf04fc82cee0d25f03bb8",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "b516d9dec4a51d0e458d7694dd405586b3d4d35e63cd13f2bc60e5deb4229680"
+    },
+    "parent_wide": {
+      "history_block_digest": "8d1b0911faed77d596cdff7bad78e7ce8bc542c1d414d3e4192fd11f8dfbd7b0",
+      "invocation_prompt_digest": "a19b585e69418f45ca793d613aee341fce303be6ac227b7face06b7a7be349f4",
+      "prompt_chars": 7663,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-2033fab64ae54284298c3ce7",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-89ef603478eedb17",
+          "source_run_id": "devexp-run-3f21f10346713151edc6a73c",
+          "source_score_digest": "sha256:69c4cdc5123414d3cb56df77da138e230785297c1c6dd3663cfcdd307cef0dbd",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "48764cb448794161e7b42cbd0826edaa134eca8d5dc42813528ad799f29e9ba2"
+    },
+    "right_low": {
+      "history_block_digest": "a44e5ffa39b57343ce65489180b3478da5f2ef5bcc32d63509a6214a22614536",
+      "invocation_prompt_digest": "938770abf23251ebc664ba4176f99e607a970a5ceddad2d4c21cb8ba24a74dad",
+      "prompt_chars": 7658,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "8407b6ec9b0b8173062b8e8e235c8ece4df92f0fd2fce53b66c408b98cb826de"
+    },
+    "right_wide": {
+      "history_block_digest": "8751aae685b133c2ff2b5e98142b1599b6b215814608a6d69146f5afba9ab34d",
+      "invocation_prompt_digest": "eee116dd33d4d86534486aa0570c8ad11db6d2e3bd376a79ec6ddbd44dfecaf3",
+      "prompt_chars": 7665,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 5
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 9
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-99b0e5c9dff7bde0",
+          "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+          "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "ec641d2e1fd1f785036d9d2910ba2b1108253cdd5ff755ba169e51db9d586eed"
+    }
+  },
+  "generation": {
+    "max_new_tokens": 160,
+    "repetition_penalty": null,
+    "temperature": 0.0,
+    "top_k": null,
+    "top_p": 1.0
+  },
+  "intervention": null,
+  "matched_base_sha256": {
+    "inline": "c99d5067112ac7c4fcf752995345ef6f247ba1653e89170debab7aa26851acea",
+    "low": "96282e404dee4b662d3cdc6efbc06bcd69ee0e1ed9d9f9a5cfccddc44782d754",
+    "wide": "5639cede4fd22eaf6a3bc433a35a5a28a366e5e229c847f1a2d37e68706a69d9"
+  },
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "df78363c4c59838e32343ce3ab8c991df6a3bf047ecc350bdd84b4ad1876feb5",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "ollama_version": "0.40.16",
+  "options": {
+    "api_base": "http://127.0.0.2:11434",
+    "keep_alive": "5m",
+    "manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "model": "sentientos-hermes4:14b-q4km",
+    "num_gpu": 0,
+    "num_thread": 2,
+    "seed": 42,
+    "think": false,
+    "timeout_seconds": 120
+  },
+  "profiles": {
+    "empty": [],
+    "inline": [
+      [
+        47,
+        -4,
+        "incorrect"
+      ],
+      [
+        52,
+        null,
+        "abstained"
+      ],
+      [
+        61,
+        10,
+        "correct"
+      ]
+    ],
+    "left_wide": [
+      [
+        6,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "parent_wide": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "right_wide": [
+      [
+        5,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        9,
+        null,
+        "abstained"
+      ]
+    ],
+    "shared_low": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        4,
+        9,
+        "correct"
+      ],
+      [
+        5,
+        11,
+        "correct"
+      ]
+    ]
+  },
+  "questions": {
+    "inline": "Report inline-example. Input 47. Answer -4. Incorrect. Input 52. Abstained. Input 61. Answer 10. Correct.\nUsing the report above, what were the recorded inputs and outcomes? Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report.",
+    "low": "On our most recent scored low-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report.",
+    "wide": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report."
+  },
+  "schema": "sentientos.sibling_chat_recall_plan:v3",
+  "source_code_sha256": "b21cb8a42ad4d9bf073d2f00506ffdc6c74cf73f78d0d6775c090335e3eff107",
+  "source_report_sha256": "b26bbed870338119b513a14c36362a5266f26b80fadc50012df7fd44b6fdc783",
+  "trials": [
+    [
+      "right",
+      "wide"
+    ],
+    [
+      "left",
+      "low"
+    ],
+    [
+      "empty",
+      "wide"
+    ],
+    [
+      "parent",
+      "wide"
+    ],
+    [
+      "left",
+      "wide"
+    ],
+    [
+      "right",
+      "low"
+    ],
+    [
+      "left",
+      "wide"
+    ],
+    [
+      "empty",
+      "inline"
+    ]
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "arm_status": {
+    "control": {
+      "history_exposures": 5,
+      "inference_performed": false,
+      "maximum_prompt_chars": 7665,
+      "plan_sha256": "f04ed8a7d9a544731151db88ef21e521e44dfa292c9aba81618e17b4e47c30f9",
+      "preflight_conditions": 8
+    },
+    "mapped": {
+      "history_exposures": 5,
+      "inference_performed": false,
+      "maximum_prompt_chars": 7818,
+      "plan_sha256": "aa58153f3ce1eb4f812f5f0e70b9fe5b6ccea1a85f880f9d6a19f7ce2afd1ef0",
+      "preflight_conditions": 8
+    },
+    "strict_control": {
+      "history_exposures": 5,
+      "inference_performed": false,
+      "maximum_prompt_chars": 7828,
+      "plan_sha256": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
+      "preflight_conditions": 8
+    },
+    "strict_mapped": {
+      "history_exposures": 5,
+      "inference_performed": false,
+      "maximum_prompt_chars": 7981,
+      "plan_sha256": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc",
+      "preflight_conditions": 8
+    }
+  },
+  "design_status": "exploratory post-hoc protocol replication; not confirmatory",
+  "history_evidence_equal_across_all_arms": true,
+  "inference_performed": false,
+  "inferential_scope": "descriptive arm counts only; repeated conditions are not independent samples",
+  "learning_claim": "none; this is read-only retrieval of existing history with no learning update",
+  "learning_established": false,
+  "mapping_factor": "explicit history-field-to-row mapping injected in history guidance",
+  "matched_fields": [
+    "model",
+    "model_identity",
+    "ollama_version",
+    "options",
+    "context_tokens",
+    "generation",
+    "source_report_sha256",
+    "source_code_sha256",
+    "trials",
+    "questions",
+    "profiles"
+  ],
+  "matrix_sha256": "6849ccf3acf1d50f470c0703e455c7bf57ad236541046452d5deb7eea5b1a5a0",
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "df78363c4c59838e32343ce3ab8c991df6a3bf047ecc350bdd84b4ad1876feb5",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_invoked": false,
+  "output_factor": "strict fenced JSON instruction injected after retrieval",
+  "plan_sha256": {
+    "control": "f04ed8a7d9a544731151db88ef21e521e44dfa292c9aba81618e17b4e47c30f9",
+    "mapped": "aa58153f3ce1eb4f812f5f0e70b9fe5b6ccea1a85f880f9d6a19f7ce2afd1ef0",
+    "strict_control": "c8a4f804b7c80e5923132dcfe46f1eb64c76f82262a689117e531828bdc07ee5",
+    "strict_mapped": "45f84feaef9b55c4e5370e5dc8f56e26ab585eacab0ee406776eccc6a2fa67cc"
+  },
+  "planned_trials_per_arm": 8,
+  "primary_outcome": "official exact trials under the preregistered full-response scorer",
+  "runtime": "0.40.16",
+  "schema": "sentientos.sibling_chat_recall_factorial_preflight:v1",
+  "secondary_diagnostics": [
+    "official valid-format trials",
+    "exact fenced JSON content and citation (diagnostic only)",
+    "prose outside the required fence"
+  ]
+}

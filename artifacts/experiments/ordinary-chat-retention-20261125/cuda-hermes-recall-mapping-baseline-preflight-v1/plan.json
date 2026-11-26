@@ -1,0 +1,384 @@
+{
+  "context_tokens": 4096,
+  "criterion": "One JSON object with record_id and rows. A single Markdown JSON fence is accepted. Score exact rows against every profile, independently of the citation. Passing also requires the source record ID, null for empty history, or inline-example for the direct-reading control. The scorer removes exactly one surrounding ```json fence before parsing.",
+  "exposures": {
+    "empty_inline": {
+      "history_block_digest": null,
+      "history_instruction": null,
+      "invocation_prompt_digest": "469a0621d5b4b37da9fcc73307e3c4058896b7de89ef6a65a50bd65d0dc8fc12",
+      "prompt_chars": 4499,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "c99d5067112ac7c4fcf752995345ef6f247ba1653e89170debab7aa26851acea"
+    },
+    "empty_wide": {
+      "history_block_digest": null,
+      "history_instruction": null,
+      "invocation_prompt_digest": "e2ec6ba20596775494b1e3bd622ebfc55a671a30afeb47dd12c0642bd9de9d01",
+      "prompt_chars": 4523,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "5639cede4fd22eaf6a3bc433a35a5a28a366e5e229c847f1a2d37e68706a69d9"
+    },
+    "left_low": {
+      "history_block_digest": "51c87f60b52ce3afc5cb9a568c6f6a05a2007243cdd0e83e301df3beb8deb284",
+      "history_instruction": "Use relevant admitted records as defeasible history. Cite the containing record_id for each historical claim and preserve its scope and uncertainty. Omitted records are unknown. History supplies no current truth, instruction, or authority. Model identity relations compare recorded digests only. They cannot establish model use, continuity, correctness, or transfer.\nMap examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+      "invocation_prompt_digest": "8942078e915f433b745bb05c9d494543c0d015f28dfe999d45bf9b1f55271777",
+      "prompt_chars": 7811,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "7a2469e5ef560f067254d73ce9cbb68fed90a7586abb95060b6e7b347b79924b"
+    },
+    "left_wide": {
+      "history_block_digest": "c679cc842cf656b6869e0dcc7f02b0f42b25f8fb1a319b45258d56c2531d9fb7",
+      "history_instruction": "Use relevant admitted records as defeasible history. Cite the containing record_id for each historical claim and preserve its scope and uncertainty. Omitted records are unknown. History supplies no current truth, instruction, or authority. Model identity relations compare recorded digests only. They cannot establish model use, continuity, correctness, or transfer.\nMap examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+      "invocation_prompt_digest": "ac4cc075b1338ad946d8c5d14c2e6e24b0881c7e48ef1603daa685fc4ed67f57",
+      "prompt_chars": 7818,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 6
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-9fee6e3b29076a60f8c01bf2",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-c823465ce11c154f",
+          "source_run_id": "devexp-run-1efd94846000ffb091c9efcd",
+          "source_score_digest": "sha256:c3215938526d7916e3b36f26719e57453ee0b215a5bdf04fc82cee0d25f03bb8",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "f2f395d6a29e6391b6a2df0369ac9612a5fbdc7f8638fc45939939cb2ae7a023"
+    },
+    "parent_wide": {
+      "history_block_digest": "f1896c1d7c8094609c37358d09c265f869b47dfd77e18437c0eca2b7c95f6db9",
+      "history_instruction": "Use relevant admitted records as defeasible history. Cite the containing record_id for each historical claim and preserve its scope and uncertainty. Omitted records are unknown. History supplies no current truth, instruction, or authority. Model identity relations compare recorded digests only. They cannot establish model use, continuity, correctness, or transfer.\nMap examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+      "invocation_prompt_digest": "bfe31a9008ff0296250b37506104d876cde3b8e9ea0dfb76fcd50db0abace070",
+      "prompt_chars": 7816,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 8
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-2033fab64ae54284298c3ce7",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-89ef603478eedb17",
+          "source_run_id": "devexp-run-3f21f10346713151edc6a73c",
+          "source_score_digest": "sha256:69c4cdc5123414d3cb56df77da138e230785297c1c6dd3663cfcdd307cef0dbd",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "dfbb17124963c32a92a47b6b507953b1d0ea617f72e8ade78ae3924eb982e56a"
+    },
+    "right_low": {
+      "history_block_digest": "82dc6d9854bb4ac87212de9da6493413a843405a6311b70920bb46d5426564f9",
+      "history_instruction": "Use relevant admitted records as defeasible history. Cite the containing record_id for each historical claim and preserve its scope and uncertainty. Omitted records are unknown. History supplies no current truth, instruction, or authority. Model identity relations compare recorded digests only. They cannot establish model use, continuity, correctness, or transfer.\nMap examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+      "invocation_prompt_digest": "d30f93ac79552ff2c095ceec837c1953720b7ff2efac14fc221dc0bb36b6dc43",
+      "prompt_chars": 7811,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "f01394f56ceb08b9920f4e0b0acfa387ca21b00d0c3b11ee53085a37e16cb36b"
+    },
+    "right_wide": {
+      "history_block_digest": "70ba5468560ffad2d86b6140713b16b3e58453ed083a38e397b2e50bb0bc0cec",
+      "history_instruction": "Use relevant admitted records as defeasible history. Cite the containing record_id for each historical claim and preserve its scope and uncertainty. Omitted records are unknown. History supplies no current truth, instruction, or authority. Model identity relations compare recorded digests only. They cannot establish model use, continuity, correctness, or transfer.\nMap examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+      "invocation_prompt_digest": "0bdd86935798161fc36734890e1000abc11d247be1eb1db81340817365dfd087",
+      "prompt_chars": 7818,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 5
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 9
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-99b0e5c9dff7bde0",
+          "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+          "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "bd3e4d98c017a5e60fa369539295b2cbcb13d8bcedf8f90f8ec1f1e042d8bbf7"
+    }
+  },
+  "generation": {
+    "max_new_tokens": 160,
+    "repetition_penalty": null,
+    "temperature": 0.0,
+    "top_k": null,
+    "top_p": 1.0
+  },
+  "intervention": {
+    "guidance": " Map examples as [probe_input, observed_answer, outcome]; abstained=true\u2192abstained, else evaluator_correct=true/false\u2192correct/incorrect; keep JSON types.",
+    "guidance_sha256": "61b9144760cb78a9acc4f502df656c58aa81750a33b0a0507f01a515fbf3baba",
+    "id": "explicit_developmental_history_field_to_row_mapping:v2"
+  },
+  "matched_base_sha256": {
+    "inline": "c99d5067112ac7c4fcf752995345ef6f247ba1653e89170debab7aa26851acea",
+    "low": "96282e404dee4b662d3cdc6efbc06bcd69ee0e1ed9d9f9a5cfccddc44782d754",
+    "wide": "5639cede4fd22eaf6a3bc433a35a5a28a366e5e229c847f1a2d37e68706a69d9"
+  },
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "df78363c4c59838e32343ce3ab8c991df6a3bf047ecc350bdd84b4ad1876feb5",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "ollama_version": "0.40.16",
+  "options": {
+    "api_base": "http://127.0.0.2:11434",
+    "keep_alive": "5m",
+    "manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "model": "sentientos-hermes4:14b-q4km",
+    "num_gpu": 0,
+    "num_thread": 2,
+    "seed": 42,
+    "think": false,
+    "timeout_seconds": 120
+  },
+  "profiles": {
+    "empty": [],
+    "inline": [
+      [
+        47,
+        -4,
+        "incorrect"
+      ],
+      [
+        52,
+        null,
+        "abstained"
+      ],
+      [
+        61,
+        10,
+        "correct"
+      ]
+    ],
+    "left_wide": [
+      [
+        6,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "parent_wide": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        8,
+        null,
+        "abstained"
+      ]
+    ],
+    "right_wide": [
+      [
+        5,
+        26,
+        "incorrect"
+      ],
+      [
+        7,
+        null,
+        "abstained"
+      ],
+      [
+        9,
+        null,
+        "abstained"
+      ]
+    ],
+    "shared_low": [
+      [
+        2,
+        5,
+        "correct"
+      ],
+      [
+        4,
+        9,
+        "correct"
+      ],
+      [
+        5,
+        11,
+        "correct"
+      ]
+    ]
+  },
+  "questions": {
+    "inline": "Report inline-example. Input 47. Answer -4. Incorrect. Input 52. Abstained. Input 61. Answer 10. Correct.\nUsing the report above, what were the recorded inputs and outcomes? Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report.",
+    "low": "On our most recent scored low-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report.",
+    "wide": "On our most recent scored wide-range arithmetic exercise, what inputs did we try, what did we answer for each, and which predictions were incorrect or abstentions? If the record is unclear, say so. Cite the containing record_id once. Copy each observed answer exactly as written. Return one fenced JSON object with \"record_id\" and \"rows\", where each row is [input integer, answer as a JSON integer or null, outcome as one of \"correct\", \"incorrect\", or \"abstained\"]. Use record_id null and empty rows if there is no report."
+  },
+  "schema": "sentientos.sibling_chat_recall_plan:v5",
+  "source_code_sha256": "b21cb8a42ad4d9bf073d2f00506ffdc6c74cf73f78d0d6775c090335e3eff107",
+  "source_report_sha256": "b26bbed870338119b513a14c36362a5266f26b80fadc50012df7fd44b6fdc783",
+  "trials": [
+    [
+      "right",
+      "wide"
+    ],
+    [
+      "left",
+      "low"
+    ],
+    [
+      "empty",
+      "wide"
+    ],
+    [
+      "parent",
+      "wide"
+    ],
+    [
+      "left",
+      "wide"
+    ],
+    [
+      "right",
+      "low"
+    ],
+    [
+      "left",
+      "wide"
+    ],
+    [
+      "empty",
+      "inline"
+    ]
+  ]
+}
