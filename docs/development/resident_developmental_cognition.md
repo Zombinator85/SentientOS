@@ -6877,3 +6877,24 @@ server was stopped and GPU memory returned to the 1,140 MiB desktop baseline.
 The [full run package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-full-v1/)
 contains the plan, raw outputs, six governed receipts, independently
 reproduced score, and source references.
+
+A matched rule-derivation treatment then used the same source-near report and
+task, with the same pinned model identity, generation/GPU settings, questions,
+trial order, retrieved support record, and strict JSON constraint. The
+[paired comparison](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-derivation-full-v1/derivation-comparison.json)
+verified all of those controls. It still scored `0/9` exact answers in both
+arms. Lenient payload recovery found that the history arm abstained on every
+tier but wrapped its JSON in explanations in all three trials; the empty arm
+returned valid but incorrect guesses `[13, 14, 15]`, `[17, 18, 19]`, and
+`[23, 24, 25]`. In its explanations, the history arm claimed there were no
+historical facts, despite the independent prompt validator confirming the
+support record was present in each history prompt. Rule-derivation wording
+therefore did not make the stored examples usable and reduced history-arm
+format adherence. The [derivation package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-derivation-full-v1/)
+preserves the separate receipts, score, payload diagnostic, and comparison.
+
+The next cognition target is the history-to-prompt projection: make the
+retrieved examples legible as evidence to ordinary chat, then repeat the
+history/empty contrast before claiming transfer. Any projection change should
+preserve provenance and keep epistemic validity separate from action
+authority.

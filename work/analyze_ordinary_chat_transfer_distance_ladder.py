@@ -8,7 +8,6 @@ from typing import Any
 
 from sentientos.developmental_model_replacement_experiment import (
     FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
-    ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
 )
 from sentientos.local_model_authority import digest_payload
 from work.preflight_sibling_chat_histories import read
@@ -35,17 +34,19 @@ def _recover(raw: Any, expected_count: int) -> list[int | None] | None:
     return candidates[0] if len(candidates) == 1 else None
 
 
-def analyze(run_directory: Path, output: Path) -> dict[str, Any]:
+def analyze(run_directory: Path, output: Path,
+            preflight_report: Path | None = None) -> dict[str, Any]:
     plan_path = run_directory / "plan.json"
     plan, result = read(plan_path), read(run_directory / "result.json")
     score_path = run_directory / "independent-score.json"
     scores = read(score_path)
     plan_hash = sha(plan_path.read_bytes())
+    selected_report = preflight_report or REPORT
     if (plan_hash != result.get("plan_sha256") or plan_hash != scores.get("plan_sha256")
-            or scores.get("preflight_sha256") != sha(REPORT.read_bytes())
+            or scores.get("preflight_sha256") != sha(selected_report.read_bytes())
             or [(r.get("tier"), r.get("arm")) for r in result.get("trials", ())] != list(TRIAL_ORDER)):
         raise ValueError("run, plan, independent score, or preflight do not match")
-    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
+    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[plan["task_family_id"]]
     tier_reports = {}
     score_index = {(row["tier"], row["arm"]): row for row in scores["trials"]}
     payload_index = {}
@@ -102,6 +103,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_directory", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument("--preflight-report", type=Path,
+        help="The protocol report bound by the execution plan")
     args = parser.parse_args()
-    report = analyze(args.run_directory, args.output)
+    report = analyze(args.run_directory, args.output, args.preflight_report)
     print("ladder_payload_diagnostic_saved", report["plan_sha256"], flush=True)
