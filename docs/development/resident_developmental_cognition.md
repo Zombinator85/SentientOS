@@ -5929,6 +5929,21 @@ Keep the backend seed and pinned model identity from v11 so the only planned
 differences between task instances are the task seed and private task
 commitment. This recipe is not a launch or a result.
 
+A third CPU preflight, [v13](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_preflight_v13.json),
+uses seed `13688908`, the first increasing seed with zero probe overlap
+against both earlier instances. Its [v9 verification](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_cpu_verification_v9.json)
+again confirms the same source receipt, target identity, history set, and
+strategy digest. The [three-instance series record](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/strategy_inclusion_matched_task_cpu_preflight_series_v1.json)
+binds all three independently verified pairs and records nine pairwise
+disjoint probes in total. For v13, use cycle ID
+`rootless-cognition-cycle-20261126000000000013`, task seed `13688908`,
+protocol digest
+`ccf450dda92e0a379cfac84ff5d131dcef2d0b64a68f3d34cb9d1d3f8c4605a6`, the
+v13 preflight path, and journal root
+`/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/strategy-inclusion-cpu-journal-20261126-v3`.
+As with v12, keep the v11 backend seed and model identity. No arm has run;
+these three task instances are prepared, not behavioral replications yet.
+
 The next rootless attempt is reserved as cycle ID
 `rootless-cognition-cycle-20261125000000000008`; a read-only check confirmed
 that its cycle directory does not exist. The pinned Ollama manifest is present
