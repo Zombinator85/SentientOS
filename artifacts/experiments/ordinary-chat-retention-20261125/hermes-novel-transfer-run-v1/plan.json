@@ -1,0 +1,187 @@
+{
+  "answer_key_commitment": "sha256:e606fd1931373bafc0fbe03282d7cec240bf4c90a23980963eca70f0db95d623",
+  "arms": [
+    "parent",
+    "left",
+    "right",
+    "empty"
+  ],
+  "context_tokens": 4096,
+  "criterion": "Score each delivered answer independently against the fixed held-out key; retain all four arm outputs.",
+  "generation": {
+    "max_new_tokens": 160,
+    "repetition_penalty": null,
+    "temperature": 0.0,
+    "top_k": null,
+    "top_p": 1.0
+  },
+  "gpu_layers": 24,
+  "inference_performed": false,
+  "learning_established": false,
+  "matched_base_sha256": "eb65c88d3ed6f40d3c15e94853c8394a52a8d1a17042aabd3db2317599a07ac7",
+  "model": "sentientos-hermes4:14b-q4km",
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+  "ollama_version": "0.40.16",
+  "options": {
+    "api_base": "http://127.0.0.2:11434",
+    "keep_alive": "5m",
+    "manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "model": "sentientos-hermes4:14b-q4km",
+    "num_gpu": 24,
+    "num_thread": 2,
+    "seed": 42,
+    "think": false,
+    "timeout_seconds": 120
+  },
+  "probe_inputs": [
+    1009,
+    8009,
+    50021
+  ],
+  "prompt_bindings": {
+    "empty": {
+      "history_block_digest": null,
+      "invocation_prompt_digest": "72b255a2d10c2f898fdcc3fa6c4ddc3f9aa05cc7192a419aa94078f7abb9859c",
+      "prompt_chars": 4282,
+      "prompt_score_evidence": [],
+      "prompt_sha256": "eb65c88d3ed6f40d3c15e94853c8394a52a8d1a17042aabd3db2317599a07ac7"
+    },
+    "left": {
+      "history_block_digest": "18a003faabb6638bafe24abb427838d3fcb3f20b09719104aa9bb05994fb6ef2",
+      "invocation_prompt_digest": "88dff77dc11d9bd259ad4cfc06bb552b9b1def6afa90305619f22c93a46c4261",
+      "prompt_chars": 7745,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "ce010bd3b2e0b5defcb16114a948797ab31df586f692f9fb3086d56bb7af2efb"
+    },
+    "parent": {
+      "history_block_digest": "39315d98c969e9795cd78cd59274ec9fc3d24239ad904834bb142ee877bfbba2",
+      "invocation_prompt_digest": "8c19f2dc94ab972eed99be5375e81f273e409ed30cb338f57efb2936f8aefb03",
+      "prompt_chars": 7745,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 5,
+              "probe_input": 2
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 9,
+              "probe_input": 4
+            },
+            {
+              "abstained": false,
+              "evaluator_correct": true,
+              "observed_answer": 11,
+              "probe_input": 5
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-a081ef3104dba90c9e19b723",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-0fc09eb1a3f4dced",
+          "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+          "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+          "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+        }
+      ],
+      "prompt_sha256": "deab3c40ed3f8a56b50d509cf8d47073b90493ee275791c1b3d10da849fa679b"
+    },
+    "right": {
+      "history_block_digest": "0011e3505e079104ca968294cfb709c58f8b36d88e170b70aadcd578a3caba08",
+      "invocation_prompt_digest": "fe1e4cf5efe5a670ef87bdd18d5f66a3ac4bb2c23dc2e6c863656ede40d76b12",
+      "prompt_chars": 7751,
+      "prompt_score_evidence": [
+        {
+          "examples": [
+            {
+              "abstained": false,
+              "evaluator_correct": false,
+              "observed_answer": 26,
+              "probe_input": 5
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 7
+            },
+            {
+              "abstained": true,
+              "evaluator_correct": null,
+              "observed_answer": null,
+              "probe_input": 9
+            }
+          ],
+          "model_identity_relation": "different_active_model_identity",
+          "record_id": "devrec-ea97ca95f0c73de28d117b4f",
+          "source_condition": "history_present",
+          "source_fact_id": "fact-99b0e5c9dff7bde0",
+          "source_run_id": "devexp-run-2d5c2c4de0e779c19777c539",
+          "source_score_digest": "sha256:582d3fb55a0eef995d4e748442adeea7101f3308dbddbda4322bef381fc012f7",
+          "task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+        }
+      ],
+      "prompt_sha256": "a8547a38259bc76944f780c9c4a251131d7529e1b126c617052f6b5f23808d60"
+    }
+  },
+  "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 1009, 8009, 50021? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order.",
+  "response_contract": "one JSON object with an answers array containing one integer or null per probe in order; no prose",
+  "schema": "sentientos.ordinary_chat_novel_range_transfer_execution_plan:v1",
+  "scoring": "exact integer equality per probe; null, missing, malformed, or extra answers count as not correct in the fixed three-probe denominator",
+  "source_code_sha256": {
+    "sentientos/chat_service.py": "af1702d615f9ac2041ec1f478aa92c8b82ddbaef298e1b3c2d3a473df467244e",
+    "sentientos/conversation_session.py": "251b2cdcb7815dcf2afed417621aa579f5cf8ea4cddd8428e67f6779598c3a44",
+    "sentientos/resident_developmental_cognition.py": "f6f068783cdd382376f94aa42ede7eb23f85f00eac2c4a3ea924fe152572977a",
+    "work/preflight_ordinary_chat_retention.py": "502052552b8c161384456dd584e03e7b1d9d7317c7d4475763be8542a2f1b1af",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
+    "work/run_ordinary_chat_novel_transfer.py": "47ef61c314e95c4eae2a4b7c0ef011fbc5a585fe56fe9e80305fc83ef92c08e1",
+    "work/run_sibling_chat_recall.py": "ccef5e003c9259db4c1e063df1c7899bf9e485295df2a19b480a5332a5e7e387"
+  },
+  "source_report_sha256": "d7ac34edc6702486c4016fa5d325f48907d4bc32dd705451198ec893a482ec31"
+}

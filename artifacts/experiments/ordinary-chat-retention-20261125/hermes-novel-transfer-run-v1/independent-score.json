@@ -1,0 +1,69 @@
+{
+  "answer_key_commitment": "sha256:e606fd1931373bafc0fbe03282d7cec240bf4c90a23980963eca70f0db95d623",
+  "arms": [
+    {
+      "answers": null,
+      "arm": "parent",
+      "correct_count": 0,
+      "denominator": 3,
+      "format_valid": false,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "raw_output_sha256": "bd7522f2eb2cb2ecf904b901a172f91e01e256897706b7fefbdb8c8ad6b57da6",
+      "receipt_id": "lmrec-1b955e1141e26f297d253b09"
+    },
+    {
+      "answers": [
+        null,
+        null,
+        null
+      ],
+      "arm": "left",
+      "correct_count": 0,
+      "denominator": 3,
+      "format_valid": true,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "raw_output_sha256": "5f1017c32b40ac9c04e65dc472915a9f1fb618f8703295d0ff686ac75b72985e",
+      "receipt_id": "lmrec-a3bf78876b3dfe72f86ae70d"
+    },
+    {
+      "answers": null,
+      "arm": "right",
+      "correct_count": 0,
+      "denominator": 3,
+      "format_valid": false,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "raw_output_sha256": "19bc470554fe97ced01fed7af9297c85be55a2e59d8d5729672605376a80f12b",
+      "receipt_id": "lmrec-f7423039142d531710608c59"
+    },
+    {
+      "answers": null,
+      "arm": "empty",
+      "correct_count": 0,
+      "denominator": 3,
+      "format_valid": false,
+      "probe_correct": [
+        false,
+        false,
+        false
+      ],
+      "raw_output_sha256": "1046885310b189381705f8e4f73a6229d3c73e7330a7a78c645073bfb34acb18",
+      "receipt_id": "lmrec-0998a2ed297c754bb211278e"
+    }
+  ],
+  "interpretation": "Behavioral scores only; this does not establish durable learning or causal attribution.",
+  "plan_sha256": "3f223e9eac3bece9ea43c7d761ef20d6a6a0826f1ecb674d64dae2114d118fc1",
+  "schema": "sentientos.ordinary_chat_novel_range_transfer_independent_score:v1",
+  "scorer_source_sha256": "28c743590b194b1516f4b008c4ae130328ebdb6e7e1fc973912bed8d87ab2709"
+}

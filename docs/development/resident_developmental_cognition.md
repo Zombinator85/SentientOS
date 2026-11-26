@@ -6507,3 +6507,63 @@ records the no-overlap result and answer-free prompt hashes. This is still
 model-free prompt evidence: no response was generated or scored. A future
 behavioral run must freeze a model-identity-bound execution plan and score the
 held-out integer answers independently before it can support a transfer claim.
+
+### Model-bound novel-range transfer execution
+
+`work.run_ordinary_chat_novel_transfer` binds the same four history arms to
+the pinned Hermes identity, exact fresh ordinary-chat prompts, generation
+settings, GPU layer count, source report, and protocol digests. Its
+`--preflight-only` mode creates a plan without invoking the model and refuses
+to proceed if the projected history differs from the model-free replay. A
+later inference run requires the plan hash and records the governed receipt
+and raw response for each arm. It performs no in-run grading or history
+writeback.
+
+The separate `work.score_ordinary_chat_novel_transfer` utility checks the
+governed receipts and frozen prompts, then derives the answer key from the
+fixed task-family mapping and verifies its commitment before scoring. This
+keeps answer grading outside the inference process. Even a successful score is
+held-out behavioral-transfer evidence only; this four-arm comparison does not
+by itself establish durable learning or identify a causal effect for the
+left-child addition, whose selected parent and left-child rows match.
+
+Use an isolated Ollama server on the loopback target and a fresh run directory.
+The first command binds a model-specific plan; only after reviewing that
+artifact should the same runner be invoked with its printed plan hash and
+without `--preflight-only`:
+
+```bash
+repo=/mnt/c/Users/aprmu/Documents/Codex/cc-cognition-next
+cycles=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/sentientos-data/rootless-experimental/developmental-cognition-cycles
+install=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/runtime/ollama-v0.40.16
+models=/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models
+py=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/venvs/rootless-cognition/bin/python
+model_store=/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/recall-factorial-ollama-store-20261126
+export SENTIENTOS_OLLAMA_MODELS="$model_store"
+export SENTIENTOS_OLLAMA_CPU_TARGET=http://127.0.0.1:11435
+cd "$repo"
+"$py" -m work.run_ordinary_chat_novel_transfer "$cycles" "$install" "$models" \
+  /home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/novel-transfer-preflight \
+  --preflight-only
+```
+
+For the full run, use a new run-directory name, pass
+`--expected-plan-sha256 <reviewed-hash>`, and omit `--preflight-only`. Score
+only the completed capture with:
+
+```bash
+"$py" -m work.score_ordinary_chat_novel_transfer <run-directory> <score-report.json>
+```
+
+The first Hermes run completed on 2026-11-26 with plan hash
+`3f223e9eac3bece9ea43c7d761ef20d6a6a0826f1ecb674d64dae2114d118fc1`.
+Independent scoring found zero correct answers out of three in every arm.
+Only the left-child response met the strict JSON-only format; it abstained on
+all three probes. Parent, right-child, and empty-history responses included
+extra prose. The right-child JSON payload included one numeric prediction, but
+it was incorrect. This run supplies no positive held-out transfer evidence.
+The plan, raw outputs, four governed receipts, source snapshots, and separate
+score are preserved in the
+[run artifact](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/).
+The isolated Ollama server was stopped after scoring, returning GPU memory to
+its prior idle level.
