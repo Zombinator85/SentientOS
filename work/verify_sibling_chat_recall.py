@@ -8,7 +8,7 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model import candidate_configuration_digest_from_payload
 from sentientos.local_model_authority import digest_payload
 from work.run_sibling_chat_recall import (
-    INLINE_REPORT, INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
+    EXPLICIT_ROW_MAPPING, INLINE_REPORT, INLINE_ROWS, MANIFEST, MODEL, SOURCE_REPORT, conditions, read, recall_question,
     score_answer, score_cited_answer, score_cited_answer_v2_legacy, sha,
 )
 
@@ -23,6 +23,9 @@ def verify(path):
     cited = cited or plan["schema"].endswith(":v4")
     legacy_cited_scoring = plan["schema"].endswith(":v2")
     explicit_row_mapping = plan["schema"].endswith(":v4")
+    expected_intervention = ({"id": "explicit_developmental_history_field_to_row_mapping:v1",
+        "guidance": EXPLICIT_ROW_MAPPING, "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
+        if explicit_row_mapping else None)
     trials = conditions(cited)
     plan_hash = sha(plan_file.read_bytes())
     configuration_digest = candidate_configuration_digest_from_payload({
@@ -34,10 +37,8 @@ def verify(path):
             or configuration_digest != plan["model_identity"]["configuration_digest"]
             or plan["options"]["num_gpu"] != 0 or plan["options"]["num_thread"] != 2
             or plan["questions"] != {s: ((INLINE_REPORT + "\n") if s == "inline" else "")
-                                     + recall_question(s, cited,
-                                         explicit_row_mapping=explicit_row_mapping) for _, s in trials}
-            or plan.get("intervention", "none") != ("explicit_developmental_history_field_to_row_mapping:v1"
-                                                       if explicit_row_mapping else "none")):
+                                     + recall_question(s, cited) for _, s in trials}
+            or plan.get("intervention") != expected_intervention):
         raise ValueError("protocol or trial set differs from the bound experiment")
     profiles = {"empty": []}
     for arm, scope in dict.fromkeys(trials):
@@ -70,6 +71,13 @@ def verify(path):
     for index, ((arm, scope), trial) in enumerate(zip(trials, result["trials"], strict=True)):
         key = arm + "_" + scope
         exposure = plan["exposures"][key]
+        if explicit_row_mapping:
+            instruction = exposure.get("history_instruction")
+            if ((exposure["history_block_digest"] is None and instruction is not None)
+                    or (exposure["history_block_digest"] is not None
+                        and (not isinstance(instruction, str)
+                            or EXPLICIT_ROW_MAPPING.strip() not in instruction))):
+                raise ValueError("history mapping intervention differs from the captured prompt")
         disk = trial["receipt"]
         req = disk["request"]
         if (trial["trial"] != index or trial["condition"] != key or trial["plan_sha256"] != plan_hash

@@ -6139,11 +6139,16 @@ apply this correction.
 
 The next extraction intervention is isolated in cited protocol v4. It adds an
 explicit mapping from each projected `examples` field to the output row,
-including the `abstained` and `evaluator_correct` cases, while preserving the
-same histories, model, scoring profiles, citation requirement, and empty-history
-control. It is only added to the experiment runner; ordinary chat behavior is
-unchanged. The plan records the exact intervention and prompts before its
-inference loop, so the baseline v2 artifact and this condition can be compared
-without editing historical results. This is a proposed prompt intervention,
-not evidence that extraction improves. Hermes/GPU testing remains paused; the
-runner's pinned local model configuration explicitly requests CPU inference.
+including the `abstained` and `evaluator_correct` cases, after history selection
+has run. Its CPU preflight captured the same one scored record in all six
+history-present conditions, with the mapping in each captured history
+instruction; the retrieval question and evidence stayed fixed. The longest
+prompt was 7,972 characters. Empty-history controls remained empty. The plan
+records the intervention and captured guidance before inference, so the baseline
+v2 artifact and this condition can be compared without editing historical
+results. The first generation then exceeded its 120-second timeout under the
+matched two-thread CPU configuration, before any trial result was saved. This
+run provides no evidence that extraction improves. Raising the timeout or
+changing thread count would alter the matched configuration and needs a new
+paired protocol. Hermes/GPU testing remains paused; the runner's pinned local
+model configuration explicitly requests CPU inference.

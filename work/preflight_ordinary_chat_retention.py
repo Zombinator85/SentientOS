@@ -159,7 +159,8 @@ class _CapturedRequest(Exception):
         self.linkage = linkage
 
 
-def _service_request(owner, root, identity, question=QUESTION, *, bind_invocation=False, capture_adapter=None):
+def _service_request(owner, root, identity, question=QUESTION, *, bind_invocation=False,
+                     capture_adapter=None, capture_history_instruction=False):
     class CaptureOnly:
         def current_conversation_model_identity(self):
             return identity
@@ -180,10 +181,12 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         raise ValueError("ordinary chat did not reach the capture boundary")
     start = prompt.find("[DEVELOPMENTAL_HISTORY_GUIDANCE]\n")
     matched_base, examples = prompt, []
+    history_instruction = None
     if start >= 0:
         end = prompt.index("\n[SESSION_HISTORY_DATA]", start)
         data = prompt.index("[DEVELOPMENTAL_HISTORY_DATA]\n", start) + len("[DEVELOPMENTAL_HISTORY_DATA]\n")
         context = json.loads(prompt[data:end])
+        history_instruction = context.get("instruction")
         verify_ordinary_chat_history_projection_triplet(history_present=context, history_withheld=None,
             history_restored=context)
         if (ordinary_chat_developmental_history_prompt_block_digest(prompt)
@@ -210,6 +213,7 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         "prompt_chars": len(prompt),
         "history_block_digest": linkage.get("ordinary_developmental_history_prompt_block_digest"),
         "prompt_score_evidence": examples,
+        **({"history_instruction": history_instruction} if capture_history_instruction else {}),
     }
 
 

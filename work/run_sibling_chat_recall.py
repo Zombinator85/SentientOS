@@ -8,12 +8,17 @@ import json
 import os
 from pathlib import Path
 import re
+import select
 import signal
+import shutil
 import socket
+import socketserver
 import subprocess
 import tempfile
+import threading
 import time
 import urllib.request
+from urllib.parse import urlsplit
 
 from sentientos.canonical_memory import CanonicalMemoryStore
 from sentientos.chat_service import DevelopmentLocalChatInference, PersistentConversationService
@@ -50,21 +55,35 @@ CITED_FORMAT = (' Cite the containing record_id once. Copy each observed answer 
                 '[input integer, answer as a JSON integer or null, outcome as one of "correct", '
                 '"incorrect", or "abstained"]. Use record_id null and empty rows if there is no report.')
 EXPLICIT_ROW_MAPPING = (
-    ' Map each developmental-history "examples" item exactly: copy "probe_input" as the first row value '
-    'and "observed_answer" as the second value, preserving integer or null types. Set the third value to '
-    '"abstained" when "abstained" is true; otherwise use "correct" when "evaluator_correct" is true '
-    'and "incorrect" when it is false. Include every item. Do not replace values with field names or placeholders.')
+    ' Map examples as [probe_input, observed_answer, outcome]; abstained=true→abstained, else '
+    'evaluator_correct=true/false→correct/incorrect; keep JSON types.')
 
 
 def conditions(cited):
     return TRIALS + ((("empty", "inline"),) if cited else ())
 
 
-def recall_question(scope, cited, *, explicit_row_mapping=False):
+def recall_question(scope, cited):
     question = INLINE_QUESTION if scope == "inline" else QUESTIONS["latest_" + scope]
-    if explicit_row_mapping and scope != "inline":
-        question += EXPLICIT_ROW_MAPPING
     return question + (CITED_FORMAT if cited else FORMAT)
+
+
+def _enable_explicit_row_mapping(owner):
+    """Add the extraction mapping after retrieval without changing its query."""
+    original = owner.ordinary_chat_developmental_history_context_for_model
+
+    def projected_context(*args, **kwargs):
+        context = original(*args, **kwargs)
+        if context is None:
+            return None
+        body = {key: value for key, value in context.items() if key != "selection_digest"}
+        instruction = body.get("instruction")
+        if not isinstance(instruction, str) or EXPLICIT_ROW_MAPPING.strip() in instruction:
+            raise ValueError("explicit row mapping cannot be bound to the history context")
+        body["instruction"] = instruction + EXPLICIT_ROW_MAPPING
+        return {**body, "selection_digest": digest_payload(body)}
+
+    owner.ordinary_chat_developmental_history_context_for_model = projected_context
 
 
 def sha(data):
@@ -83,9 +102,103 @@ def get_api(path):
         return json.load(response)
 
 
+def _prepare_private_model(models, private):
+    """Copy or link exactly the manifest-pinned model into a private store."""
+    relative = Path("manifests/registry.ollama.ai/library") / MODEL.replace(":", "/")
+    manifest = models / relative
+    if sha(manifest.read_bytes()) != MANIFEST:
+        raise ValueError("unexpected model manifest")
+    (private / relative).parent.mkdir(parents=True, exist_ok=True)
+    manifest_target = private / relative
+    if manifest_target.exists():
+        if sha(manifest_target.read_bytes()) != MANIFEST:
+            raise ValueError("private model manifest differs from pin")
+    else:
+        manifest_target.write_bytes(manifest.read_bytes())
+    (private / "blobs").mkdir(exist_ok=True)
+    manifest_data = read(manifest)
+    expected_files = {relative.as_posix()}
+    for layer in [manifest_data["config"], *manifest_data["layers"]]:
+        digest = layer["digest"].removeprefix("sha256:")
+        filename = "sha256-" + digest
+        expected_files.add("blobs/" + filename)
+        source = models / "blobs" / filename
+        if stream_sha256(source) != (digest, layer["size"]):
+            raise ValueError("model layer differs from pinned manifest")
+        destination = private / "blobs" / filename
+        if not destination.exists():
+            try:
+                os.link(source, destination)
+            except OSError:
+                shutil.copyfile(source, destination)
+        if stream_sha256(destination) != (digest, layer["size"]):
+            raise ValueError("private model layer differs from pinned manifest")
+    actual_files = {path.relative_to(private).as_posix() for path in private.rglob("*") if path.is_file()}
+    if actual_files != expected_files:
+        raise ValueError("private model store contains unexpected files")
+    return manifest
+
+
+@contextmanager
+def _loopback_api_forwarder(target_host, target_port):
+    """Forward the pinned loopback API to a separately isolated CPU server."""
+    class Handler(socketserver.BaseRequestHandler):
+        def handle(self):
+            with socket.create_connection((target_host, target_port), timeout=10) as upstream:
+                self.request.settimeout(None)
+                peers = {self.request: upstream, upstream: self.request}
+                active = set(peers)
+                while active:
+                    readable, _, _ = select.select(active, [], [], 1.0)
+                    for source in readable:
+                        try:
+                            data = source.recv(65536)
+                        except OSError:
+                            data = b""
+                        if not data:
+                            active.discard(source)
+                            try:
+                                peers[source].shutdown(socket.SHUT_WR)
+                            except OSError:
+                                pass
+                            continue
+                        peers[source].sendall(data)
+
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    server = Server((ADDRESS, 11434), Handler)
+    thread = threading.Thread(target=server.serve_forever, name="cpu-model-api-forwarder", daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 @contextmanager
 def cpu_server(install, models, root):
     """Create an isolated Linux loader tree containing only CPU backends and one model."""
+    external_models = os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")
+    if external_models:
+        private = Path(external_models)
+        private.mkdir(parents=True, exist_ok=True)
+        manifest = _prepare_private_model(models, private)
+        target = urlsplit(os.environ.get("SENTIENTOS_OLLAMA_CPU_TARGET", ""))
+        if target.scheme != "http" or not target.hostname or not target.port:
+            raise ValueError("external CPU server target must be an explicit HTTP host and port")
+        with _loopback_api_forwarder(target.hostname, target.port):
+            if get_api("ps")["models"]:
+                raise ValueError("external CPU server already has a resident model")
+            version = get_api("version")["version"]
+            tagged, = [item for item in get_api("tags")["models"] if item["name"] == MODEL]
+            if tagged["digest"] != MANIFEST:
+                raise ValueError("external server did not load the pinned manifest")
+            yield manifest, version
+        return
     with socket.socket() as probe:
         probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         probe.bind((ADDRESS, 11434))
@@ -101,22 +214,8 @@ def cpu_server(install, models, root):
                     "libgomp.", "libllama.", "libllama-common.", "libllama-server-impl.", "libmtmd."))
                     or f.name == "llama-server"):
                 os.link(f.resolve(strict=True), lib / f.name)
-        relative = Path("manifests/registry.ollama.ai/library") / MODEL.replace(":", "/")
-        manifest = models / relative
-        if sha(manifest.read_bytes()) != MANIFEST:
-            raise ValueError("unexpected model manifest")
         private = base / "models"
-        (private / relative).parent.mkdir(parents=True)
-        (private / relative).write_bytes(manifest.read_bytes())
-        (private / "blobs").mkdir()
-        manifest_data = read(manifest)
-        for layer in [manifest_data["config"], *manifest_data["layers"]]:
-            digest = layer["digest"].removeprefix("sha256:")
-            filename = "sha256-" + digest
-            blob = models / "blobs" / filename
-            if stream_sha256(blob) != (digest, layer["size"]):
-                raise ValueError("model layer differs from pinned manifest")
-            os.link(blob, private / "blobs" / filename)
+        manifest = _prepare_private_model(models, private)
         env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1", "ROCR_VISIBLE_DEVICES": "-1",
                "OLLAMA_VULKAN": "0", "OLLAMA_HOST": ADDRESS + ":11434", "OLLAMA_MODELS": str(private),
                "OLLAMA_NO_CLOUD": "1", "OLLAMA_NOPRUNE": "1", "OLLAMA_NUM_PARALLEL": "1"}
@@ -246,19 +345,24 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
             archive(cycle, resident)
             kinds = _source_kinds_from_history(resident / "history")
             owner = _owner(resident, kinds, resident.parent, historical_request)
+            if explicit_row_mapping:
+                _enable_explicit_row_mapping(owner)
             if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline["arms"][arm]["admitted_boundary_digest"]:
                 raise ValueError("archive differs from sibling comparison")
             owners[arm] = owner
             source_owners[cycle.name] = owner
         owners["empty"] = _owner(root / "empty", kinds, cycle, historical_request)
+        if explicit_row_mapping:
+            _enable_explicit_row_mapping(owners["empty"])
         profiles, questions, exposure, bases = {"empty": []}, {}, {}, {}
         for arm, scope in dict.fromkeys(conditions(cited)):
             owner = owners[arm]
             snapshots[arm] = owner.ordinary_chat_developmental_history_state_snapshot()
             question = questions[scope] = ((INLINE_REPORT + "\n") if scope == "inline" else "") + recall_question(
-                scope, cited, explicit_row_mapping=explicit_row_mapping)
+                scope, cited)
             base, captured = _service_request(owner, root / "preflight" / arm / scope, identity, question,
-                                              bind_invocation=True, capture_adapter=inference)
+                                              bind_invocation=True, capture_adapter=inference,
+                                              capture_history_instruction=explicit_row_mapping)
             if bases.setdefault(scope, base) != base:
                 raise ValueError("unmatched prompts outside the history block")
             key = arm + "_" + scope
@@ -269,6 +373,8 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 if scope == "inline":
                     profiles["inline"] = INLINE_ROWS
             else:
+                if len(evidence) != 1:
+                    raise ValueError(f"history condition {key} did not expose exactly one scored record")
                 actual, = evidence
                 prior, = baseline["questions"]["latest_" + scope]["captures"][arm]["prompt_score_evidence"]
                 if actual["source_score_digest"] != prior["source_score_digest"] or actual["record_id"] != prior["record_id"]:
@@ -297,8 +403,10 @@ def run(cycles, install, models, root, *, cited=False, explicit_row_mapping=Fals
                 "generation": config.generation.as_kwargs(), "trials": conditions(cited), "questions": questions,
                 "profiles": profiles, "exposures": exposure, "matched_base_sha256": {
                     k: sha(v.encode()) for k, v in bases.items()}, "source_code_sha256": sha(Path(__file__).read_bytes()),
-                "intervention": ("explicit_developmental_history_field_to_row_mapping:v1"
-                                 if explicit_row_mapping else "none"),
+                "intervention": ({"id": "explicit_developmental_history_field_to_row_mapping:v1",
+                                  "guidance": EXPLICIT_ROW_MAPPING,
+                                  "guidance_sha256": sha(EXPLICIT_ROW_MAPPING.encode())}
+                                 if explicit_row_mapping else None),
                 "criterion": "One JSON array, distinct integer inputs, exact answers and outcome labels, row order ignored. Grade each delivery against every profile. Missing or malformed replies never pass."}
         if cited:
             plan["criterion"] = ("One JSON object with record_id and rows. A single Markdown JSON fence is accepted. "

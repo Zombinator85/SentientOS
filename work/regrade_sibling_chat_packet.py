@@ -108,7 +108,7 @@ def regrade(source=SOURCE):
         "intervention": plan.get("intervention", "none"),
         "original_verifier_passed": True,
         "model_invoked": False,
-        "scoring_change": "accept exactly one ```json fenced object as permitted by cited v2; rows and citation still independently checked",
+        "scoring_change": "accept exactly one ```json fenced object as permitted by the cited protocol; rows and citation remain independently checked",
         "interpretation_limit": "packet-copy controls show that the verified prompt projection contains sufficient score fields for exact transcription; they are deterministic readouts, not model behavior or evidence of learning",
         "summary": {
             "trials": len(trials),
