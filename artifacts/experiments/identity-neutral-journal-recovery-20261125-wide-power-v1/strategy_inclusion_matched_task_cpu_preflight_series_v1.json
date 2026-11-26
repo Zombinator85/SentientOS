@@ -3,6 +3,8 @@
   "all_private_task_plans_reloaded": true,
   "all_selected_history_records_verified": true,
   "all_source_receipts_verified": true,
+  "analysis_protocol": "strategy_inclusion_matched_task_analysis_protocol_v1.json",
+  "analysis_protocol_digest": "sha256:6a40e539e594981e0aa3f7dff13f79be161ce50170ea4dc89d956f1bdb32bff3",
   "authority": false,
   "history_task_family_ids": [
     "rootless_integer_affine_transfer_low_range_v6",

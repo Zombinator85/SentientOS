@@ -5944,6 +5944,18 @@ v13 preflight path, and journal root
 As with v12, keep the v11 backend seed and model identity. No arm has run;
 these three task instances are prepared, not behavioral replications yet.
 
+The [matched-task analysis protocol](strategy_inclusion_matched_task_analysis_protocol_v1.json)
+is frozen before inference and digest-bound from the three-instance series
+record. Its unit of analysis is the task instance: report each included-minus-
+omitted exact-count difference separately, then aggregate all nine probes only
+if all three pairs have valid receipt-bound scores. Abstentions stay in the
+fixed denominator and are reported separately; a missing or invalid arm makes
+that pair incomplete rather than a zero or an exclusion. Report descriptive
+counts only, with no p-value or significance claim. Even a consistent
+contrast supports only task-bounded strategy-conditioned behavior; a later
+held-out session without the strategy prompt is still required to assess
+durability.
+
 The next rootless attempt is reserved as cycle ID
 `rootless-cognition-cycle-20261125000000000008`; a read-only check confirmed
 that its cycle directory does not exist. The pinned Ollama manifest is present

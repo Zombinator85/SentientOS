@@ -1,0 +1,66 @@
+{
+  "schema_version": "sentientos.strategy_inclusion_matched_task_analysis_protocol:v1",
+  "analysis_id": "strategy-inclusion-three-task-contrast-20261126",
+  "preflight_series": "strategy_inclusion_matched_task_cpu_preflight_series_v1.json",
+  "expected_task_seeds": [
+    13688906,
+    13688907,
+    13688908
+  ],
+  "task_instance_count": 3,
+  "probes_per_task_instance": 3,
+  "conditions": {
+    "included": "strategy_included",
+    "omitted": "strategy_omitted"
+  },
+  "analysis_unit": "independently_seeded_task_instance",
+  "primary_outcome": {
+    "name": "exact_answer_count_difference_included_minus_omitted",
+    "per_task_range": [
+      -3,
+      3
+    ],
+    "aggregate_range": [
+      -9,
+      9
+    ],
+    "calculation": "For each task, count exact correct scored answers in each arm across its three probes, then subtract omitted from included. If and only if all three task pairs have valid receipt-verified scores, also sum correct counts by arm over all nine pairwise-disjoint probes and report the aggregate difference.",
+    "complete_series_required_for_primary_aggregate": true
+  },
+  "scoring_and_missingness": {
+    "explicit_abstention": "Counts as not correct and remains in the fixed three-probe denominator; report separately from incorrect answers.",
+    "missing_arm_or_invalid_receipt": "Mark that task pair incomplete and retain its failure status. Do not impute zero, drop it, or present a completed-series primary aggregate.",
+    "malformed_or_unscorable_output": "Follow the frozen pair scorer; if a valid score cannot be produced, mark the pair incomplete and retain the failure status.",
+    "partial_series": "Report verified completed task pairs individually as partial descriptive data, alongside all missing or failed pairs. Do not pool partial pairs as the primary result."
+  },
+  "secondary_outcomes": [
+    "Per-task and per-arm incorrect, correct, and abstained counts.",
+    "Per-task paired probe transitions between included and omitted arms.",
+    "Number of task pairs with positive, zero, and negative included-minus-omitted differences.",
+    "Coverage by arm, reported separately from exact correctness."
+  ],
+  "inference_policy": {
+    "reporting": "Descriptive task-level counts and all three paired differences.",
+    "p_values": false,
+    "statistical_significance_claim": false,
+    "probe_independence_assumption": false,
+    "reason": "The task instance is the replication unit; the three probes within a task are paired observations, and three task instances do not support a confirmatory significance claim."
+  },
+  "required_runtime_bindings": [
+    "Each task's completed slot result binds its preflight protocol digest through the runner binding.",
+    "Each score digest and runtime protocol digest match the completed slot result.",
+    "Both arm receipts are verified by the frozen score verifier and bind the same target model identity and task digest.",
+    "Each score's probe bindings match that task's frozen preflight; task-level probe sets are pairwise disjoint.",
+    "All three tasks use the same source receipt, selected history set, strategy digest, target model identity, and generation configuration."
+  ],
+  "claim_boundary": {
+    "maximum_supported_interpretation": "A consistent included-versus-omitted difference would be descriptive evidence of task-bounded strategy-conditioned behavior for this target identity and fixed history.",
+    "durable_learning_established": false,
+    "model_independent_continuity_established": false,
+    "self_improvement_established": false,
+    "next_learning_evidence_needed": "A later-session held-out test after the strategy prompt is removed, with matched control history and independently scored outcomes."
+  },
+  "inference_performed": false,
+  "learning_established": false,
+  "authority": false
+}
