@@ -16608,6 +16608,7 @@ class ResidentDevelopmentalCognitionOwner:
                   historical_examples_intervention_protocol_digest: str | None = None,
                   expected_strategy_request_digest: str | None = None,
                   expected_strategy_request_digest_binding_posture: str | None = None,
+                  expected_strategy_request_semantic_payload: Mapping[str, Any] | None = None,
                   negative_guidance_expected_prompt_digest: str | None = None,
                   epistemic_revision_probe_expected_prompt_digest: str | None = None,
                   interaction_question: str | None = None,
@@ -17803,8 +17804,52 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "objective_strategy_arm_request_digest_invalid") from exc
             if canonical_request_digest != expected_strategy_request_digest:
+                diagnostic = None
+                if isinstance(expected_strategy_request_semantic_payload, Mapping):
+                    try:
+                        from work.strategy_inclusion_intervention import (
+                            normalize_strategy_invocation_request_semantics)
+                        posture = (expected_strategy_request_digest_binding_posture
+                            or "request_semantics_with_rootless_session_custody_and_volatile_authority_map_digest_elided:v2")
+                        actual_semantic = (
+                            normalize_strategy_invocation_request_semantics(
+                                request.semantic_payload(), binding_posture=posture))
+                        expected_semantic = (
+                            normalize_strategy_invocation_request_semantics(
+                                expected_strategy_request_semantic_payload,
+                                binding_posture=posture))
+                        def differing_fields(left: Any, right: Any,
+                                prefix: str = "") -> list[str]:
+                            if isinstance(left, Mapping) and isinstance(right, Mapping):
+                                paths: list[str] = []
+                                for key in sorted(set(left) | set(right),
+                                        key=lambda item: str(item)):
+                                    field = str(key)
+                                    path = f"{prefix}.{field}" if prefix else field
+                                    if key not in left or key not in right:
+                                        paths.append(path)
+                                    else:
+                                        paths.extend(differing_fields(
+                                            left[key], right[key], path))
+                                    if len(paths) >= 128:
+                                        return paths[:128]
+                                return paths
+                            return [] if left == right else [prefix or "<root>"]
+                        diagnostic = {
+                            "schema_version": (
+                                "sentientos.strategy_request_digest_mismatch_diagnostic:v1"),
+                            "expected_request_digest": expected_strategy_request_digest,
+                            "actual_request_digest": canonical_request_digest,
+                            "differing_semantic_fields": differing_fields(
+                                expected_semantic, actual_semantic)[:128],
+                            "semantic_values_included": False,
+                            "prompt_text_included": False,
+                        }
+                    except (TypeError, ValueError):
+                        diagnostic = None
                 raise ResidentDevelopmentalCognitionError(
-                    "objective_strategy_arm_request_digest_mismatch")
+                    "objective_strategy_arm_request_digest_mismatch",
+                    diagnostic=diagnostic)
         if negative_guidance_expected_prompt_digest is not None:
             actual_prompt_digest = request.semantic_payload().get(
                 "prompt_digest")
@@ -19900,14 +19945,16 @@ class ResidentDevelopmentalCognitionOwner:
 
     def preview_objective_strategy_inclusion_pair(self, *,
             snapshot: WorldStateSnapshot, tick_id: str,
-            objective_task: Any) -> dict[str, Any]:
+            objective_task: Any,
+            include_request_semantics: bool = False) -> dict[str, Any]:
         """Build both exact owner prompts before invocation or cognition capture."""
         if (not self.config.enabled or not self.config.comparison_enabled
                 or not isinstance(tick_id, str) or not tick_id
                 or len(tick_id) > 190
                 or not validate_snapshot(snapshot).valid
                 or not callable(getattr(objective_task, "specification", None))
-                or not callable(getattr(objective_task, "public_descriptor", None))):
+                or not callable(getattr(objective_task, "public_descriptor", None))
+                or type(include_request_semantics) is not bool):
             raise ResidentDevelopmentalCognitionError(
                 "objective_strategy_prompt_preview_configuration_invalid")
         specification = objective_task.specification()
@@ -20141,7 +20188,16 @@ class ResidentDevelopmentalCognitionOwner:
             "learning_established": False,
             "authority": False,
         }
-        return {**semantic, "pair_preview_digest": _digest(semantic)}
+        result = {**semantic, "pair_preview_digest": _digest(semantic)}
+        if include_request_semantics:
+            result["request_semantics_by_arm"] = {
+                arm: {key: value for key, value in previews[mode][
+                    "request"].items() if key not in {
+                        "request_id", "request_digest", "raw_prompt_stored",
+                        "ephemeral_prompt_handling"}}
+                for arm, mode in (("strategy_included", "included"),
+                    ("strategy_omitted", "omitted"))}
+        return result
 
     def preview_objective_historical_examples_pair(self, *,
             snapshot: WorldStateSnapshot, tick_id: str,
@@ -20383,6 +20439,7 @@ class ResidentDevelopmentalCognitionOwner:
             tick_id: str, objective_task: Any, request_id: str,
             request_digest: str,
             prior_epistemic_state: EpistemicCognitiveProjection | None = None,
+            expected_strategy_request_semantic_payload: Mapping[str, Any] | None = None,
             history_record_allowlist: tuple[str, ...] | None = None,
             accumulated_strategy_inclusion: str | None = None,
             strategy_pair_protocol: Mapping[str, Any] | None = None,
@@ -20561,6 +20618,8 @@ class ResidentDevelopmentalCognitionOwner:
             expected_strategy_request_digest=expected_strategy_request_digest,
             expected_strategy_request_digest_binding_posture=(
                 strategy_request_digest_binding_posture),
+            expected_strategy_request_semantic_payload=(
+                expected_strategy_request_semantic_payload),
             negative_guidance_expected_prompt_digest=(
                 negative_guidance_expected_prompt_digest))
 
@@ -20595,6 +20654,7 @@ class ResidentDevelopmentalCognitionOwner:
                  historical_examples_owner_task_plan_digest: str | None = None,
                  expected_strategy_request_digest: str | None = None,
                  expected_strategy_request_digest_binding_posture: str | None = None,
+                 expected_strategy_request_semantic_payload: Mapping[str, Any] | None = None,
                  negative_guidance_expected_prompt_digest: str | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
@@ -20658,6 +20718,8 @@ class ResidentDevelopmentalCognitionOwner:
                     expected_strategy_request_digest),
                 expected_strategy_request_digest_binding_posture=(
                     expected_strategy_request_digest_binding_posture),
+                expected_strategy_request_semantic_payload=(
+                    expected_strategy_request_semantic_payload),
                 negative_guidance_expected_prompt_digest=(
                     negative_guidance_expected_prompt_digest))
         with self._composition_lock():
@@ -20717,6 +20779,8 @@ class ResidentDevelopmentalCognitionOwner:
                     expected_strategy_request_digest),
                 expected_strategy_request_digest_binding_posture=(
                     expected_strategy_request_digest_binding_posture),
+                expected_strategy_request_semantic_payload=(
+                    expected_strategy_request_semantic_payload),
                 negative_guidance_expected_prompt_digest=(
                     negative_guidance_expected_prompt_digest))
 
@@ -20752,6 +20816,7 @@ class ResidentDevelopmentalCognitionOwner:
                  historical_examples_owner_task_plan_digest: str | None = None,
                  expected_strategy_request_digest: str | None = None,
                  expected_strategy_request_digest_binding_posture: str | None = None,
+                 expected_strategy_request_semantic_payload: Mapping[str, Any] | None = None,
                  negative_guidance_expected_prompt_digest: str | None = None
                  ) -> ResidentDevelopmentalCycleResult:
         if not self.config.enabled:
@@ -21394,6 +21459,8 @@ class ResidentDevelopmentalCognitionOwner:
                                 expected_strategy_request_digest),
                             expected_strategy_request_digest_binding_posture=(
                                 expected_strategy_request_digest_binding_posture),
+                            expected_strategy_request_semantic_payload=(
+                                expected_strategy_request_semantic_payload),
                             negative_guidance_expected_prompt_digest=(
                                 negative_guidance_expected_prompt_digest))
                     except _ObjectiveStrategyPromptPreview as preview:

@@ -1822,7 +1822,8 @@ def _execute_strategy_inclusion_pair_slot(*, context: Mapping[str, Any],
         2026, 11, 23, tzinfo=timezone.utc)).build((),
             manifest_id="resident-strategy-cpu-preflight")
     live_preview = owner.preview_objective_strategy_inclusion_pair(
-        snapshot=snapshot, tick_id=base_tick, objective_task=objective_task)
+        snapshot=snapshot, tick_id=base_tick, objective_task=objective_task,
+        include_request_semantics=True)
     try:
         reconstructed = prepare_strategy_inclusion_pair(
             target_model_identity_digest=identity_digest,
@@ -1852,10 +1853,20 @@ def _execute_strategy_inclusion_pair_slot(*, context: Mapping[str, Any],
         request_ids_by_arm[arm] = request_id
         request_digests_by_arm[arm] = objective_request_payload(
             request_id=request_id, task=objective_task)["request_digest"]
+    request_semantics_by_arm = live_preview.get(
+        "request_semantics_by_arm")
+    if (not isinstance(request_semantics_by_arm, Mapping)
+            or set(request_semantics_by_arm) != {
+                "strategy_included", "strategy_omitted"}
+            or any(not isinstance(value, Mapping)
+                for value in request_semantics_by_arm.values())):
+        raise RootlessExperimentalError(
+            "strategy_inclusion_live_request_semantics_unavailable")
     execute_arm = build_resident_strategy_inclusion_arm_executor(
         owner=owner, snapshot=snapshot, objective_task=objective_task,
         request_ids_by_arm=request_ids_by_arm,
-        request_digests_by_arm=request_digests_by_arm)
+        request_digests_by_arm=request_digests_by_arm,
+        request_semantics_by_arm=request_semantics_by_arm)
 
     def historical_receipt_candidates(frozen_protocol: Mapping[str, Any], *,
             arm: str | None, expected_receipt_id: str | None = None,

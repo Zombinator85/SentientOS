@@ -70,6 +70,23 @@ def canonical_strategy_invocation_request_digest(
             REQUEST_DIGEST_BINDING_POSTURE}:
         raise StrategyInclusionInterventionError(
             "strategy_intervention_request_digest_posture_invalid")
+    semantic = normalize_strategy_invocation_request_semantics(
+        request_semantic_payload, binding_posture=binding_posture)
+    return digest_payload(semantic)
+
+
+def normalize_strategy_invocation_request_semantics(
+        request_semantic_payload: Mapping[str, Any], *,
+        binding_posture: str = REQUEST_DIGEST_BINDING_POSTURE) -> dict[str, Any]:
+    """Return the exact request semantics covered by a declared binding posture."""
+    if not isinstance(request_semantic_payload, Mapping):
+        raise StrategyInclusionInterventionError(
+            "strategy_intervention_request_payload_invalid")
+    if binding_posture not in {
+            SESSION_ONLY_REQUEST_DIGEST_BINDING_POSTURE,
+            REQUEST_DIGEST_BINDING_POSTURE}:
+        raise StrategyInclusionInterventionError(
+            "strategy_intervention_request_digest_posture_invalid")
     semantic = dict(request_semantic_payload)
     linkage = semantic.get("linkage")
     if isinstance(linkage, Mapping) and "rootless_experimental_session" in linkage:
@@ -90,7 +107,7 @@ def canonical_strategy_invocation_request_digest(
             raise StrategyInclusionInterventionError(
                 "strategy_intervention_authority_digest_binding_invalid")
         semantic.pop("authority_map_digest")
-    return digest_payload(semantic)
+    return semantic
 
 
 def _receipt_request_semantics(request: Mapping[str, Any]) -> dict[str, Any]:
@@ -1037,7 +1054,8 @@ def build_strategy_inclusion_receipt_recovery_callback(
 def build_resident_strategy_inclusion_arm_executor(*, owner: Any,
         snapshot: Any, objective_task: Any,
         request_ids_by_arm: Mapping[str, str],
-        request_digests_by_arm: Mapping[str, str]
+        request_digests_by_arm: Mapping[str, str],
+        request_semantics_by_arm: Mapping[str, Mapping[str, Any]]
         ) -> Callable[[str, Mapping[str, Any]], Mapping[str, Any]]:
     """Adapt a resident owner to the paired coordinator's one-call arm API.
 
@@ -1059,7 +1077,11 @@ def build_resident_strategy_inclusion_arm_executor(*, owner: Any,
             or not isinstance(request_digests_by_arm, Mapping)
             or set(request_digests_by_arm) != set(_ARMS)
             or any(not isinstance(value, str) or not value
-                for value in request_digests_by_arm.values())):
+                for value in request_digests_by_arm.values())
+            or not isinstance(request_semantics_by_arm, Mapping)
+            or set(request_semantics_by_arm) != set(_ARMS)
+            or any(not isinstance(value, Mapping)
+                for value in request_semantics_by_arm.values())):
         raise StrategyInclusionInterventionError(
             "strategy_intervention_resident_executor_dependencies_invalid")
 
@@ -1077,6 +1099,8 @@ def build_resident_strategy_inclusion_arm_executor(*, owner: Any,
             objective_task=objective_task,
             request_id=request_ids_by_arm[arm],
             request_digest=request_digests_by_arm[arm],
+            expected_strategy_request_semantic_payload=(
+                request_semantics_by_arm[arm]),
             accumulated_strategy_inclusion=(
                 "included" if arm == "strategy_included" else "omitted"),
             strategy_pair_protocol=protocol)
