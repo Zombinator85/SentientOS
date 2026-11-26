@@ -10,10 +10,18 @@ import tempfile
 from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model_authority import digest_payload
 from sentientos.local_runtime_provisioning import semantic_digest
+from sentientos.developmental_model_replacement_experiment import (
+    FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
+    FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES,
+    ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+    ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY,
+    ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY,
+)
 from sentientos.resident_developmental_cognition import _ordinary_chat_integer_experiences
 from work.preflight_ordinary_chat_retention import (
-    PARAPHRASE, QUESTION, _copy_without_symlinks, _owner, _read_receipt,
-    _service_request, _source_kinds_from_history,
+    PARAPHRASE, PARAPHRASE_PROBES, PILOT, PROBES, QUESTION,
+    _copy_without_symlinks, _owner, _read_receipt, _service_request,
+    _source_kinds_from_history,
 )
 from work.rootless_history_boundary_campaign import (
     _admission_boundary_preserves, _cognition_recovery_state_boundary,
@@ -25,6 +33,14 @@ CYCLES = {"parent": "20261124000000000054", "left": "1a8cb8d5e3b704c159ef",
           "right": "20261124000000000057"}
 TARGET = "20261124000000000009"
 TARGET_RECEIPT = "d14f3d9870e9dbc64f5812f5d7c525cd0ecda9d340d41b4ff1920f244403140b"
+ROOT = Path(__file__).resolve().parents[1]
+NOVEL_TRANSFER_PROBES = (1009, 8009, 50021)
+NOVEL_TRANSFER_QUESTION = (
+    "Earlier we practiced a number prediction exercise. What outputs should go "
+    "with these inputs: " + ", ".join(map(str, NOVEL_TRANSFER_PROBES)) +
+    "? If the history does not support a prediction, use null for that answer. "
+    "Reply only as one JSON object with an answers array, one integer or null "
+    "for each input in order.")
 QUESTIONS = {
     "latest_wide": ("On our most recent scored wide-range arithmetic exercise, what inputs did we try, "
                     "what did we answer for each, and which predictions were incorrect or abstentions? "
@@ -33,6 +49,7 @@ QUESTIONS = {
                    "what did we answer for each, and which predictions were incorrect or abstentions? "
                    "If the record is unclear, say so."),
     "prediction": QUESTION, "paraphrase": PARAPHRASE,
+    "novel_range_transfer": NOVEL_TRANSFER_QUESTION,
 }
 
 
@@ -103,6 +120,7 @@ def build_report(cycles_root):
         raise ValueError("invalid evaluation identity receipt")
     request = receipt["request"]
     arms, controls, captures = {}, {}, {name: {} for name in QUESTIONS}
+    historical_inputs_by_arm = {}
     with tempfile.TemporaryDirectory(prefix="sentientos-sibling-chat-") as tmp:
         for arm, suffix in CYCLES.items():
             source, root = cycle(suffix), Path(tmp) / arm / "resident-cognition"
@@ -115,6 +133,15 @@ def build_report(cycles_root):
                     or {r.record_id: r.record_digest for r, _ in pairs}
                         != {r["record_id"]: r["record_digest"] for r in refs}):
                 raise ValueError("checkpoint differs from admitted inventory")
+            observed_inputs = set()
+            for record, _ in pairs:
+                for experience in _ordinary_chat_integer_experiences(record.candidate):
+                    for example in experience["examples"]:
+                        probe_input = example.get("probe_input")
+                        if type(probe_input) is not int:
+                            raise ValueError("historical integer prediction input is invalid")
+                        observed_inputs.add(probe_input)
+            historical_inputs_by_arm[arm] = observed_inputs
             arms[arm] = {"cycle": source.name, "terminal_status": terminal["status"],
                          "stopped_at": terminal.get("stage"), "failure_code": terminal.get("failure_code"),
                          "preregistration_digest": reg["preregistration_digest"],
@@ -149,11 +176,99 @@ def build_report(cycles_root):
                 if controls.setdefault(name, base) != base:
                     raise ValueError("chat prompts differ outside the history block")
                 captures[name][arm] = evidence
+        empty_root = Path(tmp) / "empty" / "resident-cognition"
+        empty_root.mkdir(parents=True)
+        empty_owner = _owner(empty_root, (), cycle(TARGET), request)
+        empty_base, empty_evidence = _service_request(empty_owner,
+            Path(tmp) / "empty" / "chats" / "novel_range_transfer",
+            request["active_model_identity"], NOVEL_TRANSFER_QUESTION)
+        if controls.get("novel_range_transfer") != empty_base:
+            raise ValueError("empty-history transfer prompt differs outside history")
+        captures["novel_range_transfer"]["empty"] = empty_evidence
     if arms["left"]["addition"]["record_id"] == arms["right"]["addition"]["record_id"]:
         raise ValueError("sibling experiences must be distinct")
+    mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[
+        ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
+    ranges = FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[
+        ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY]
+    if (len(mapping) != 2 or any(type(value) is not int for value in mapping)
+            or any(not any(lower <= probe <= upper for lower, upper in ranges)
+                for probe in NOVEL_TRANSFER_PROBES)):
+        raise ValueError("novel transfer probes do not match the frozen task family")
+    pilot = read(PILOT)
+    pilot_inputs = set(pilot["owner_arm_protocols"]["strategy_included"]
+        ["objective_task_descriptor"]["probe_inputs"])
+    reference_inputs = pilot_inputs | set(PROBES) | set(PARAPHRASE_PROBES)
+    prior_overlap = sorted(reference_inputs.intersection(NOVEL_TRANSFER_PROBES))
+    historical_overlap_by_arm = {
+        arm: sorted(values.intersection(NOVEL_TRANSFER_PROBES))
+        for arm, values in historical_inputs_by_arm.items()}
+    if prior_overlap or any(historical_overlap_by_arm.values()):
+        raise ValueError("novel transfer probes overlap prior or historical inputs")
+    expected_outputs = [mapping[0] * probe + mapping[1]
+        for probe in NOVEL_TRANSFER_PROBES]
+    answer_key_commitment = "sha256:" + digest_payload({
+        "task_family_id": ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+        "probe_inputs": list(NOVEL_TRANSFER_PROBES),
+        "expected_outputs": expected_outputs,
+    })
+    novel_transfer = {
+        "schema_version": "sentientos.ordinary_chat_novel_range_transfer_preflight:v1",
+        "task_family_id": ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
+        "source_task_family_ids": [ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY,
+            ROOTLESS_INTEGER_AFFINE_WIDE_TRANSFER_TASK_FAMILY],
+        "probe_ranges": [list(bounds) for bounds in ranges],
+        "probe_inputs": list(NOVEL_TRANSFER_PROBES),
+        "reference_test_inputs": {
+            "strategy_inclusion_pilot": sorted(pilot_inputs),
+            "ordinary_chat_retention_probes": sorted(
+                set(PROBES) | set(PARAPHRASE_PROBES)),
+        },
+        "probe_input_overlap_with_reference_tests": prior_overlap,
+        "historical_probe_overlap_by_arm": historical_overlap_by_arm,
+        "probe_sets_disjoint_from_reference_tests_and_history": True,
+        "answer_key_commitment": answer_key_commitment,
+        "answer_values_withheld": True,
+        "response_contract": (
+            "one JSON object with an answers array containing one integer or null "
+            "per probe in order; no prose"),
+        "scoring": (
+            "exact integer equality per probe; null, missing, malformed, or "
+            "extra answers count as not correct in the fixed three-probe denominator"),
+        "prompt_bindings": {
+            arm: {
+                "prompt_sha256": captures["novel_range_transfer"][arm].get(
+                    "prompt_sha256"),
+                "history_block_digest": captures[
+                    "novel_range_transfer"][arm].get("history_block_digest"),
+                "history_record_ids": [item["record_id"] for item in
+                    captures["novel_range_transfer"][arm].get(
+                        "prompt_score_evidence", ())],
+                "task_experience_count": sum(len(item.get("examples", ()))
+                    for item in captures["novel_range_transfer"][arm].get(
+                        "prompt_score_evidence", ())),
+            }
+            for arm in ("parent", "left", "right", "empty")},
+        "inference_performed": False,
+        "model_bound_execution_plan_created": False,
+        "learning_established": False,
+        "authority": False,
+    }
+    implementation_paths = (
+        "work/preflight_sibling_chat_histories.py",
+        "work/preflight_ordinary_chat_retention.py",
+        "sentientos/resident_developmental_cognition.py",
+        "sentientos/developmental_model_replacement_experiment.py",
+        "sentientos/chat_service.py",
+        "sentientos/conversation_session.py",
+    )
     return {"schema_version": "sentientos.ordinary_chat_sibling_history_exposure:v1",
             "evaluation_receipt_digest": TARGET_RECEIPT, "generative_model_invoked": False,
-            "arms": arms, "questions": {name: {"text": question,
+            "implementation_sha256": {name: hashlib.sha256(
+                (ROOT / name).read_bytes()).hexdigest()
+                for name in implementation_paths},
+            "arms": arms, "novel_transfer_protocol": novel_transfer,
+            "questions": {name: {"text": question,
                 "matched_base_sha256": hashlib.sha256(controls[name].encode()).hexdigest(),
                 "captures": captures[name]} for name, question in QUESTIONS.items()}}
 
@@ -161,7 +276,19 @@ def build_report(cycles_root):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("cycles_root", type=Path)
-    parser.add_argument("output", type=Path)
+    parser.add_argument("output", type=Path, nargs="?")
+    parser.add_argument("--verify-report", type=Path,
+        help="reconstruct and compare a saved model-free exposure report")
     args = parser.parse_args()
     report = build_report(args.cycles_root)
-    args.output.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    encoded = json.dumps(report, sort_keys=True, indent=2) + "\n"
+    if args.verify_report is not None:
+        saved = read(args.verify_report)
+        if saved != report:
+            raise ValueError("saved sibling history exposure differs from reconstruction")
+        print("sibling_history_exposure_reconstructed",
+            hashlib.sha256(args.verify_report.read_bytes()).hexdigest())
+    elif args.output is not None:
+        args.output.write_text(encoded, encoding="utf-8")
+    else:
+        parser.error("provide output or --verify-report")

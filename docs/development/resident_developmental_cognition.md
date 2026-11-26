@@ -6475,3 +6475,35 @@ target environment variables. The isolated Ollama instance must serve on the
 configured target using the same private store. The launcher writes transient
 run state under the WSL filesystem and packages verified results under
 `artifacts/experiments/ordinary-chat-retention-20261125/cuda-hermes-recall-factorial-full-v2/`.
+
+## Model-free ordinary-chat novel-range transfer preflight
+
+The sibling-history replay now captures a fresh ordinary-chat prompt for the
+novel-range affine task family. Its three inputs (`1009`, `8009`, `50021`) are
+inside the v8 family ranges and were checked against all projected parent,
+left-child, and right-child history inputs, the earlier strategy-inclusion
+pilot, and the earlier ordinary-chat probes; every overlap set is empty. The
+answer values are withheld from the report and bound by commitment
+`sha256:e606fd1931373bafc0fbe03282d7cec240bf4c90a23980963eca70f0db95d623`.
+
+The same question and JSON answer contract were captured in fresh ordinary-chat
+sessions for the common parent, both children, and an empty-history control.
+The parent and left child selected the same historical record; the right child
+selected its distinct record. All three history prompts delivered three
+scored examples, while the empty control delivered none. The builder enforces
+that each prompt is identical outside the history block and binds the cycle
+boundaries, source rows, and implementation digests. Running the builder with
+`--verify-report` reconstructs the saved artifact against the current archived
+cycle state. The parent and left selected rows match exactly even though their
+history-block digests differ, so this preflight does not isolate the left
+child's added record as a causal treatment:
+
+```bash
+python -m work.preflight_sibling_chat_histories <cycles-root> --verify-report <report.json>
+```
+
+The [saved preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json)
+records the no-overlap result and answer-free prompt hashes. This is still
+model-free prompt evidence: no response was generated or scored. A future
+behavioral run must freeze a model-identity-bound execution plan and score the
+held-out integer answers independently before it can support a transfer claim.
