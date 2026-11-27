@@ -365,6 +365,11 @@ def _validate_history_campaign_launch() -> tuple[
             verify_experiment_implementation, verify_model_identity_recipe,
         )
         plan = _load_plan(plan_path)
+        if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64:
+            if OWNER_FEEDBACK_PROTOCOL_DIGEST != (
+                    _owner_feedback_recall_protocol_digest()):
+                raise RootlessExperimentalError(
+                    "owner_feedback_protocol_preregistration_mismatch")
         if plan.get("schema_version") in {
                 "sentientos.rootless_history_boundary_campaign_plan:v7",
                 "sentientos.rootless_history_boundary_campaign_plan:v8",
@@ -733,6 +738,17 @@ def _preregistration_digest_from_environment() -> str:
     if (len(raw) != 64 or not raw.isascii()
             or any(character not in "0123456789abcdef" for character in raw)):
         raise SystemExit("hermes_preregistration_digest_invalid")
+    return raw
+
+
+def _owner_feedback_protocol_digest_from_environment() -> str:
+    # This is distinct from the campaign-plan preregistration digest above.
+    raw = os.environ.get("SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST")
+    if raw is None:
+        return "0" * 64
+    if (len(raw) != 64 or not raw.isascii()
+            or any(character not in "0123456789abcdef" for character in raw)):
+        raise SystemExit("hermes_owner_feedback_protocol_digest_invalid")
     return raw
 
 
@@ -2095,6 +2111,7 @@ def _execute_strategy_inclusion_pair_slot(*, context: Mapping[str, Any],
 
 EXPERIMENT_SEED = _experiment_seed_from_environment()
 PREREGISTRATION_DIGEST = _preregistration_digest_from_environment()
+OWNER_FEEDBACK_PROTOCOL_DIGEST = _owner_feedback_protocol_digest_from_environment()
 HISTORY_INTERVENTION_TRIAL_INDEX = (
     _history_intervention_trial_index_from_environment())
 
@@ -5991,12 +6008,14 @@ def _prior_cycle_owner_feedback_reference(*, campaign_plan: Mapping[str, Any] | 
     if campaign_plan is None or cycle_index <= 0:
         return {"status": "not_preregistered_cross_cycle_campaign"}
     protocol_digest = _owner_feedback_recall_protocol_digest()
-    if PREREGISTRATION_DIGEST == "0" * 64:
-        return {"status": "not_preregistered_cross_cycle_campaign",
+    if OWNER_FEEDBACK_PROTOCOL_DIGEST == "0" * 64:
+        return {"status": "feedback_protocol_digest_not_preregistered",
             "owner_feedback_recall_protocol_digest": protocol_digest}
-    if PREREGISTRATION_DIGEST != protocol_digest:
+    if OWNER_FEEDBACK_PROTOCOL_DIGEST != protocol_digest:
         return {"status": "external_digest_does_not_match_feedback_protocol",
-            "owner_feedback_recall_protocol_digest": protocol_digest}
+            "owner_feedback_recall_protocol_digest": protocol_digest,
+            "registered_owner_feedback_protocol_digest":
+                OWNER_FEEDBACK_PROTOCOL_DIGEST}
     prior_history_raw = os.environ.get("SENTIENTOS_ROOTLESS_PRIOR_HISTORY_ROOT")
     if not isinstance(prior_history_raw, str) or not prior_history_raw:
         raise RootlessExperimentalError("prior_feedback_history_root_missing")
@@ -6420,6 +6439,9 @@ def run() -> dict[str, Any]:
         preregistration = {
             "schema_version": "sentientos.rootless_hermes_cycle_preregistration:v1",
             "external_protocol_digest": PREREGISTRATION_DIGEST,
+            **({"owner_feedback_recall_protocol_digest":
+                OWNER_FEEDBACK_PROTOCOL_DIGEST}
+                if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64 else {}),
             "experiment_seed": EXPERIMENT_SEED,
             "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
             "run_id": RUN_ID,
@@ -8207,12 +8229,15 @@ def run() -> dict[str, Any]:
         cognition_recovery_state_boundary = _cognition_recovery_state_boundary(
             state_root)
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v20",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v21",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "external_preregistration_digest": _optional_preregistration_digest(
                 PREREGISTRATION_DIGEST),
+            "owner_feedback_recall_protocol_digest": (
+                _optional_preregistration_digest(
+                    OWNER_FEEDBACK_PROTOCOL_DIGEST)),
             "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             "gpu_layers_requested": GPU_LAYERS,
