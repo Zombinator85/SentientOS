@@ -958,3 +958,11 @@ The recovery inspector now also reports the recorded source revision, worktree c
 ### Confidence audit evidence integrity
 
 The CPU-only campaign confidence auditor now recomputes each acquisition run digest and every selected developmental record digest and identity before summarizing confidence or comparing retained task-family mappings. It also fails closed if a selected record claims current truth, authority, policy, or canonical explicit-user-retention status. The report schema is v3 and exposes the number and integrity posture of selected records verified. These checks strengthen artifact integrity; they do not show that the model attended to history, that confidence is calibrated, or that learning occurred.
+
+### Saved confidence-audit finding
+
+The v3 auditor was run against the completed two-cycle campaign `rootless-history-campaign-91a0cb4f42be41c19d11` (plan v8, wide-range v7). It verified both campaign acquisition-run digests and all seven selected-history record digests and postures. All 18 answered probes reported maximum confidence; 12 were correct and six were incorrect, with a normalized mean Brier score of 0.333333. This is a small, protocol-specific confidence-saturation observation, not a general calibration estimate.
+
+In cycle `rootless-cognition-cycle-64e9e8a2bb1b4b6995f7`, all three conditions scored 3/3 and the matched outcomes were identical. In cycle `rootless-cognition-cycle-3f1cd7832e9a4ba7aa11`, history-present scored 0/3, history-withheld scored 3/3, and history-restored scored 0/3. The selected-history mapping relation was incomplete in that cycle. These condition differences are descriptive associations under this small plan; they do not establish that history caused the performance change. The v3 report continues to claim no model attention, calibration, learning, or authority.
+
+The read-only report is `artifacts/experiments/rootless-history-campaign-91a0cb4f42be41c19d11/confidence_diagnostic_v3.json`, digest `f0a094263d7e03c8b4ae7e45f1f1d23397a2a87b3dbbe3a06cc0035696d497fb`.
