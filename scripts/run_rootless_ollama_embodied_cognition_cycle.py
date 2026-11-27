@@ -6087,6 +6087,8 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         "external_preregistration_digest": _optional_preregistration_digest(
             PREREGISTRATION_DIGEST),
         "protocol_digest": _owner_feedback_recall_protocol_digest(),
+        "owner_feedback_recall_protocol_digest": (
+            _optional_preregistration_digest(OWNER_FEEDBACK_PROTOCOL_DIGEST)),
         "measurement_scope": "single_record_exact_response_and_citation_probe",
         "authority": False,
         "current_truth": False,
@@ -6095,10 +6097,14 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
     }
     if not preregistered:
         status = ("not_run_first_campaign_cycle"
-            if cycle_index == 0 and PREREGISTRATION_DIGEST == base["protocol_digest"]
+            if cycle_index == 0
+                and OWNER_FEEDBACK_PROTOCOL_DIGEST == base["protocol_digest"]
             else "not_run_protocol_digest_mismatch"
-            if PREREGISTRATION_DIGEST != "0" * 64
-            else "not_run_without_external_preregistration")
+            if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64
+                and OWNER_FEEDBACK_PROTOCOL_DIGEST != base["protocol_digest"]
+            else "not_run_without_external_preregistration"
+            if PREREGISTRATION_DIGEST == "0" * 64
+            else "not_run_prior_feedback_reference_unavailable")
         return {**base, "status": status}
     reference_status = prior_feedback_reference.get("status")
     if reference_status == "previous_cycle_created_no_owner_feedback_record":
