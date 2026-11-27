@@ -1027,3 +1027,10 @@ This code change is after the frozen neutral v2 launch snapshot. The prepared ru
 
 
 The CPU-only receipt auditor now reports this field as `receipt_bound_not_recomputed`, `legacy_binding_not_recorded`, or `invalid`. It checks the binding's schema, prompt-digest agreement with the request and epistemic metadata, recomputed request digest and request ID, selected identity agreement with receipt upstream evidence, equality between delivered-packet and selected-record identity/digest sequences, packet/count consistency, and the no-retention/no-authority/no-learning posture. Since the receipt intentionally contains no history payload, the auditor does not claim to recompute the history-payload digest from the receipt; the receipt semantic digest binds the recorded binding metadata. Existing v1 audit findings remain unchanged and are correctly classified as legacy for this new field.
+
+
+### Claim eligibility for the neutral 12-by-12 plan
+
+The frozen neutral plan is schema v14 and targets `rootless_integer_affine_transfer_novel_range_v8`. It has no `cross_range_history_enabled_competence` field. The offline outcome verifier requires protocol v2, including score-digest binding and per-probe transitions, so this plan cannot produce that verifier's history-enabled competence outcome. Its 12-probe acquisition gate and 12 transfer probes remain useful performance measurements, but passing them alone does not prove durable learning, cross-range history-enabled competence, or a causal history effect.
+
+A future campaign that seeks that specific claim must be separately planned before inference using the supported wide-range target family, an eligible score-bound low-range source history, the model identity recipe, the protocol-v2 field, and its independent preflight. It must receive fresh source pins and before-run digest custody. Do not retrofit the frozen neutral plan or treat its results as satisfying these conditions.
