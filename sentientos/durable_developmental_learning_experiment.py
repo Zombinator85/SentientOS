@@ -435,7 +435,9 @@ def _verify_condition_worker_recovery_exchange_map(*,
         ) -> dict[str, list[dict[str, Any]]]:
     """Revalidate persisted recovery requests and supervisor-bound exchanges."""
     from .durable_learning_condition_worker_rpc import (
-        ConditionWorkerRPCDispatcher, verify_condition_worker_rpc_request)
+        ConditionWorkerRPCDispatcher,
+        _valid_owner_tick_recovery_completion,
+        verify_condition_worker_rpc_request)
     operations = (list(expected_operations) if expected_operations is not None
         else ["inspect_baseline", "recover_acquisition_receipts",
             "prepare_consolidation_snapshot", "consolidate_branch"])
@@ -548,8 +550,10 @@ def _verify_condition_worker_recovery_exchange_map(*,
                             "answer_example_exclusion_verified",
                             "probe_use_eligible",
                             "supervisor_recovery_evidence_eligible",
-                            "adoption_performed", "authority"}
+                            "adoption_performed", "recovered_completion",
+                            "recovered_completion_digest", "authority"}
                         projection = result.get("strategy_projection")
+                        completion = result.get("recovered_completion")
                         projection_digest = (projection.get("projection_digest")
                             if isinstance(projection, Mapping) else None)
                         branch_ids = protocol.get("condition_branch_ids")
@@ -573,6 +577,15 @@ def _verify_condition_worker_recovery_exchange_map(*,
                                         projection_digest) is None))
                                 or result.get("projection_digest") !=
                                     projection_digest
+                                or not _valid_owner_tick_recovery_completion(
+                                    completion,
+                                    protocol_id=protocol["protocol_id"],
+                                    protocol_digest=protocol["protocol_digest"],
+                                    condition=condition,
+                                    branch_id=result.get("branch_id"))
+                                or result.get("recovered_completion_digest") !=
+                                    ConditionWorkerRPCDispatcher._result_digest(
+                                        completion)
                                 or result.get("owner_tick_reloaded") is not True
                                 or any(result.get(key) is not False for key in (
                                     "consolidation_receipt_reference_verified",
@@ -14723,6 +14736,159 @@ class DurableDevelopmentalLearningRunner:
             "probe_use_eligible": False,
             "adoption_performed": False, "authority": False}
 
+    def reconcile_recovered_consolidation_artifacts(self, *,
+            protocol: Mapping[str, Any]
+            ) -> dict[str, dict[str, Any]] | None:
+        """Rebuild missing controller receipts from a completed v2 recovery run."""
+        if (not isinstance(protocol, Mapping)
+                or protocol.get("schema_version") not in _POLICY_PROTOCOL_SCHEMAS):
+            raise ValueError(
+                "durable_learning_recovered_consolidation_protocol_invalid")
+        self._verify_protocol_is_persisted(protocol)
+        self._verify_condition_branch_bindings(protocol, baseline=False)
+        recovery_intent = self._store.load_condition_worker_recovery_intent(
+            protocol=protocol)
+        if (not isinstance(recovery_intent, Mapping)
+                or recovery_intent.get("schema_version") !=
+                    "sentientos.durable_learning_condition_recovery_intent:v2"):
+            return None
+        run = self._store.load_condition_worker_recovery_run(protocol=protocol)
+        if not isinstance(run, Mapping) or run.get("status") != "completed":
+            return None
+        if self._condition_branches is None:
+            raise ValueError("durable_learning_condition_branches_required")
+        intents, receipts = self._store.load_consolidation_artifacts(protocol)
+        exchanges = run.get("condition_exchanges")
+        if not isinstance(exchanges, Mapping):
+            raise ValueError(
+                "durable_learning_recovered_consolidation_exchanges_invalid")
+        reconciled: dict[str, dict[str, Any]] = {}
+        for condition in _CONDITIONS:
+            branch = self._condition_branches[condition]
+            if condition in receipts:
+                intent = intents.get(condition)
+                if not isinstance(intent, Mapping):
+                    raise ValueError(
+                        "durable_learning_recovered_consolidation_intent_missing")
+                reconciled[condition] = self._verify_persisted_consolidation_receipt(
+                    protocol=protocol, branch=branch, intent=intent,
+                    receipt=receipts[condition])
+                continue
+            rows = exchanges.get(condition)
+            if (not isinstance(rows, list) or len(rows) != 5
+                    or rows[2].get("request", {}).get("operation") !=
+                        "prepare_consolidation_snapshot"
+                    or rows[3].get("request", {}).get("operation") !=
+                        "consolidate_branch"
+                    or not isinstance(rows[3].get("exchange"), Mapping)
+                    or rows[3]["exchange"].get("response_status") != "completed"
+                    or rows[4].get("request", {}).get("operation") !=
+                        "reconstruct_strategy_projection_v2"):
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_exchange_missing")
+            snapshot_exchange = rows[2].get("exchange")
+            snapshot = (snapshot_exchange.get("response_result")
+                if isinstance(snapshot_exchange, Mapping) else None)
+            recovered = self.load_recovered_strategy_projection(
+                protocol=protocol, condition=condition)
+            completion = recovered.get("recovered_completion")
+            if (not isinstance(snapshot_exchange, Mapping)
+                    or snapshot_exchange.get("response_status") != "completed"
+                    or not isinstance(snapshot, Mapping)
+                    or not isinstance(completion, Mapping)
+                    or snapshot.get("branch_id") != branch.branch_id
+                    or snapshot.get("baseline_state_matches_protocol") is not True
+                    or snapshot.get("developmental_writeback_performed") is not False
+                    or snapshot.get("snapshot_id") !=
+                        completion.get("snapshot_id")
+                    or snapshot.get("snapshot_digest") !=
+                        completion.get("snapshot_digest")
+                    or snapshot.get("source_fact_ids") !=
+                        completion.get("source_fact_ids")
+                    or snapshot.get("withhold_developmental_history") is not
+                        completion.get("withhold_developmental_history")
+                    or completion.get("baseline_history_state_digest") !=
+                        protocol.get("baseline_history_state_digest")):
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_snapshot_binding_invalid")
+            baseline_refs = snapshot.get("baseline_record_refs")
+            source_fact_ids = snapshot.get("source_fact_ids")
+            if not isinstance(baseline_refs, list) or not isinstance(
+                    source_fact_ids, list):
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_snapshot_invalid")
+            post_state = _resolve_history_state_snapshot(lambda:
+                completion.get("post_history_state_snapshot"))
+            if post_state != branch.experience_source.current_history_state_snapshot():
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_owner_state_changed")
+            _verify_append_only_consolidation_state(baseline_refs,
+                post_state["record_refs"])
+            baseline_ids = {ref["record_id"] for ref in baseline_refs}
+            post_refs = {ref["record_id"]: dict(ref)
+                for ref in post_state["record_refs"]}
+            new_refs = [post_refs[key] for key in sorted(
+                set(post_refs) - baseline_ids)]
+            writeback_ref = completion.get("new_writeback_ref")
+            writeback_receipt_ref = completion.get("new_writeback_receipt_ref")
+            if completion.get("developmental_writeback_performed") is True:
+                if (not isinstance(writeback_ref, Mapping)
+                        or not isinstance(writeback_receipt_ref, Mapping)
+                        or new_refs != [{**dict(writeback_ref),
+                            **dict(writeback_receipt_ref)}]):
+                    raise ValueError(
+                        "durable_learning_recovered_consolidation_writeback_invalid")
+            elif writeback_ref is not None or writeback_receipt_ref is not None or new_refs:
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_unattributed_delta")
+            intent = self._store.persist_consolidation_intent(protocol,
+                condition=condition, branch_id=branch.branch_id,
+                tick_id=completion["tick_id"],
+                snapshot_id=completion["snapshot_id"],
+                snapshot_digest=completion["snapshot_digest"],
+                baseline_history_state_digest=(
+                    protocol["baseline_history_state_digest"]),
+                withhold_developmental_history=(condition == _CONDITIONS[1]),
+                baseline_record_refs=baseline_refs,
+                source_fact_ids=source_fact_ids)
+            projection = recovered.get("strategy_projection")
+            receipt_payload = {"schema_version":
+                    "sentientos.durable_learning_consolidation_receipt:v2",
+                "protocol_id": protocol["protocol_id"],
+                "protocol_digest": protocol["protocol_digest"],
+                "condition": condition, "branch_id": branch.branch_id,
+                "intent_id": intent["intent_id"],
+                "intent_digest": intent["intent_digest"],
+                "tick_id": completion["tick_id"],
+                "snapshot_id": completion["snapshot_id"],
+                "snapshot_digest": completion["snapshot_digest"],
+                "resident_tick_status": "recovered_completed_tick",
+                "withhold_developmental_history": condition == _CONDITIONS[1],
+                "source_fact_ids": list(source_fact_ids),
+                "selected_fact_ids": list(completion["selected_fact_ids"]),
+                "cognition_observation_ids": list(completion["observation_ids"]),
+                "post_history_state_snapshot": post_state,
+                "new_writeback_refs": new_refs,
+                "writeback_record_ref": (dict(writeback_ref)
+                    if isinstance(writeback_ref, Mapping) else None),
+                "writeback_receipt_ref": (dict(writeback_receipt_ref)
+                    if isinstance(writeback_receipt_ref, Mapping) else None),
+                "strategy_projection": dict(projection)
+                    if isinstance(projection, Mapping) else None,
+                "strategy_projection_digest": (projection.get("projection_digest")
+                    if isinstance(projection, Mapping) else None),
+                "developmental_writeback_performed":
+                    completion["developmental_writeback_performed"],
+                "scorer_outcomes_included": False,
+                "consolidation_policy_preregistered": True,
+                "retention_contrast_eligible": False,
+                "authority": False}
+            sealed = self._store.persist_consolidation_receipt(protocol,
+                intent=intent, receipt=receipt_payload)
+            reconciled[condition] = self._verify_persisted_consolidation_receipt(
+                protocol=protocol, branch=branch, intent=intent, receipt=sealed)
+        return reconciled
+
     def persist_recovered_answer_exclusion_attestation(self, *,
             protocol: Mapping[str, Any],
             attestation: Mapping[str, Any]) -> dict[str, Any]:
@@ -16901,6 +17067,9 @@ class DurableDevelopmentalLearningRunner:
             verified_acquisition,
             invocation_receipt_verifier=self._receipt_verifier)
 
+        if protocol.get("schema_version") in _POLICY_PROTOCOL_SCHEMAS:
+            self.reconcile_recovered_consolidation_artifacts(
+                protocol=protocol)
         intents, receipts = self._store.load_consolidation_artifacts(protocol)
         if set(intents) != set(_CONDITIONS) or set(receipts) != set(_CONDITIONS):
             raise ValueError("durable_learning_branch_consolidation_incomplete")

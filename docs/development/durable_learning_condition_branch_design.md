@@ -1704,6 +1704,15 @@ auditor attestation to that recovered projection and persist it through the
 existing signed-attestation verifier. The returned audit record still fixes
 probe use, adoption, and authority to false; normal delayed-probe gates retain
 their separate consolidation and evidence requirements.
+Before delayed-probe evidence is loaded, `reconcile_recovered_consolidation_artifacts(...)`
+can reconstruct missing controller-side intent and receipt artifacts from a
+completed v2 run. It requires the supervisor's snapshot result and owner-tick
+completion to agree, derives the append-only state delta, persists immutable
+artifacts, and reloads them through `_verify_persisted_consolidation_receipt(...)`.
+Existing receipts are reverified; incomplete or interrupted recovery runs do
+not produce artifacts. This closes the recovery-to-controller evidence gap
+without starting a tick or changing probe, adoption, retention, or authority
+eligibility.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.

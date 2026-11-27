@@ -309,6 +309,78 @@ def _require_digest(value: Any) -> bool:
     return isinstance(value, str) and _DIGEST.fullmatch(value) is not None
 
 
+def _valid_owner_tick_recovery_completion(value: Any, *, protocol_id: str,
+        protocol_digest: str, condition: str, branch_id: str) -> bool:
+    fields = {"schema_version", "protocol_id", "protocol_digest", "condition",
+        "branch_id", "tick_id", "snapshot_id", "snapshot_digest",
+        "baseline_history_state_digest", "resident_tick_status",
+        "source_fact_ids", "selected_fact_ids", "observation_ids",
+        "post_history_state_snapshot", "new_writeback_ref",
+        "new_writeback_receipt_ref", "developmental_writeback_performed",
+        "withhold_developmental_history", "scorer_outcomes_included",
+        "recovery_inference_performed", "learning_established", "authority"}
+    if type(value) is not dict or set(value) != fields:
+        return False
+    source_ids = value.get("source_fact_ids")
+    selected_ids = value.get("selected_fact_ids")
+    observations = value.get("observation_ids")
+    writeback_ref = value.get("new_writeback_ref")
+    receipt_ref = value.get("new_writeback_receipt_ref")
+    valid_writeback_ref = (writeback_ref is None or (
+        isinstance(writeback_ref, Mapping)
+        and set(writeback_ref) == {"record_id", "record_digest"}
+        and isinstance(writeback_ref.get("record_id"), str)
+        and re.fullmatch(r"devrec-[0-9a-f]{24}",
+            writeback_ref["record_id"]) is not None
+        and isinstance(writeback_ref.get("record_digest"), str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}",
+            writeback_ref["record_digest"]) is not None))
+    valid_receipt_ref = (receipt_ref is None or (
+        isinstance(receipt_ref, Mapping)
+        and set(receipt_ref) == {"receipt_id", "receipt_digest"}
+        and isinstance(receipt_ref.get("receipt_id"), str)
+        and re.fullmatch(r"devreceipt-[0-9a-f]{24}",
+            receipt_ref["receipt_id"]) is not None
+        and isinstance(receipt_ref.get("receipt_digest"), str)
+        and re.fullmatch(r"sha256:[0-9a-f]{64}",
+            receipt_ref["receipt_digest"]) is not None))
+    writeback_performed = value.get("developmental_writeback_performed")
+    return (value.get("schema_version") ==
+            "sentientos.durable_learning_worker_owner_tick_recovery:v1"
+        and value.get("protocol_id") == protocol_id
+        and value.get("protocol_digest") == protocol_digest
+        and value.get("condition") == condition
+        and value.get("branch_id") == branch_id
+        and value.get("tick_id") ==
+            f"durable-learning-consolidation-{protocol_id}-{condition}"
+        and isinstance(value.get("snapshot_id"), str)
+        and bool(value["snapshot_id"])
+        and _require_digest(value.get("snapshot_digest"))
+        and _require_digest(value.get("baseline_history_state_digest"))
+        and value.get("resident_tick_status") == "completed"
+        and isinstance(source_ids, list) and 1 <= len(source_ids) <= 1024
+        and all(isinstance(item, str) and item for item in source_ids)
+        and len(set(source_ids)) == len(source_ids)
+        and isinstance(selected_ids, list)
+        and all(isinstance(item, str) and item for item in selected_ids)
+        and len(set(selected_ids)) == len(selected_ids)
+        and set(selected_ids).issubset(set(source_ids))
+        and isinstance(observations, list) and len(observations) == 1
+        and isinstance(observations[0], str) and bool(observations[0])
+        and isinstance(value.get("post_history_state_snapshot"), Mapping)
+        and valid_writeback_ref and valid_receipt_ref
+        and type(writeback_performed) is bool
+        and ((writeback_performed is True and writeback_ref is not None
+                and receipt_ref is not None and bool(selected_ids))
+            or (writeback_performed is False and writeback_ref is None
+                and receipt_ref is None and not selected_ids))
+        and value.get("withhold_developmental_history") is
+            (condition == "relevant_experience_withheld")
+        and all(value.get(key) is False for key in (
+            "scorer_outcomes_included", "recovery_inference_performed",
+            "learning_established", "authority")))
+
+
 def _validate_request_payload(operation: str, payload: Any) -> dict[str, Any]:
     if type(payload) is not dict:
         raise ConditionWorkerRPCError("durable_learning_worker_rpc_payload_invalid")
@@ -832,6 +904,11 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
                 or result.get("projection_digest") != expected_projection_digest
                 or type(completion) is not dict
                 or set(completion) != completion_fields
+                or not _valid_owner_tick_recovery_completion(completion,
+                    protocol_id=checked_request["protocol_id"],
+                    protocol_digest=checked_request["protocol_digest"],
+                    condition=checked_request["condition"],
+                    branch_id=result.get("branch_id"))
                 or result.get("recovered_completion_digest") !=
                     ConditionWorkerRPCDispatcher._result_digest(completion)
                 or completion.get("schema_version") !=
