@@ -4606,4 +4606,25 @@ layers. Campaign `rootless-history-campaign-57a2f18c60394b8da026`, plan digest
 `1312427128`; backend seeds `389109745` and `991403726`. It binds source commit
 `662c0cfb990f74e2623ee16b770e0d4449634d62`. Artifact:
 [`campaign-plan-wsl-v16.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v16.json).
-No v16 inference has been performed.
+At plan freeze, no v16 inference had been performed.
+
+V16 cycle 0 completed acquisition and transfer scoring, then stopped at the
+progression comparability gate. The terminal artifact binds 17 inference
+receipts, three developmental records, and the successful model unload. The
+score-bound acquisition record reports 3/3 correct in the history-present
+condition. The held-out 12-probe transfer record reports 3/12 correct with
+history present, 0/12 with history withheld, and 3/12 after restoration. These
+single-cycle counts are descriptive; the run's gate did not establish that the
+episodes used comparable model-generation controls, and no learning or causal
+claim is made. V16 cycle 0 is spent and its second cycle will not run.
+
+Forensics found a comparator representation bug. Receipt-backed generation
+profiles retained only the digest of the full generation config, including the
+task-specific structured-output schema. The progression comparator was meant
+to remove that schema before comparing controls, but could only do so when the
+profile contained the raw config. The verifier now emits separate exact-config,
+schema-free control, and output-contract digests. The progression gate compares
+the schema-free control digest and records the output-contract digest
+separately. This preserves exact receipt lineage while allowing task schemas to
+vary without making otherwise identical controls incomparable. A fresh plan is
+required to evaluate this correction.

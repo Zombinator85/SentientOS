@@ -11702,11 +11702,28 @@ def verified_objective_measurement_summary(*, experiments: DevelopmentalExperime
                 "active_model_identity": dict(active_model_identity),
                 "generation_config": dict(verified_generation)
                     if isinstance(verified_generation, Mapping) else {}}
+            normalized_generation_config = dict(exact_profile["generation_config"])
+            normalized_parameters = normalized_generation_config.get(
+                "actual_generation_parameters")
+            output_schema = None
+            if isinstance(normalized_parameters, Mapping):
+                normalized_parameters = dict(normalized_parameters)
+                output_schema = normalized_parameters.pop(
+                    "structured_output_schema", None)
+                normalized_generation_config["actual_generation_parameters"] = (
+                    normalized_parameters)
+            generation_control_digest = _digest(normalized_generation_config)
+            task_output_contract_digest = _digest({
+                "structured_output_schema": output_schema})
             model_profile = {"model_id": exact_profile["model_id"],
                 "model_artifact_digest": exact_profile["model_artifact_digest"],
                 "active_model_identity": exact_profile["active_model_identity"],
                 "generation_config_digest": _digest(exact_profile["generation_config"]),
-                "profile_digest": _digest(exact_profile)}
+                "generation_control_digest": generation_control_digest,
+                "task_output_contract_digest": task_output_contract_digest,
+                "profile_digest": _digest({**exact_profile,
+                    "generation_control_digest": generation_control_digest,
+                    "task_output_contract_digest": task_output_contract_digest})}
         effective_tokens = (actual_parameters.get("max_new_tokens")
             if isinstance(actual_parameters, Mapping) else None)
         if type(effective_tokens) is int and type(requested_tokens) is int:
@@ -13185,6 +13202,21 @@ class ResidentDevelopmentalCognitionOwner:
                     continue
                 control_profile = dict(profile)
                 control_profile.pop("profile_digest", None)
+                generation_control_digest = profile.get(
+                    "generation_control_digest")
+                output_contract_digest = profile.get(
+                    "task_output_contract_digest")
+                if (isinstance(generation_control_digest, str)
+                        and isinstance(output_contract_digest, str)):
+                    # The trusted outcome verifier has already bound these two
+                    # digests to the exact receipt-backed generation config.
+                    # Exclude the full config digest from the control vector;
+                    # it includes the task-specific output schema.
+                    control_profile.pop("generation_config_digest", None)
+                    control_profile.pop("task_output_contract_digest", None)
+                    generation_control_digests.append(_digest(control_profile))
+                    task_output_contract_digests.append(output_contract_digest)
+                    continue
                 generation_config = control_profile.get("generation_config")
                 output_contract_digest = None
                 if isinstance(generation_config, Mapping):
