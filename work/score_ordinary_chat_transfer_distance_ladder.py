@@ -14,6 +14,7 @@ from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model_authority import digest_payload
 
 ARMS = ("history", "empty")
+CANDIDATE_ARMS = ("history", "derived_history", "empty")
 TIERS = ("near", "middle", "far")
 TRIAL_ORDER = (
     ("near", "history"), ("near", "empty"),
@@ -24,7 +25,7 @@ TRIAL_ORDER = (
 
 def _validate_plan_treatment(plan: dict) -> None:
     schema = plan.get("schema")
-    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6")):
+    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6", ":v7", ":v8")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint") is None
                 or hashlib.sha256(plan["output_constraint"].encode()).hexdigest()
@@ -67,7 +68,9 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v6"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v6",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v7",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v8"}
             or plan.get("source_report_sha256") != preflight_sha
             or run.get("plan_sha256") != plan_sha
             or plan.get("task_family_id") != preflight.get("task_family_id")
@@ -75,22 +78,31 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
             or run.get("learning_established") is not False
             or set(plan.get("tiers", {})) != set(TIERS)
             or not re.fullmatch(r"[0-9a-f]{64}", plan.get("matched_base_sha256", ""))
-            or [(item.get("tier"), item.get("arm")) for item in run.get("trials", ())]
-                != list(TRIAL_ORDER)):
+            or plan.get("arms", list(ARMS))
+                != preflight.get("arms", list(ARMS))):
         raise ValueError("completed run does not match the frozen preflight")
+    arms = tuple(preflight.get("arms", ARMS))
+    expected_arms = (CANDIDATE_ARMS if preflight.get(
+        "derived_rule_hypothesis_treatment") is not None else ARMS)
+    trial_order = tuple(tuple(item) for item in preflight.get(
+        "trial_order", TRIAL_ORDER))
+    if (arms != expected_arms
+            or tuple((item.get("tier"), item.get("arm"))
+                for item in plan.get("trial_order", ())) != trial_order
+            or tuple((item.get("tier"), item.get("arm"))
+                for item in run.get("trials", ())) != trial_order):
+        raise ValueError("execution arms or order differ from the frozen preflight")
     if not isinstance(plan.get("model_identity"), dict):
         raise ValueError("execution plan lacks a bound model identity")
     _validate_plan_treatment(plan)
     captures: dict[str, dict] = {tier: {} for tier in TIERS}
-    for index, (tier, arm) in enumerate(TRIAL_ORDER):
+    for index, (tier, arm) in enumerate(trial_order):
         key = tier + "_" + arm
         frozen = preflight["tiers"][tier]
         binding = plan["prompt_bindings"].get(key)
         trial = run["trials"][index]
-        frozen_history = frozen["captures"]["history"]
-        frozen_empty = frozen["captures"]["empty"]
-        history_binding = plan["prompt_bindings"].get(tier + "_history", {})
-        empty_binding = plan["prompt_bindings"].get(tier + "_empty", {})
+        frozen_arm = frozen["captures"].get(arm, {})
+        arm_binding = plan["prompt_bindings"].get(tier + "_" + arm, {})
         if (not isinstance(binding, dict)
                 or plan.get("example_presentation", "record_linked")
                     != preflight.get("example_presentation", "record_linked")
@@ -98,18 +110,16 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                     != preflight.get("derived_rule_hypothesis_treatment")
                 or plan["tiers"][tier].get("probe_inputs") != frozen.get("probe_inputs")
                 or plan["tiers"][tier].get("answer_key_commitment") != frozen.get("answer_key_commitment")
-                or history_binding.get("prompt_score_evidence") != frozen_history.get("prompt_score_evidence")
-                or history_binding.get("prompt_example_renderings", [])
-                    != frozen_history.get("prompt_example_renderings", [])
-                or history_binding.get("derived_rule_hypotheses", [])
-                    != frozen_history.get("derived_rule_hypotheses", [])
-                or not history_binding.get("history_block_digest")
-                or empty_binding.get("prompt_score_evidence") != frozen_empty.get("prompt_score_evidence")
-                or empty_binding.get("prompt_example_renderings", [])
-                    != frozen_empty.get("prompt_example_renderings", [])
-                or empty_binding.get("derived_rule_hypotheses", [])
-                    != frozen_empty.get("derived_rule_hypotheses", [])
-                or empty_binding.get("history_block_digest") is not None
+                or arm_binding.get("prompt_score_evidence")
+                    != frozen_arm.get("prompt_score_evidence")
+                or arm_binding.get("prompt_example_renderings", [])
+                    != frozen_arm.get("prompt_example_renderings", [])
+                or arm_binding.get("derived_rule_hypotheses", [])
+                    != frozen_arm.get("derived_rule_hypotheses", [])
+                or ((arm != "empty") != bool(arm_binding.get("history_block_digest")))
+                or arm_binding.get("prompt_sha256") != binding.get("prompt_sha256")
+                or arm_binding.get("invocation_prompt_digest")
+                    != binding.get("invocation_prompt_digest")
                 or not re.fullmatch(r"[0-9a-f]{64}", binding.get("prompt_sha256", ""))
                 or not re.fullmatch(r"[0-9a-f]{64}", binding.get("invocation_prompt_digest", ""))
                 or trial.get("plan_sha256") != plan_sha
@@ -136,7 +146,7 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
         "schema": "sentientos.ordinary_chat_transfer_execution:v1",
         "preflight_sha256": digest_payload(preflight),
         "plan_sha256": plan_sha,
-        "arms": list(ARMS),
+        "arms": list(arms),
         "model_identity": plan["model_identity"],
         "format_treatment": plan.get("format_treatment"),
         "semantic_treatment": plan.get("semantic_treatment"),
@@ -153,7 +163,8 @@ def score(preflight: dict, execution: dict) -> dict:
     if (preflight.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5"}
             or execution.get("schema") !=
                 "sentientos.ordinary_chat_transfer_execution:v1"
             or execution.get("preflight_sha256") != digest_payload(preflight)
@@ -162,9 +173,15 @@ def score(preflight: dict, execution: dict) -> dict:
             or preflight.get("model_bound_execution_plan_created") is not False
             or execution.get("inference_performed") is not True
             or execution.get("learning_established") is not False
-            or preflight.get("arms") != list(ARMS)
-            or execution.get("arms") != list(ARMS)):
+            or preflight.get("arms") != execution.get("arms")
+            or preflight.get("derived_rule_hypothesis_treatment")
+                != execution.get("derived_rule_hypothesis_treatment")):
         raise ValueError("execution does not match the frozen transfer protocol")
+    arms = tuple(preflight.get("arms", ARMS))
+    expected_arms = (CANDIDATE_ARMS if preflight.get(
+        "derived_rule_hypothesis_treatment") is not None else ARMS)
+    if arms != expected_arms:
+        raise ValueError("preflight arms do not match the treatment")
     task_family = preflight.get("task_family_id")
     protocol = preflight.get("protocol_checks", preflight)
     if (task_family not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
@@ -204,7 +221,7 @@ def score(preflight: dict, execution: dict) -> dict:
         if not isinstance(tier_captures, dict):
             raise ValueError("tier captures are missing")
         arm_results = {}
-        for arm in ARMS:
+        for arm in arms:
             capture = tier_captures.get(arm)
             if not isinstance(capture, dict) or capture.get("arm") != arm:
                 raise ValueError("paired arm capture is invalid")
@@ -247,9 +264,17 @@ def score(preflight: dict, execution: dict) -> dict:
                 "session_id": session_id,
                 "receipt_id": receipt["receipt_id"],
             }
-        results.append({"tier": tier, "inputs": inputs, "expected": expected,
+        tier_result = {"tier": tier, "inputs": inputs, "expected": expected,
             **arm_results, "history_minus_empty":
-                arm_results["history"]["exact"] - arm_results["empty"]["exact"]})
+                arm_results["history"]["exact"] - arm_results["empty"]["exact"]}
+        if "derived_history" in arms:
+            tier_result["derived_history_minus_empty"] = (
+                arm_results["derived_history"]["exact"]
+                - arm_results["empty"]["exact"])
+            tier_result["derived_minus_raw_history"] = (
+                arm_results["derived_history"]["exact"]
+                - arm_results["history"]["exact"])
+        results.append(tier_result)
     return {"schema": "sentientos.ordinary_chat_transfer_score:v2",
         "preflight_sha256": digest_payload(preflight), "model_identity": identity,
         "plan_sha256": execution.get("plan_sha256"),
@@ -258,7 +283,7 @@ def score(preflight: dict, execution: dict) -> dict:
         "derived_rule_hypothesis_treatment": execution.get("derived_rule_hypothesis_treatment"),
         "example_presentation": execution.get("example_presentation"),
         "ladder_design": execution.get("ladder_design"),
-        "tiers": results, "inference_performed": True,
+        "arms": list(arms), "tiers": results, "inference_performed": True,
         "learning_established": False, "authority": False,
         "scorer_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
 

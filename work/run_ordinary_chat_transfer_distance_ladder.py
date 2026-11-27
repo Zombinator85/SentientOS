@@ -146,12 +146,30 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
     if (protocol.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True):
         raise ValueError("distance-ladder model-free preflight is not qualified")
+    expected_arms = (["history", "derived_history", "empty"]
+        if protocol.get("schema", "").endswith(":v5") else ["history", "empty"])
+    if (protocol.get("arms") != expected_arms
+            or (protocol.get("derived_rule_hypothesis_treatment") is not None
+                and not protocol.get("schema", "").endswith(":v5"))
+            or (protocol.get("schema", "").endswith(":v5")
+                and protocol.get("derived_rule_hypothesis_treatment")
+                    != "exact_integer_affine_fit_from_scored_rows:v1")
+            or derive_affine_hypothesis != (expected_arms[0] == "history"
+                and len(expected_arms) == 3)):
+        raise ValueError("run treatment does not match the frozen preflight arms")
+    trial_order = tuple(tuple(item) for item in protocol.get("trial_order", TRIAL_ORDER))
+    if (len(trial_order) != len(expected_arms) * len(protocol.get("tiers", {}))
+            or any(len(item) != 2 or item[1] not in expected_arms
+                or item[0] not in protocol.get("tiers", {}) for item in trial_order)
+            or len(set(trial_order)) != len(trial_order)):
+        raise ValueError("frozen trial order does not match the preflight arms")
     target_cycle = (cycles / ("rootless-cognition-cycle-" + TARGET)
                     if cycles is not None and parent_snapshot is None else None)
 
@@ -218,15 +236,22 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("model-free protocol has an unknown example presentation")
         history_owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
-        if protocol.get("schema", "").endswith(":v3"):
+        if protocol.get("schema", "").endswith(":v5"):
             if (protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1"
                     or protocol.get("derived_rule_hypothesis_projection_verified") is not True
                     or not derive_affine_hypothesis):
                 raise ValueError("derived affine hypothesis preflight is not qualified")
-            history_owner.include_affine_rule_hypothesis = True
+            derived_root = root / "derived-history" / "resident-cognition"
+            derived_root.parent.mkdir(parents=True, exist_ok=True)
+            _copy_without_symlinks(history_root, derived_root)
+            derived_owner = _owner(derived_root, kinds, history_root.parent,
+                historical_request)
+            derived_owner.include_human_readable_integer_examples = (
+                example_presentation == "record_linked")
+            derived_owner.include_affine_rule_hypothesis = True
         elif derive_affine_hypothesis:
-            raise ValueError("derived affine hypothesis requires its frozen v3 preflight")
+            raise ValueError("derived affine hypothesis requires its frozen three-arm v5 preflight")
         expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
             else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
                 "arms"]["parent"]["admitted_boundary_digest"])
@@ -236,6 +261,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         empty_root.mkdir(parents=True)
         empty_owner = _owner(empty_root, kinds, target_cycle or parent_cycle, historical_request)
         owners = {"history": history_owner, "empty": empty_owner}
+        if derive_affine_hypothesis:
+            owners["derived_history"] = derived_owner
         snapshots = {arm: owner.ordinary_chat_developmental_history_state_snapshot()
                      for arm, owner in owners.items()}
 
@@ -243,7 +270,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         for tier, tier_protocol in protocol["tiers"].items():
             questions[tier] = tier_protocol["question"]
             expected_evidence = tier_protocol["captures"]["history"]["prompt_score_evidence"]
-            for arm in ("history", "empty"):
+            for arm in protocol["arms"]:
                 key = tier + "_" + arm
                 current_owner = owners[arm]
                 base, captured = _service_request(current_owner, root / "preflight" / tier / arm,
@@ -251,15 +278,15 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 base_by_condition[key] = base
                 captures[key] = captured
                 normalized_bases.append(base.replace(", ".join(map(str, tier_protocol["probe_inputs"])), "[PROBES]"))
-                if arm == "history":
+                if arm in {"history", "derived_history"}:
                     actual = captured["prompt_score_evidence"]
                     if _evidence_signature(actual) != _evidence_signature(expected_evidence):
                         raise ValueError(f"{tier} history prompt selected different scored evidence")
                     if captured.get("prompt_example_renderings") != tier_protocol[
-                            "captures"]["history"].get("prompt_example_renderings"):
+                            "captures"][arm].get("prompt_example_renderings"):
                         raise ValueError(f"{tier} history prompt changed the bound rendering")
                     if captured.get("derived_rule_hypotheses", []) != tier_protocol[
-                            "captures"]["history"].get("derived_rule_hypotheses", []):
+                            "captures"][arm].get("derived_rule_hypotheses", []):
                         raise ValueError(
                             f"{tier} history prompt changed the bound derived candidate")
                 elif (captured["prompt_score_evidence"]
@@ -273,7 +300,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v6"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v8"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
                 if clarify_history_scope else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
@@ -307,7 +334,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             "derived_rule_hypothesis_treatment": (
                 "exact_integer_affine_fit_from_scored_rows:v1"
                 if derive_affine_hypothesis else None),
-            "trial_order": [{"tier": tier, "arm": arm} for tier, arm in TRIAL_ORDER],
+            "arms": protocol["arms"],
+            "trial_order": [{"tier": tier, "arm": arm} for tier, arm in trial_order],
             "tiers": {tier: {"probe_inputs": entry["probe_inputs"],
                 "answer_key_commitment": entry["answer_key_commitment"],
                 "question": entry["question"]} for tier, entry in protocol["tiers"].items()},
@@ -321,7 +349,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "work/preflight_sibling_chat_histories.py",
                 "work/run_sibling_chat_recall.py", "sentientos/chat_service.py",
                 "sentientos/conversation_session.py", "sentientos/resident_developmental_cognition.py")},
-            "primary_outcome": "Exact-answer count per tier and history condition; report history-minus-empty differences.",
+            "primary_outcome": ("Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
+                if derive_affine_hypothesis else
+                "Exact-answer count per tier and history condition; report history-minus-empty differences."),
             "secondary_outcome": "Strict JSON-only format validity, independent of exact-answer correctness.",
             "inference_performed": False, "learning_established": False,
         }
@@ -348,7 +378,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
 
         trials = []
         inference.capture_only = False
-        for index, (tier, arm) in enumerate(TRIAL_ORDER):
+        for index, (tier, arm) in enumerate(trial_order):
             key = tier + "_" + arm
             inference.frozen_hash = captures[key]["prompt_sha256"]
             inference.receipt = None

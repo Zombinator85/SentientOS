@@ -98,6 +98,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                  derive_affine_hypothesis: bool = False) -> dict[str, Any]:
     if example_presentation not in {"structured_only", "record_linked"}:
         raise ValueError("unknown integer-example presentation")
+    arms = ("history", "derived_history", "empty") if derive_affine_hypothesis else ARMS
     cycles = cycles_root
     target_cycle = (cycles / ("rootless-cognition-cycle-" + TARGET)
                     if cycles_root is not None else None)
@@ -157,7 +158,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
         owner = _owner(parent_root, kinds, parent_cycle, request)
         owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
-        owner.include_affine_rule_hypothesis = derive_affine_hypothesis
+        owner.include_affine_rule_hypothesis = False
         baseline_arm = prior["arms"]["parent"]
         if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline_arm[
                 "admitted_boundary_digest"]:
@@ -199,26 +200,34 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             question = QUESTION_TEMPLATE.format(inputs=", ".join(map(str, probes)))
             captures: dict[str, Any] = {}
             bases: dict[str, str] = {}
-            for arm, current_owner in (("history", owner), ("empty", empty_owner)):
+            owners = {"history": owner, "empty": empty_owner}
+            if derive_affine_hypothesis:
+                owners["derived_history"] = owner
+            for arm in arms:
+                current_owner = owners[arm]
+                current_owner.include_affine_rule_hypothesis = (
+                    derive_affine_hypothesis and arm == "derived_history")
                 chat_root = root / "chats" / tier / arm
                 chat_root.mkdir(parents=True, exist_ok=True)
                 base, capture = _service_request(current_owner,
                     chat_root, identity, question)
                 bases[arm] = base
                 captures[arm] = capture
-            if (bases["history"] != bases["empty"]
+            if (len(set(bases.values())) != 1
                     or captures["empty"]["history_block_digest"] is not None
                     or captures["empty"]["prompt_score_evidence"]):
                 raise ValueError(f"{tier} history and empty prompts differ outside history")
-            actual = captures["history"]["prompt_score_evidence"]
-            if actual != expected_evidence:
-                if not actual:
+            for history_arm in ("history", "derived_history") if derive_affine_hypothesis else ("history",):
+                actual = captures[history_arm]["prompt_score_evidence"]
+                if actual != expected_evidence:
+                    if not actual:
+                        raise ValueError(
+                            f"{tier} query retrieved no scored support evidence; "
+                            "the frozen source-near preflight cannot be replayed against "
+                            "the current ordinary-chat projection "
+                            f"(context_posture={captures[history_arm]['history_context_posture']!r})")
                     raise ValueError(
-                        f"{tier} query retrieved no scored support evidence; "
-                        "the frozen source-near preflight cannot be replayed against "
-                        "the current ordinary-chat projection "
-                        f"(context_posture={captures['history']['history_context_posture']!r})")
-                raise ValueError(f"{tier} query did not retrieve the exact frozen support record")
+                        f"{tier} {history_arm} query did not retrieve the exact frozen support record")
             expected_renderings = ([{
                 "record_id": evidence["record_id"],
                 "task_family_id": evidence["task_family_id"],
@@ -228,9 +237,12 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                     evidence["task_family_id"], evidence["examples"]),
             } for evidence in expected_evidence]
                 if example_presentation == "record_linked" else [])
-            if captures["history"].get("prompt_example_renderings") != expected_renderings:
+            if any(captures[arm].get("prompt_example_renderings") != expected_renderings
+                    for arm in (("history", "derived_history") if derive_affine_hypothesis
+                        else ("history",))):
                 raise ValueError(f"{tier} rendered rows differ from the bound structured score evidence")
-            candidate_hypotheses = captures["history"].get("derived_rule_hypotheses", [])
+            candidate_hypotheses = captures.get("derived_history", {}).get(
+                "derived_rule_hypotheses", [])
             expected_candidates = []
             if derive_affine_hypothesis:
                 for evidence in expected_evidence:
@@ -246,11 +258,14 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                         "source_fact_id": evidence["source_fact_id"],
                         "hypothesis": hypothesis,
                     })
+            raw_candidates = captures["history"].get("derived_rule_hypotheses", [])
             if (candidate_hypotheses != expected_candidates
+                    or raw_candidates
                     or captures["empty"].get("derived_rule_hypotheses", [])):
                 raise ValueError(f"{tier} derived rule candidate differs from the scored history")
-            normalized = bases["history"].replace(", ".join(map(str, probes)), "[PROBES]")
-            normalized_bases.append(normalized)
+            for arm in arms:
+                normalized = bases[arm].replace(", ".join(map(str, probes)), "[PROBES]")
+                normalized_bases.append(normalized)
             tier_min_distances[tier] = min(probes) - largest_support_input
             tiers[tier] = {
                 "probe_inputs": list(probes),
@@ -279,7 +294,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"),
             "ladder_design": ladder_design,
@@ -294,7 +309,16 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                 "rootless_integer_affine_transfer_low_range_v6",
                 "rootless_integer_affine_transfer_wide_range_v7",
             ],
-            "arms": list(ARMS),
+            "arms": list(arms),
+            "trial_order": ([
+                ["near", "history"], ["near", "derived_history"], ["near", "empty"],
+                ["middle", "empty"], ["middle", "history"], ["middle", "derived_history"],
+                ["far", "derived_history"], ["far", "empty"], ["far", "history"],
+            ] if derive_affine_hypothesis else [
+                [tier, arm] for tier, arm in (
+                    ("near", "history"), ("near", "empty"),
+                    ("middle", "empty"), ("middle", "history"),
+                    ("far", "history"), ("far", "empty"))]),
             "tiers": tiers,
             "probe_inputs_disjoint_from_history_and_prior_probes": True,
             "historical_probe_overlap": history_overlap,
@@ -317,7 +341,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             } if identity_plan is not None else None),
             "answer_values_withheld": True,
             "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
-            "primary_outcome": "History-minus-empty exact-answer count within each distance tier.",
+            "primary_outcome": ("Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
+                if derive_affine_hypothesis else
+                "History-minus-empty exact-answer count within each distance tier."),
             "secondary_outcome": "Strict JSON-only format validity, reported separately from answer accuracy.",
             "order_policy": "Fresh sessions; deterministic model settings and fixed tier/arm order must be bound by the later model execution plan.",
             "implementation_sha256": {name: _sha((ROOT / name).read_bytes()) for name in source_files},

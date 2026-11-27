@@ -1,0 +1,485 @@
+{
+  "all_tier_prompts_match_outside_probe_values": true,
+  "answer_values_withheld": true,
+  "arms": [
+    "history",
+    "derived_history",
+    "empty"
+  ],
+  "authority": false,
+  "derived_rule_hypothesis_projection_verified": true,
+  "derived_rule_hypothesis_treatment": "exact_integer_affine_fit_from_scored_rows:v1",
+  "example_presentation": "structured_only",
+  "fixed_mapping_shared_by_source_and_novel_task_families": true,
+  "historical_probe_overlap": [],
+  "identity_binding": {
+    "model": "sentientos-hermes4:14b-q4km",
+    "model_identity": {
+      "artifact_size_bytes": 924,
+      "candidate_index": 0,
+      "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+      "engine": "ollama",
+      "fallback": false,
+      "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+      "posture": "development_only",
+      "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+      "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+      "sidecar_metadata_digest": null
+    },
+    "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce"
+  },
+  "identity_plan_payload_sha256": "d82abdfee1d154d58d7cf75114bd093d7c260d7b8755ace06901bc5e492b961f",
+  "implementation_sha256": {
+    "sentientos/chat_service.py": "76cac311c0319475b4d85da14b3fdb1f872b70f5912ef0bbeff7adcf48c8fed8",
+    "sentientos/cognition_retrieval.py": "ac702e35b75201be0ad7e8979bcafb4c267a1d0c2e517c18647dc88fc60102d9",
+    "sentientos/conversation_session.py": "e67a3d1e6b873bd8d321c6e669047bb355a1b90e0593b1e06c9c466cb66b5c75",
+    "sentientos/developmental_model_replacement_experiment.py": "152975147104d8c10adda49dd0ba28f6a02e6d2b35f3394a98448a1ed79406cf",
+    "sentientos/resident_developmental_cognition.py": "672bccad7aa188cfd943d60c513016b83f063cd13a0e75ca18518f16c1cdf739",
+    "work/preflight_ordinary_chat_retention.py": "7b05d1484946a4a3a31037a10708e69a718777015ac029338bdd397e7928ab58",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py": "d05c88e03a2b79b7ed928a213b73e2f16af8e7c6201b8aa10a5bdcaad81c7c66",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1"
+  },
+  "inference_performed": false,
+  "ladder_design": "held_out_source_near_progression_v1",
+  "learning_established": false,
+  "model_bound_execution_plan_created": false,
+  "order_policy": "Fresh sessions; deterministic model settings and fixed tier/arm order must be bound by the later model execution plan.",
+  "parent_history_boundary_digest": "53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b",
+  "parent_snapshot_cycle_attestation_present": false,
+  "parent_snapshot_tree_sha256": "sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0",
+  "primary_outcome": "Derived-history minus raw-history exact-answer count per tier; also report each against empty history.",
+  "prior_seeded_presentation_probe_inputs": [
+    10,
+    11,
+    12,
+    14,
+    15,
+    16,
+    19,
+    20,
+    21
+  ],
+  "prior_seeded_presentation_probe_overlap": [],
+  "probe_inputs_disjoint_from_history_and_prior_probes": true,
+  "probe_set_disjoint_from_prior_seeded_replication": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5",
+  "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
+  "secondary_outcome": "Strict JSON-only format validity, reported separately from answer accuracy.",
+  "source_report_sha256": "d7ac34edc6702486c4016fa5d325f48907d4bc32dd705451198ec893a482ec31",
+  "source_task_family_ids": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "support_record_id": "devrec-a081ef3104dba90c9e19b723",
+  "support_rows": [
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 5,
+      "probe_input": 2
+    },
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 9,
+      "probe_input": 4
+    },
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 11,
+      "probe_input": 5
+    }
+  ],
+  "support_rows_all_correct_and_mapping_consistent": true,
+  "support_task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_family_id": "rootless_integer_affine_transfer_source_near_v9",
+  "tiers": {
+    "far": {
+      "answer_key_commitment": "sha256:249eaef77c1775aa9ff158aadd43fc52785ae35f39c3c09939dab6566fcce27e",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "c7ab82eb6611e9668188444810070c0fe7e45c5870fa900d5ba5c317a2e9f458",
+          "history_context_posture": "selected",
+          "prompt_chars": 7945,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "db5aeb450db03c8d5f6c14aa486729bcedacd31faaa837a34452f1104890db7f"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "a55ab52f5cf19c46817cd25c1c662c155d7309383eb14a4f13f346d506d89a05"
+        },
+        "history": {
+          "history_block_digest": "64eea4f762c9fc6a1d684381f673d07876546a962c90b976a2773a1322dc1189",
+          "history_context_posture": "selected",
+          "prompt_chars": 7585,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "f4381a327a68481381b3c6e07ee8b6532aebe42970225f3d59d37983e0141d91"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 24,
+        "minimum": 22
+      },
+      "probe_inputs": [
+        27,
+        28,
+        29
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 27, 28, 29? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "middle": {
+      "answer_key_commitment": "sha256:3d8b0bc401dab777cbb6981222aecfb1a0439bf26d88461093142071ad9808e3",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "c7ab82eb6611e9668188444810070c0fe7e45c5870fa900d5ba5c317a2e9f458",
+          "history_context_posture": "selected",
+          "prompt_chars": 7945,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "5fceb3a47956e6172d0c0ce0c4645ef0fdf825dcfb6dc7ac1be553830ceb2ebc"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "b0be3121c43c10f51baa19d36b72937f3b149917223afd7fdab0a0e37c60fb96"
+        },
+        "history": {
+          "history_block_digest": "64eea4f762c9fc6a1d684381f673d07876546a962c90b976a2773a1322dc1189",
+          "history_context_posture": "selected",
+          "prompt_chars": 7585,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "097cf8e9a99af35b97b7dc697f1ebe68af68fa1b1400a7740e71656ae25d4522"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 21,
+        "minimum": 19
+      },
+      "probe_inputs": [
+        24,
+        25,
+        26
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 24, 25, 26? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "near": {
+      "answer_key_commitment": "sha256:8458dd1779327cf585eafcd4e99e0ad0ee1b52c84890f9769b1966442dfc4d86",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "c7ab82eb6611e9668188444810070c0fe7e45c5870fa900d5ba5c317a2e9f458",
+          "history_context_posture": "selected",
+          "prompt_chars": 7945,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "e0a250350846a7bff38c2095ca908b67f629e761a83e695ff80d0cb021d922b3"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "0e760c11f1590548e9f75bbd3bc14f76f073eb679abcefe3ca0961d6e00380dc"
+        },
+        "history": {
+          "history_block_digest": "64eea4f762c9fc6a1d684381f673d07876546a962c90b976a2773a1322dc1189",
+          "history_context_posture": "selected",
+          "prompt_chars": 7585,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "41dda0add0c0d13d2e03b876697f12e9974e615a0caa9187f30be61740cf187e"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 17,
+        "minimum": 8
+      },
+      "probe_inputs": [
+        13,
+        17,
+        22
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 13, 17, 22? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    }
+  },
+  "trial_order": [
+    [
+      "near",
+      "history"
+    ],
+    [
+      "near",
+      "derived_history"
+    ],
+    [
+      "near",
+      "empty"
+    ],
+    [
+      "middle",
+      "empty"
+    ],
+    [
+      "middle",
+      "history"
+    ],
+    [
+      "middle",
+      "derived_history"
+    ],
+    [
+      "far",
+      "derived_history"
+    ],
+    [
+      "far",
+      "empty"
+    ],
+    [
+      "far",
+      "history"
+    ]
+  ]
+}

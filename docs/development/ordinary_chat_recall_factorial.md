@@ -164,15 +164,23 @@ differs from those rows. Guidance labels it an unverified candidate and says
 that predictions beyond the support range are extrapolations. The feature is
 off by default and adds no history, authority, or memory mutation.
 
-This creates a new treatment for a future matched run: raw scored rows versus
-raw rows plus the non-authoritative derived candidate, with the same fresh
-held-out probes and empty-history control. It tests the system's evidence
-interpretation scaffold; even a performance gain would not show that the model
-learned the rule or that the candidate is correct outside its support range.
-The model-free [v3 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v3.json)
-verified that the held-out history arm received the candidate `2*x+1` from
-three scored rows, while the empty arm received none. It used structured rows,
-held-out probes, and the saved parent snapshot. The report records
-`inference_performed: false` and `learning_established: false`; it validates
-projection and provenance wiring only. A response run and independent scoring
-remain future work. Hermes inference remains paused while the GPU is in use.
+The experiment now has three matched arms: raw scored rows (`history`), those
+same rows plus the candidate (`derived_history`), and no history (`empty`).
+The primary contrast is derived versus raw history; the empty arm anchors the
+effect of exposure to any history at all. Each tier uses fresh sessions and
+held-out probes. Even a gain would not show that the model learned the rule or
+that the candidate is correct outside its support range.
+
+The earlier [v3 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v3.json)
+verified candidate projection but did not include a raw-history comparison,
+so it cannot isolate the candidate's effect. The corrected model-free
+[v5 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v5.json)
+freezes all three arms, their prompt bindings, the raw-versus-candidate primary
+contrast, and the trial order. It records
+`inference_performed: false` and `learning_established: false`; a response run
+and independent scoring remain future work. Hermes inference remains paused
+while the GPU is in use.
+
+The retained v4 draft had the same arms but labeled history-versus-empty as
+the primary outcome; v5 corrects that metadata and is the only candidate
+preflight accepted by the runner.
