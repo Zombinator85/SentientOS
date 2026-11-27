@@ -28,7 +28,8 @@
         "sentientos.rootless_history_boundary_campaign_plan:v9",
         "sentientos.rootless_history_boundary_campaign_plan:v10",
         "sentientos.rootless_history_boundary_campaign_plan:v11",
-        "sentientos.rootless_history_boundary_campaign_plan:v12"
+        "sentientos.rootless_history_boundary_campaign_plan:v12",
+        "sentientos.rootless_history_boundary_campaign_plan:v13"
       ]
     },
     "campaign_id": {
@@ -127,6 +128,21 @@
         "probe_outcome_schema_version": {"const": "sentientos.objective_probe_transition_summary:v1"},
         "score_digest_binding_required": {"const": true},
         "answer_values_in_summary": {"const": false}
+      }
+    },
+    "low_range_source_acquisition_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "task_family_id", "minimum_score_bound_correct_source_runs", "minimum_distinct_correct_source_inputs", "require_independent_oracle_scoring", "require_invocation_and_writeback_receipt_binding", "learning_established", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.low_range_source_acquisition_protocol:v1"},
+        "task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"},
+        "minimum_score_bound_correct_source_runs": {"const": 2},
+        "minimum_distinct_correct_source_inputs": {"const": 3},
+        "require_independent_oracle_scoring": {"const": true},
+        "require_invocation_and_writeback_receipt_binding": {"const": true},
+        "learning_established": {"const": false},
+        "authority": {"const": false}
       }
     },
     "ordered_cycle_ids": {
@@ -341,6 +357,13 @@
       "then": {
         "required": ["model_identity_recipe", "experiment_implementation_sha256", "transfer_probe_count"],
         "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_novel_range_v8"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v13"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256", "low_range_source_acquisition_protocol"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"}}
       }
     },
     {

@@ -368,14 +368,16 @@ def _validate_history_campaign_launch() -> tuple[
                 "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
             verify_model_identity_recipe(plan)
             if plan.get("schema_version") in {
                     "sentientos.rootless_history_boundary_campaign_plan:v8",
                     "sentientos.rootless_history_boundary_campaign_plan:v9",
                     "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
                 verify_experiment_implementation(plan)
     except (OSError, ValueError, RuntimeError) as exc:
         raise RootlessExperimentalError(
@@ -455,7 +457,8 @@ def _validate_history_campaign_launch() -> tuple[
             "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
         if index == 0:
             expected_admission_boundary = plan.get(
                 "initial_runtime_admission_ledger")
@@ -6168,7 +6171,8 @@ def run() -> dict[str, Any]:
                     "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}
                 else campaign_plan["model_identity_digest"])
             if (digest_payload({"identity": session.active_model_identity})
                     != expected_identity_digest):

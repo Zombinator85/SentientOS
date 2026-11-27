@@ -1,5 +1,23 @@
 # Developmental-history intervention experiment
 
+## Low-range source acquisition plans
+
+Rootless low-range source runs used for later cross-range history experiments
+can be preregistered with campaign plan schema v13. This version binds the
+low-range task family, a reproducible model identity recipe, the experiment
+implementation digests, and an explicit acquisition protocol requiring at
+least two independently score-bound correct source runs with at least three
+distinct correct inputs in total. It keeps acquisition and transfer probes
+disjoint within and across planned cycles. The protocol records no learning or
+authority claim. Preparing or verifying a v13 plan performs no inference; the
+source eligibility gate is still established only from recovered run, score,
+invocation, writeback, and history evidence.
+
+Earlier v5 low-range plans remain valid with their original contract. A v13
+plan provides stronger provenance for newly prepared source runs but does not
+retroactively qualify older evidence or demonstrate that a model learned from
+the acquired examples.
+
 This is the first preregistered resident developmental-history intervention. It
 is an observational instrument, not a learning, improvement, identity,
 selfhood, consciousness, sentience, or causal-closure claim.
