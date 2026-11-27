@@ -21,7 +21,8 @@ OPERATIONS = frozenset({"inspect_baseline",
     "inventory_profile_registry",
     "recover_acquisition_receipts", "prepare_consolidation_snapshot",
     "consolidate_branch",
-    "reconstruct_strategy_projection", "inspect_delayed_probe_gate"})
+    "reconstruct_strategy_projection", "reconstruct_strategy_projection_v2",
+    "inspect_delayed_probe_gate"})
 # Protocol, task, and artifact digests in the durable-learning experiment are
 # the bare lowercase hex returned by digest_payload().
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -51,6 +52,8 @@ _PAYLOAD_FIELDS = {
     "reconstruct_strategy_projection": frozenset({
         "consolidation_receipt_digest", "answer_exclusion_audit_digest",
         "strategy_projection_policy_digest"}),
+    "reconstruct_strategy_projection_v2": frozenset({
+        "strategy_projection_policy_digest"}),
     "inspect_delayed_probe_gate": frozenset({"probe_task_digest",
         "strategy_projection_digest"}),
 }
@@ -76,6 +79,8 @@ class ConditionWorkerRPCDispatcher:
         "prepare_consolidation_snapshot": "prepare_consolidation_snapshot",
         "consolidate_branch": "consolidate_branch",
         "reconstruct_strategy_projection": "reconstruct_strategy_projection",
+        "reconstruct_strategy_projection_v2":
+            "reconstruct_strategy_projection_v2",
         "inspect_delayed_probe_gate": "inspect_delayed_probe_gate",
     }
 
@@ -175,6 +180,9 @@ class ConditionWorkerRPCDispatcher:
                             and status == "completed")
                     or (request["operation"] ==
                             "reconstruct_strategy_projection"
+                            and status in {"completed", "rejected"})
+                    or (request["operation"] ==
+                            "reconstruct_strategy_projection_v2"
                             and status in {"completed", "rejected"})):
                     result_payload = dict(outcome["result"])
             except Exception:

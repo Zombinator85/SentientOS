@@ -655,7 +655,8 @@ def run_condition_worker_recovery_from_environment(*,
             allowed_operations=frozenset({"inspect_baseline",
                 "recover_acquisition_receipts",
                 "prepare_consolidation_snapshot", "consolidate_branch",
-                "reconstruct_strategy_projection"}))
+                "reconstruct_strategy_projection",
+                "reconstruct_strategy_projection_v2"}))
         served = serve_condition_worker_rpc(connection, dispatcher,
             max_requests=5, timeout_ms=timeout_ms)
         return {"schema_version":
@@ -1693,8 +1694,23 @@ class DurableLearningConditionWorkerBackend:
 
     def reconstruct_strategy_projection(self,
             request: Mapping[str, Any]) -> dict[str, Any]:
+        """Legacy request shape; supplied external references remain unverified."""
+        return self._reconstruct_strategy_projection(request,
+            operation="reconstruct_strategy_projection",
+            include_external_references=True)
+
+    def reconstruct_strategy_projection_v2(self,
+            request: Mapping[str, Any]) -> dict[str, Any]:
+        """Rebuild a projection without accepting unverified external references."""
+        return self._reconstruct_strategy_projection(request,
+            operation="reconstruct_strategy_projection_v2",
+            include_external_references=False)
+
+    def _reconstruct_strategy_projection(self,
+            request: Mapping[str, Any], *, operation: str,
+            include_external_references: bool) -> dict[str, Any]:
         """Rebuild a non-consumable projection from a completed owner tick."""
-        if not self._bound(request, "reconstruct_strategy_projection"):
+        if not self._bound(request, operation):
             return {"status": "rejected", "result": {
                 "reason_code": "worker_protocol_condition_binding_mismatch",
                 "consolidation_receipt_reference_verified": False,
@@ -1704,14 +1720,17 @@ class DurableLearningConditionWorkerBackend:
                 "authority": False}}
         payload = request.get("payload")
         contract = self._protocol.get("condition_contract")
+        external_reference_fields = (("consolidation_receipt_digest",
+            "answer_exclusion_audit_digest")
+            if include_external_references else ())
+        required_digest_fields = (*external_reference_fields,
+            "strategy_projection_policy_digest")
         if (not isinstance(payload, Mapping)
                 or not isinstance(contract, Mapping)
                 or any(not isinstance(payload.get(key), str)
                     or re.fullmatch(r"[0-9a-f]{64}",
                         payload.get(key, "")) is None
-                    for key in ("consolidation_receipt_digest",
-                        "answer_exclusion_audit_digest",
-                        "strategy_projection_policy_digest"))
+                    for key in required_digest_fields)
                 or payload.get("strategy_projection_policy_digest") !=
                     contract.get("strategy_projection_policy_digest")):
             return {"status": "rejected", "result": {
@@ -1756,29 +1775,29 @@ class DurableLearningConditionWorkerBackend:
                     branch_id=self._branch.branch_id, branch=self._branch,
                     projection=projection)
         except Exception as exc:
-            return {"status": "rejected", "result": {
+            result = {
                 "reason_code": _safe_worker_reason(exc,
                     "worker_strategy_projection_reconstruction_failed"),
-                "consolidation_receipt_digest": payload[
-                    "consolidation_receipt_digest"],
-                "answer_exclusion_audit_digest": payload[
-                    "answer_exclusion_audit_digest"],
                 "consolidation_receipt_reference_verified": False,
                 "answer_exclusion_audit_verified": False,
                 "probe_use_eligible": False,
                 "supervisor_recovery_evidence_eligible": False,
-                "authority": False}}
+                "authority": False}
+            if include_external_references:
+                result.update({key: payload[key]
+                    for key in external_reference_fields})
+            return {"status": "rejected", "result": result}
         result = {
             "schema_version":
-                "sentientos.durable_learning_worker_strategy_projection:v1",
+                ("sentientos.durable_learning_worker_strategy_projection:v1"
+                    if include_external_references else
+                    "sentientos.durable_learning_worker_strategy_projection:v2"),
             "protocol_id": self._protocol["protocol_id"],
             "protocol_digest": self._protocol["protocol_digest"],
             "condition": self._condition,
             "branch_id": self._branch.branch_id,
-            "consolidation_receipt_digest": payload[
-                "consolidation_receipt_digest"],
-            "answer_exclusion_audit_digest": payload[
-                "answer_exclusion_audit_digest"],
+            "strategy_projection_policy_digest": payload[
+                "strategy_projection_policy_digest"],
             "strategy_projection": projection,
             "projection_digest": (projection.get("projection_digest")
                 if isinstance(projection, Mapping) else None),
@@ -1790,6 +1809,9 @@ class DurableLearningConditionWorkerBackend:
             "supervisor_recovery_evidence_eligible": False,
             "adoption_performed": False,
             "authority": False}
+        if include_external_references:
+            result.update({key: payload[key]
+                for key in external_reference_fields})
         return {"status": "completed", "result": result}
 
     def consolidate_branch(self,

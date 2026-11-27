@@ -41,6 +41,7 @@
             "prepare_consolidation_snapshot",
             "consolidate_branch",
             "reconstruct_strategy_projection",
+            "reconstruct_strategy_projection_v2",
             "inspect_delayed_probe_gate"
           ]
         },
@@ -53,6 +54,7 @@
             { "$ref": "#/$defs/prepareConsolidationPayload" },
             { "$ref": "#/$defs/consolidatePayload" },
             { "$ref": "#/$defs/reconstructProjectionPayload" },
+            { "$ref": "#/$defs/reconstructProjectionV2Payload" },
             { "$ref": "#/$defs/inspectProbeGatePayload" }
           ]
         },
@@ -73,6 +75,8 @@
           "then": { "properties": { "payload": { "$ref": "#/$defs/consolidatePayload" } } } },
         { "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection" } } },
           "then": { "properties": { "payload": { "$ref": "#/$defs/reconstructProjectionPayload" } } } },
+        { "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection_v2" } } },
+          "then": { "properties": { "payload": { "$ref": "#/$defs/reconstructProjectionV2Payload" } } } },
         { "if": { "properties": { "operation": { "const": "inspect_delayed_probe_gate" } } },
           "then": { "properties": { "payload": { "$ref": "#/$defs/inspectProbeGatePayload" } } } }
       ]
@@ -103,6 +107,7 @@
             "prepare_consolidation_snapshot",
             "consolidate_branch",
             "reconstruct_strategy_projection",
+            "reconstruct_strategy_projection_v2",
             "inspect_delayed_probe_gate"
           ]
         },
@@ -212,6 +217,13 @@
       "properties": {
         "consolidation_receipt_digest": { "$ref": "#/$defs/digest" },
         "answer_exclusion_audit_digest": { "$ref": "#/$defs/digest" },
+        "strategy_projection_policy_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "reconstructProjectionV2Payload": {
+      "type": "object", "additionalProperties": false,
+      "required": ["strategy_projection_policy_digest"],
+      "properties": {
         "strategy_projection_policy_digest": { "$ref": "#/$defs/digest" }
       }
     },

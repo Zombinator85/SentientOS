@@ -1682,6 +1682,15 @@ request and response, verifies the reconstructed projection against the
 completed owner tick and persisted consolidation receipt, and binds the
 independent answer-exclusion attestation. Until then the worker result remains
 diagnostic and non-consumable.
+
+The worker RPC now also has `reconstruct_strategy_projection_v2`. Its request
+contains only the protocol-bound strategy-projection policy digest; it no
+longer accepts caller-supplied consolidation-receipt or audit digests that the
+worker cannot verify. Its result reports the policy digest and reconstructed
+projection, while keeping supervisor-evidence eligibility, audit verification,
+probe use, adoption, and authority false. The legacy v1 operation remains
+available for compatibility. This narrows the worker's claim surface but does
+not change the four-operation persisted supervisor workflow described above.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.
