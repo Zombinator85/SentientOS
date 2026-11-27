@@ -274,6 +274,18 @@ replication under a different active model identity using the same admitted
 history. Until those gates are exercised, v10 establishes immediate
 evidence-conditioned behavior only.
 
+The existing rootless objective-acquisition path already binds a task score to
+its developmental-history record and receipt. The available documented
+[cycle 54](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/54_cycle_summary_v1.json)
+does not meet the transfer-entry threshold: its source run produced one
+correct answer and two abstentions out of three, while the matched
+[cycle 53](../../artifacts/experiments/rootless-history-campaign-20261124000000000025/53_cycle_summary_v1.json)
+produced zero correct answers. Both skipped transfer because the withheld
+baseline did not reach two correct answers. Thus the next model run should
+first produce a new score-bound acquisition that meets the preregistered
+baseline threshold, then freeze and reload its exact record and receipt before
+starting the candidate-free retention probes above.
+
 Recreate the independent score from the repository root with:
 
 ```powershell
