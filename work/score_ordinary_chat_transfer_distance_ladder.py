@@ -15,6 +15,7 @@ from sentientos.local_model_authority import digest_payload
 
 ARMS = ("history", "empty")
 CANDIDATE_ARMS = ("history", "derived_history", "empty")
+CANDIDATE_SHAM_ARMS = ("history", "derived_history", "sham_history", "empty")
 TIERS = ("near", "middle", "far")
 TRIAL_ORDER = (
     ("near", "history"), ("near", "empty"),
@@ -25,7 +26,7 @@ TRIAL_ORDER = (
 
 def _validate_plan_treatment(plan: dict) -> None:
     schema = plan.get("schema")
-    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6", ":v7", ":v8", ":v9", ":v10", ":v11")):
+    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6", ":v7", ":v8", ":v9", ":v10", ":v11", ":v12")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint") is None
                 or hashlib.sha256(plan["output_constraint"].encode()).hexdigest()
@@ -73,7 +74,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v8",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v9",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v10",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v11"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v11",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v12"}
             or plan.get("source_report_sha256") != preflight_sha
             or run.get("plan_sha256") != plan_sha
             or plan.get("task_family_id") != preflight.get("task_family_id")
@@ -85,8 +87,10 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                 != preflight.get("arms", list(ARMS))):
         raise ValueError("completed run does not match the frozen preflight")
     arms = tuple(preflight.get("arms", ARMS))
-    expected_arms = (CANDIDATE_ARMS if preflight.get(
-        "derived_rule_hypothesis_treatment") is not None else ARMS)
+    has_candidate = preflight.get("derived_rule_hypothesis_treatment") is not None
+    has_sham = preflight.get("affine_negative_control_treatment") is not None
+    expected_arms = (CANDIDATE_SHAM_ARMS if has_sham else
+        CANDIDATE_ARMS if has_candidate else ARMS)
     trial_order = tuple(tuple(item) for item in preflight.get(
         "trial_order", TRIAL_ORDER))
     if (arms != expected_arms
@@ -111,6 +115,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                     != preflight.get("example_presentation", "record_linked")
                 or plan.get("derived_rule_hypothesis_treatment")
                     != preflight.get("derived_rule_hypothesis_treatment")
+                or plan.get("affine_negative_control_treatment")
+                    != preflight.get("affine_negative_control_treatment")
                 or plan["tiers"][tier].get("probe_inputs") != frozen.get("probe_inputs")
                 or plan["tiers"][tier].get("answer_key_commitment") != frozen.get("answer_key_commitment")
                 or arm_binding.get("prompt_score_evidence")
@@ -121,6 +127,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                     != frozen_arm.get("derived_rule_hypotheses", [])
                 or arm_binding.get("history_instruction")
                     != frozen_arm.get("history_instruction")
+                or arm_binding.get("ordinary_history_selection")
+                    != frozen_arm.get("ordinary_history_selection")
                 or ((arm != "empty") != bool(arm_binding.get("history_block_digest")))
                 or arm_binding.get("prompt_sha256") != binding.get("prompt_sha256")
                 or arm_binding.get("invocation_prompt_digest")
@@ -156,6 +164,7 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
         "format_treatment": plan.get("format_treatment"),
         "semantic_treatment": plan.get("semantic_treatment"),
         "derived_rule_hypothesis_treatment": plan.get("derived_rule_hypothesis_treatment"),
+        "affine_negative_control_treatment": plan.get("affine_negative_control_treatment"),
         "example_presentation": plan.get("example_presentation", "record_linked"),
         "ladder_design": plan.get("ladder_design", preflight.get("ladder_design")),
         "captures": captures,
@@ -169,7 +178,8 @@ def score(preflight: dict, execution: dict) -> dict:
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9"}
             or execution.get("schema") !=
                 "sentientos.ordinary_chat_transfer_execution:v1"
             or execution.get("preflight_sha256") != digest_payload(preflight)
@@ -180,11 +190,15 @@ def score(preflight: dict, execution: dict) -> dict:
             or execution.get("learning_established") is not False
             or preflight.get("arms") != execution.get("arms")
             or preflight.get("derived_rule_hypothesis_treatment")
-                != execution.get("derived_rule_hypothesis_treatment")):
+                != execution.get("derived_rule_hypothesis_treatment")
+            or preflight.get("affine_negative_control_treatment")
+                != execution.get("affine_negative_control_treatment")):
         raise ValueError("execution does not match the frozen transfer protocol")
     arms = tuple(preflight.get("arms", ARMS))
-    expected_arms = (CANDIDATE_ARMS if preflight.get(
-        "derived_rule_hypothesis_treatment") is not None else ARMS)
+    has_candidate = preflight.get("derived_rule_hypothesis_treatment") is not None
+    has_sham = preflight.get("affine_negative_control_treatment") is not None
+    expected_arms = (CANDIDATE_SHAM_ARMS if has_sham else
+        CANDIDATE_ARMS if has_candidate else ARMS)
     if arms != expected_arms:
         raise ValueError("preflight arms do not match the treatment")
     task_family = preflight.get("task_family_id")
@@ -192,6 +206,9 @@ def score(preflight: dict, execution: dict) -> dict:
     if (task_family not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
             or preflight.get("derived_rule_hypothesis_treatment") not in {
                 None, "exact_integer_affine_fit_from_scored_rows:v1"}
+            or preflight.get("affine_negative_control_treatment") not in {
+                None, "same_width_offset_step_protocol_sham:v1"}
+            or has_sham and not has_candidate
             or preflight.get("derived_rule_hypothesis_projection_verified",
                 False) is not (preflight.get("derived_rule_hypothesis_treatment") is not None)
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
@@ -279,6 +296,16 @@ def score(preflight: dict, execution: dict) -> dict:
             tier_result["derived_minus_raw_history"] = (
                 arm_results["derived_history"]["exact"]
                 - arm_results["history"]["exact"])
+        if "sham_history" in arms:
+            tier_result["sham_history_minus_raw_history"] = (
+                arm_results["sham_history"]["exact"]
+                - arm_results["history"]["exact"])
+            tier_result["sham_history_minus_empty"] = (
+                arm_results["sham_history"]["exact"]
+                - arm_results["empty"]["exact"])
+            tier_result["derived_minus_sham_history"] = (
+                arm_results["derived_history"]["exact"]
+                - arm_results["sham_history"]["exact"])
         results.append(tier_result)
     return {"schema": "sentientos.ordinary_chat_transfer_score:v2",
         "preflight_sha256": digest_payload(preflight), "model_identity": identity,
@@ -286,8 +313,10 @@ def score(preflight: dict, execution: dict) -> dict:
         "format_treatment": execution.get("format_treatment"),
         "semantic_treatment": execution.get("semantic_treatment"),
         "derived_rule_hypothesis_treatment": execution.get("derived_rule_hypothesis_treatment"),
+        "affine_negative_control_treatment": execution.get("affine_negative_control_treatment"),
         "example_presentation": execution.get("example_presentation"),
         "ladder_design": execution.get("ladder_design"),
+        "primary_outcome": preflight.get("primary_outcome"),
         "arms": list(arms), "tiers": results, "inference_performed": True,
         "learning_established": False, "authority": False,
         "scorer_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}

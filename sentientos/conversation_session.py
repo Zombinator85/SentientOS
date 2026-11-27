@@ -22,6 +22,7 @@ from typing import IO, Any, Iterator, Mapping, Sequence
 from .cognition_retrieval import (
     COMPACT_CHAT_SELECTION, cognition_negation_terms, cognition_tokens,
     derive_ordinary_chat_integer_affine_hypothesis,
+    derive_ordinary_chat_integer_affine_negative_control,
     ordinary_chat_history_partition, render_ordinary_chat_integer_examples,
 )
 from .local_model_authority import digest_payload
@@ -1724,13 +1725,23 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                         raise ValueError(
                             "ordinary_chat_history_example_rendering_invalid")
                 if "derived_integer_affine_hypothesis" in experience:
-                    expected_hypothesis = derive_ordinary_chat_integer_affine_hypothesis(
+                    hypothesis_kind = experience.get("affine_hypothesis_kind",
+                        "task_derived")
+                    if hypothesis_kind == "task_derived":
+                        derive_hypothesis = derive_ordinary_chat_integer_affine_hypothesis
+                    elif hypothesis_kind == "sham_control":
+                        derive_hypothesis = derive_ordinary_chat_integer_affine_negative_control
+                    else:
+                        raise ValueError("ordinary_chat_history_affine_hypothesis_invalid")
+                    expected_hypothesis = derive_hypothesis(
                         experience.get("task_family_id"), experience.get("examples"))
                     if (expected_hypothesis is None
                             or experience.get("derived_integer_affine_hypothesis")
                                 != expected_hypothesis):
                         raise ValueError(
                             "ordinary_chat_history_affine_hypothesis_invalid")
+                elif "affine_hypothesis_kind" in experience:
+                    raise ValueError("ordinary_chat_history_affine_hypothesis_invalid")
         if selection["schema_version"] == COMPACT_CHAT_SELECTION:
             _validate_ordinary_chat_history_context(developmental_history_context)
         insert_at = lines.index("[SESSION_HISTORY_DATA]")

@@ -100,6 +100,30 @@ def derive_ordinary_chat_integer_affine_hypothesis(task_family_id: str,
     }
 
 
+def derive_ordinary_chat_integer_affine_negative_control(task_family_id: str,
+        examples: Any) -> dict[str, Any] | None:
+    """Build a same-width false control from eligible scored rows.
+
+    The caller must label this as a protocol-generated control. It is not a
+    scored observation and must never be written back as historical evidence.
+    """
+    hypothesis = derive_ordinary_chat_integer_affine_hypothesis(task_family_id, examples)
+    if hypothesis is None:
+        return None
+    offset = hypothesis["offset"]
+    control_offset = next((value for value in (offset + 1, offset - 1)
+        if len(str(value)) == len(str(offset))), None)
+    if control_offset is None:
+        return None
+    control = {"multiplier": hypothesis["multiplier"],
+        "offset": control_offset,
+        "support_input_range": list(hypothesis["support_input_range"])}
+    if any(control["multiplier"] * row["probe_input"] + control["offset"]
+            == row["observed_answer"] for row in examples):
+        return None
+    return control
+
+
 _QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")
 _QUERY_NEGATION_CONTRACTION_PATTERN = re.compile(
     r"\b(?:ain|aren|can|couldn|didn|doesn|don|hadn|hasn|haven|isn|mustn|"

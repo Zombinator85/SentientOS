@@ -18,6 +18,7 @@ from sentientos.developmental_model_replacement_experiment import (
 from sentientos.local_model_authority import digest_payload
 from sentientos.cognition_retrieval import (
     derive_ordinary_chat_integer_affine_hypothesis,
+    derive_ordinary_chat_integer_affine_negative_control,
     render_ordinary_chat_integer_examples,
 )
 from sentientos.resident_developmental_cognition import _ordinary_chat_integer_experiences
@@ -95,10 +96,15 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                  parent_snapshot: Path | None = None,
                  identity_plan: Mapping[str, Any] | None = None,
                  example_presentation: str = "record_linked",
-                 derive_affine_hypothesis: bool = False) -> dict[str, Any]:
+                 derive_affine_hypothesis: bool = False,
+                 include_affine_negative_control: bool = False) -> dict[str, Any]:
     if example_presentation not in {"structured_only", "record_linked"}:
         raise ValueError("unknown integer-example presentation")
-    arms = ("history", "derived_history", "empty") if derive_affine_hypothesis else ARMS
+    if include_affine_negative_control and not derive_affine_hypothesis:
+        raise ValueError("negative control requires the derived-candidate treatment")
+    arms = (("history", "derived_history", "sham_history", "empty")
+        if include_affine_negative_control else
+        ("history", "derived_history", "empty") if derive_affine_hypothesis else ARMS)
     cycles = cycles_root
     target_cycle = (cycles / ("rootless-cognition-cycle-" + TARGET)
                     if cycles_root is not None else None)
@@ -204,13 +210,17 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             owners = {"history": owner, "empty": empty_owner}
             if derive_affine_hypothesis:
                 owners["derived_history"] = owner
+            if include_affine_negative_control:
+                owners["sham_history"] = owner
             for arm in arms:
                 current_owner = owners[arm]
                 current_owner.include_affine_rule_guidance = (
                     derive_affine_hypothesis and arm in {
-                        "history", "derived_history"})
+                        "history", "derived_history", "sham_history"})
                 current_owner.include_affine_rule_hypothesis = (
                     derive_affine_hypothesis and arm == "derived_history")
+                current_owner.include_affine_rule_negative_control = (
+                    include_affine_negative_control and arm == "sham_history")
                 chat_root = root / "chats" / tier / arm
                 chat_root.mkdir(parents=True, exist_ok=True)
                 base, capture = _service_request(current_owner,
@@ -222,7 +232,10 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                     or captures["empty"]["history_block_digest"] is not None
                     or captures["empty"]["prompt_score_evidence"]):
                 raise ValueError(f"{tier} history and empty prompts differ outside history")
-            for history_arm in ("history", "derived_history") if derive_affine_hypothesis else ("history",):
+            history_arms = (("history", "derived_history", "sham_history")
+                if include_affine_negative_control else
+                ("history", "derived_history") if derive_affine_hypothesis else ("history",))
+            for history_arm in history_arms:
                 actual = captures[history_arm]["prompt_score_evidence"]
                 if actual != expected_evidence:
                     if not actual:
@@ -230,7 +243,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                             f"{tier} query retrieved no scored support evidence; "
                             "the frozen source-near preflight cannot be replayed against "
                             "the current ordinary-chat projection "
-                            f"(context_posture={captures[history_arm]['history_context_posture']!r})")
+                            f"(context_posture={captures[history_arm]['history_context_posture']!r}, "
+                            f"selection={captures[history_arm].get('ordinary_history_selection')!r})")
                     raise ValueError(
                         f"{tier} {history_arm} query did not retrieve the exact frozen support record")
             expected_renderings = ([{
@@ -243,8 +257,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             } for evidence in expected_evidence]
                 if example_presentation == "record_linked" else [])
             if any(captures[arm].get("prompt_example_renderings") != expected_renderings
-                    for arm in (("history", "derived_history") if derive_affine_hypothesis
-                        else ("history",))):
+                    for arm in history_arms):
                 raise ValueError(f"{tier} rendered rows differ from the bound structured score evidence")
             candidate_hypotheses = captures.get("derived_history", {}).get(
                 "derived_rule_hypotheses", [])
@@ -261,17 +274,44 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                         "source_run_id": evidence["source_run_id"],
                         "source_score_digest": evidence["source_score_digest"],
                         "source_fact_id": evidence["source_fact_id"],
+                        "hypothesis_kind": "task_derived",
                         "hypothesis": hypothesis,
                     })
+            expected_shams = []
+            if include_affine_negative_control:
+                for evidence in expected_evidence:
+                    hypothesis = derive_ordinary_chat_integer_affine_negative_control(
+                        evidence["task_family_id"], evidence["examples"])
+                    if hypothesis is None:
+                        raise ValueError("scored history did not support a same-width sham fit")
+                    expected_shams.append({
+                        "record_id": evidence["record_id"],
+                        "task_family_id": evidence["task_family_id"],
+                        "source_run_id": evidence["source_run_id"],
+                        "source_score_digest": evidence["source_score_digest"],
+                        "source_fact_id": evidence["source_fact_id"],
+                        "hypothesis_kind": "sham_control",
+                        "hypothesis": hypothesis,
+                    })
+            sham_hypotheses = captures.get("sham_history", {}).get(
+                "derived_rule_hypotheses", [])
             raw_candidates = captures["history"].get("derived_rule_hypotheses", [])
             if (candidate_hypotheses != expected_candidates
+                    or sham_hypotheses != expected_shams
                     or raw_candidates
                     or captures["empty"].get("derived_rule_hypotheses", [])):
                 raise ValueError(f"{tier} derived rule candidate differs from the scored history")
+            if (include_affine_negative_control
+                    and captures["derived_history"].get("prompt_chars")
+                        != captures["sham_history"].get("prompt_chars")):
+                raise ValueError(f"{tier} candidate and sham prompts differ in character length")
             if (derive_affine_hypothesis
                     and (not captures["history"].get("history_instruction")
                         or captures["history"].get("history_instruction")
-                            != captures["derived_history"].get("history_instruction"))):
+                            != captures["derived_history"].get("history_instruction")
+                        or (include_affine_negative_control
+                            and captures["history"].get("history_instruction")
+                                != captures["sham_history"].get("history_instruction")))):
                 raise ValueError(
                     f"{tier} raw and derived history guidance differs beyond candidate data")
             for arm in arms:
@@ -307,7 +347,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9"
+                if include_affine_negative_control else
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"),
             "ladder_design": ladder_design,
@@ -315,6 +357,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "derived_rule_hypothesis_treatment": (
                 "exact_integer_affine_fit_from_scored_rows:v1"
                 if derive_affine_hypothesis else None),
+            "affine_negative_control_treatment": (
+                "same_width_offset_step_protocol_sham:v1"
+                if include_affine_negative_control else None),
             "derived_rule_hypothesis_projection_verified": derive_affine_hypothesis,
             "source_report_sha256": _sha(SOURCE_REPORT.read_bytes()),
             "task_family_id": task_family,
@@ -324,6 +369,13 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             ],
             "arms": list(arms),
             "trial_order": ([
+                ["near", "history"], ["near", "derived_history"],
+                ["near", "sham_history"], ["near", "empty"],
+                ["middle", "empty"], ["middle", "sham_history"],
+                ["middle", "derived_history"], ["middle", "history"],
+                ["far", "derived_history"], ["far", "history"],
+                ["far", "empty"], ["far", "sham_history"],
+            ] if include_affine_negative_control else [
                 ["near", "history"], ["near", "derived_history"], ["near", "empty"],
                 ["middle", "empty"], ["middle", "history"], ["middle", "derived_history"],
                 ["far", "derived_history"], ["far", "empty"], ["far", "history"],
@@ -354,7 +406,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             } if identity_plan is not None else None),
             "answer_values_withheld": True,
             "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
-            "primary_outcome": ("Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
+            "primary_outcome": ("Derived-history minus sham-history exact-answer count per tier; report derived and sham against raw and empty history."
+                if include_affine_negative_control else
+                "Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
                 if derive_affine_hypothesis else
                 "History-minus-empty exact-answer count within each distance tier."),
             "secondary_outcome": "Strict JSON-only format validity, reported separately from answer accuracy.",
@@ -384,6 +438,8 @@ def main() -> None:
         default="record_linked")
     parser.add_argument("--derive-affine-hypothesis", action="store_true",
         help="Project a non-authoritative exact affine candidate fitted from all scored history rows")
+    parser.add_argument("--include-affine-negative-control", action="store_true",
+        help="Add a provenance-labeled same-width false candidate arm; requires --derive-affine-hypothesis")
     parser.add_argument("--parent-snapshot", type=Path,
         help="Verified resident-cognition plus inference-custody snapshot directory")
     parser.add_argument("--identity-plan", type=Path,
@@ -413,7 +469,8 @@ def main() -> None:
                           parent_snapshot=args.parent_snapshot,
                           identity_plan=identity_plan,
                           example_presentation=args.example_presentation,
-                          derive_affine_hypothesis=args.derive_affine_hypothesis)
+                          derive_affine_hypothesis=args.derive_affine_hypothesis,
+                          include_affine_negative_control=args.include_affine_negative_control)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.verify_report is not None:
         if json.loads(args.verify_report.read_text(encoding="utf-8")) != report:

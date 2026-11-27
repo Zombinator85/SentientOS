@@ -192,10 +192,24 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
     matched_base, examples, example_renderings = prompt, [], []
     history_instruction = None
     candidate_hypotheses = []
+    ordinary_history_selection = None
     if start >= 0:
         end = prompt.index("\n[SESSION_HISTORY_DATA]", start)
         data = prompt.index("[DEVELOPMENTAL_HISTORY_DATA]\n", start) + len("[DEVELOPMENTAL_HISTORY_DATA]\n")
         context = json.loads(prompt[data:end])
+        selection = context["selection"]
+        ordinary_history_selection = {
+            "selection_digest": selection.get("selection_digest"),
+            "history_state_digest": selection.get("history_state_digest"),
+            "retrieval_policy_id": selection.get("retrieval_policy_id"),
+            "selected_record_ids": [item["record_id"] for item in
+                selection.get("selected_records", [])],
+            "selected_task_family_ids": sorted({experience.get("task_family_id")
+                for packet in context.get("developmental_history", [])
+                for experience in packet.get("task_relevant_experience", [])
+                if isinstance(experience, dict)
+                and isinstance(experience.get("task_family_id"), str)}),
+        }
         guidance_start = start + len("[DEVELOPMENTAL_HISTORY_GUIDANCE]\n")
         history_instruction = prompt[guidance_start:prompt.index(
             "\n[DEVELOPMENTAL_HISTORY_DATA]", guidance_start)]
@@ -220,7 +234,8 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
                 examples.append({"record_id": stored.record_id,
                     **{key: value for key, value in item.items()
                         if key not in {"human_readable_examples",
-                            "derived_integer_affine_hypothesis"}}})
+                            "derived_integer_affine_hypothesis",
+                            "affine_hypothesis_kind"}}})
                 hypothesis = item.get("derived_integer_affine_hypothesis")
                 if isinstance(hypothesis, dict):
                     candidate_hypotheses.append({
@@ -229,6 +244,8 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
                         "source_run_id": item.get("source_run_id"),
                         "source_score_digest": item.get("source_score_digest"),
                         "source_fact_id": item.get("source_fact_id"),
+                        "hypothesis_kind": item.get("affine_hypothesis_kind",
+                            "task_derived"),
                         "hypothesis": hypothesis,
                     })
                 rendering = item.get("human_readable_examples")
@@ -246,6 +263,7 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
         **({"invocation_prompt_digest": digest_payload({"prompt": prompt})} if bind_invocation else {}),
         "prompt_chars": len(prompt),
         "history_block_digest": linkage.get("ordinary_developmental_history_prompt_block_digest"),
+        "ordinary_history_selection": ordinary_history_selection,
         "history_context_posture": linkage.get(
             "ordinary_developmental_history_context_posture"),
         "prompt_score_evidence": examples,

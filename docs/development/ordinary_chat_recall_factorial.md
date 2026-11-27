@@ -164,12 +164,30 @@ differs from those rows. Guidance labels it an unverified candidate and says
 that predictions beyond the support range are extrapolations. The feature is
 off by default and adds no history, authority, or memory mutation.
 
-The experiment now has three matched arms: raw scored rows (`history`), those
-same rows plus the candidate (`derived_history`), and no history (`empty`).
-The primary contrast is derived versus raw history; the empty arm anchors the
-effect of exposure to any history at all. Each tier uses fresh sessions and
-held-out probes. Even a gain would not show that the model learned the rule or
-that the candidate is correct outside its support range.
+The earlier v8 design had three arms: raw scored rows (`history`), those same
+rows plus the candidate (`derived_history`), and no history (`empty`). Its
+derived-versus-raw contrast combined candidate content with adding a structured
+candidate block.
+
+The model-free [v9 sham-control preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-sham-preflight-v9.json)
+adds `sham_history`, whose candidate is deterministically perturbed by one in
+the offset while preserving its decimal width. It is explicitly marked
+`sham_control`, recomputed from the same score-bound rows, and rejected if it
+ever matches those observations. The primary contrast is now
+derived-history versus sham-history; raw history and empty history remain
+anchors. Candidate and sham prompts are both 7,961 characters with identical
+history guidance and support rows; raw history is 7,829 characters. Their
+serialized hypothesis objects are the same length. This controls prompt
+character length for the primary contrast, but not tokenizer length or every
+semantic effect of the provenance label.
+
+The v9 report records the selected history record and state digest for each
+arm, freezes a counterbalanced fixed trial order, and reconstructs exactly from
+the same parent snapshot. It records `inference_performed: false` and
+`learning_established: false`; no model-bound plan or response run exists yet.
+The three tiers remain strata in one task, not independent replications. Even
+a favorable derived-versus-sham score would not establish model learning,
+correctness outside support, durability, or transfer across model replacement.
 
 The three distance tiers are strata in one task experiment, not three
 independent replications: they share one support record, task mapping, and
@@ -194,10 +212,9 @@ candidate from frozen scored rows, verifies its source linkage, and confirms
 that raw and empty arms contain no candidate. It reports prompt character
 counts by arm. The derived-history prompt is 92 characters longer than raw
 history in each tier. Character count is not tokenizer length, so the current
-contrast does not control for prompt-length effects. A future replication
-should add a length-matched sham-candidate arm before
-attributing a difference specifically to the candidate's content. Rebuild this
-report with `python work/audit_ordinary_chat_transfer_prompt_exposure.py
+contrast did not control for prompt-length effects. The v9 four-arm preflight
+below adds a serialized-length-matched sham for its primary candidate contrast.
+Rebuild this report with `python work/audit_ordinary_chat_transfer_prompt_exposure.py
 <preflight.json> <audit.json>`. It stores a repository-relative input path and
 binds both the frozen preflight and audit implementation by SHA-256, so the
 report is reproducible from another working directory.
@@ -205,16 +222,18 @@ report is reproducible from another working directory.
 The audit also proposes a same-width negative-control hypothesis by changing
 only the fitted offset by one, preserving the coefficient object's serialized
 length while making it disagree with every support row. For this support, the
-proposed offset is 2 instead of 1. This proposal is not included in a prompt
-or history. Before using it, the experiment runner must label it as a
-protocol-generated false candidate and retain the original scored evidence
-unchanged; equal object length does not prove equal full-prompt token length.
+offset is 2 instead of 1. The v9 preflight includes this only as a
+protocol-generated false candidate; it is not written back to history or
+scored as evidence. Equal object length does not prove equal full-prompt token
+length.
 
 The retained v4 draft had the same arms but labeled history-versus-empty as
 the primary outcome; v5 corrected that metadata. The v6 preflight added the
 alternative-rule caveat and implementation-digest gate but left only seven
 characters of prompt headroom. The v7 preflight keeps that caveat with shorter
 guidance. The v8 preflight additionally gives raw and derived history the same
-guidance, captures that text, and verifies it at run and score time, leaving
-the candidate payload as the intended contrast. The runner accepts only v8
-for candidate inference.
+guidance, captures that text, and verifies it at run and score time. The v9
+preflight adds the sham arm and makes derived-versus-sham the primary contrast.
+A future response run still requires a reviewed model-bound plan and
+independent scoring; Hermes/GPU inference remains paused while the GPU is in
+use.
