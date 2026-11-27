@@ -811,7 +811,11 @@ cycle IDs are `rootless-cognition-cycle-f693f18b055e42fca02b` and
 1149774101 and 781169057, and backend seeds are 21902234 and 1942124107.
 The model manifest and v2 protocol digest remain bound separately as recorded
 above. CPU-only `verify-plan` matched all 2,558 implementation pins and both
-model identities. The updated run-card verifier SHA-256 is
+model identities. In particular, the plan pins
+sentientos/resident_developmental_cognition.py to SHA-256
+e6ff318a6b3314875cecfd76faa1f5b1646e4713eb3e6fd53ae5415537c96ea5, which
+includes commit ba099ceda and matches the current source file. The updated
+run-card verifier SHA-256 is
 `722df61a48bf4778100d09a0cef58184147e6a5ececbfd01598a753c84e9c2ec`. The
 revised private `campaign-run-card-neutral-v2-12x12-rev2.json` binds
 the task family, probe counts, and initial-history digest explicitly. It passed
