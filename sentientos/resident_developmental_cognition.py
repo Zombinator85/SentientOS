@@ -12668,10 +12668,11 @@ class ResidentDevelopmentalCognitionOwner:
             provenance = candidate.get("transformation_provenance")
             provenance_kind = (provenance.get("kind")
                 if isinstance(provenance, Mapping) else None)
+            is_owner_feedback = (
+                provenance_kind == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND)
             operation_prefix = (
                 "resident-developmental-companion-feedback:"
-                if provenance_kind == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND
-                else "resident-developmental-writeback:")
+                if is_owner_feedback else "resident-developmental-writeback:")
             expected_operation = (operation_prefix + recovered_tick + ":"
                 + str(candidate.get("candidate_id")))
             if not recovered_tick or record.operation_id != expected_operation:
@@ -12684,8 +12685,26 @@ class ResidentDevelopmentalCognitionOwner:
                 completed_tick_rows.append(checkpoint)
                 ticks[recovered_tick] = checkpoint
                 changed = True
-            elif existing.get("record_id") != record.record_id or existing.get("receipt_id") != receipt.receipt_id:
-                raise ResidentDevelopmentalCognitionError("recovered_tick_record_conflict")
+            elif (existing.get("record_id") != record.record_id
+                    or existing.get("receipt_id") != receipt.receipt_id):
+                feedback_can_complete_tick = (
+                    is_owner_feedback
+                    and existing.get("record_id") is None
+                    and existing.get("receipt_id") is None
+                    and existing.get("snapshot_id") == checkpoint["snapshot_id"]
+                    and existing.get("snapshot_digest")
+                        == checkpoint["snapshot_digest"])
+                if not feedback_can_complete_tick:
+                    raise ResidentDevelopmentalCognitionError(
+                        "recovered_tick_record_conflict")
+                updated_checkpoint = {**existing,
+                    "record_id": record.record_id,
+                    "receipt_id": receipt.receipt_id}
+                completed_tick_rows = [updated_checkpoint
+                    if row.get("tick_id") == recovered_tick else row
+                    for row in completed_tick_rows]
+                ticks[recovered_tick] = updated_checkpoint
+                changed = True
             if recovered_tick in incomplete:
                 del incomplete[recovered_tick]
                 incomplete_tick_rows = [saved_row for saved_row in incomplete_tick_rows

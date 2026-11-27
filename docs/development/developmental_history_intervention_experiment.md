@@ -710,9 +710,11 @@ history packet exposes only the short interpretation and its epistemic status,
 not the rejected answer or full receipt. Recovery validates this typed feedback
 record against the dedicated resident-developmental-companion-feedback
 operation prefix, exact recovered tick, and candidate ID. Ordinary lesson
-writebacks retain the resident-developmental-writeback prefix. These distinct
-checks keep the feedback-specific admission binding intact while allowing the
-record to rebuild the durable cognition checkpoint after restart.
+writebacks retain the resident-developmental-writeback prefix. When that
+companion tick is already checkpointed without a history record, recovery may
+attach this feedback record only if the checkpoint snapshot ID and digest
+match; other record conflicts remain errors. This models the feedback append
+as the durable writeback completing the existing cognition tick.
 
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to
