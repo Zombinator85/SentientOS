@@ -812,10 +812,11 @@ cycle IDs are `rootless-cognition-cycle-f693f18b055e42fca02b` and
 The model manifest and v2 protocol digest remain bound separately as recorded
 above. CPU-only `verify-plan` matched all 2,558 implementation pins and both
 model identities. The updated run-card verifier SHA-256 is
-`64a681d67ae64af2c1794570ba80ecef37620bc92a6ef2c81df437db5fee80d3`. The
+`722df61a48bf4778100d09a0cef58184147e6a5ececbfd01598a753c84e9c2ec`. The
 revised private `campaign-run-card-neutral-v2-12x12-rev2.json` binds
 the task family, probe counts, and initial-history digest explicitly. It passed
-all 17 checks in the updated offline run-card verifier; its mode-0600 SHA-256
+all 18 checks, including the previous-card digest link, in the updated offline
+run-card verifier; its mode-0600 SHA-256
 is `67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960`.
 Both cycles remain `prepared_not_started`; no inference was performed, and
 preregistration timing is not independently attested. This is only a stronger
