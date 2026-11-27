@@ -3398,8 +3398,12 @@ class DevelopmentalExperimentStore:
                 "learning_established": False,
                 "reconstruction_time_is_event_time": False,
             }
+            # Keep projections bounded while leaving room for scored probe
+            # transitions and their evidence bindings in larger preregistered
+            # acquisition suites. The source run artifact itself has a
+            # separate, stricter canonical-artifact limit.
             if len(json.dumps(payload, sort_keys=True, separators=(",", ":"),
-                    ensure_ascii=False).encode("utf-8")) > 32_768:
+                    ensure_ascii=False).encode("utf-8")) > 65_536:
                 raise DevelopmentalHistoryInterventionError("run_projection_payload_over_bound")
             record: dict[str, Any] = {"source_kind": "embodiment",
                 "source_id": "developmental-history-run:" + run_id,

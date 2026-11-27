@@ -502,3 +502,18 @@ baseline required at least two correct probes, transfer was correctly skipped.
 This is evidence of an unsuccessful synthetic baseline-competence screen and
 no observed response difference in that episode. It does not establish a
 history effect, durable learning, or real-world performance.
+
+## Bounded projection capacity for larger acquisition suites
+
+The v20 rootless campaign's second cycle stopped during acquisition projection
+with `run_projection_payload_over_bound`; it produced no terminal cycle result
+and supports no learning claim. Its canonical source run was 49,267 bytes,
+including the 12-probe evidence and transitions. The projection had retained
+answer-free transitions for all conditions and history-present examples for
+future retrieval, so the prior 32 KiB per-record ceiling could reject a valid,
+bounded run artifact as the probe suite grew. The projection ceiling is now
+64 KiB per record. This remains a hard bound, independent of the source
+artifact's own canonical size limit; it does not relax receipt validation,
+score binding, or the evidence needed to establish learning. A fresh plan and
+new cycle identities are required before another inference attempt, and the
+failed v20 cycle is retired.
