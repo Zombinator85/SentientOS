@@ -1,0 +1,41 @@
+{
+  "interpretation_posture": "prepared_launch_custody_only; no inference, model result, or learning claim",
+  "report_digest": "8ef3492e3e68847b264c7f43b69a2da871be6f923b47a174a249c25092447003",
+  "schema_version": "sentientos.owner_feedback_run_card_verification:v1",
+  "source_checkout": {
+    "branch": "codex/neutral-v2-frozen-launch-20261127",
+    "commit": "6061c7d6ce77ac75ce1d4ba7b2d737dd434cb816",
+    "experiment_implementation_pin_repaired_by_restoring": "work/audit_rootless_campaign_confidence.py",
+    "restored_file_sha256": "7f4d5a7c4499e32450a1977cd627ab894bbe34da7318085e668418194e841e9f"
+  },
+  "verification": {
+    "authority": false,
+    "campaign_id": "rootless-history-campaign-d8f0bc296251426a8da2",
+    "checks": {
+      "campaign_design_matches": true,
+      "campaign_id_matches": true,
+      "campaign_plan_path_matches": true,
+      "common_environment_matches": true,
+      "cycle_bindings_match": true,
+      "cycle_environment_mapping_matches": true,
+      "cycle_history_lineage_matches": true,
+      "identity_recipe_digest_matches": true,
+      "initial_history_boundary_matches": true,
+      "model_identity_and_source_pins_match": true,
+      "model_manifest_matches": true,
+      "model_runtime_matches": true,
+      "no_inference_or_authority_claimed": true,
+      "plan_digest_matches": true,
+      "plan_schema_matches": true,
+      "private_mode_0600": true,
+      "protocol_identity_and_digest_match": true,
+      "supersession_chain_matches": true
+    },
+    "inference_performed": false,
+    "operation": "verified",
+    "plan_digest": "6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972",
+    "protocol_digest": "eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac",
+    "run_card_sha256": "67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960",
+    "verifier_sha256": "722df61a48bf4778100d09a0cef58184147e6a5ececbfd01598a753c84e9c2ec"
+  }
+}
