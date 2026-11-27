@@ -56,7 +56,8 @@ from .developmental_companion_bridge import (
     ResidentDevelopmentalCompanionBridge, make_operator_feedback_record,
 )
 from .conversation_session import (
-    MAX_SESSION_BYTES, ContextSnapshot, ConversationChatLockTimeout,
+    MAX_ORDINARY_CHAT_PROMPT_CHARS, MAX_SESSION_BYTES, ContextSnapshot,
+    ConversationChatLockTimeout,
     ConversationSessionStore, assemble_local_chat_context,
     compact_runtime_generation_attribution, rank_transcript_exchange_terms,
     transcript_recall_terms, ordinary_chat_developmental_history_prompt_block_digest,
@@ -4821,7 +4822,7 @@ class PersistentConversationService:
                             developmental_history_context_posture = (
                                 "context_validation_failed")
                             break
-                        if len(candidate_prompt) <= 8000:
+                        if len(candidate_prompt) <= MAX_ORDINARY_CHAT_PROMPT_CHARS:
                             try:
                                 candidate_history_prompt_block_digest = (
                                     ordinary_chat_developmental_history_prompt_block_digest(
@@ -4872,7 +4873,7 @@ class PersistentConversationService:
                         # The binder budgets its JSON payload, while the governed
                         # call budgets the complete serialized prompt. Keep the
                         # optional historical projection only when both fit.
-                        if len(candidate_prompt) <= 8000:
+                        if len(candidate_prompt) <= MAX_ORDINARY_CHAT_PROMPT_CHARS:
                             epistemic_context = candidate_context
                             prompt = candidate_prompt
                 except Exception:
@@ -5078,7 +5079,8 @@ class PersistentConversationService:
         if isinstance(client_request_digest, str):
             linkage["client_request_id_digest"] = client_request_digest
         invocation_correlation_id = f"chat:{session['session_id']}:{user_turn['turn_id']}"
-        invocation_budget = LocalModelInvocationBudget(max_input_chars=8000,
+        invocation_budget = LocalModelInvocationBudget(
+            max_input_chars=MAX_ORDINARY_CHAT_PROMPT_CHARS,
             timeout_seconds=self._inference_timeout_seconds)
         streamed_model_chunks: list[str] = []
         inference_started_ns = time.monotonic_ns()

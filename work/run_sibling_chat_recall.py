@@ -236,7 +236,11 @@ def model_server(install, models, root, model, manifest_digest, *, allow_pinned_
     if external_models:
         private = Path(external_models)
         private.mkdir(parents=True, exist_ok=True)
-        manifest = _prepare_private_model(models, private, model, manifest_digest)
+        _prepare_private_model(models, private, model, manifest_digest)
+        relative = Path("manifests/registry.ollama.ai/library") / model.replace(":", "/")
+        identity_manifest = models / relative
+        if sha(identity_manifest.read_bytes()) != manifest_digest:
+            raise ValueError("identity model manifest differs from pin")
         target = urlsplit(os.environ.get("SENTIENTOS_OLLAMA_CPU_TARGET", ""))
         if target.scheme != "http" or not target.hostname or not target.port:
             raise ValueError("external model server target must be an explicit HTTP host and port")
@@ -250,7 +254,9 @@ def model_server(install, models, root, model, manifest_digest, *, allow_pinned_
             tagged, = [item for item in get_api("tags")["models"] if item["name"] == model]
             if tagged["digest"] != manifest_digest:
                 raise ValueError("external server did not load the pinned manifest")
-            yield manifest, version
+            # Bind cognition and authority to the pinned source artifact while
+            # the dedicated server loads its verified private copy.
+            yield identity_manifest, version
         return
     with socket.socket() as probe:
         probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

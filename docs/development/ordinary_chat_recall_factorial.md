@@ -199,13 +199,65 @@ same-width false candidate), while the conversation validator independently
 recomputes each value. Candidate prompts are 7,854 characters in both arms,
 with identical guidance and score evidence. The report binds the probe and
 trial schedule, prompt digests, source snapshot, and implementation hashes,
-and reconstructs exactly. No model-bound plan or response run exists yet.
+and reconstructs exactly. That original model-free report remains unchanged;
+its prompt-budget issue was resolved in the separately bound report below.
+The first model-bound capture exposed a prompt-budget mismatch: adding the
+shared JSON response constraint could exceed the ordinary-chat path's 8,000
+character limit, so the frozen candidate prompt was rejected before inference.
+The history validator and invocation budget now share a 9,216-character
+ceiling. The refreshed
+[source-bound v10 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-preflight-v10-prompt-limit-9216.json)
+preserves the probes, histories, prompt content, trial schedule, model
+identity, and parent snapshot while binding the updated implementation. The
+original v10 report remains unchanged. This is a capture-path compatibility
+fix; it does not change the model treatment or establish learning. Its isolated
+Ollama server uses a verified private model-store copy while the execution
+identity remains bound to the frozen source manifest.
 The primary contrast now tests whether model behavior differs for a
 score-consistent candidate versus a same-width false candidate without
 provenance labels revealing which is which. This tests evidence checking in
 the immediate task; it still does not establish durable learning. A
 later-session test with the candidate removed, fresh probes, and independent
 replication remains necessary.
+
+### v10 blinded-candidate execution
+
+The refreshed v10 preflight was bound to Hermes 4 14B Q4_K_M at content
+digest `f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce`,
+using Ollama 0.40.16 and 24 GPU layers. The reviewed execution-plan SHA-256 is
+`30b5b1bdbec8e6cc702a67ebd8eb8940063032194cd40513c3f4bfdb3b18cddb`.
+The compact [run evidence package](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-v10-run-evidence-prompt-limit-9216/)
+contains the frozen plan, all 12 receipt-bound results, preflight binding, and
+CPU-only
+[independent score](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-v10-run-evidence-prompt-limit-9216/independent-score.json).
+Its [manifest](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-v10-run-evidence-prompt-limit-9216/evidence-manifest.json)
+binds each file hash and records that the raw parent history snapshot is not
+duplicated in this package.
+
+| Tier | Raw history | Derived candidate | Sham candidate | Empty history | Derived minus sham |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Near | 0/3 | 2/3 | 0/3 | 0/3 | +2 |
+| Middle | 0/3 | 3/3 | 0/3 | 0/3 | +3 |
+| Far | 0/3 | 0/3 | 0/3 | 0/3 | 0 |
+
+All 12 responses passed strict JSON validation. The blinded derived candidate
+outscored the same-width sham in the near and middle tiers, with no advantage
+in the far tier. Raw history and empty history each scored 0/9; derived
+history scored 5/9, and sham history scored 0/9. These are descriptive
+strata from one task and one model, not independent replications. The result
+supports immediate evidence-conditioned performance for the candidate
+provided in the prompt; it does not demonstrate retained learning after that
+candidate is removed, durable development, or model-independent continuity.
+The refreshed report records `learning_established: false`.
+
+Recreate the independent score from the repository root with:
+
+```powershell
+python -m work.score_ordinary_chat_transfer_distance_ladder `
+  artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-preflight-v10-prompt-limit-9216.json `
+  artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-v10-run-evidence-prompt-limit-9216 `
+  artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-v10-run-evidence-prompt-limit-9216/independent-score.json
+```
 
 The v9 report records the selected history record and state digest for each
 arm and freezes a counterbalanced fixed trial order. It reconstructed exactly

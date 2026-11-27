@@ -1,0 +1,14 @@
+{
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_evidence_package:v1",
+  "plan_sha256": "30b5b1bdbec8e6cc702a67ebd8eb8940063032194cd40513c3f4bfdb3b18cddb",
+  "model_free_preflight_sha256": "82fef786f75d2e59143919c54b96729df7ee1b76e7f24c26cd02adb23dfcc2d6",
+  "learning_established": false,
+  "raw_history_snapshot_included": false,
+  "receipt_bound_result_included": true,
+  "files": {
+    "independent-score.json": "8e71913784bd1b7b154a7773fa0fa1a7b4d87f19c3b6e6d493bd940751b93d4a",
+    "preflight_binding.json": "5a9a3b4610fb710fcb72df9823e7fb4ce6e09dc6a3c6a36e2198c99302c1ad8b",
+    "result.json": "1a63bd17f12ed5fcb587ce378a8a5455ab11d10f64034099810853b2443f2725",
+    "plan.json": "30b5b1bdbec8e6cc702a67ebd8eb8940063032194cd40513c3f4bfdb3b18cddb"
+  }
+}

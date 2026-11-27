@@ -35,6 +35,7 @@ MAX_TURN_BYTES = 64 * 1024
 MAX_SESSION_BYTES = 8 * 1024 * 1024
 MAX_SESSION_LIST_ENTRIES = 4096
 MAX_SESSION_LIST_TOTAL_BYTES = 32 * 1024 * 1024
+MAX_ORDINARY_CHAT_PROMPT_CHARS = 9216
 MAX_ORDINARY_HISTORY_INTERVENTION_TRIALS = 65_536
 ORDINARY_HISTORY_CONDITION_PERMUTATIONS = (
     ("history_present", "history_withheld", "history_restored"),
@@ -1303,7 +1304,7 @@ def verify_ordinary_chat_history_projection_triplet(*,
 
 def ordinary_chat_developmental_history_prompt_block_digest(prompt: str) -> str:
     """Digest the exact ordinary-chat history guidance and data block."""
-    if not isinstance(prompt, str) or len(prompt) > 8000:
+    if not isinstance(prompt, str) or len(prompt) > MAX_ORDINARY_CHAT_PROMPT_CHARS:
         raise ValueError("ordinary_chat_history_prompt_invalid")
     guidance_marker = "[DEVELOPMENTAL_HISTORY_GUIDANCE]"
     data_marker = "[DEVELOPMENTAL_HISTORY_DATA]"
