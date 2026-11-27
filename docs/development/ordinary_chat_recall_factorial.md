@@ -188,7 +188,7 @@ The prompt explicitly says that other rules may fit the same rows. It records
 and independent scoring remain future work. Hermes inference remains paused
 while the GPU is in use.
 
-The model-free [prompt exposure audit](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-prompt-exposure-audit-v1.json)
+The model-free [prompt exposure audit](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-prompt-exposure-audit-v2.json)
 checks that history guidance matches exactly and reports prompt character counts
 by arm. The derived-history prompt is 92 characters longer than raw history in
 each tier. This is the candidate payload, but character count is not tokenizer
@@ -196,7 +196,9 @@ length: the current contrast does not control for prompt-length effects. A
 future replication should add a length-matched sham-candidate arm before
 attributing a difference specifically to the candidate's content. Rebuild this
 report with `python work/audit_ordinary_chat_transfer_prompt_exposure.py
-<preflight.json> <audit.json>`.
+<preflight.json> <audit.json>`. It stores a repository-relative input path and
+binds both the frozen preflight and audit implementation by SHA-256, so the
+report is reproducible from another working directory.
 
 The retained v4 draft had the same arms but labeled history-versus-empty as
 the primary outcome; v5 corrected that metadata. The v6 preflight added the

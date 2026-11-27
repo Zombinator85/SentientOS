@@ -10,10 +10,16 @@ from typing import Any
 
 EXPECTED_SCHEMA = "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"
 ARMS = ("history", "derived_history", "empty")
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
 
 def audit(preflight_path: Path) -> dict[str, Any]:
-    raw = preflight_path.read_bytes()
+    resolved_preflight = preflight_path.resolve()
+    try:
+        portable_path = resolved_preflight.relative_to(REPOSITORY_ROOT).as_posix()
+    except ValueError as exc:
+        raise ValueError("preflight must be inside the repository for a portable audit") from exc
+    raw = resolved_preflight.read_bytes()
     preflight = json.loads(raw)
     if preflight.get("schema") != EXPECTED_SCHEMA:
         raise ValueError("prompt exposure audit requires the frozen v8 candidate preflight")
@@ -59,9 +65,11 @@ def audit(preflight_path: Path) -> dict[str, Any]:
     candidate_deltas = {item["derived_minus_raw_history_chars"]
                         for item in by_tier.values()}
     return {
-        "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v1",
-        "preflight_path": preflight_path.as_posix(),
+        "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v2",
+        "preflight_path": portable_path,
         "preflight_sha256": hashlib.sha256(raw).hexdigest(),
+        "audit_implementation_sha256": hashlib.sha256(
+            Path(__file__).resolve().read_bytes()).hexdigest(),
         "inference_performed": False,
         "learning_established": False,
         "tiers": by_tier,
