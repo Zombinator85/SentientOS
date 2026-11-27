@@ -48,6 +48,7 @@ def verify(card_path: Path) -> dict[str, Any]:
     os.environ["SENTIENTOS_ROOTLESS_EXPERIMENT_WORKSPACE"] = workspace
     from sentientos.local_model_authority import digest_payload
     from work.rootless_history_boundary_campaign import (
+        _experiment_implementation_hashes,
         _history_boundary,
         _load_plan,
         verify_experiment_implementation,
@@ -109,7 +110,18 @@ def verify(card_path: Path) -> dict[str, Any]:
     if not isinstance(recipe, dict):
         raise ValueError("model_identity_recipe_missing")
     identity = verify_model_identity_recipe(plan)
-    implementation = verify_experiment_implementation(plan)
+    try:
+        implementation = verify_experiment_implementation(plan)
+    except ValueError as exc:
+        if str(exc) != "history_campaign_experiment_implementation_mismatch":
+            raise
+        expected_pins = plan.get("experiment_implementation_sha256")
+        current_pins = _experiment_implementation_hashes()
+        mismatch_paths = sorted(path for path in set(expected_pins) | set(current_pins)
+            if expected_pins.get(path) != current_pins.get(path))
+        raise ValueError(
+            "history_campaign_experiment_implementation_mismatch:"
+            + ",".join(mismatch_paths)) from exc
     checks["model_identity_and_source_pins_match"] = (
         identity.get("identity_digests_verified") is True
         and implementation.get("experiment_implementation_matches_current")
