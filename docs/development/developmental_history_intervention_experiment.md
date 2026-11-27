@@ -787,9 +787,9 @@ SHA-256 at the v11 verification is `893e665cc472337d8ddf57a7ef586a14bab60d34a72b
 that prepared card passed all 16 checks. It validates launch custody and current
 pins without loading a model. The helper was added after plan freeze and is not
 part of the plan's pinned experiment implementation; its digest is recorded
-separately. No inference was performed by either check. The run card's launch
-bindings and hash are custody metadata, not independent timestamp attestation. Even a
-passing single-record v2 probe would show only a protocol-bounded neutral-query
+separately. No inference was performed by either check. The run card's launch bindings and hash are custody metadata, not independent
+timestamp attestation. Even a passing single-record v2 probe would show only a
+protocol-bounded neutral-query
 recall result, not generalization, durable learning, or causal use of history.
 
 ### Higher-resolution neutral-query v2 plan
