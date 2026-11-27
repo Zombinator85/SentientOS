@@ -65,6 +65,79 @@ def semantic_receipt_digest(receipt: dict[str, Any]) -> str:
     return canonical_digest({key: receipt.get(key) for key in keys})
 
 
+def audit_history_delivery_binding(receipt: dict[str, Any]) -> dict[str, Any]:
+    request = receipt.get("request")
+    request = request if isinstance(request, dict) else {}
+    upstream = request.get("upstream_evidence")
+    upstream = upstream if isinstance(upstream, dict) else {}
+    binding = upstream.get("developmental_history_prompt_delivery_binding")
+    if binding is None:
+        return {
+            "status": "legacy_binding_not_recorded",
+            "payload_digest_recomputable_from_receipt": False,
+            "checks": {"binding_present": False},
+        }
+    if not isinstance(binding, dict):
+        return {
+            "status": "invalid",
+            "payload_digest_recomputable_from_receipt": False,
+            "checks": {"binding_is_object": False},
+        }
+
+    binding_prompt_digest = binding.get("prompt_digest")
+    request_prompt_digest = request.get("prompt_digest")
+    if isinstance(request_prompt_digest, str):
+        request_prompt_digest = "sha256:" + request_prompt_digest.removeprefix(
+            "sha256:")
+    delivered_ids = binding.get("delivered_packet_record_ids")
+    delivered_digests = binding.get("delivered_packet_record_digests")
+    selected_ids = binding.get("selected_record_ids")
+    selected_digests = binding.get("selected_record_digests")
+    packet_count = binding.get("developmental_history_packet_count")
+    report_count = binding.get("historical_embodiment_report_count")
+    checks = {
+        "binding_schema_supported": binding.get("schema_version") == (
+            "sentientos.developmental_history_prompt_delivery_binding:v1"),
+        "binding_prompt_digest_well_formed": (
+            isinstance(binding_prompt_digest, str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}", binding_prompt_digest) is not None),
+        "binding_prompt_digest_matches_request": (
+            binding_prompt_digest == request_prompt_digest
+            and binding_prompt_digest == upstream.get("epistemic_prompt_digest")),
+        "history_payload_digest_well_formed": (
+            isinstance(binding.get("history_payload_digest"), str)
+            and re.fullmatch(r"sha256:[0-9a-f]{64}",
+                binding["history_payload_digest"]) is not None),
+        "delivered_packet_identities_well_formed": (
+            isinstance(delivered_ids, list)
+            and isinstance(delivered_digests, list)
+            and len(delivered_ids) == len(delivered_digests)
+            and all(isinstance(value, str) for value in delivered_ids)
+            and all(isinstance(value, str) for value in delivered_digests)
+            and type(packet_count) is int and packet_count == len(delivered_ids)),
+        "selected_identities_match_receipt_upstream": (
+            isinstance(selected_ids, list)
+            and selected_ids == upstream.get("record_ids")),
+        "selected_digests_match_receipt_upstream": (
+            isinstance(selected_digests, list)
+            and selected_digests == upstream.get("record_digests")),
+        "counts_well_formed": (
+            type(packet_count) is int and packet_count >= 0
+            and type(report_count) is int and report_count >= 0),
+        "privacy_and_authority_posture_valid": (
+            binding.get("raw_prompt_or_history_retained") is False
+            and binding.get("authority") is False
+            and binding.get("learning_established") is False
+            and request.get("raw_prompt_stored") is False),
+    }
+    valid = all(checks.values())
+    return {
+        "status": "receipt_bound_not_recomputed" if valid else "invalid",
+        "payload_digest_recomputable_from_receipt": False,
+        "checks": checks,
+    }
+
+
 def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
     result_path = cycle_dir / "cycle-result.json"
     result_bytes = result_path.read_bytes()
@@ -146,6 +219,7 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
                 row.get("selected_record_digests") == expected_digests
             ),
         }
+        history_delivery_binding = audit_history_delivery_binding(receipt)
         links = {
             "receipt_id_matches": receipt.get("receipt_id") == receipt_id,
             "receipt_id_matches_semantic_digest": (
@@ -184,6 +258,7 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
                 "decision_validation_status"
             ),
             "recorded_condition_criteria_met": row.get("condition_criteria_met"),
+            "history_delivery_binding": history_delivery_binding,
             "all_receipt_links_verified": all(links.values()),
             "all_protocol_criteria_met": all(observed.values()),
         })
@@ -203,6 +278,17 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         "condition_count": len(audited),
         "conditions": audited,
         "all_receipt_links_verified": all_links,
+        "all_present_history_delivery_bindings_valid": all(
+            item["history_delivery_binding"]["status"]
+                in {"legacy_binding_not_recorded", "receipt_bound_not_recomputed"}
+            for item in audited
+        ),
+        "history_delivery_binding_statuses": {
+            status: sum(item["history_delivery_binding"]["status"] == status
+                for item in audited)
+            for status in ("receipt_bound_not_recomputed",
+                "legacy_binding_not_recorded", "invalid")
+        },
         "all_protocol_criteria_met": all(
             item["all_protocol_criteria_met"] for item in audited
         ),
@@ -235,6 +321,7 @@ def main() -> int:
     print(
         f"protocol_bound={report['protocol_binding_verified']};"
         f"receipt_links_verified={report['all_receipt_links_verified']};"
+        f"present_history_delivery_bindings_valid={report['all_present_history_delivery_bindings_valid']};"
         f"protocol_criteria_met={report['all_protocol_criteria_met']};"
         "raw_output_included=False"
     )
