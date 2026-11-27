@@ -1,0 +1,25 @@
+{
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-d8f0bc296251426a8da2",
+  "campaign_plan_digest": "6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972",
+  "cross_range_outcome_protocol_in_plan": false,
+  "history_file_family_counts": {
+    "rootless_integer_affine_transfer_novel_range_v8": 6,
+    "rootless_integer_affine_transfer_wide_range_v7": 2
+  },
+  "inference_performed": false,
+  "initial_history_boundary_digest": "bedca4464283f06e3180850ec144dd65ec79c92fc1a4149b4543a55b34575956",
+  "initial_history_boundary_file_count": 22,
+  "inventory_digest": "sha256:0ad5f5eda4ff9c1bfad9bf2ac3800241ddb72a0f4e117a524c8d44c48bd52415",
+  "learning_established": false,
+  "parse_failure_count": 0,
+  "parsed_history_json_file_count": 22,
+  "required_distinct_correct_source_inputs": 3,
+  "required_score_bound_source_runs": 2,
+  "required_source_family_record_files_in_boundary": 0,
+  "required_source_task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "schema_version": "sentientos.cross_range_source_history_inventory:v1",
+  "scope": "Exact campaign cycle-0 history boundary; count JSON record files containing the required objective_task_family label. Does not validate score runs, receipts, source independence, or files outside this boundary.",
+  "source_eligibility_status": "not_established_by_inventory",
+  "source_run_receipts_validated": false
+}
