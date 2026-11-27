@@ -4517,12 +4517,12 @@ Their private WSL evidence roots remain preserved under
 `~/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/`.
 
 The replacement v13 plan is frozen as
-[`campaign-plan-wsl-v8.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v8.json),
-campaign `rootless-history-campaign-e137e507ee6c5ab7267e`, digest
-`b772b4d27fc5c505f224ac4053998427cade5f6724d5fb8b503e2d012dd027df`.
-Its two reserved cycle IDs are `rootless-cognition-cycle-76465f50d0841a3b9e1c`
-and `rootless-cognition-cycle-6cf4ee0266b418eaff6c`; task seeds are
-`2566631430` and `28323293`. Model-free verification confirmed an empty initial
+[`campaign-plan-wsl-v9.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v9.json),
+campaign `rootless-history-campaign-ebfb27f3dba02c071383`, digest
+`14586b73ee01146065b8f552eda2b5fef6a3188578c81f0caa87c6298d2524d9`.
+Its two reserved cycle IDs are `rootless-cognition-cycle-e01bc6cc6598319c9cd8`
+and `rootless-cognition-cycle-fa3370e8831a4029a2ed`; task seeds are
+`2885016571` and `2844663627`. Model-free verification confirmed an empty initial
 history boundary, the declared comparison-disabled bootstrap gates, and the
 pinned source and model identity implementations.
 
@@ -4534,5 +4534,8 @@ receipts; the owner permits durable no-history observations only when
 comparisons are disabled. Neither failed cycle created a developmental record.
 Both runs unloaded the model, and the GPU returned near idle. The bootstrap now
 uses the already initialized comparison-disabled owner while sharing the same
-writeback store and admission ledger. Both v6 and v7 slots are spent/retired;
-plans v4 through v7 and all their cycle IDs remain reserved.
+writeback store and admission ledger. Both v6 and v7 slots are spent/retired.
+Plan v8 was retired before inference after static inspection showed its proposed
+history allowlist was incompatible with the non-family acquisition task;
+general history retrieval already admits the bootstrap record for that task.
+Plans v4 through v8 and their cycle IDs remain reserved.
