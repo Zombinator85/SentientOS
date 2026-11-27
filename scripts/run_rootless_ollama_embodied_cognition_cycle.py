@@ -7142,8 +7142,9 @@ def run() -> dict[str, Any]:
                             "sentientos.objective_task_family_progression_failure:v1"),
                         "progression_status": transfer_progression.get("status"),
                         "episode_count": len(transfer_progression.get("episodes", [])),
-                        "same_model_generation_controls": transfer_progression.get(
-                            "same_model_generation_controls"),
+                        "same_model_generation_settings_excluding_task_output_schema": (
+                            transfer_progression.get(
+                                "same_model_generation_settings_excluding_task_output_schema")),
                         "distinct_task_instances": transfer_progression.get(
                             "distinct_task_instances"),
                         "distinct_probe_sets": transfer_progression.get(

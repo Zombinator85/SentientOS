@@ -13176,6 +13176,33 @@ class ResidentDevelopmentalCognitionOwner:
             profiles = [item.get("model_generation_profile") for item in conditions]
             profile_digests = [profile.get("profile_digest")
                 if isinstance(profile, Mapping) else None for profile in profiles]
+            generation_control_digests: list[str | None] = []
+            task_output_contract_digests: list[str | None] = []
+            for profile in profiles:
+                if not isinstance(profile, Mapping):
+                    generation_control_digests.append(None)
+                    task_output_contract_digests.append(None)
+                    continue
+                control_profile = dict(profile)
+                control_profile.pop("profile_digest", None)
+                generation_config = control_profile.get("generation_config")
+                output_contract_digest = None
+                if isinstance(generation_config, Mapping):
+                    normalized_generation_config = dict(generation_config)
+                    actual_parameters = normalized_generation_config.get(
+                        "actual_generation_parameters")
+                    if isinstance(actual_parameters, Mapping):
+                        normalized_parameters = dict(actual_parameters)
+                        output_schema = normalized_parameters.pop(
+                            "structured_output_schema", None)
+                        output_contract_digest = _digest({
+                            "structured_output_schema": output_schema})
+                        normalized_generation_config[
+                            "actual_generation_parameters"] = normalized_parameters
+                    control_profile["generation_config"] = (
+                        normalized_generation_config)
+                generation_control_digests.append(_digest(control_profile))
+                task_output_contract_digests.append(output_contract_digest)
             score_rows = []
             for item in conditions:
                 assert isinstance(item, Mapping)
@@ -13279,6 +13306,8 @@ class ResidentDevelopmentalCognitionOwner:
                 "model_generation_profiles": [dict(profile)
                     if isinstance(profile, Mapping) else None for profile in profiles],
                 "model_generation_profile_digests": profile_digests,
+                "model_generation_control_digests": generation_control_digests,
+                "task_output_contract_digests": task_output_contract_digests,
                 "scoreable": all(item["scoreable"] for item in score_rows),
                 "score_contrasts": score_contrasts,
                 "conditions": score_rows,
@@ -13297,10 +13326,13 @@ class ResidentDevelopmentalCognitionOwner:
         profiles_comparable = all(
             episode["model_generation_profile_digests"]
                 and None not in episode["model_generation_profile_digests"]
+                and episode["model_generation_control_digests"]
+                and None not in episode["model_generation_control_digests"]
             for episode in episodes)
-        profile_vectors = [tuple(episode["model_generation_profile_digests"])
+        profile_vectors = [tuple(episode["model_generation_control_digests"])
             for episode in episodes]
-        same_profile = profiles_comparable and len(set(profile_vectors)) == 1
+        same_generation_controls = (profiles_comparable
+            and len(set(profile_vectors)) == 1)
         distinct_tasks = len(set(task_digests)) == len(task_digests)
         distinct_probes = len(set(probe_keys)) == len(probe_keys)
         scored = all(episode["scoreable"] for episode in episodes)
@@ -13392,7 +13424,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "cross_task_generalization_established": False,
             })
         comparable = (len(episodes) >= 2 and len(family_ids) == 1 and distinct_tasks and distinct_probes
-            and same_profile and scored)
+            and same_generation_controls and scored)
         semantic = {"schema_version": "sentientos.objective_task_family_progression:v3",
             "status": "comparable_scored_episodes" if comparable else
                 "insufficient_episode_count" if len(episodes) < 2 else
@@ -13420,7 +13452,8 @@ class ResidentDevelopmentalCognitionOwner:
                     for condition in episode["conditions"]
                     if condition["condition_id"] == "history_withheld")
                 for episode in episodes),
-            "same_model_generation_controls": same_profile,
+            "same_model_generation_settings_excluding_task_output_schema": (
+                same_generation_controls),
             "distinct_task_instances": distinct_tasks,
             "distinct_probe_sets": distinct_probes,
             "target_model_outcome_summaries": target_model_outcome_summaries,
