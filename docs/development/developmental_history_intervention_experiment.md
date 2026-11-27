@@ -903,7 +903,7 @@ fails closed. Thus the saved error belongs to the older source revision
 `825048e...`; the repair is present in source revision `dc349b9...`. The
 inspector is supplemental custody tooling outside the pinned experiment
 implementation. Its SHA-256 is
-`20ecec270fc153b98866a73491b597e2775ecfd788fdf874ab328441f9df556f`.
+`d303d862c795ef8b0ab2cfb30a19054193adb63687bc51b02ad9b0b901765654`.
 Invoke it as `python tools/inspect_developmental_cycle_recovery.py <cycle-root>`;
 status 3 flags an unreconstructible normalized response digest, another
 response-integrity mismatch, or an incompatible checkpoint. Status 0 means
@@ -946,3 +946,11 @@ The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained
 owner-verified failure feedback changes future reasoning, because that feedback
 was not carried forward as a developmental-history input.
+
+### Transfer gate interpretation for the prepared v14 plan
+
+The preserved neutral v2 12-by-12 plan uses the rootless_integer_affine_transfer_novel_range_v8 task family and does not preregister a separate cross_range_history_enabled_competence outcome. In the runner, acquisition competence is gated at two-thirds of the acquisition probes: the threshold is ceil(2n/3), or 8 correct probes for 12. When that gate is not met, transfer is skipped. Such a cycle has no transfer observation and must be reported as **transfer not evaluated**, rather than as a negative transfer result or evidence that history did or did not help.
+
+The optional history-enabled competence protocol is a distinct, score-bound outcome with its own source and target task-family requirements. A future plan seeking that outcome must preregister the compatible protocol and its source evidence before execution. The current frozen v14 plan remains unchanged and unstarted; no result from it is inferred here.
+
+The recovery inspector now also reports the recorded source revision, worktree content status, and clean flag from each failure artifact. These fields help distinguish failures captured under different source revisions; they do not establish that a revision caused a failure. In the two inspected failures, the recorded revisions are dc349b9a2655b7b46e5a2a0b5ea3fb3f89b7c409 and 825048e13ec43a34cb6e79b410890e704784a7d8; both artifacts report complete, clean source snapshots.

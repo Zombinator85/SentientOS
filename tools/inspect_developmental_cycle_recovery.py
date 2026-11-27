@@ -241,6 +241,9 @@ def inspect_cycle(root: Path) -> dict[str, Any]:
     failure = _load_mapping(failure_path)
     if failure is None:
         raise ValueError(f"cycle-failure.json is missing or invalid under {root}")
+    source_provenance = failure.get("source_provenance_at_failure")
+    if not isinstance(source_provenance, Mapping):
+        source_provenance = {}
     return {
         "schema": "sentientos.developmental_cycle_recovery_diagnostic:v1",
         "cycle_root": str(root),
@@ -248,6 +251,10 @@ def inspect_cycle(root: Path) -> dict[str, Any]:
         "status": failure.get("status"),
         "stage": failure.get("stage"),
         "failure_code": failure.get("failure_code"),
+        "source_revision_at_failure": source_provenance.get("repository_revision"),
+        "source_worktree_status_at_failure": source_provenance.get(
+            "worktree_content_status"),
+        "source_worktree_clean_at_failure": source_provenance.get("worktree_clean"),
         "failure_file_sha256": hashlib.sha256(
             failure_path.read_bytes()
         ).hexdigest(),
