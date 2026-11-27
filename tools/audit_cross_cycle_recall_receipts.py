@@ -84,6 +84,10 @@ def audit_history_delivery_binding(receipt: dict[str, Any]) -> dict[str, Any]:
             "checks": {"binding_is_object": False},
         }
 
+    request_semantic = {key: value for key, value in request.items()
+        if key not in {"request_id", "request_digest", "raw_prompt_stored",
+            "ephemeral_prompt_handling"}}
+    computed_request_digest = canonical_digest(request_semantic)
     binding_prompt_digest = binding.get("prompt_digest")
     request_prompt_digest = request.get("prompt_digest")
     if isinstance(request_prompt_digest, str):
@@ -104,6 +108,10 @@ def audit_history_delivery_binding(receipt: dict[str, Any]) -> dict[str, Any]:
         "binding_prompt_digest_matches_request": (
             binding_prompt_digest == request_prompt_digest
             and binding_prompt_digest == upstream.get("epistemic_prompt_digest")),
+        "request_digest_matches_semantic_payload": (
+            request.get("request_digest") == computed_request_digest),
+        "request_id_matches_semantic_digest": (
+            request.get("request_id") == "lmreq-" + computed_request_digest[:24]),
         "history_payload_digest_well_formed": (
             isinstance(binding.get("history_payload_digest"), str)
             and re.fullmatch(r"sha256:[0-9a-f]{64}",
