@@ -6612,7 +6612,7 @@ def run() -> dict[str, Any]:
             # developmental observation, then let the separate scored task
             # produce the first task-family record.
             _set_run_stage("initial_history_bootstrap")
-            bootstrap = owner.run_tick(
+            bootstrap = decision_owner.run_tick(
                 snapshot=later_pre_action_snapshot,
                 tick_id=RUN_ID + ":initial-history-bootstrap",
                 withhold_developmental_history=True,
@@ -6621,11 +6621,11 @@ def run() -> dict[str, Any]:
             bootstrap_record_pair = next((pair for pair in bootstrap_records
                 if pair[0].record_id == bootstrap.written_record_id), None)
             bootstrap_observation = (
-                owner.verified_cognition_observation(
+                decision_owner.verified_cognition_observation(
                     bootstrap.cognition_observation_ids[0])
                 if len(bootstrap.cognition_observation_ids) == 1 else None)
             bootstrap_receipt = (
-                owner.verified_cognition_invocation_receipt(
+                decision_owner.verified_cognition_invocation_receipt(
                     bootstrap.cognition_observation_ids[0],
                     bootstrap_observation.get("observation_digest"))
                 if isinstance(bootstrap_observation, Mapping) else None)

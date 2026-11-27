@@ -54,6 +54,7 @@ _EMPTY_HISTORY_BOOTSTRAP_PROTOCOL = {
     "schema_version": "sentientos.initial_history_bootstrap_protocol:v1",
     "trigger": "verified_empty_resident_writeback_inventory",
     "condition_id": "durable-learning-history-withheld",
+    "owner_comparison_enabled": False,
     "maximum_observations": 1,
     "verify_invocation_and_writeback_receipts": True,
     "require_zero_retrieved_prior_records": True,
