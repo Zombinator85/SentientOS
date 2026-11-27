@@ -1,0 +1,159 @@
+{
+  "authority": false,
+  "example_presentation": "record_linked",
+  "format_treatment": "strict_json_post_retrieval:v1",
+  "inference_performed": true,
+  "ladder_design": "source_near_progression_v1",
+  "learning_established": false,
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "plan_sha256": "e56dae6fcf3113b65ca021f63d683b35bf6436406baab9d518017d29e276e900",
+  "preflight_sha256": "060b267030b307e0ed0ef53841a0de4b6db3c1027f85f870ce9227dfa0994a3d",
+  "schema": "sentientos.ordinary_chat_transfer_score:v2",
+  "scorer_source_sha256": "9eddf1a6aad55a2782c8e9305363db95c1bb2528f5835c1934a571bb232e08b9",
+  "semantic_treatment": "derive_rule_from_available_history:v3",
+  "tiers": [
+    {
+      "empty": {
+        "answers": [
+          13,
+          14,
+          15
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-1b6b7f9faac5c5fec1b8a8e9",
+        "session_id": "session-af3629dea4ae4699a3e6722d",
+        "valid_json": true
+      },
+      "expected": [
+        21,
+        23,
+        25
+      ],
+      "history": {
+        "answers": null,
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-d54912995560ece4646797d3",
+        "session_id": "session-f9e66d7ab64e40c6beae3007",
+        "valid_json": false
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        10,
+        11,
+        12
+      ],
+      "tier": "near"
+    },
+    {
+      "empty": {
+        "answers": [
+          17,
+          18,
+          19
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-650fb2cb85a5a1ba4de0e286",
+        "session_id": "session-077f611f1f90424d8ca11b2e",
+        "valid_json": true
+      },
+      "expected": [
+        29,
+        31,
+        33
+      ],
+      "history": {
+        "answers": null,
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-8daacfa36956454a2e4bb1e5",
+        "session_id": "session-3a5f8d4af057453785a7eb47",
+        "valid_json": false
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        14,
+        15,
+        16
+      ],
+      "tier": "middle"
+    },
+    {
+      "empty": {
+        "answers": [
+          23,
+          24,
+          25
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-555480df04cac3e833e24bd6",
+        "session_id": "session-bef4b37207cc43658f5dd9bc",
+        "valid_json": true
+      },
+      "expected": [
+        39,
+        41,
+        43
+      ],
+      "history": {
+        "answers": null,
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-a588b2548ae67c04dc92bff1",
+        "session_id": "session-3babb153a992431296ced3d4",
+        "valid_json": false
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        19,
+        20,
+        21
+      ],
+      "tier": "far"
+    }
+  ]
+}

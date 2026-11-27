@@ -1,189 +1,269 @@
-"""Independently score the frozen history-versus-empty transfer ladder."""
+"""Score receipt-bound answers for the frozen ordinary-chat transfer ladder."""
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
-from typing import Any
+import re
 
 from sentientos.developmental_model_replacement_experiment import (
     FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS,
 )
 from sentientos.governed_local_model_invocation import validate_receipt
 from sentientos.local_model_authority import digest_payload
-from work.preflight_sibling_chat_histories import read
-from work.run_ordinary_chat_transfer_distance_ladder import REPORT, TRIAL_ORDER, sha
+
+ARMS = ("history", "empty")
+TIERS = ("near", "middle", "far")
+TRIAL_ORDER = (
+    ("near", "history"), ("near", "empty"),
+    ("middle", "empty"), ("middle", "history"),
+    ("far", "history"), ("far", "empty"),
+)
 
 
-def _strict_answers(raw: Any, count: int) -> tuple[bool, list[int | None] | None]:
-    if not isinstance(raw, str):
-        return False, None
-    try:
-        payload = json.loads(raw)
-    except ValueError:
-        return False, None
-    if (not isinstance(payload, dict) or set(payload) != {"answers"}
-            or not isinstance(payload["answers"], list)
-            or len(payload["answers"]) != count
-            or any(answer is not None and type(answer) is not int for answer in payload["answers"])):
-        return False, None
-    return True, payload["answers"]
+def _validate_plan_treatment(plan: dict) -> None:
+    schema = plan.get("schema")
+    if schema.endswith((":v2", ":v3", ":v4", ":v5")):
+        if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
+                or plan.get("output_constraint") is None
+                or hashlib.sha256(plan["output_constraint"].encode()).hexdigest()
+                    != plan.get("output_constraint_sha256")):
+            raise ValueError("strict JSON treatment is not bound to the execution plan")
+    elif (plan.get("format_treatment") != "user_message_only:v1"
+            or plan.get("output_constraint") is not None):
+        raise ValueError("unconstrained-format execution plan has an unexpected treatment")
+
+    if schema.endswith(":v3"):
+        from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_RULE_DERIVATION
+        expected = ("derive_rule_from_available_history:v3", HISTORY_RULE_DERIVATION)
+    elif schema.endswith(":v4"):
+        from work.run_ordinary_chat_transfer_distance_ladder import EXPLICIT_RULE_CALIBRATION
+        expected = ("explicit_mapping_calibration:v1", EXPLICIT_RULE_CALIBRATION)
+    elif schema.endswith(":v5"):
+        from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_SCOPE_CLARIFICATION
+        expected = ("clarify_developmental_history_scope:v1", HISTORY_SCOPE_CLARIFICATION)
+    else:
+        expected = (None, None)
+    if (plan.get("semantic_treatment") != expected[0]
+            or plan.get("semantic_procedure") != expected[1]
+            or plan.get("semantic_procedure_sha256") != (
+                hashlib.sha256(expected[1].encode()).hexdigest()
+                if expected[1] is not None else None)):
+        raise ValueError("semantic treatment is not bound to the execution plan")
 
 
-def _validate_plan_evidence(plan: dict[str, Any], protocol: dict[str, Any]) -> dict[str, Any]:
-    presentation = protocol.get("example_presentation", "record_linked")
-    if presentation not in {"structured_only", "record_linked"}:
-        raise ValueError("unknown history example presentation")
-    if plan.get("example_presentation", "record_linked") != presentation:
-        raise ValueError("execution plan example presentation differs from the frozen preflight")
-    history_records = {}
-    for tier, tier_protocol in protocol["tiers"].items():
-        history = plan["prompt_bindings"][tier + "_history"]
-        empty = plan["prompt_bindings"][tier + "_empty"]
-        expected = tier_protocol["captures"]["history"]["prompt_score_evidence"]
-        if not expected or history.get("prompt_score_evidence") != expected:
-            raise ValueError(f"{tier} history evidence differs from the frozen model-free preflight")
-        expected_renderings = tier_protocol["captures"]["history"].get(
-            "prompt_example_renderings", [])
-        if (history.get("prompt_example_renderings", []) != expected_renderings
-                or (presentation == "record_linked" and not expected_renderings)
-                or (presentation == "structured_only" and expected_renderings)):
-            raise ValueError(f"{tier} rendered examples differ from the frozen preflight")
-        if (not history.get("history_block_digest")
-                or empty.get("prompt_score_evidence") != []
-                or empty.get("prompt_example_renderings") != []
-                or empty.get("history_block_digest") is not None):
-            raise ValueError(f"{tier} history/empty evidence separation is invalid")
-        history_records[tier] = [item["record_id"] for item in expected]
-    return {
-        "history_matches_model_free_preflight": True,
-        "empty_arm_exposed_no_history": True,
-        "history_record_ids_by_tier": history_records,
-    }
-
-
-def score(run_directory: Path, output: Path,
-          preflight_report: Path | None = None) -> dict[str, Any]:
+def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: Path) -> dict:
+    """Bind a completed runner directory to its frozen model-free preflight."""
     plan_path = run_directory / "plan.json"
-    plan, result = read(plan_path), read(run_directory / "result.json")
-    selected_report = preflight_report or REPORT
-    protocol = read(selected_report)
-    plan_digest = sha(plan_path.read_bytes())
+    result_path = run_directory / "result.json"
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    run = json.loads(result_path.read_text(encoding="utf-8"))
+    plan_sha = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+    preflight_sha = hashlib.sha256(preflight_bytes).hexdigest()
     if (plan.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"}
-            or plan_digest != result.get("plan_sha256")
-            or plan.get("source_report_sha256") != sha(selected_report.read_bytes())
-            or set(plan.get("tiers", {})) != set(protocol.get("tiers", {}))):
-        raise ValueError("execution plan or results do not match the frozen ladder preflight")
-    if plan["schema"].endswith((":v2", ":v3", ":v4", ":v5")):
-        if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
-                or plan.get("output_constraint_sha256") != sha(plan["output_constraint"].encode())):
-            raise ValueError("post-retrieval output constraint is not bound to the execution plan")
-        if plan["schema"].endswith(":v3"):
-            from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_RULE_DERIVATION
-            if (plan.get("semantic_treatment") != "derive_rule_from_available_history:v3"
-                    or plan.get("semantic_procedure") != HISTORY_RULE_DERIVATION
-                    or plan.get("semantic_procedure_sha256") != sha(HISTORY_RULE_DERIVATION.encode())):
-                raise ValueError("history rule-derivation procedure is not bound to the execution plan")
-        if plan["schema"].endswith(":v4"):
-            from work.run_ordinary_chat_transfer_distance_ladder import EXPLICIT_RULE_CALIBRATION
-            if (plan.get("semantic_treatment") != "explicit_mapping_calibration:v1"
-                    or plan.get("semantic_procedure") != EXPLICIT_RULE_CALIBRATION
-                    or plan.get("semantic_procedure_sha256") != sha(EXPLICIT_RULE_CALIBRATION.encode())):
-                raise ValueError("explicit mapping calibration is not bound to the execution plan")
-        if plan["schema"].endswith(":v5"):
-            from work.run_ordinary_chat_transfer_distance_ladder import HISTORY_SCOPE_CLARIFICATION
-            if (plan.get("semantic_treatment") != "clarify_developmental_history_scope:v1"
-                    or plan.get("semantic_procedure") != HISTORY_SCOPE_CLARIFICATION
-                    or plan.get("semantic_procedure_sha256") != sha(HISTORY_SCOPE_CLARIFICATION.encode())):
-                raise ValueError("history scope clarification is not bound to the execution plan")
-    elif plan.get("format_treatment") != "user_message_only:v1" or plan.get("output_constraint") is not None:
-        raise ValueError("unconstrained-format execution plan has an unexpected treatment")
-    if [(item.get("tier"), item.get("arm")) for item in result.get("trials", ())] != list(TRIAL_ORDER):
-        raise ValueError("trial order differs from preregistration")
-    evidence_validation = _validate_plan_evidence(plan, protocol)
-    task_family = protocol["task_family_id"]
-    if plan.get("task_family_id", task_family) != task_family:
-        raise ValueError("execution plan task family differs from the frozen preflight")
+            or plan.get("source_report_sha256") != preflight_sha
+            or run.get("plan_sha256") != plan_sha
+            or plan.get("task_family_id") != preflight.get("task_family_id")
+            or plan.get("learning_established") is not False
+            or run.get("learning_established") is not False
+            or set(plan.get("tiers", {})) != set(TIERS)
+            or not re.fullmatch(r"[0-9a-f]{64}", plan.get("matched_base_sha256", ""))
+            or [(item.get("tier"), item.get("arm")) for item in run.get("trials", ())]
+                != list(TRIAL_ORDER)):
+        raise ValueError("completed run does not match the frozen preflight")
+    if not isinstance(plan.get("model_identity"), dict):
+        raise ValueError("execution plan lacks a bound model identity")
+    _validate_plan_treatment(plan)
+    captures: dict[str, dict] = {tier: {} for tier in TIERS}
+    for index, (tier, arm) in enumerate(TRIAL_ORDER):
+        key = tier + "_" + arm
+        frozen = preflight["tiers"][tier]
+        binding = plan["prompt_bindings"].get(key)
+        trial = run["trials"][index]
+        frozen_history = frozen["captures"]["history"]
+        frozen_empty = frozen["captures"]["empty"]
+        history_binding = plan["prompt_bindings"].get(tier + "_history", {})
+        empty_binding = plan["prompt_bindings"].get(tier + "_empty", {})
+        if (not isinstance(binding, dict)
+                or plan.get("example_presentation", "record_linked")
+                    != preflight.get("example_presentation", "record_linked")
+                or plan["tiers"][tier].get("probe_inputs") != frozen.get("probe_inputs")
+                or plan["tiers"][tier].get("answer_key_commitment") != frozen.get("answer_key_commitment")
+                or history_binding.get("prompt_score_evidence") != frozen_history.get("prompt_score_evidence")
+                or history_binding.get("prompt_example_renderings", [])
+                    != frozen_history.get("prompt_example_renderings", [])
+                or not history_binding.get("history_block_digest")
+                or empty_binding.get("prompt_score_evidence") != frozen_empty.get("prompt_score_evidence")
+                or empty_binding.get("prompt_example_renderings", [])
+                    != frozen_empty.get("prompt_example_renderings", [])
+                or empty_binding.get("history_block_digest") is not None
+                or not re.fullmatch(r"[0-9a-f]{64}", binding.get("prompt_sha256", ""))
+                or not re.fullmatch(r"[0-9a-f]{64}", binding.get("invocation_prompt_digest", ""))
+                or trial.get("plan_sha256") != plan_sha
+                or trial.get("prompt_sha256") != binding.get("prompt_sha256")
+                or trial.get("delivered") != trial.get("model_output")):
+            raise ValueError(f"run trial differs from its frozen prompt or answer key for {tier}/{arm}")
+        receipt = trial.get("receipt")
+        linkage = receipt.get("request", {}).get("linkage", {}) if isinstance(receipt, dict) else {}
+        receipt_session_id = linkage.get("session_id") if isinstance(linkage, dict) else None
+        trial_session_id = trial.get("session_id")
+        if (not isinstance(receipt_session_id, str) or not receipt_session_id
+                or (trial_session_id is not None and trial_session_id != receipt_session_id)):
+            raise ValueError("trial session ID is absent or differs from its invocation receipt")
+        captures[tier][arm] = {
+            "arm": arm,
+            "session_id": receipt_session_id,
+            "prompt_sha256": trial.get("prompt_sha256"),
+            "invocation_prompt_digest": binding.get("invocation_prompt_digest"),
+            "model_identity": plan["model_identity"],
+            "model_output": trial.get("model_output"),
+            "receipt": trial.get("receipt"),
+        }
+    return {
+        "schema": "sentientos.ordinary_chat_transfer_execution:v1",
+        "preflight_sha256": digest_payload(preflight),
+        "plan_sha256": plan_sha,
+        "arms": list(ARMS),
+        "model_identity": plan["model_identity"],
+        "format_treatment": plan.get("format_treatment"),
+        "semantic_treatment": plan.get("semantic_treatment"),
+        "example_presentation": plan.get("example_presentation", "record_linked"),
+        "ladder_design": plan.get("ladder_design", preflight.get("ladder_design")),
+        "captures": captures,
+        "inference_performed": True,
+        "learning_established": False,
+    }
+
+
+def score(preflight: dict, execution: dict) -> dict:
+    if (preflight.get("schema") not in {
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"}
+            or execution.get("schema") !=
+                "sentientos.ordinary_chat_transfer_execution:v1"
+            or execution.get("preflight_sha256") != digest_payload(preflight)
+            or preflight.get("learning_established") is not False
+            or preflight.get("inference_performed") is not False
+            or preflight.get("model_bound_execution_plan_created") is not False
+            or execution.get("inference_performed") is not True
+            or execution.get("learning_established") is not False
+            or preflight.get("arms") != list(ARMS)
+            or execution.get("arms") != list(ARMS)):
+        raise ValueError("execution does not match the frozen transfer protocol")
+    task_family = preflight.get("task_family_id")
+    protocol = preflight.get("protocol_checks", preflight)
+    if (task_family not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
+            or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
+            or protocol.get("all_tier_prompts_match_outside_probe_values") is not True
+            or protocol.get("fixed_mapping_shared_by_source_and_novel_task_families") is not True
+            or preflight.get("answer_values_withheld") is not True
+            or set(preflight.get("tiers", {})) != set(TIERS)):
+        raise ValueError("preflight does not meet the frozen scoring conditions")
     mapping = FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS[task_family]
-    summaries: dict[str, dict[str, Any]] = {}
-    trial_rows = []
-    for tier, tier_protocol in protocol["tiers"].items():
-        probes = tier_protocol["probe_inputs"]
-        key = [mapping[0] * probe + mapping[1] for probe in probes]
+    identity = execution.get("model_identity")
+    captures = execution.get("captures")
+    if not isinstance(identity, dict) or not isinstance(captures, dict):
+        raise ValueError("execution identity or captures are missing")
+    used_receipts: set[str] = set()
+    used_sessions: set[str] = set()
+    results = []
+    multiplier, offset = mapping
+    for tier in TIERS:
+        frozen = preflight["tiers"][tier]
+        inputs = frozen["probe_inputs"]
+        if not isinstance(inputs, list) or len(inputs) != 3 or any(type(x) is not int for x in inputs):
+            raise ValueError("frozen probe set is invalid")
+        expected = [multiplier * value + offset for value in inputs]
         commitment = "sha256:" + digest_payload({
             "task_family_id": task_family,
-            "probe_inputs": probes, "expected_outputs": key,
+            "probe_inputs": inputs,
+            "expected_outputs": expected,
         })
-        if plan["tiers"][tier].get("answer_key_commitment") != commitment:
-            raise ValueError(f"answer key commitment mismatch for tier {tier}")
-        rows_by_arm = {}
-        for trial in (row for row in result["trials"] if row["tier"] == tier):
-            arm = trial["arm"]
-            if arm in rows_by_arm:
-                raise ValueError(f"duplicate {tier}/{arm} trial")
-            receipt = trial.get("receipt")
-            raw = trial.get("delivered")
-            binding = plan["prompt_bindings"][tier + "_" + arm]
-            if (not validate_receipt(receipt)[0]
-                    or receipt.get("request", {}).get("active_model_identity") != plan.get("model_identity")
-                    or receipt.get("request", {}).get("prompt_digest") != binding.get("invocation_prompt_digest")
-                    or receipt.get("output_digest") != digest_payload({"output": raw})
-                    or trial.get("prompt_sha256") != binding.get("prompt_sha256")
-                    or trial.get("model_output") != raw):
-                raise ValueError(f"{tier}/{arm} response does not match its governed prompt receipt")
-            format_valid, answers = _strict_answers(raw, len(probes))
-            correct = ([answer == expected for answer, expected in zip(answers, key, strict=True)]
-                       if format_valid else [False] * len(probes))
-            row = {"tier": tier, "arm": arm, "strict_json_valid": format_valid,
-                "answers": answers, "probe_correct": correct,
-                "correct_count": sum(correct), "denominator": len(probes),
-                "receipt_id": receipt.get("receipt_id")}
-            rows_by_arm[arm] = row
-            trial_rows.append(row)
-        if set(rows_by_arm) != {"history", "empty"}:
-            raise ValueError(f"tier {tier} lacks one history and one empty trial")
-        summaries[tier] = {
-            "history_correct_count": rows_by_arm["history"]["correct_count"],
-            "empty_correct_count": rows_by_arm["empty"]["correct_count"],
-            "history_minus_empty_correct_count": (
-                rows_by_arm["history"]["correct_count"] - rows_by_arm["empty"]["correct_count"]),
-            "history_json_valid": rows_by_arm["history"]["strict_json_valid"],
-            "empty_json_valid": rows_by_arm["empty"]["strict_json_valid"],
-            "denominator_per_arm": len(probes),
-        }
-    report = {
-        "schema": "sentientos.ordinary_chat_transfer_distance_ladder_independent_score:v2",
-        "plan_sha256": plan_digest,
-        "preflight_sha256": sha(selected_report.read_bytes()),
-        "ladder_design": protocol.get("ladder_design", "balanced_magnitude_v1"),
-        "scorer_source_sha256": sha(Path(__file__).read_bytes()),
-        "prompt_evidence_validation": evidence_validation,
-        "format_treatment": plan.get("format_treatment"),
-        "tier_summaries": summaries,
-        "trials": trial_rows,
-        "learning_established": False,
-        "interpretation": (
-            "Immediate transfer scores under one model and frozen history; the report does not establish "
-            "durable learning or causal attribution to the history's original acquisition."),
-    }
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("x", encoding="utf-8") as stream:
-        json.dump(report, stream, indent=2, sort_keys=True)
-        stream.write("\n")
-    return report
+        if frozen.get("answer_key_commitment") != commitment:
+            raise ValueError("frozen answer-key commitment does not match the task family")
+        tier_captures = captures.get(tier)
+        if not isinstance(tier_captures, dict):
+            raise ValueError("tier captures are missing")
+        arm_results = {}
+        for arm in ARMS:
+            capture = tier_captures.get(arm)
+            if not isinstance(capture, dict) or capture.get("arm") != arm:
+                raise ValueError("paired arm capture is invalid")
+            output, receipt = capture.get("model_output"), capture.get("receipt")
+            prompt_sha = capture.get("prompt_sha256")
+            session_id = capture.get("session_id")
+            if (not isinstance(prompt_sha, str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", prompt_sha)
+                    or not isinstance(session_id, str) or not session_id
+                    or session_id in used_sessions
+                    or capture.get("model_identity") != identity
+                    or not isinstance(output, str) or not isinstance(receipt, dict)
+                    or not validate_receipt(receipt)[0]
+                    or receipt.get("status") != "admitted_completed"
+                    or receipt.get("request", {}).get("active_model_identity") != identity
+                    or receipt.get("request", {}).get("linkage", {}).get("session_id") != session_id
+                    or receipt.get("request", {}).get("prompt_digest") != capture.get("invocation_prompt_digest")
+                    or receipt.get("output_digest") != digest_payload({"output": output})
+                    or not isinstance(receipt.get("receipt_id"), str)
+                    or not receipt.get("receipt_id")
+                    or receipt.get("receipt_id") in used_receipts):
+                raise ValueError("prompt, identity, output, or receipt binding failed")
+            used_receipts.add(receipt["receipt_id"])
+            used_sessions.add(session_id)
+            try:
+                parsed = json.loads(output)
+            except json.JSONDecodeError:
+                parsed = None
+            answers = parsed.get("answers") if isinstance(parsed, dict) and set(parsed) == {"answers"} else None
+            valid = (isinstance(answers, list) and len(answers) == len(expected)
+                and all(value is None or type(value) is int for value in answers))
+            probe_correct = ([answer == target for answer, target in zip(answers, expected)]
+                if valid else [False] * len(expected))
+            arm_results[arm] = {
+                "answers": answers if valid else None,
+                "probe_correct": probe_correct,
+                "exact": sum(probe_correct),
+                "denominator": len(expected),
+                "valid_json": valid,
+                "session_id": session_id,
+                "receipt_id": receipt["receipt_id"],
+            }
+        results.append({"tier": tier, "inputs": inputs, "expected": expected,
+            **arm_results, "history_minus_empty":
+                arm_results["history"]["exact"] - arm_results["empty"]["exact"]})
+    return {"schema": "sentientos.ordinary_chat_transfer_score:v2",
+        "preflight_sha256": digest_payload(preflight), "model_identity": identity,
+        "plan_sha256": execution.get("plan_sha256"),
+        "format_treatment": execution.get("format_treatment"),
+        "semantic_treatment": execution.get("semantic_treatment"),
+        "example_presentation": execution.get("example_presentation"),
+        "ladder_design": execution.get("ladder_design"),
+        "tiers": results, "inference_performed": True,
+        "learning_established": False, "authority": False,
+        "scorer_source_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("preflight", type=Path)
+    parser.add_argument("execution_or_run_directory", type=Path)
+    parser.add_argument("output", type=Path)
+    args = parser.parse_args()
+    preflight_bytes = args.preflight.read_bytes()
+    preflight = json.loads(preflight_bytes)
+    execution = (execution_from_run(preflight, preflight_bytes, args.execution_or_run_directory)
+        if args.execution_or_run_directory.is_dir() else
+        json.loads(args.execution_or_run_directory.read_text(encoding="utf-8")))
+    result = score(preflight, execution)
+    args.output.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n",
+        encoding="utf-8")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("run_directory", type=Path)
-    parser.add_argument("output", type=Path)
-    parser.add_argument("--preflight-report", type=Path,
-        help="The protocol report bound by the execution plan")
-    args = parser.parse_args()
-    report = score(args.run_directory, args.output, args.preflight_report)
-    print("independent_ladder_score_saved", report["plan_sha256"], flush=True)
+    main()

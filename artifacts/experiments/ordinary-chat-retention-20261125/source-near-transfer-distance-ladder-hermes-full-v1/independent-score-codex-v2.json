@@ -1,0 +1,171 @@
+{
+  "authority": false,
+  "example_presentation": "record_linked",
+  "format_treatment": "strict_json_post_retrieval:v1",
+  "inference_performed": true,
+  "ladder_design": "source_near_progression_v1",
+  "learning_established": false,
+  "model_identity": {
+    "artifact_size_bytes": 924,
+    "candidate_index": 0,
+    "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+    "engine": "ollama",
+    "fallback": false,
+    "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "posture": "development_only",
+    "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+    "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+    "sidecar_metadata_digest": null
+  },
+  "plan_sha256": "34aed5acd735e975cc4dcce74cb3026bd166d9edcf3b98d13c96cf373baa05e6",
+  "preflight_sha256": "060b267030b307e0ed0ef53841a0de4b6db3c1027f85f870ce9227dfa0994a3d",
+  "schema": "sentientos.ordinary_chat_transfer_score:v2",
+  "scorer_source_sha256": "9eddf1a6aad55a2782c8e9305363db95c1bb2528f5835c1934a571bb232e08b9",
+  "semantic_treatment": null,
+  "tiers": [
+    {
+      "empty": {
+        "answers": [
+          null,
+          null,
+          null
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-aad6f0a361f4c2101e057179",
+        "session_id": "session-682678c8d97d40eaba5b0564",
+        "valid_json": true
+      },
+      "expected": [
+        21,
+        23,
+        25
+      ],
+      "history": {
+        "answers": [
+          15,
+          16,
+          17
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-32c220d4d2607cc3a8ceccc5",
+        "session_id": "session-306952a89feb419e8de47daf",
+        "valid_json": true
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        10,
+        11,
+        12
+      ],
+      "tier": "near"
+    },
+    {
+      "empty": {
+        "answers": [
+          null,
+          null,
+          null
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-6d92dd8e1c874e41bd10ee97",
+        "session_id": "session-37ba6bced9d84868847ea3dd",
+        "valid_json": true
+      },
+      "expected": [
+        29,
+        31,
+        33
+      ],
+      "history": {
+        "answers": [
+          null,
+          null,
+          null
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-250e9c12074850ac8081c14d",
+        "session_id": "session-218c2ac734814771bca8e9f3",
+        "valid_json": true
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        14,
+        15,
+        16
+      ],
+      "tier": "middle"
+    },
+    {
+      "empty": {
+        "answers": [
+          null,
+          null,
+          null
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-49f139689c91d06d76979d4b",
+        "session_id": "session-e0fad86871a24720800f3939",
+        "valid_json": true
+      },
+      "expected": [
+        39,
+        41,
+        43
+      ],
+      "history": {
+        "answers": [
+          20,
+          21,
+          22
+        ],
+        "denominator": 3,
+        "exact": 0,
+        "probe_correct": [
+          false,
+          false,
+          false
+        ],
+        "receipt_id": "lmrec-fbeef9e7d347a3e0c8941a42",
+        "session_id": "session-015ba7eb5ffe4bd6b5707719",
+        "valid_json": true
+      },
+      "history_minus_empty": 0,
+      "inputs": [
+        19,
+        20,
+        21
+      ],
+      "tier": "far"
+    }
+  ]
+}

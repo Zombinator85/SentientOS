@@ -335,8 +335,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 memory_store=CanonicalMemoryStore(trial_root / "memory"),
                 resident_cognition_bridge=ResidentDevelopmentalCompanionBridge(
                     owners[arm], cognition_available=lambda: False))
+            session_id = service.create_session()
             try:
-                delivered = service.chat(questions[tier], session_id=service.create_session(),
+                delivered = service.chat(questions[tier], session_id=session_id,
                     request_id=f"transfer-ladder-{tier}-{arm}").response
             except Exception as error:
                 record_failed_trial(root, trial_root, index=index, condition=key,
@@ -354,7 +355,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             placement, = get_api("ps")["models"]
             if placement["digest"] != manifest_digest or placement["size_vram"] <= 0:
                 raise ValueError("pinned model was not resident on the requested GPU")
-            trial = {"trial": index, "tier": tier, "arm": arm, "plan_sha256": plan_hash,
+            trial = {"trial": index, "tier": tier, "arm": arm, "session_id": session_id,
+                "plan_sha256": plan_hash,
                 "prompt_sha256": captures[key]["prompt_sha256"], "receipt": disk,
                 "model_output": receipt.output_text, "delivered": delivered,
                 "resident_vram_bytes": placement["size_vram"], "independent_scoring": "pending"}
