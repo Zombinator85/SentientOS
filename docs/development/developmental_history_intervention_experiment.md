@@ -854,7 +854,13 @@ plan-pinned SHA-256 7f4d5a7c4499e32450a1977cd627ab894bbe34da7318085e668418194e84
 The unchanged run card then passed all 18 offline custody checks, including
 source pins and cycle history lineage. Its answer-free result is
 [neutral-v2-12x12-run-card-verification.json](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/neutral-v2-12x12-run-card-verification.json),
-digest 62814d53522f0555722c9d0b4d6ac085c731844a210efaee128afa4a9a803d88.
+digest f0632f65c51e49c95a7a9d2c3d50e043c8b40a0864a3fcfa3bc666d85ca8bdef. A
+separate Git-tree comparison confirmed the remote development snapshot and
+frozen-launch branches exactly matched their local checkouts across all 11,948
+tracked repository paths at the listed baseline commits. Their pre-attestation
+tree SHAs are f90b82cf6bdcce324ce03307130d8824f32832fd and
+30a6eb0b5dc5faea707907360e0171050747c938. The report and this note were appended
+after that comparison, so their final branch trees require a fresh comparison.
 The campaign plan, history boundary, protocol, and run card were not changed.
 This only restores launch custody for the frozen experiment; both cycles
 remain prepared_not_started, and no inference or learning result exists.
