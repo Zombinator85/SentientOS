@@ -1939,15 +1939,28 @@ def _low_range_source_correct_inputs(*, cycle_root: Path,
             expected_probe_inputs, probe_rows, score_rows):
         correctness = (probe_row.get("correctness_by_condition")
             if isinstance(probe_row, Mapping) else None)
+        abstention = (probe_row.get("abstention_by_condition")
+            if isinstance(probe_row, Mapping) else None)
         if (not isinstance(probe_row, Mapping)
                 or not isinstance(score_row, Mapping)
                 or probe_row.get("probe_input") != expected_input
                 or score_row.get("probe_input") != expected_input
                 or not isinstance(correctness, Mapping)
-                or type(correctness.get("history_present")) is not bool
-                or score_row.get("correct") is not correctness["history_present"]):
+                or not isinstance(abstention, Mapping)
+                or type(abstention.get("history_present")) is not bool):
             raise ValueError("history_campaign_low_range_source_probe_score_mismatch")
-        if correctness["history_present"]:
+        observed_correct = correctness.get("history_present")
+        if abstention["history_present"]:
+            if (observed_correct is not None
+                    or score_row.get("correct") is not None
+                    or score_row.get("abstained") is not True):
+                raise ValueError(
+                    "history_campaign_low_range_source_abstention_mismatch")
+        elif (type(observed_correct) is not bool
+                or score_row.get("correct") is not observed_correct
+                or score_row.get("abstained") is True):
+            raise ValueError("history_campaign_low_range_source_probe_score_mismatch")
+        elif observed_correct:
             correct_inputs.add(expected_input)
     if (type(present.get("correct_count")) is not int
             or present.get("correct_count") != len(correct_inputs)
