@@ -3507,6 +3507,8 @@ class ResidentDevelopmentalWritebackController:
                 or receipt.get("output_truncated") is not False
                 or receipt.get("fallback_occurred") is not False
                 or effects.get("local_model_inference") is not True
+                or request.get("allowed_effects")
+                    != {"local_model_inference": True}
                 or not isinstance(observation, Mapping)
                 or observation.get("condition_id") != "history_withheld"
                 or observation.get("inference_receipt_id")
@@ -3620,7 +3622,7 @@ class ResidentDevelopmentalWritebackController:
             "upstream_evidence_digest": digest_payload(
                 request.get("upstream_evidence")),
             "linkage_digest": digest_payload(request.get("linkage")),
-            "allowed_effects": dict(effects),
+            "allowed_effects": dict(request["allowed_effects"]),
             "forbidden_effects_digest": digest_payload(
                 request.get("forbidden_effects")),
         }

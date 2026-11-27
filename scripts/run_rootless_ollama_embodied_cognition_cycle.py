@@ -365,6 +365,11 @@ def _validate_history_campaign_launch() -> tuple[
             verify_experiment_implementation, verify_model_identity_recipe,
         )
         plan = _load_plan(plan_path)
+        if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64:
+            if OWNER_FEEDBACK_PROTOCOL_DIGEST != (
+                    _owner_feedback_recall_protocol_digest()):
+                raise RootlessExperimentalError(
+                    "owner_feedback_protocol_preregistration_mismatch")
         if plan.get("schema_version") in {
                 "sentientos.rootless_history_boundary_campaign_plan:v7",
                 "sentientos.rootless_history_boundary_campaign_plan:v8",
@@ -733,6 +738,17 @@ def _preregistration_digest_from_environment() -> str:
     if (len(raw) != 64 or not raw.isascii()
             or any(character not in "0123456789abcdef" for character in raw)):
         raise SystemExit("hermes_preregistration_digest_invalid")
+    return raw
+
+
+def _owner_feedback_protocol_digest_from_environment() -> str:
+    # This is distinct from the campaign-plan preregistration digest above.
+    raw = os.environ.get("SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST")
+    if raw is None:
+        return "0" * 64
+    if (len(raw) != 64 or not raw.isascii()
+            or any(character not in "0123456789abcdef" for character in raw)):
+        raise SystemExit("hermes_owner_feedback_protocol_digest_invalid")
     return raw
 
 
@@ -2095,6 +2111,7 @@ def _execute_strategy_inclusion_pair_slot(*, context: Mapping[str, Any],
 
 EXPERIMENT_SEED = _experiment_seed_from_environment()
 PREREGISTRATION_DIGEST = _preregistration_digest_from_environment()
+OWNER_FEEDBACK_PROTOCOL_DIGEST = _owner_feedback_protocol_digest_from_environment()
 HISTORY_INTERVENTION_TRIAL_INDEX = (
     _history_intervention_trial_index_from_environment())
 
@@ -5975,15 +5992,66 @@ def _seed_resident_developmental_history(history_root: Path, state_root: Path,
     }
 
 
-def _owner_feedback_recall_protocol_digest() -> str:
-    protocol_path = (Path(__file__).resolve().parents[1] / "docs" / "development"
-        / "owner_cognition_feedback_cross_cycle_recall_protocol.json")
-    if (protocol_path.is_symlink() or not protocol_path.is_file()
-            or protocol_path.stat().st_size > 1_048_576):
+def _owner_feedback_recall_protocol_payload() -> tuple[bytes, str]:
+    protocol_root = (Path(__file__).resolve().parents[1] / "docs" / "development")
+    candidates = (
+        protocol_root / "owner_cognition_feedback_cross_cycle_recall_protocol.json",
+        protocol_root / "owner_cognition_feedback_cross_cycle_recall_protocol_v2.json",
+    )
+    fallback: tuple[bytes, str] | None = None
+    for protocol_path in candidates:
+        if (protocol_path.is_symlink() or not protocol_path.is_file()
+                or protocol_path.stat().st_size > 1_048_576):
+            continue
+        try:
+            protocol_bytes = protocol_path.read_bytes()
+        except OSError:
+            continue
+        canonical_bytes = protocol_bytes.replace(b"\r\n", b"\n").replace(
+            b"\r", b"\n")
+        digest = hashlib.sha256(canonical_bytes).hexdigest()
+        if digest == OWNER_FEEDBACK_PROTOCOL_DIGEST:
+            return protocol_bytes, digest
+        if fallback is None and protocol_path == candidates[0]:
+            fallback = (protocol_bytes, digest)
+    if fallback is None:
         raise RootlessExperimentalError("owner_feedback_recall_protocol_missing")
-    protocol_bytes = protocol_path.read_bytes()
-    canonical_bytes = protocol_bytes.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    return hashlib.sha256(canonical_bytes).hexdigest()
+    return fallback
+
+
+def _owner_feedback_recall_protocol_document() -> dict[str, Any]:
+    protocol_bytes, _ = _owner_feedback_recall_protocol_payload()
+    try:
+        protocol = json.loads(protocol_bytes.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RootlessExperimentalError(
+            "owner_feedback_recall_protocol_invalid") from exc
+    if (not isinstance(protocol, dict)
+            or not isinstance(protocol.get("protocol_id"), str)
+            or not isinstance(protocol.get("intervention"), Mapping)
+            or not isinstance(protocol["intervention"].get("question"), str)
+            or not protocol["intervention"]["question"].strip()
+            or not isinstance(protocol.get("expected_outcomes"), Mapping)):
+        raise RootlessExperimentalError("owner_feedback_recall_protocol_invalid")
+    expected_outcomes = protocol["expected_outcomes"]
+    for condition_id in (
+            "history_present", "history_withheld", "history_restored"):
+        outcome = expected_outcomes.get(condition_id)
+        if (not isinstance(outcome, Mapping)
+                or not isinstance(outcome.get("response"), str)
+                or outcome.get("disposition") not in {"answer", "abstain"}
+                or outcome.get("retrieved_record_ids")
+                    not in ("exact_feedback_record_id", [])
+                or outcome.get("history_record_ids")
+                    != outcome.get("retrieved_record_ids")
+                or outcome.get("evidence_ids") != []):
+            raise RootlessExperimentalError(
+                "owner_feedback_recall_protocol_conditions_invalid")
+    return protocol
+
+
+def _owner_feedback_recall_protocol_digest() -> str:
+    return _owner_feedback_recall_protocol_payload()[1]
 
 
 def _prior_cycle_owner_feedback_reference(*, campaign_plan: Mapping[str, Any] | None,
@@ -5991,12 +6059,14 @@ def _prior_cycle_owner_feedback_reference(*, campaign_plan: Mapping[str, Any] | 
     if campaign_plan is None or cycle_index <= 0:
         return {"status": "not_preregistered_cross_cycle_campaign"}
     protocol_digest = _owner_feedback_recall_protocol_digest()
-    if PREREGISTRATION_DIGEST == "0" * 64:
-        return {"status": "not_preregistered_cross_cycle_campaign",
+    if OWNER_FEEDBACK_PROTOCOL_DIGEST == "0" * 64:
+        return {"status": "feedback_protocol_digest_not_preregistered",
             "owner_feedback_recall_protocol_digest": protocol_digest}
-    if PREREGISTRATION_DIGEST != protocol_digest:
+    if OWNER_FEEDBACK_PROTOCOL_DIGEST != protocol_digest:
         return {"status": "external_digest_does_not_match_feedback_protocol",
-            "owner_feedback_recall_protocol_digest": protocol_digest}
+            "owner_feedback_recall_protocol_digest": protocol_digest,
+            "registered_owner_feedback_protocol_digest":
+                OWNER_FEEDBACK_PROTOCOL_DIGEST}
     prior_history_raw = os.environ.get("SENTIENTOS_ROOTLESS_PRIOR_HISTORY_ROOT")
     if not isinstance(prior_history_raw, str) or not prior_history_raw:
         raise RootlessExperimentalError("prior_feedback_history_root_missing")
@@ -6061,14 +6131,19 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         snapshot: WorldStateSnapshot, tick_id: str, trial_index: int,
         preregistered: bool, cycle_index: int,
         prior_feedback_reference: Mapping[str, Any]) -> dict[str, Any]:
-    """Measure retrieval of one prior owner feedback record under fixed ablation."""
+    """Measure prior owner-feedback recall under a preregistered ablation."""
+    protocol = _owner_feedback_recall_protocol_document()
     base: dict[str, Any] = {
-        "schema_version": "sentientos.cross_cycle_owner_feedback_recall:v1",
+        "schema_version": "sentientos.cross_cycle_owner_feedback_recall:v2",
+        "protocol_id": protocol.get("protocol_id"),
         "cycle_index": cycle_index,
         "external_preregistration_digest": _optional_preregistration_digest(
             PREREGISTRATION_DIGEST),
         "protocol_digest": _owner_feedback_recall_protocol_digest(),
-        "measurement_scope": "single_record_exact_response_and_citation_probe",
+        "owner_feedback_recall_protocol_digest": (
+            _optional_preregistration_digest(OWNER_FEEDBACK_PROTOCOL_DIGEST)),
+        "measurement_scope": protocol.get("measurement_scope",
+            "single_record_exact_response_and_citation_probe"),
         "authority": False,
         "current_truth": False,
         "performance_improvement_established": False,
@@ -6076,10 +6151,14 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
     }
     if not preregistered:
         status = ("not_run_first_campaign_cycle"
-            if cycle_index == 0 and PREREGISTRATION_DIGEST == base["protocol_digest"]
+            if cycle_index == 0
+                and OWNER_FEEDBACK_PROTOCOL_DIGEST == base["protocol_digest"]
             else "not_run_protocol_digest_mismatch"
-            if PREREGISTRATION_DIGEST != "0" * 64
-            else "not_run_without_external_preregistration")
+            if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64
+                and OWNER_FEEDBACK_PROTOCOL_DIGEST != base["protocol_digest"]
+            else "not_run_without_external_preregistration"
+            if PREREGISTRATION_DIGEST == "0" * 64
+            else "not_run_prior_feedback_reference_unavailable")
         return {**base, "status": status}
     reference_status = prior_feedback_reference.get("status")
     if reference_status == "previous_cycle_created_no_owner_feedback_record":
@@ -6118,17 +6197,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
     record, writeback_receipt = matching_pairs[0]
     intervention = owner.run_companion_history_intervention(
         snapshot=snapshot, tick_id=tick_id,
-        question=(
-            "Read only the owner-authored developmental history record selected "
-            "for this probe. If it says a withheld-history output was rejected "
-            "because its citation was unavailable and was not a qualified "
-            "decision, set response exactly to PREVIOUS_OUTPUT_UNQUALIFIED, "
-            "set disposition to answer, and cite that exact containing "
-            "history_record_id. If the relevant record is absent, set response "
-            "exactly to FEEDBACK_UNAVAILABLE, set disposition to abstain, and "
-            "cite no history. Do not infer the result from current evidence or "
-            "general knowledge. The stored answer itself is not evidence. "
-            "Return the standard JSON response."),
+        question=protocol["intervention"].get("question"),
         history_record_allowlist=(record.record_id,), trial_index=trial_index)
     if (intervention.status != "completed_controlled_intervention"
             or not intervention.changed_cognition_measurement_id):
@@ -6142,11 +6211,16 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             or set(condition_rows) != set(expected_condition_order)):
         raise RootlessExperimentalError(
             "cross_cycle_owner_feedback_condition_inventory_invalid")
-    expected_by_condition = {
-        "history_present": ("PREVIOUS_OUTPUT_UNQUALIFIED", "answer", True),
-        "history_withheld": ("FEEDBACK_UNAVAILABLE", "abstain", False),
-        "history_restored": ("PREVIOUS_OUTPUT_UNQUALIFIED", "answer", True),
-    }
+    expected_by_condition = {}
+    for condition_id in expected_condition_order:
+        expected = protocol["expected_outcomes"].get(condition_id)
+        if not isinstance(expected, Mapping):
+            raise RootlessExperimentalError(
+                "owner_feedback_recall_protocol_conditions_invalid")
+        expected_by_condition[condition_id] = (
+            expected.get("response"),
+            expected.get("disposition"),
+            expected.get("retrieved_record_ids") == "exact_feedback_record_id")
     measured_conditions: list[dict[str, Any]] = []
     for condition_id in expected_condition_order:
         row = condition_rows.get(condition_id)
@@ -6162,14 +6236,40 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         expected_digests = [record.record_digest] if should_retrieve else []
         selection_verified = (retrieved_ids == expected_ids
             and retrieved_digests == expected_digests)
-        delivery_verified = citations == expected_ids
-        response_correct = (isinstance(row, Mapping)
-            and row.get("decision_validation_status", "validated") == "validated"
-            and row.get("decision_validation_error_code") is None
+        citation_verified = citations == expected_ids
+        validation_status = (row.get("decision_validation_status")
+            if isinstance(row, Mapping) else None)
+        validation_error = (row.get("decision_validation_error_code")
+            if isinstance(row, Mapping) else None)
+        response_matches = (isinstance(row, Mapping)
             and row.get("response") == expected_response
             and row.get("disposition") == expected_disposition
-            and row.get("evidence_ids") == []
-            and selection_verified and delivery_verified)
+            and row.get("evidence_ids") == [])
+        response_assessment = ("expected_response_and_disposition"
+            if response_matches else "response_or_disposition_mismatch")
+        if validation_status is None:
+            validation_assessment = "decision_validation_status_missing"
+        elif validation_status != "validated":
+            validation_assessment = "decision_not_validated"
+        elif validation_error is not None:
+            validation_assessment = "decision_validation_error_present"
+        else:
+            validation_assessment = "decision_validated"
+        if should_retrieve:
+            selection_assessment = ("expected_record_selected"
+                if selection_verified else "expected_record_selection_mismatch")
+            citation_assessment = ("expected_record_cited"
+                if citation_verified else "selected_record_not_cited")
+        else:
+            selection_assessment = ("expected_absence_preserved"
+                if selection_verified else "unexpected_record_selected")
+            citation_assessment = ("no_citation_as_expected"
+                if citation_verified else "unexpected_history_citation")
+        condition_criteria_met = (selection_verified and citation_verified
+            and response_assessment == "expected_response_and_disposition"
+            and validation_assessment == "decision_validated")
+        criterion_assessment = ("expected_condition_criteria_met"
+            if condition_criteria_met else "expected_condition_criteria_not_met")
         measured_conditions.append({
             "condition_id": condition_id,
             "expected_response": expected_response,
@@ -6184,7 +6284,12 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
                 "matched_control_inputs_digest")
                 if isinstance(row, Mapping) else None,
             "selection_verified": selection_verified,
-            "delivery_verified": delivery_verified,
+            "selection_assessment": selection_assessment,
+            "citation_verified": citation_verified,
+            "citation_assessment": citation_assessment,
+            "response_assessment": response_assessment,
+            "decision_validation_assessment": validation_assessment,
+            "condition_criterion_assessment": criterion_assessment,
             "response_digest": row.get("response_digest")
                 if isinstance(row, Mapping) else None,
             "output_digest": row.get("output_digest")
@@ -6193,12 +6298,10 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
                 if isinstance(row, Mapping) else None,
             "inference_receipt_id": row.get("inference_receipt_id")
                 if isinstance(row, Mapping) else None,
-            "decision_validation_status": row.get(
-                "decision_validation_status", "validated")
-                if isinstance(row, Mapping) else None,
+            "decision_validation_status": validation_status,
             "observed_disposition": row.get("disposition")
                 if isinstance(row, Mapping) else None,
-            "response_correct": response_correct,
+            "condition_criteria_met": condition_criteria_met,
         })
     controls = [row.get("matched_control_inputs")
         for row in intervention.conditions if isinstance(row, Mapping)]
@@ -6206,8 +6309,8 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         and all(isinstance(value, Mapping) for value in controls)
         and controls[0] == controls[1] == controls[2])
     restoration_prompt_matches = intervention.restored_prompt_matches
-    all_correct = (len(measured_conditions) == 3
-        and all(row["response_correct"] for row in measured_conditions))
+    all_conditions_met = (len(measured_conditions) == 3
+        and all(row["condition_criteria_met"] for row in measured_conditions))
     return {
         **base,
         **dict(prior_feedback_reference),
@@ -6223,7 +6326,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         "restored_prompt_matches_present": restoration_prompt_matches,
         "conditions": measured_conditions,
         "history_conditioned_feedback_recall_qualified": (
-            all_correct and matched_controls and restoration_prompt_matches),
+            all_conditions_met and matched_controls and restoration_prompt_matches),
         "performance_improvement_established": False,
         "learning_established": False,
         "causal_claim_made": False,
@@ -6420,6 +6523,9 @@ def run() -> dict[str, Any]:
         preregistration = {
             "schema_version": "sentientos.rootless_hermes_cycle_preregistration:v1",
             "external_protocol_digest": PREREGISTRATION_DIGEST,
+            **({"owner_feedback_recall_protocol_digest":
+                OWNER_FEEDBACK_PROTOCOL_DIGEST}
+                if OWNER_FEEDBACK_PROTOCOL_DIGEST != "0" * 64 else {}),
             "experiment_seed": EXPERIMENT_SEED,
             "history_order_trial_index": HISTORY_INTERVENTION_TRIAL_INDEX,
             "run_id": RUN_ID,
@@ -8207,12 +8313,15 @@ def run() -> dict[str, Any]:
         cognition_recovery_state_boundary = _cognition_recovery_state_boundary(
             state_root)
         result = {
-            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v20",
+            "schema_version": "sentientos.rootless_ollama_embodied_cognition_cycle:v21",
             "run_id": RUN_ID, "status": "completed",
             "execution_posture": "rootless_experimental_nonproduction",
             "source_provenance": dict(RUN_SOURCE_PROVENANCE),
             "external_preregistration_digest": _optional_preregistration_digest(
                 PREREGISTRATION_DIGEST),
+            "owner_feedback_recall_protocol_digest": (
+                _optional_preregistration_digest(
+                    OWNER_FEEDBACK_PROTOCOL_DIGEST)),
             "run_preregistration_digest": RUN_PREREGISTRATION_DIGEST,
             "model_id": MODEL_NAME, "model_manifest_digest": manifest_digest,
             "gpu_layers_requested": GPU_LAYERS,

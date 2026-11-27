@@ -96,6 +96,7 @@ from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
     OWNER_COGNITION_FEEDBACK_FAILURE_CODE,
+    OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND,
     CognitionObservation,
     DevelopmentalInferenceDeferred,
     DevelopmentalHistoryProjection,
@@ -11260,7 +11261,7 @@ _EXPLICIT_CURRENT_QUESTION_MARKER = re.compile(
     r"\b(?:current|currently|now|today|still)\b|\bright\s+now\b|\bat\s+present\b",
     re.IGNORECASE)
 _HISTORICAL_QUESTION_MARKER = re.compile(
-    r"\b(?:what did|what was|previously?|last time|last week|yesterday|historical|at the time)\b",
+    r"\b(?:what did|what was|previous(?:ly)?|last time|last week|yesterday|historical|at the time)\b",
     re.IGNORECASE)
 _IMPLICIT_CURRENT_CONDITION_QUESTION_MARKER = re.compile(
     r"^\s*(?:"
@@ -12664,7 +12665,16 @@ class ResidentDevelopmentalCognitionOwner:
             recovered_tick = correlation[:-len(suffix)]
             if not recovered_tick:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
-            expected_operation = "resident-developmental-writeback:" + recovered_tick + ":" + str(candidate.get("candidate_id"))
+            provenance = candidate.get("transformation_provenance")
+            provenance_kind = (provenance.get("kind")
+                if isinstance(provenance, Mapping) else None)
+            is_owner_feedback = (
+                provenance_kind == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND)
+            operation_prefix = (
+                "resident-developmental-companion-feedback:"
+                if is_owner_feedback else "resident-developmental-writeback:")
+            expected_operation = (operation_prefix + recovered_tick + ":"
+                + str(candidate.get("candidate_id")))
             if not recovered_tick or record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
             existing = ticks.get(recovered_tick)
@@ -12675,8 +12685,26 @@ class ResidentDevelopmentalCognitionOwner:
                 completed_tick_rows.append(checkpoint)
                 ticks[recovered_tick] = checkpoint
                 changed = True
-            elif existing.get("record_id") != record.record_id or existing.get("receipt_id") != receipt.receipt_id:
-                raise ResidentDevelopmentalCognitionError("recovered_tick_record_conflict")
+            elif (existing.get("record_id") != record.record_id
+                    or existing.get("receipt_id") != receipt.receipt_id):
+                feedback_can_complete_tick = (
+                    is_owner_feedback
+                    and existing.get("record_id") is None
+                    and existing.get("receipt_id") is None
+                    and existing.get("snapshot_id") == checkpoint["snapshot_id"]
+                    and existing.get("snapshot_digest")
+                        == checkpoint["snapshot_digest"])
+                if not feedback_can_complete_tick:
+                    raise ResidentDevelopmentalCognitionError(
+                        "recovered_tick_record_conflict")
+                updated_checkpoint = {**existing,
+                    "record_id": record.record_id,
+                    "receipt_id": receipt.receipt_id}
+                completed_tick_rows = [updated_checkpoint
+                    if row.get("tick_id") == recovered_tick else row
+                    for row in completed_tick_rows]
+                ticks[recovered_tick] = updated_checkpoint
+                changed = True
             if recovered_tick in incomplete:
                 del incomplete[recovered_tick]
                 incomplete_tick_rows = [saved_row for saved_row in incomplete_tick_rows
@@ -18592,9 +18620,14 @@ class ResidentDevelopmentalCognitionOwner:
                         "self_model_claim_ids": [],
                         "conversation_turn_ids": [],
                     }
-                decision = _normalize_present_answer_for_source_freshness(
-                    decision, question=interaction_question, current=current,
-                    prior_self_model=prior_self_model)
+                if not companion_intervention:
+                    # Controlled history trials measure the direct model
+                    # response under matched present/withheld/restored inputs.
+                    # Serving freshness rewrites would detach its response
+                    # digest from the invocation receipt.
+                    decision = _normalize_present_answer_for_source_freshness(
+                        decision, question=interaction_question, current=current,
+                        prior_self_model=prior_self_model)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 if companion_intervention and protocol is not None:
                     # A completed controlled-trial response that violates its
@@ -19664,7 +19697,7 @@ class ResidentDevelopmentalCognitionOwner:
                     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements))
             feedback_record, feedback_receipt = self.writeback.append(
                 candidate, admission=admission, operation_id=operation_id,
-                correlation_id=f"{tick_id}:owner-companion-feedback")
+                correlation_id=f"{tick_id}:resident-developmental-writeback")
             feedback_record_id = feedback_record.record_id
             feedback_writeback_receipt_id = feedback_receipt.receipt_id
         return ResidentCompanionHistoryInterventionResult(

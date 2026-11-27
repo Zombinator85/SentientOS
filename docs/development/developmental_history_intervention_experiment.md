@@ -707,33 +707,250 @@ existing separately admitted writeback path. Append and recovery validation
 allow an empty selected-fact set only for this typed feedback candidate; the
 model-authored lesson candidate contract remains separate. The generic bounded
 history packet exposes only the short interpretation and its epistemic status,
-not the rejected answer or full receipt.
+not the rejected answer or full receipt. Recovery validates this typed feedback
+record against the dedicated resident-developmental-companion-feedback
+operation prefix, exact recovered tick, and candidate ID. Ordinary lesson
+writebacks retain the resident-developmental-writeback prefix. When that
+companion tick is already checkpointed without a history record, recovery may
+attach this feedback record only if the checkpoint snapshot ID and digest
+match; other record conflicts remain errors. This models the feedback append
+as the durable writeback completing the existing cognition tick. The
+controlled history trials retain the direct model response so its digest remains
+bound to the invocation receipt. Serving-time freshness normalization continues
+to apply to ordinary companion decisions; trial outcomes are measured without
+that post-inference rewrite. The general historical cue also matches both the
+forms previous and previously.
 
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to
 the exact feedback record and writeback receipt, verifies that pair in the
 seeded history store, and runs the existing present/withheld/restored
 intervention with that record as the only allowed history item. A missing or
-inconsistent prior result, record, or receipt prevents the probe. The score requires exact expected
-responses and dispositions, selected-record identity and digest, history
-citations, empty evidence IDs, matched non-history inputs, and exact prompt
-restoration. The summary stores IDs and digests rather than model output text.
+inconsistent prior result, record, or receipt prevents the probe. The score
+requires exact expected responses and dispositions, selected-record identity
+and digest, history citations, empty evidence IDs, an explicitly validated
+decision, matched non-history inputs, and exact prompt restoration. The result
+reports selection, citation, response, decision-validation, and
+condition-criterion assessments separately. A criterion match requires all
+protocol checks, including explicit decision validation; a missing validation
+status fails the criterion. Response
+matching and validation status have separate assessments, so missing validation
+evidence does not obscure whether the response itself matched. Selection
+alone is not treated as model use: a selected record without its citation is
+reported as selected but not cited. These observed checks still do not establish
+that the model cognitively used the record or that it caused the response. The
+summary stores IDs and digests rather than model output text.
 Its fixed query and scoring rules are frozen in
 `owner_cognition_feedback_cross_cycle_recall_protocol.json`; its digest must
-be supplied as the external preregistration digest before the campaign starts.
-The required digest is SHA-256 of the protocol JSON encoded as UTF-8 after
-normalizing CRLF and CR line endings to LF, in lowercase hexadecimal without a
-prefix. The runner checks that digest against the protocol file before it
-enables the follow-up probe; the campaign plan
-separately binds the source and model implementation hashes.
+be supplied before the campaign starts using
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST. This is a separate binding
+from SENTIENTOS_HERMES_PREREGISTRATION_DIGEST, which must match the campaign
+plan digest. The protocol digest is SHA-256 of the protocol JSON encoded as
+UTF-8 after normalizing CRLF and CR line endings to LF, in lowercase hexadecimal
+without a prefix. The run preregistration records both digests; the runner
+checks the feedback protocol digest against the frozen JSON before it enables
+the follow-up probe. The campaign plan separately binds the source and model
+implementation hashes.
 
-This follow-up has not yet been run. A qualifying single-probe result would
-show that this exact record was retrieved and used in this controlled question;
-it would not establish general learning, durable capability improvement,
-transfer, model-independent continuity, or causal self-development. Those
-claims still require repeated, held-out outcome evidence.
+Protocol v2 is a forward-only neutral-query variant. It defines the allowed
+status vocabulary QUALIFIED, UNQUALIFIED, and UNKNOWN, but not which status
+applies; the expected status for each condition stays in the frozen scoring
+rubric. The runner chooses v1 or v2 only when
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST matches that protocol file.
+The v1 file and completed v1 result are unchanged. The current v2 protocol
+digest is eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac.
+It has not been run. A two-cycle plan is prepared at
+rootless-experimental/rootless-history-campaign-ddb80885d1c7d39e634f/campaign-plan.json.
+Its v11 plan digest is
+9b245a3af1dc016904d819428f6a59561a33ef8f47ab93f87b3561d852a739d0. Offline
+verification reports current source and model identity pins match and
+inference_performed=false. The plan binds a history boundary digest of
+bedca4464283f06e3180850ec144dd65ec79c92fc1a4149b4543a55b34575956 and two
+fresh novel-range cycles with three acquisition and three transfer probes
+each. Its preregistration_timing_independently_attested field is false. The
+v2 protocol digest is a separate run-preregistration value supplied through
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST; it is not embedded in this
+campaign plan. The v11 plan's launch binding was
+campaign-run-card-v2.json. On 2026-11-27, CPU-only `verify-plan` recomputed all
+2,558 implementation pins and both model identity recipes: implementation
+digest `a7f04b1b1845ee559aed9953173b70453288cc2fdfc055f6e841affdbfa35ec5`,
+with source and identity pins matching. A separate custody check confirmed the
+private v2 run card agrees with the frozen plan on campaign ID, plan digest,
+cycle order, and task/backend seeds; its protocol and manifest digests match
+their pinned files, and both cycle entries remain `prepared_not_started` behind
+a per-cycle GPU confirmation gate. The mode-0600 run card SHA-256 is
+`79ae1b03f7afd5386a5b561af307485fd8a11044d358812a653f2dfa2f85132a`.
+The read-only [run-card verifier](../../tools/verify_owner_feedback_campaign_run_card.py)
+also checks the initial history boundary, cycle-to-cycle history path, all
+ordered IDs and seeds, custody mode, and required per-cycle GPU gate. Its
+SHA-256 at the v11 verification is `893e665cc472337d8ddf57a7ef586a14bab60d34a72be37ed912ca558a7847ff`;
+that prepared card passed all 16 checks. It validates launch custody and current
+pins without loading a model. The helper was added after plan freeze and is not
+part of the plan's pinned experiment implementation; its digest is recorded
+separately. No inference was performed by either check. The run card's launch bindings and hash are custody metadata, not independent
+timestamp attestation. Even a passing single-record v2 probe would show only a
+protocol-bounded neutral-query
+recall result, not generalization, durable learning, or causal use of history.
+
+### Higher-resolution neutral-query v2 plan
+
+The v11 neutral-query plan above remains preserved and unrun. A replacement
+schema-v14 candidate was prepared with 12 acquisition and 12 transfer probes
+per cycle, keeping the novel-range task family and the same initial history
+boundary. This increases the number of scored observations before the
+baseline-competence gate and leaves the prior v11 plan unchanged.
+
+The private plan is
+`rootless-experimental/owner-feedback-recall-campaign-20261127-neutral-v2-12x12/campaign-plan.json`.
+It binds campaign `rootless-history-campaign-d8f0bc296251426a8da2`, plan digest
+`6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972`, and
+history boundary digest
+`bedca4464283f06e3180850ec144dd65ec79c92fc1a4149b4543a55b34575956`. Its
+cycle IDs are `rootless-cognition-cycle-f693f18b055e42fca02b` and
+`rootless-cognition-cycle-0fbcd3dc1a5e406b9aae`; task-generation seeds are
+1149774101 and 781169057, and backend seeds are 21902234 and 1942124107.
+The model manifest and v2 protocol digest remain bound separately as recorded
+above. CPU-only `verify-plan` matched all 2,558 implementation pins and both
+model identities. In particular, the plan pins
+sentientos/resident_developmental_cognition.py to SHA-256
+e6ff318a6b3314875cecfd76faa1f5b1646e4713eb3e6fd53ae5415537c96ea5, which
+includes commit ba099ceda and matches the current source file. The updated
+run-card verifier SHA-256 is
+`722df61a48bf4778100d09a0cef58184147e6a5ececbfd01598a753c84e9c2ec`. The
+revised private `campaign-run-card-neutral-v2-12x12-rev2.json` binds
+the task family, probe counts, and initial-history digest explicitly. It passed
+all 18 checks, including the previous-card digest link, in the updated offline
+run-card verifier; its mode-0600 SHA-256
+is `67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960`.
+Both cycles remain `prepared_not_started`; no inference was performed, and
+preregistration timing is not independently attested. This is only a stronger
+measurement plan. Even a fully qualified neutral-query result would not show
+durable learning, general transfer, or causal development.
+
+### Earlier exploratory 12-probe recovery attempts
+
+Two earlier schema-v14 recovery campaigns used the same initial history
+boundary and model manifest, but they froze different source revisions and
+different plans. They are exploratory records, not matched replications and
+not runs of the neutral-query plan above.
+
+Campaign `rootless-history-campaign-8b56228e154e42c8ab14` used plan digest
+`0ab7515cc8682cab751a1a7a9d112485fef6307dd84d3e4f04abf56905f6e642`, task
+seeds 171234571/171234572, and backend seeds 2149/2927. Its cycle 0
+(`rootless-cognition-cycle-57ad73290576484f93f2`, source revision
+`dc349b9a2655b7b46e5a2a0b5ea3fb3f89b7c409`) completed with acquisition
+condition counts `[12, 0, 12]`. The frozen baseline threshold was 8, so the
+baseline gate was not met and transfer was skipped. Its cycle-result SHA-256
+is `7ec6b8b78510432b7b3f024073d3bbddeecaedea7a7961affbb55286cbbf1cf8`.
+Cycle 1 (`rootless-cognition-cycle-7824344d72b64d1393d5`) did not complete;
+recovery stopped at `controlled_history_intervention` with
+`run_artifact_companion_response_digest_unverified` and no cycle-result.
+Its failure-record SHA-256 is
+`5b900e4f6e0209bf34bedf1606f8ff9725a1d302b992c30c1cd0b4b7e6c5dd94`.
+
+Campaign `rootless-history-campaign-b49a65aa77294c74b8ac` used plan digest
+`2597540ceab8cb3b34e7dad938fed3d8c8ddf2af697f66b6db772c6392bc1cf5`, task
+seeds 171234569/171234570, and backend seeds 929/1421. Its cycle 0
+(`rootless-cognition-cycle-8d8618a0a8d14e8b916f`, source revision
+`825048e13ec43a34cb6e79b410890e704784a7d8`) completed with acquisition
+condition counts `[0, 0, 0]`. It also failed the threshold-8 baseline gate,
+so transfer was skipped. Its cycle-result SHA-256 is
+`32e180fd88b6669d9d983bb01ca13e7225df26ce137c485e6850d1ecc8660fec`.
+Cycle 1 (`rootless-cognition-cycle-26c43d409f1d4332a674`) did not complete;
+recovery stopped at `synthetic_pre_action_cognition` with
+`recovered_tick_record_conflict` and no cycle-result. Its failure-record
+SHA-256 is
+`204056545737aa44f0870b8e865cc64a52427a19c25afbb89761d298afaf722b`.
+
+These cycle-0 results show that neither run cleared the preregistered
+baseline-competence gate; they do not score transfer. The cycle-1 failures are
+execution/recovery integrity failures, not model-performance observations.
+Different source revisions and seeds prevent treating the two campaigns as a
+controlled replication. Together they motivate preserving cycle artifacts and
+checking recovery integrity, but establish no durable learning, transfer,
+history use, or developmental improvement.
+
+A read-only [cycle-recovery inspector](../../tools/inspect_developmental_cycle_recovery.py)
+was added to make these integrity states auditable without inference. It
+prints identifiers and digests, never model output, and writes no cycle data.
+The inspector verified both companion-run digests, each decision-to-receipt
+ID/digest link, and each receipt output digest and byte count. It separates
+three response-digest cases: direct receipt matches, the expected
+`INVALID_EXPERIMENTAL_RESPONSE` marker for rejected output, and a validated
+response changed by a governed normalization.
+
+In the first incomplete cycle, decision index 1 of
+`devexp-run-393f986dc50435aacac575e2` was marked validated and normalized as
+`present_condition_requires_fresh_cited_current_evidence`. Its response
+digest does not match the raw receipt response, so the normalized response
+cannot be reconstructed from the receipt alone. Source revision
+`dc349b9a2` applied the present-condition rewrite during controlled history
+trials, including the withheld condition. Commit `ba099ceda` later made that
+rewrite conditional on not being in a controlled intervention, preserving
+direct response-to-receipt binding. The old run remains incomplete and
+unqualified; the fix belongs in the source pins of any new frozen plan. A
+separate companion run's rejected condition correctly binds its digest to the
+`INVALID_EXPERIMENTAL_RESPONSE` marker rather than to raw model output.
+
+For the second failure, the inspector found that the prior-cycle owner-feedback
+record shares the recorded tick and exact snapshot identity with an already
+persisted checkpoint whose record and receipt slots are empty. Commit
+`dc349b9a2` (`Bind recovered feedback to companion tick`) adds recovery for
+exactly this case: it attaches the feedback record and receipt only when the
+checkpoint is empty and both snapshot identifiers match. A checkpoint bound
+to another record, a nonempty receipt slot, or a different snapshot still
+fails closed. Thus the saved error belongs to the older source revision
+`825048e...`; the repair is present in source revision `dc349b9...`. The
+inspector is supplemental custody tooling outside the pinned experiment
+implementation. Its SHA-256 is
+`d303d862c795ef8b0ab2cfb30a19054193adb63687bc51b02ad9b0b901765654`.
+Invoke it as `python tools/inspect_developmental_cycle_recovery.py <cycle-root>`;
+status 3 flags an unreconstructible normalized response digest, another
+response-integrity mismatch, or an incompatible checkpoint. Status 0 means
+none of those conditions was found in the inspected artifacts.
+
+
+The preregistered two-cycle response-digest campaign completed its follow-up
+probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
+owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.
+The immutable follow-up result is
+`rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-7e59c1f038f941dcbfbc/cycle-result.json`
+(SHA-256 `a2dccde54d3d23e170b6b71e357ae8f99b9156ccd83e6d38b1e6d3b84679f4a3`).
+Present and restored conditions selected the exact expected feedback record
+and digest, but cited no history and abstained instead of returning the
+preregistered answer. The withheld condition selected and cited no history as
+expected, but answered instead of abstaining. Matched non-history inputs and
+present/restored prompt restoration passed. Therefore the probe did not qualify
+as history-conditioned feedback recall. It does not demonstrate model use and establishes no
+learning, durable capability improvement, transfer, model-independent
+continuity, or causal self-development. Those claims still require repeated,
+held-out outcome evidence.
+
+That completed result uses the v1 score serialization, whose
+`delivery_verified` field only compared history citations with the expected
+record IDs; it did not establish that content was delivered to or used by the
+model. The current v2 score serialization reports selection, citation,
+response, decision-validation, and condition-criterion assessments
+separately.
+The condition_criteria_met flag reports whether all per-condition
+checks pass together; it is not a response-only score. A criterion match
+records only that the observed response, citation, and selection match the
+protocol. The scorer requires an explicit decision_validation_status value of
+validated; a missing status fails the criterion.
+It does not establish that the model cognitively used the record or
+that the record caused the response. These labels are diagnostic
+decompositions of the same frozen protocol criteria and do not retroactively
+change the preregistered result.
 
 The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained
 owner-verified failure feedback changes future reasoning, because that feedback
 was not carried forward as a developmental-history input.
+
+### Transfer gate interpretation for the prepared v14 plan
+
+The preserved neutral v2 12-by-12 plan uses the rootless_integer_affine_transfer_novel_range_v8 task family and does not preregister a separate cross_range_history_enabled_competence outcome. In the runner, acquisition competence is gated at two-thirds of the acquisition probes: the threshold is ceil(2n/3), or 8 correct probes for 12. When that gate is not met, transfer is skipped. Such a cycle has no transfer observation and must be reported as **transfer not evaluated**, rather than as a negative transfer result or evidence that history did or did not help.
+
+The optional history-enabled competence protocol is a distinct, score-bound outcome with its own source and target task-family requirements. A future plan seeking that outcome must preregister the compatible protocol and its source evidence before execution. The current frozen v14 plan remains unchanged and unstarted; no result from it is inferred here.
+
+The recovery inspector now also reports the recorded source revision, worktree content status, and clean flag from each failure artifact. These fields help distinguish failures captured under different source revisions; they do not establish that a revision caused a failure. In the two inspected failures, the recorded revisions are dc349b9a2655b7b46e5a2a0b5ea3fb3f89b7c409 and 825048e13ec43a34cb6e79b410890e704784a7d8; both artifacts report complete, clean source snapshots.
