@@ -159,6 +159,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
         owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
         owner.include_affine_rule_hypothesis = False
+        owner.include_affine_rule_guidance = False
         baseline_arm = prior["arms"]["parent"]
         if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline_arm[
                 "admitted_boundary_digest"]:
@@ -205,12 +206,16 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                 owners["derived_history"] = owner
             for arm in arms:
                 current_owner = owners[arm]
+                current_owner.include_affine_rule_guidance = (
+                    derive_affine_hypothesis and arm in {
+                        "history", "derived_history"})
                 current_owner.include_affine_rule_hypothesis = (
                     derive_affine_hypothesis and arm == "derived_history")
                 chat_root = root / "chats" / tier / arm
                 chat_root.mkdir(parents=True, exist_ok=True)
                 base, capture = _service_request(current_owner,
-                    chat_root, identity, question)
+                    chat_root, identity, question,
+                    capture_history_instruction=derive_affine_hypothesis)
                 bases[arm] = base
                 captures[arm] = capture
             if (len(set(bases.values())) != 1
@@ -263,6 +268,12 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                     or raw_candidates
                     or captures["empty"].get("derived_rule_hypotheses", [])):
                 raise ValueError(f"{tier} derived rule candidate differs from the scored history")
+            if (derive_affine_hypothesis
+                    and (not captures["history"].get("history_instruction")
+                        or captures["history"].get("history_instruction")
+                            != captures["derived_history"].get("history_instruction"))):
+                raise ValueError(
+                    f"{tier} raw and derived history guidance differs beyond candidate data")
             for arm in arms:
                 normalized = bases[arm].replace(", ".join(map(str, probes)), "[PROBES]")
                 normalized_bases.append(normalized)
@@ -296,7 +307,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v7"
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"),
             "ladder_design": ladder_design,

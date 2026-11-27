@@ -12017,7 +12017,8 @@ def _ordinary_chat_history_instruction() -> str:
         "the containing record_id.")
 
 
-def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]]) -> str:
+def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]], *,
+        include_affine_rule_guidance: bool = False) -> str:
     """Keep guidance within the chat reader's limit, scoped to the actual data."""
     guidance = (
         "Use relevant admitted records as defeasible history. Cite the containing record_id "
@@ -12058,12 +12059,12 @@ def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]]) -> 
                 for experience in experiences):
             has_affine_hypothesis = True
             break
-    if has_affine_hypothesis:
+    if has_affine_hypothesis or include_affine_rule_guidance:
         guidance = (
             "History is uncertain; cite record_id. Omissions unknown; history is not current truth "
             "or authority. Identity digests do not prove model use or transfer. Rows are input -> "
             "answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. "
-            "Keep one task_family_id. Affine fit is one candidate; other rules may fit these rows. "
+            "Keep one task_family_id. Any affine fit is a candidate; other rules may fit these rows. "
             "Unverified; outside-range predictions extrapolate.")
     if any(packet.get("historical_embodiment_reports") for packet in packets):
         guidance += (
@@ -12271,6 +12272,7 @@ class ResidentDevelopmentalCognitionOwner:
         self.config = config
         self.include_human_readable_integer_examples = True
         self.include_affine_rule_hypothesis = False
+        self.include_affine_rule_guidance = False
         self.max_inference_input_chars = (
             config.max_inference_input_chars
             if config.max_inference_input_chars is not None
@@ -16090,7 +16092,9 @@ class ResidentDevelopmentalCognitionOwner:
             selection["selection_digest"] = digest_payload(selection)
             semantic = {
                 "schema_version": "sentientos.ordinary_chat_developmental_history_context:v1",
-                "instruction": _resident_chat_history_instruction(packets),
+                "instruction": _resident_chat_history_instruction(packets,
+                    include_affine_rule_guidance=(
+                        self.include_affine_rule_guidance)),
                 "developmental_history": packets,
                 "selection": selection,
                 "historical_only": True,

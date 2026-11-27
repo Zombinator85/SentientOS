@@ -25,7 +25,7 @@ TRIAL_ORDER = (
 
 def _validate_plan_treatment(plan: dict) -> None:
     schema = plan.get("schema")
-    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6", ":v7", ":v8", ":v9", ":v10")):
+    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6", ":v7", ":v8", ":v9", ":v10", ":v11")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint") is None
                 or hashlib.sha256(plan["output_constraint"].encode()).hexdigest()
@@ -72,7 +72,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v7",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v8",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v9",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v10"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v10",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v11"}
             or plan.get("source_report_sha256") != preflight_sha
             or run.get("plan_sha256") != plan_sha
             or plan.get("task_family_id") != preflight.get("task_family_id")
@@ -118,6 +119,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                     != frozen_arm.get("prompt_example_renderings", [])
                 or arm_binding.get("derived_rule_hypotheses", [])
                     != frozen_arm.get("derived_rule_hypotheses", [])
+                or arm_binding.get("history_instruction")
+                    != frozen_arm.get("history_instruction")
                 or ((arm != "empty") != bool(arm_binding.get("history_block_digest")))
                 or arm_binding.get("prompt_sha256") != binding.get("prompt_sha256")
                 or arm_binding.get("invocation_prompt_digest")
@@ -166,7 +169,7 @@ def score(preflight: dict, execution: dict) -> dict:
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v7"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"}
             or execution.get("schema") !=
                 "sentientos.ordinary_chat_transfer_execution:v1"
             or execution.get("preflight_sha256") != digest_payload(preflight)

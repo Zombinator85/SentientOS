@@ -180,7 +180,7 @@ durable developmental learning.
 The earlier [v3 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v3.json)
 verified candidate projection but did not include a raw-history comparison,
 so it cannot isolate the candidate's effect. The model-free
-[v7 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v7.json)
+[v8 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v8.json)
 freezes all three arms, their prompt bindings, the raw-versus-candidate primary
 contrast, the trial order, and the exact runner/scorer implementation digests.
 The prompt explicitly says that other rules may fit the same rows. It records
@@ -192,4 +192,7 @@ The retained v4 draft had the same arms but labeled history-versus-empty as
 the primary outcome; v5 corrected that metadata. The v6 preflight added the
 alternative-rule caveat and implementation-digest gate but left only seven
 characters of prompt headroom. The v7 preflight keeps that caveat with shorter
-guidance and is the only candidate preflight accepted by the runner.
+guidance. The v8 preflight additionally gives raw and derived history the same
+guidance, captures that text, and verifies it at run and score time, leaving
+the candidate payload as the intended contrast. The runner accepts only v8
+for candidate inference.

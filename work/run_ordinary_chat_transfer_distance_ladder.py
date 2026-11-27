@@ -159,24 +159,24 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v7"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True):
         raise ValueError("distance-ladder model-free preflight is not qualified")
     expected_arms = (["history", "derived_history", "empty"]
-        if protocol.get("schema", "").endswith(":v7") else ["history", "empty"])
+        if protocol.get("schema", "").endswith(":v8") else ["history", "empty"])
     if (protocol.get("arms") != expected_arms
             or (protocol.get("derived_rule_hypothesis_treatment") is not None
-                and not protocol.get("schema", "").endswith(":v7"))
-            or (protocol.get("schema", "").endswith(":v7")
+                and not protocol.get("schema", "").endswith(":v8"))
+            or (protocol.get("schema", "").endswith(":v8")
                 and protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1")
             or derive_affine_hypothesis != (expected_arms[0] == "history"
                 and len(expected_arms) == 3)):
         raise ValueError("run treatment does not match the frozen preflight arms")
-    if protocol.get("schema", "").endswith(":v7"):
+    if protocol.get("schema", "").endswith(":v8"):
         implementation_hashes = protocol.get("implementation_sha256")
         if (not isinstance(implementation_hashes, dict)
                 or set(implementation_hashes) != set(FROZEN_PREFLIGHT_IMPLEMENTATION_FILES)
@@ -256,12 +256,13 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("model-free protocol has an unknown example presentation")
         history_owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
-        if protocol.get("schema", "").endswith(":v7"):
+        if protocol.get("schema", "").endswith(":v8"):
             if (protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1"
                     or protocol.get("derived_rule_hypothesis_projection_verified") is not True
                     or not derive_affine_hypothesis):
                 raise ValueError("derived affine hypothesis preflight is not qualified")
+            history_owner.include_affine_rule_guidance = True
             derived_root = root / "derived-history" / "resident-cognition"
             derived_root.parent.mkdir(parents=True, exist_ok=True)
             _copy_without_symlinks(history_root, derived_root)
@@ -270,8 +271,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             derived_owner.include_human_readable_integer_examples = (
                 example_presentation == "record_linked")
             derived_owner.include_affine_rule_hypothesis = True
+            derived_owner.include_affine_rule_guidance = True
         elif derive_affine_hypothesis:
-            raise ValueError("derived affine hypothesis requires its frozen three-arm v7 preflight")
+            raise ValueError("derived affine hypothesis requires its frozen three-arm v8 preflight")
         expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
             else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
                 "arms"]["parent"]["admitted_boundary_digest"])
@@ -294,7 +296,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 key = tier + "_" + arm
                 current_owner = owners[arm]
                 base, captured = _service_request(current_owner, root / "preflight" / tier / arm,
-                    identity, questions[tier], bind_invocation=True, capture_adapter=inference)
+                    identity, questions[tier], bind_invocation=True,
+                    capture_adapter=inference,
+                    capture_history_instruction=derive_affine_hypothesis)
                 base_by_condition[key] = base
                 captures[key] = captured
                 normalized_bases.append(base.replace(", ".join(map(str, tier_protocol["probe_inputs"])), "[PROBES]"))
@@ -309,6 +313,10 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                             "captures"][arm].get("derived_rule_hypotheses", []):
                         raise ValueError(
                             f"{tier} history prompt changed the bound derived candidate")
+                    if captured.get("history_instruction") != tier_protocol[
+                            "captures"][arm].get("history_instruction"):
+                        raise ValueError(
+                            f"{tier} {arm} prompt changed its frozen history guidance")
                 elif (captured["prompt_score_evidence"]
                         or captured.get("prompt_example_renderings")
                         or captured.get("derived_rule_hypotheses")
@@ -320,7 +328,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v10"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v11"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
                 if clarify_history_scope else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
