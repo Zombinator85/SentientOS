@@ -1710,10 +1710,14 @@ completed v2 run. It requires the supervisor's snapshot result and owner-tick
 completion to agree, derives the append-only state delta, persists immutable
 artifacts, and validates the candidate receipt against the live owner state both
 before sealing and after reload through `_verify_persisted_consolidation_receipt(...)`.
-Existing receipts are reverified; incomplete or interrupted recovery runs do
-not produce artifacts. This closes the recovery-to-controller evidence gap
-without starting a tick or changing probe, adoption, retention, or authority
-eligibility.
+Recovery-built receipts use schema v3 and bind the recovery-run artifact plus
+the exact projection response digest; verification reloads both and compares
+the owner completion fields back to the receipt. Existing v1/v2 receipts remain
+readable and are reverified; incomplete or interrupted runs do not produce
+recovered receipts. See
+[`durable_learning_consolidation_receipt_v3.schema.json`](durable_learning_consolidation_receipt_v3.schema.json).
+This closes the recovery-to-controller evidence gap without starting a tick or
+changing probe, adoption, retention, or authority eligibility.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.

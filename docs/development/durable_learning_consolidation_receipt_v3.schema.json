@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_consolidation_receipt_v3.schema.json",
+  "title": "Durable learning consolidation receipt v3",
+  "description": "A consolidation receipt with an explicit immutable reference to the supervisor recovery run and exact projection reconstruction response when reconciled from worker recovery.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "protocol_id", "protocol_digest", "condition",
+    "branch_id", "intent_id", "intent_digest", "tick_id", "snapshot_id",
+    "snapshot_digest", "resident_tick_status",
+    "withhold_developmental_history", "source_fact_ids", "selected_fact_ids",
+    "cognition_observation_ids", "post_history_state_snapshot",
+    "new_writeback_refs", "writeback_record_ref", "writeback_receipt_ref",
+    "strategy_projection", "strategy_projection_digest",
+    "developmental_writeback_performed", "scorer_outcomes_included",
+    "consolidation_policy_preregistered", "retention_contrast_eligible",
+    "recovery_run_artifact", "recovery_response_result_digest", "authority",
+    "receipt_id", "receipt_digest"
+  ],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_consolidation_receipt:v3" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+    "branch_id": { "type": "string", "pattern": "^devexp-durable-learning-branch-[0-9a-f]{24}$" },
+    "intent_id": { "type": "string", "pattern": "^devexp-durable-learning-consolidation-intent-[0-9a-f]{24}$" },
+    "intent_digest": { "$ref": "#/$defs/digest" },
+    "tick_id": { "type": "string", "minLength": 1 },
+    "snapshot_id": { "type": "string", "minLength": 1 },
+    "snapshot_digest": { "$ref": "#/$defs/digest" },
+    "resident_tick_status": { "enum": ["completed", "recovered_completed_tick"] },
+    "withhold_developmental_history": { "type": "boolean" },
+    "source_fact_ids": { "$ref": "#/$defs/factIds" },
+    "selected_fact_ids": { "$ref": "#/$defs/factIds" },
+    "cognition_observation_ids": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "post_history_state_snapshot": { "type": "object" },
+    "new_writeback_refs": { "type": "array", "maxItems": 512, "items": { "type": "object" } },
+    "writeback_record_ref": { "oneOf": [{ "type": "null" }, { "type": "object", "required": ["record_id", "record_digest"], "properties": { "record_id": { "type": "string", "pattern": "^devrec-[0-9a-f]{24}$" }, "record_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } }, "additionalProperties": false }] },
+    "writeback_receipt_ref": { "oneOf": [{ "type": "null" }, { "type": "object", "required": ["receipt_id", "receipt_digest"], "properties": { "receipt_id": { "type": "string", "pattern": "^devreceipt-[0-9a-f]{24}$" }, "receipt_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" } }, "additionalProperties": false }] },
+    "strategy_projection": { "type": ["object", "null"] },
+    "strategy_projection_digest": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/digest" }] },
+    "developmental_writeback_performed": { "type": "boolean" },
+    "scorer_outcomes_included": { "const": false },
+    "consolidation_policy_preregistered": { "type": "boolean" },
+    "retention_contrast_eligible": { "const": false },
+    "recovery_run_artifact": { "$ref": "#/$defs/artifactRef" },
+    "recovery_response_result_digest": { "$ref": "#/$defs/digest" },
+    "authority": { "const": false },
+    "receipt_id": { "type": "string", "pattern": "^devexp-durable-learning-consolidation-receipt-[0-9a-f]{24}$" },
+    "receipt_digest": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "factIds": { "type": "array", "maxItems": 1024, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 256 } },
+    "artifactRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": {
+        "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-recovery-run-[0-9a-f]{24}$" },
+        "artifact_digest": { "$ref": "#/$defs/digest" }
+      }
+    }
+  }
+}

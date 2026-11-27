@@ -1041,6 +1041,8 @@ _CONSOLIDATION_RECEIPT_V2_FIELDS = {
     "consolidation_policy_preregistered", "retention_contrast_eligible",
     "authority", "receipt_id", "receipt_digest",
 }
+_CONSOLIDATION_RECEIPT_V3_FIELDS = (_CONSOLIDATION_RECEIPT_V2_FIELDS
+    | {"recovery_run_artifact", "recovery_response_result_digest"})
 _SCORE_ATTESTATION_SCHEMA_V1 = "sentientos.durable_learning_score_attestation:v1"
 _SCORE_ATTESTATION_SCHEMA_V2 = "sentientos.durable_learning_score_attestation:v2"
 _SCORER_RPC_REQUEST_SCHEMA = "sentientos.durable_learning_scorer_rpc_request:v1"
@@ -6276,6 +6278,9 @@ class DurableDevelopmentalLearningProtocolStore:
         elif (artifact == "receipt" and value.get("schema_version") ==
                 "sentientos.durable_learning_consolidation_receipt:v2"):
             expected_fields = _CONSOLIDATION_RECEIPT_V2_FIELDS
+        elif (artifact == "receipt" and value.get("schema_version") ==
+                "sentientos.durable_learning_consolidation_receipt:v3"):
+            expected_fields = _CONSOLIDATION_RECEIPT_V3_FIELDS
         if expected_fields is not None and set(value) != expected_fields:
             raise ValueError("durable_learning_consolidation_artifact_fields_invalid")
         semantic = {key: item for key, item in value.items()
@@ -6326,7 +6331,8 @@ class DurableDevelopmentalLearningProtocolStore:
                 _CONSOLIDATION_INTENT_SCHEMA_V2}
                 if artifact == "intent" else {
                     "sentientos.durable_learning_consolidation_receipt:v1",
-                    "sentientos.durable_learning_consolidation_receipt:v2"})
+                    "sentientos.durable_learning_consolidation_receipt:v2",
+                    "sentientos.durable_learning_consolidation_receipt:v3"})
             if (raw.get("protocol_digest") != protocol["protocol_digest"]
                     or raw.get("schema_version") not in valid_schemas):
                 raise ValueError("durable_learning_consolidation_artifact_binding_invalid")
@@ -6444,14 +6450,35 @@ class DurableDevelopmentalLearningProtocolStore:
         self._verify_consolidation_identity(intent, artifact="intent")
         if (intent.get("protocol_id") != protocol.get("protocol_id")
                 or intent.get("protocol_digest") != protocol.get("protocol_digest")
-                or receipt.get("schema_version") !=
-                    "sentientos.durable_learning_consolidation_receipt:v2"
+                or receipt.get("schema_version") not in {
+                    "sentientos.durable_learning_consolidation_receipt:v2",
+                    "sentientos.durable_learning_consolidation_receipt:v3"}
                 or receipt.get("protocol_id") != protocol.get("protocol_id")
                 or receipt.get("protocol_digest") != protocol.get("protocol_digest")
                 or receipt.get("condition") != intent.get("condition")
                 or receipt.get("branch_id") != intent.get("branch_id")
                 or receipt.get("intent_id") != intent.get("intent_id")
-                or receipt.get("intent_digest") != intent.get("intent_digest")):
+                or receipt.get("intent_digest") != intent.get("intent_digest")
+                or (receipt.get("schema_version") ==
+                    "sentientos.durable_learning_consolidation_receipt:v3"
+                    and (not isinstance(receipt.get("recovery_run_artifact"),
+                            Mapping)
+                        or set(receipt["recovery_run_artifact"]) != {
+                            "artifact_id", "artifact_digest"}
+                        or not isinstance(receipt["recovery_run_artifact"].get(
+                            "artifact_id"), str)
+                        or re.fullmatch(
+                            r"devexp-durable-learning-worker-recovery-run-[0-9a-f]{24}",
+                            receipt["recovery_run_artifact"]["artifact_id"])
+                            is None
+                        or not isinstance(receipt["recovery_run_artifact"].get(
+                            "artifact_digest"), str)
+                        or _HEX_DIGEST.fullmatch(receipt[
+                            "recovery_run_artifact"]["artifact_digest"]) is None
+                        or not isinstance(receipt.get(
+                            "recovery_response_result_digest"), str)
+                        or _HEX_DIGEST.fullmatch(receipt[
+                            "recovery_response_result_digest"]) is None))):
             raise ValueError("durable_learning_consolidation_receipt_binding_invalid")
         semantic = {key: value for key, value in receipt.items()
             if key not in {"receipt_id", "receipt_digest"}}
@@ -7303,8 +7330,9 @@ class DurableDevelopmentalLearningProtocolStore:
                     "durable_learning_v10_evaluation_projection_invalid")
             if (intent.get("condition") != condition
                     or intent.get("branch_id") != branch_ids.get(condition)
-                    or receipt.get("schema_version") !=
-                        "sentientos.durable_learning_consolidation_receipt:v2"
+                    or receipt.get("schema_version") not in {
+                        "sentientos.durable_learning_consolidation_receipt:v2",
+                        "sentientos.durable_learning_consolidation_receipt:v3"}
                     or receipt.get("condition") != condition
                     or receipt.get("branch_id") != branch_ids.get(condition)
                     or receipt.get("intent_id") != intent.get("intent_id")
@@ -14853,7 +14881,7 @@ class DurableDevelopmentalLearningRunner:
                 source_fact_ids=source_fact_ids)
             projection = recovered.get("strategy_projection")
             receipt_payload = {"schema_version":
-                    "sentientos.durable_learning_consolidation_receipt:v2",
+                    "sentientos.durable_learning_consolidation_receipt:v3",
                 "protocol_id": protocol["protocol_id"],
                 "protocol_digest": protocol["protocol_digest"],
                 "condition": condition, "branch_id": branch.branch_id,
@@ -14882,6 +14910,10 @@ class DurableDevelopmentalLearningRunner:
                 "scorer_outcomes_included": False,
                 "consolidation_policy_preregistered": True,
                 "retention_contrast_eligible": False,
+                "recovery_run_artifact": dict(
+                    recovered["recovery_run_artifact"]),
+                "recovery_response_result_digest": recovered[
+                    "response_result_digest"],
                 "authority": False}
             receipt_digest = digest_payload(receipt_payload)
             preview_receipt = {**receipt_payload,
@@ -16708,7 +16740,8 @@ class DurableDevelopmentalLearningRunner:
                 or receipt.get("protocol_digest") != protocol.get("protocol_digest")
                 or receipt.get("schema_version") not in {
                     "sentientos.durable_learning_consolidation_receipt:v1",
-                    "sentientos.durable_learning_consolidation_receipt:v2"}
+                    "sentientos.durable_learning_consolidation_receipt:v2",
+                    "sentientos.durable_learning_consolidation_receipt:v3"}
                 or receipt.get("condition") not in _CONDITIONS
                 or receipt.get("condition") != branch_condition
                 or intent.get("condition") != branch_condition
@@ -16753,8 +16786,9 @@ class DurableDevelopmentalLearningRunner:
             raise ValueError("durable_learning_consolidation_receipt_invalid")
         owner = branch.experience_source._owner
         expected_projection = None
-        if receipt.get("schema_version") == (
-                "sentientos.durable_learning_consolidation_receipt:v2"):
+        if receipt.get("schema_version") in {
+                "sentientos.durable_learning_consolidation_receipt:v2",
+                "sentientos.durable_learning_consolidation_receipt:v3"}:
             expected_projection = build_durable_learning_strategy_projection(
                 protocol=protocol, condition=str(intent.get("condition", "")),
                 branch=branch, tick_id=str(intent.get("tick_id", "")),
@@ -16774,6 +16808,42 @@ class DurableDevelopmentalLearningRunner:
                     condition=str(intent.get("condition", "")),
                     branch_id=branch.branch_id, branch=branch,
                     projection=expected_projection)
+        if receipt.get("schema_version") == (
+                "sentientos.durable_learning_consolidation_receipt:v3"):
+            recovered = self.load_recovered_strategy_projection(
+                protocol=protocol, condition=branch_condition)
+            completion = recovered.get("recovered_completion")
+            recovery_ref = receipt.get("recovery_run_artifact")
+            if (not isinstance(recovery_ref, Mapping)
+                    or set(recovery_ref) != {"artifact_id", "artifact_digest"}
+                    or not isinstance(receipt.get(
+                        "recovery_response_result_digest"), str)
+                    or _HEX_DIGEST.fullmatch(receipt[
+                        "recovery_response_result_digest"]) is None
+                    or receipt.get("recovery_run_artifact") !=
+                    recovered.get("recovery_run_artifact")
+                    or receipt.get("recovery_response_result_digest") !=
+                        recovered.get("response_result_digest")
+                    or not isinstance(completion, Mapping)
+                    or completion.get("tick_id") != receipt.get("tick_id")
+                    or completion.get("snapshot_id") != receipt.get("snapshot_id")
+                    or completion.get("snapshot_digest") !=
+                        receipt.get("snapshot_digest")
+                    or completion.get("source_fact_ids") !=
+                        receipt.get("source_fact_ids")
+                    or completion.get("selected_fact_ids") !=
+                        receipt.get("selected_fact_ids")
+                    or completion.get("observation_ids") !=
+                        receipt.get("cognition_observation_ids")
+                    or completion.get("post_history_state_snapshot") != post_state
+                    or completion.get("new_writeback_ref") !=
+                        receipt.get("writeback_record_ref")
+                    or completion.get("new_writeback_receipt_ref") !=
+                        receipt.get("writeback_receipt_ref")
+                    or completion.get("developmental_writeback_performed") is not
+                        receipt.get("developmental_writeback_performed")):
+                raise ValueError(
+                    "durable_learning_recovery_receipt_provenance_invalid")
         observations = owner.developmental_tick_observations(
             tick_id=str(intent.get("tick_id", "")))
         if ([value.get("observation_id") for value in observations]
