@@ -4517,18 +4517,22 @@ Their private WSL evidence roots remain preserved under
 `~/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/`.
 
 The replacement v13 plan is frozen as
-[`campaign-plan-wsl-v7.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v7.json),
-campaign `rootless-history-campaign-d8bcaf42cfde587a6d12`, digest
-`327547bbd1ac1b60d8f1c5333cd689a5f7538a5deeefb8a3f9d59743341a0e32`.
-Its two reserved cycle IDs are `rootless-cognition-cycle-ad26faa8d5bc7a69a2bc`
-and `rootless-cognition-cycle-a265b7e8d2d113afb632`; task seeds are
-`27752686` and `4277375274`. Model-free verification confirmed an empty initial
-history boundary, the declared bootstrap gates, and the pinned source and model
-identity implementations.
+[`campaign-plan-wsl-v8.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v8.json),
+campaign `rootless-history-campaign-e137e507ee6c5ab7267e`, digest
+`b772b4d27fc5c505f224ac4053998427cade5f6724d5fb8b503e2d012dd027df`.
+Its two reserved cycle IDs are `rootless-cognition-cycle-76465f50d0841a3b9e1c`
+and `rootless-cognition-cycle-6cf4ee0266b418eaff6c`; task seeds are
+`2566631430` and `28323293`. Model-free verification confirmed an empty initial
+history boundary, the declared comparison-disabled bootstrap gates, and the
+pinned source and model identity implementations.
 
-The preceding v6 plan's first cycle reached acquisition preflight and stopped
-with `AttributeError` after two inference receipts, before the bootstrap step
-or any developmental writeback. The model unloaded and the GPU returned near
-idle. The runner was corrected to call the inventory API on the writeback owner.
-Both v6 slots are spent/retired and must not be reused. Plans v4, v5, and v6
-were superseded before or during execution; their cycle IDs remain reserved.
+The preceding v6 cycle stopped at `objective_task_family_acquisition` with an
+`AttributeError` after two inference receipts, before bootstrap or writeback.
+After correcting the inventory call, v7 reached `initial_history_bootstrap`
+and stopped with `history_withheld_configuration_invalid` after two inference
+receipts; the owner permits durable no-history observations only when
+comparisons are disabled. Neither failed cycle created a developmental record.
+Both runs unloaded the model, and the GPU returned near idle. The bootstrap now
+uses the already initialized comparison-disabled owner while sharing the same
+writeback store and admission ledger. Both v6 and v7 slots are spent/retired;
+plans v4 through v7 and all their cycle IDs remain reserved.
