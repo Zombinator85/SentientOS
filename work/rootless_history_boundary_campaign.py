@@ -1339,6 +1339,8 @@ def _verify_seed_preregistration(*, root: Path, manifest: Mapping[str, Any],
         and payload.get("run_id") == cycle_id
         and payload.get("external_protocol_digest")
             == terminal.get("external_preregistration_digest")
+        and payload.get("owner_feedback_recall_protocol_digest")
+            == terminal.get("owner_feedback_recall_protocol_digest")
         and isinstance(payload.get("external_protocol_digest"), str)
         and re.fullmatch(r"[0-9a-f]{64}", payload["external_protocol_digest"]) is not None
         and payload.get("model_manifest_digest") == terminal.get("model_manifest_digest")

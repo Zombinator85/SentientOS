@@ -720,12 +720,15 @@ citations, empty evidence IDs, matched non-history inputs, and exact prompt
 restoration. The summary stores IDs and digests rather than model output text.
 Its fixed query and scoring rules are frozen in
 `owner_cognition_feedback_cross_cycle_recall_protocol.json`; its digest must
-be supplied as the external preregistration digest before the campaign starts.
-The required digest is SHA-256 of the protocol JSON encoded as UTF-8 after
-normalizing CRLF and CR line endings to LF, in lowercase hexadecimal without a
-prefix. The runner checks that digest against the protocol file before it
-enables the follow-up probe; the campaign plan
-separately binds the source and model implementation hashes.
+be supplied before the campaign starts using
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST. This is a separate binding
+from SENTIENTOS_HERMES_PREREGISTRATION_DIGEST, which must match the campaign
+plan digest. The protocol digest is SHA-256 of the protocol JSON encoded as
+UTF-8 after normalizing CRLF and CR line endings to LF, in lowercase hexadecimal
+without a prefix. The run preregistration records both digests; the runner
+checks the feedback protocol digest against the frozen JSON before it enables
+the follow-up probe. The campaign plan separately binds the source and model
+implementation hashes.
 
 This follow-up has not yet been run. A qualifying single-probe result would
 show that this exact record was retrieved and used in this controlled question;
