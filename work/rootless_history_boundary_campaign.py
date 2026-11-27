@@ -134,7 +134,7 @@ _EXPERIMENT_IMPLEMENTATION_PATH = re.compile(
     r"rootless_history_boundary_campaign_audit|"
     r"rootless_planned_cycle_strategy_inclusion_ablation|"
     r"rootless_planned_cycle_historical_examples_ablation|"
-    r"developmental_history_task_score_lineage_failure)\.schema\.json)\Z")
+    r"developmental_history_task_score_lineage_failure)\.schema\.json))\Z")
 
 
 def _model_identity_implementation_hashes() -> dict[str, str]:
