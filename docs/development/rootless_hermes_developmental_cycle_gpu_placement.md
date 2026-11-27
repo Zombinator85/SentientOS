@@ -4673,3 +4673,23 @@ cycle IDs `rootless-cognition-cycle-2c7d93f1e4a85b0c36a2` and
 `72f93f1c0901602247bf335e4ce97fafc3684b31`. Artifact:
 [`campaign-plan-wsl-v18.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v18.json).
 At plan freeze, no v18 inference had been performed.
+
+V18 cycle 0 completed with 21 inference receipts and three developmental
+records. Acquisition scored 3/3. The 12-probe transfer scored 0 correct in
+history-present, history-withheld, and history-restored; the present/restored
+conditions each answered one probe, while the withheld condition answered all
+12. The history lineage was verified and the corrected progression comparator
+reported two comparable scored episodes. No history-associated correctness,
+performance improvement, or learning claim was established. Cross-range
+history-enabled competence remained skipped because its source-anchor gate was
+not met.
+
+V18 cycle 1 completed with 32 inference receipts, then stopped at its
+pre-registered baseline competence gate. Acquisition scored 1/3, below the
+2/3 threshold required to compare the history conditions. Transfer was
+therefore skipped with
+`skipped_history_withheld_baseline_competence_not_demonstrated`; longitudinal
+progression did not run and no history effect or learning claim was made. This
+does not show that prior-cycle history helped or harmed performance. Both
+cycles recorded `governed_release_completed`; cycle 1 returned GPU memory to
+about 1.2 GiB used at its terminal sample.
