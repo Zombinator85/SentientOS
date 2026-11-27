@@ -1,10 +1,10 @@
 {
   "interpretation_posture": "prepared_launch_custody_only; no inference, model result, or learning claim",
-  "report_digest": "8ef3492e3e68847b264c7f43b69a2da871be6f923b47a174a249c25092447003",
+  "report_digest": "62814d53522f0555722c9d0b4d6ac085c731844a210efaee128afa4a9a803d88",
   "schema_version": "sentientos.owner_feedback_run_card_verification:v1",
   "source_checkout": {
     "branch": "codex/neutral-v2-frozen-launch-20261127",
-    "commit": "6061c7d6ce77ac75ce1d4ba7b2d737dd434cb816",
+    "commit": "cbc6ab69fbfc3082f669357715ac14f4abc632de",
     "experiment_implementation_pin_repaired_by_restoring": "work/audit_rootless_campaign_confidence.py",
     "restored_file_sha256": "7f4d5a7c4499e32450a1977cd627ab894bbe34da7318085e668418194e841e9f"
   },
@@ -36,6 +36,6 @@
     "plan_digest": "6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972",
     "protocol_digest": "eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac",
     "run_card_sha256": "67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960",
-    "verifier_sha256": "722df61a48bf4778100d09a0cef58184147e6a5ececbfd01598a753c84e9c2ec"
+    "verifier_sha256": "482b7680ee1665a71bbcfc8f0761ece9508f0298b09b48b536613421db24994b"
   }
 }
