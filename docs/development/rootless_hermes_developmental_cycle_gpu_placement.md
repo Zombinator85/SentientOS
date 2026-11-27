@@ -4629,6 +4629,13 @@ separately. This preserves exact receipt lineage while allowing task schemas to
 vary without making otherwise identical controls incomparable. A fresh plan is
 required to evaluate this correction.
 
+A read-only recomputation from the persisted v16 run data produced the same
+three-condition schema-free control-vector digest for the 3-probe acquisition
+and 12-probe transfer: `sha256:bfe040362440223a76a0ebc6c80fd2eeccbbdbd59cdb4dd8aca1a5af1387d59c`.
+Their task-output contract digests differ, as expected. This supports the
+comparator diagnosis and checks the normalization inputs against saved runs; it
+does not replay the full receipt owner or establish learning.
+
 Replacement plan v17 binds that comparator correction. It passed model-free
 verification with all 2,557 implementation pins and both model identities
 matching. The two acquisition/transfer pairs are disjoint internally and the
