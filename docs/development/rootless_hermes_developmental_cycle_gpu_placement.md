@@ -4498,7 +4498,7 @@ owner's bounded status, prior-record count, and measurement-presence flag in
 output. This makes terminal evidence distinguish the bootstrap block from an
 inference or scoring failure.
 
-The next runner revision adds a first-record bootstrap only when the verified
+The runner now adds a first-record bootstrap only when the verified
 resident writeback inventory is empty. It performs one explicitly history-
 withheld developmental observation on the same synthetic body-state snapshot,
 then verifies the observation, governed invocation receipt, newly written
@@ -4506,8 +4506,11 @@ record, and writeback receipt before beginning the separate exact-scored
 task-family acquisition. Existing history skips this bootstrap. The seed record
 is not itself score-bound task-family evidence, and successful bootstrap alone
 does not establish learning. A fresh source-bound campaign plan is required
-before using this new path; the two v3 slots remain spent and must not be
-replayed.
+before using this new path. The campaign planner's v13 schema declares the
+bootstrap trigger and evidence gates in the plan digest; v13 is accepted only
+for the wide cross-range design. Any plan made before the latest source change
+is retired, and its cycle IDs are not reusable. The two original v3 slots
+remain spent and must not be replayed.
 
 No developmental learning or transfer claim follows from these failed cycles.
 Their private WSL evidence roots remain preserved under

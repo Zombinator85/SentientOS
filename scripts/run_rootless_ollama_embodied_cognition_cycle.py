@@ -367,14 +367,16 @@ def _validate_history_campaign_launch() -> tuple[
                 "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
             verify_model_identity_recipe(plan)
             if plan.get("schema_version") in {
                     "sentientos.rootless_history_boundary_campaign_plan:v8",
                     "sentientos.rootless_history_boundary_campaign_plan:v9",
                     "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                    "sentientos.rootless_history_boundary_campaign_plan:v13"}:
                 verify_experiment_implementation(plan)
     except (OSError, ValueError, RuntimeError) as exc:
         raise RootlessExperimentalError(
@@ -393,10 +395,13 @@ def _validate_history_campaign_launch() -> tuple[
                 "sentientos.rootless_history_boundary_campaign_plan:v9"
             and plan.get("schema_version") !=
                 "sentientos.rootless_history_boundary_campaign_plan:v10"
+            and plan.get("schema_version") !=
+                "sentientos.rootless_history_boundary_campaign_plan:v13"
             and (task_family_id != ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY
                 or plan.get("schema_version") not in {
                     "sentientos.rootless_history_boundary_campaign_plan:v11",
-                    "sentientos.rootless_history_boundary_campaign_plan:v12"})):
+                    "sentientos.rootless_history_boundary_campaign_plan:v12",
+                    "sentientos.rootless_history_boundary_campaign_plan:v13"})):
         raise RootlessExperimentalError(
             "history_campaign_experiment_implementation_unbound")
     model_recipe = plan.get("model_identity_recipe")
@@ -454,7 +459,8 @@ def _validate_history_campaign_launch() -> tuple[
             "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
         if index == 0:
             expected_admission_boundary = plan.get(
                 "initial_runtime_admission_ledger")
@@ -6187,7 +6193,8 @@ def run() -> dict[str, Any]:
                     "sentientos.rootless_history_boundary_campaign_plan:v9",
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
-                "sentientos.rootless_history_boundary_campaign_plan:v12"}
+                "sentientos.rootless_history_boundary_campaign_plan:v12",
+                "sentientos.rootless_history_boundary_campaign_plan:v13"}
                 else campaign_plan["model_identity_digest"])
             if (digest_payload({"identity": session.active_model_identity})
                     != expected_identity_digest):
