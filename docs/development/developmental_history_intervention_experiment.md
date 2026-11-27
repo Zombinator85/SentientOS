@@ -565,3 +565,18 @@ Its answer-free 172-file evidence manifest is
 `cycle-0-v23-evidence-manifest.json`, digest
 `65d923f727b0acf5f35422637f6142df54621fd5e908063187a6651f83ea9728`; the
 exporter re-verified it against the completed cycle root.
+
+v23 cycle 1 completed from cycle 0's retained history with 56 invocation
+receipts and governed model release. Its 12-probe acquisition again scored 0
+correct in each condition, below the threshold of 8; transfer was skipped.
+The withheld structured history response was rejected, and the result
+establishes no history-associated decision difference, learning, or
+performance improvement. Its answer-free 198-file evidence manifest is
+`cycle-1-v23-evidence-manifest.json`, digest
+`a44160150c65a88500422c5e95fe71979c4e711e2cef80f67ce7c444599102d4`,
+re-verified against the completed cycle root. The independent campaign audit
+`campaign-audit-v23.json` (digest
+`98858e517da9048a89fdcef3e73aef23a2a29360814be00bc321d7f6c7727ec7`)
+verified both planned cycles, the append-only history chain, seed boundary
+chain, runtime-admission chain, and cognition-recovery chain. It records two
+source runs and leaves `learning_established=false` and `authority=false`.
