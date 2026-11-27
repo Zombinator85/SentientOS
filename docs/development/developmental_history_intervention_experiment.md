@@ -757,11 +757,21 @@ qualification status without supplying the target response labels; those stay
 in the frozen scoring rubric. The runner chooses v1 or v2 only when
 SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST matches that protocol file.
 The v1 file and completed v1 result are unchanged. The v2 protocol digest is
-79159cb734438661be85d58a1260359470bd98bd02cdf83527655b899934bc3d.
-It has not been run. A new campaign plan must bind this digest plus the source
-and model implementation before inference. Even a passing single-record v2
-probe would show only a protocol-bounded neutral-query recall result, not
-generalization, durable learning, or causal use of history.
+79159cb734438661be85d58a1260359470bd98bd02cdf83527655b899934bc3d. It has
+not been run. A two-cycle plan is prepared at
+rootless-experimental/rootless-history-campaign-ddb80885d1c7d39e634f/campaign-plan.json.
+Its v11 plan digest is
+9b245a3af1dc016904d819428f6a59561a33ef8f47ab93f87b3561d852a739d0. Offline
+verification reports current source and model identity pins match and
+inference_performed=false. The plan binds a history boundary digest of
+bedca4464283f06e3180850ec144dd65ec79c92fc1a4149b4543a55b34575956 and two
+fresh novel-range cycles with three acquisition and three transfer probes
+each. Its preregistration_timing_independently_attested field is false. The
+v2 protocol digest is a separate run-preregistration value supplied through
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST; it is not embedded in this
+campaign plan. Even a passing single-record v2 probe would show only a
+protocol-bounded neutral-query recall result, not generalization, durable
+learning, or causal use of history.
 
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
