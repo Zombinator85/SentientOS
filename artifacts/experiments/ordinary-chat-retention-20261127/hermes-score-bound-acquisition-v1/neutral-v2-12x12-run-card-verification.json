@@ -1,6 +1,28 @@
 {
   "interpretation_posture": "prepared_launch_custody_only; no inference, model result, or learning claim",
-  "report_digest": "62814d53522f0555722c9d0b4d6ac085c731844a210efaee128afa4a9a803d88",
+  "report_digest": "f0632f65c51e49c95a7a9d2c3d50e043c8b40a0864a3fcfa3bc666d85ca8bdef",
+  "repository_backup_equivalence": {
+    "comparison_timing_posture": "The listed local and remote commits had identical Git trees when compared, before this verification artifact and its documentation were appended to those branches.",
+    "development_checkout": {
+      "local_branch": "codex/cognition-feedback-digest-binding-20261127",
+      "local_commit": "adb70557e85c78a687548cea8ab10f2bbfde4d63",
+      "local_tree_sha": "f90b82cf6bdcce324ce03307130d8824f32832fd",
+      "remote_branch": "codex/cognition-feedback-digest-binding-20261127-local-snapshot",
+      "remote_commit": "00b8eb645039d3daae33c898ab8618484e7ead34",
+      "remote_tree_sha": "f90b82cf6bdcce324ce03307130d8824f32832fd",
+      "tree_identical": true
+    },
+    "frozen_launch_checkout": {
+      "local_branch": "codex/neutral-v2-frozen-launch-20261127",
+      "local_commit": "86c5cd0596c218a3e8f8f03c151a44219e4c4ea8",
+      "local_tree_sha": "30a6eb0b5dc5faea707907360e0171050747c938",
+      "remote_branch": "codex/neutral-v2-frozen-launch-20261127",
+      "remote_commit": "e9b4490cd8653eb179b624165321854bdcdd689f",
+      "remote_tree_sha": "30a6eb0b5dc5faea707907360e0171050747c938",
+      "tree_identical": true
+    },
+    "tracked_file_count": 11948
+  },
   "schema_version": "sentientos.owner_feedback_run_card_verification:v1",
   "source_checkout": {
     "branch": "codex/neutral-v2-frozen-launch-20261127",
