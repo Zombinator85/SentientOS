@@ -866,6 +866,30 @@ controlled replication. Together they motivate preserving cycle artifacts and
 checking recovery integrity, but establish no durable learning, transfer,
 history use, or developmental improvement.
 
+A read-only [cycle-recovery inspector](../../tools/inspect_developmental_cycle_recovery.py)
+was added to make these integrity states auditable without inference. It
+prints identifiers and digests, never model output, and writes no cycle data.
+Running it against the retained artifacts above confirms the first failure's
+specific mismatch: in each of the two companion runs, decision index 1's
+response digest differs from the receipt-bound response digest, while the
+receipt output digest and byte count validate and decision indices 0 and 2
+match. The owner must keep rejecting these artifacts; accepting or rewriting
+the conflicting decision digest would weaken receipt custody.
+
+For the second failure, the inspector found that the prior-cycle owner-feedback
+record shares the recorded tick and exact snapshot identity with an already
+persisted checkpoint whose record and receipt slots are empty. Commit
+`dc349b9a2` (`Bind recovered feedback to companion tick`) adds recovery for
+exactly this case: it attaches the feedback record and receipt only when the
+checkpoint is empty and both snapshot identifiers match. A checkpoint bound
+to another record, a nonempty receipt slot, or a different snapshot still
+fails closed. Thus the saved error belongs to the older source revision
+`825048e...`; the repair is present in source revision
+`dc349b9...` and should be carried into any new frozen plan. The inspector is
+supplemental custody tooling outside the pinned experiment implementation.
+Its SHA-256 is
+`c3fecc86a362d761fc8df0baea160f1d634812bf73b4fbed4b6366452c98a89c`.
+
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
 owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.

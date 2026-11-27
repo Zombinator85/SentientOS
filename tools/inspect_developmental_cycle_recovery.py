@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""Read-only diagnostics for persisted SentientOS developmental-cycle failures.
+
+The report contains identifiers and digests only. It never prints prompts,
+model output, or mutates cycle artifacts.
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+from typing import Any, Mapping
+
+OWNER_FEEDBACK_KIND = "owner_verified_companion_qualification_feedback:v1"
+WRITEBACK_SUFFIX = ":resident-developmental-writeback"
+
+
+def _digest(value: Any) -> str:
+    payload = json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _read_json(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def _load_mapping(path: Path) -> Mapping[str, Any] | None:
+    try:
+        value = _read_json(path)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return value if isinstance(value, Mapping) else None
+
+
+def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
+    state = root / "resident-cognition" / "state"
+    runs = state / "developmental_experiments" / "runs"
+    receipts = root / "inference-custody" / "receipts"
+    findings: list[dict[str, Any]] = []
+    if not runs.is_dir():
+        return findings
+    for run_path in sorted(runs.glob("*.json")):
+        run = _load_mapping(run_path)
+        if run is None:
+            continue
+        decisions = run.get("companion_intervention_decisions")
+        if not isinstance(decisions, list):
+            continue
+        for index, decision in enumerate(decisions):
+            if not isinstance(decision, Mapping):
+                continue
+            receipt_id = decision.get("inference_receipt_id")
+            receipt_path = receipts / (str(receipt_id) + ".json")
+            receipt = _load_mapping(receipt_path)
+            output_text = receipt.get("output_text") if receipt else None
+            output_text_valid = (
+                isinstance(output_text, str)
+                and receipt.get("output_truncated") is False
+                and receipt.get("output_digest") == _digest({"output": output_text})
+                and receipt.get("output_size_bytes")
+                    == len(output_text.encode("utf-8"))
+            )
+            response_digest: str | None = None
+            response_is_string = False
+            if output_text_valid:
+                try:
+                    output_value = json.loads(output_text)
+                except json.JSONDecodeError:
+                    output_value = None
+                response = (
+                    output_value.get("response")
+                    if isinstance(output_value, Mapping) else None
+                )
+                response_is_string = isinstance(response, str)
+                if response_is_string:
+                    response_digest = _digest({"text": response})
+            decision_digest = decision.get("response_digest")
+            findings.append({
+                "run_id": run.get("run_id"),
+                "run_file": run_path.name,
+                "decision_index": index,
+                "receipt_id": receipt_id,
+                "receipt_present": receipt is not None,
+                "receipt_output_integrity": (
+                    "verified" if output_text_valid else "missing_or_invalid"
+                ),
+                "receipt_response_is_string": response_is_string,
+                "decision_response_digest": decision_digest,
+                "receipt_response_digest": response_digest,
+                "response_digest_matches": (
+                    response_digest == decision_digest
+                    if response_digest is not None else False
+                ),
+            })
+    return findings
+
+
+def _feedback_recovery_findings(root: Path) -> list[dict[str, Any]]:
+    state_dir = root / "resident-cognition" / "state"
+    composition = _load_mapping(state_dir / "composition_state.json")
+    records_dir = root / "resident-cognition" / "history" / "records"
+    if composition is None or not records_dir.is_dir():
+        return []
+    completed = composition.get("completed_ticks")
+    if not isinstance(completed, list):
+        return []
+    by_tick = {
+        row.get("tick_id"): row
+        for row in completed
+        if isinstance(row, Mapping) and isinstance(row.get("tick_id"), str)
+    }
+    findings: list[dict[str, Any]] = []
+    for record_path in sorted(records_dir.glob("*.json")):
+        record = _load_mapping(record_path)
+        if record is None:
+            continue
+        candidate = record.get("candidate")
+        provenance = (
+            candidate.get("transformation_provenance")
+            if isinstance(candidate, Mapping) else None
+        )
+        if (not isinstance(provenance, Mapping)
+                or provenance.get("kind") != OWNER_FEEDBACK_KIND):
+            continue
+        correlation = record.get("correlation_id")
+        if not isinstance(correlation, str) or not correlation.endswith(WRITEBACK_SUFFIX):
+            continue
+        tick_id = correlation[:-len(WRITEBACK_SUFFIX)]
+        checkpoint = by_tick.get(tick_id)
+        if checkpoint is None:
+            classification = "no_completed_tick_checkpoint"
+            snapshot_matches = False
+            checkpoint_empty = False
+            record_matches = False
+        else:
+            snapshot_matches = (
+                checkpoint.get("snapshot_id")
+                    == candidate.get("snapshot_id")
+                and checkpoint.get("snapshot_digest")
+                    == candidate.get("snapshot_digest")
+            )
+            checkpoint_empty = (
+                checkpoint.get("record_id") is None
+                and checkpoint.get("receipt_id") is None
+            )
+            record_matches = checkpoint.get("record_id") == record.get("record_id")
+            if record_matches:
+                classification = "checkpoint_record_id_matches"
+            elif checkpoint_empty and snapshot_matches:
+                classification = "empty_checkpoint_snapshot_matches_feedback"
+            else:
+                classification = "checkpoint_conflict_requires_review"
+        findings.append({
+            "record_id": record.get("record_id"),
+            "operation_id": record.get("operation_id"),
+            "tick_id": tick_id,
+            "checkpoint_classification": classification,
+            "checkpoint_empty": checkpoint_empty,
+            "checkpoint_snapshot_matches_record": snapshot_matches,
+            "checkpoint_record_matches": record_matches,
+            "record_file_sha256": hashlib.sha256(
+                record_path.read_bytes()
+            ).hexdigest(),
+        })
+    return findings
+
+
+def inspect_cycle(root: Path) -> dict[str, Any]:
+    failure_path = root / "cycle-failure.json"
+    failure = _load_mapping(failure_path)
+    if failure is None:
+        raise ValueError(f"cycle-failure.json is missing or invalid under {root}")
+    return {
+        "schema": "sentientos.developmental_cycle_recovery_diagnostic:v1",
+        "cycle_root": str(root),
+        "cycle_id": failure.get("run_id"),
+        "status": failure.get("status"),
+        "stage": failure.get("stage"),
+        "failure_code": failure.get("failure_code"),
+        "failure_file_sha256": hashlib.sha256(
+            failure_path.read_bytes()
+        ).hexdigest(),
+        "companion_response_checks": _companion_response_findings(root),
+        "owner_feedback_checkpoint_checks": _feedback_recovery_findings(root),
+        "claims": {
+            "model_output_included": False,
+            "inference_performed": False,
+            "learning_established": False,
+            "authority": False,
+        },
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("cycle_root", type=Path,
+        help="directory containing cycle-failure.json and persisted cycle artifacts")
+    args = parser.parse_args()
+    root = args.cycle_root.expanduser().resolve()
+    try:
+        report = inspect_cycle(root)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print(json.dumps(report, sort_keys=True, indent=2))
+    has_integrity_conflict = any(
+        item.get("receipt_output_integrity") != "verified"
+        or not item.get("response_digest_matches")
+        for item in report["companion_response_checks"]
+    ) or any(
+        item.get("checkpoint_classification")
+            == "checkpoint_conflict_requires_review"
+        for item in report["owner_feedback_checkpoint_checks"]
+    )
+    return 3 if has_integrity_conflict else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
