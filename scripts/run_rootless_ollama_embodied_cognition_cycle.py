@@ -5718,12 +5718,19 @@ def _prepare_resident_cognition_roots(run_root: Path) -> tuple[Path, Path]:
         cognition_root = ensure_private_child_directory(
             run_root, "resident-cognition")
         history_root = ensure_private_child_directory(cognition_root, "history")
+        # Even a valid empty seed has both store collections. Initialize them
+        # before verifying the copied boundary so empty-history campaigns use
+        # the same on-disk shape as histories populated by writeback.
+        ensure_private_child_directory(history_root, "records")
+        ensure_private_child_directory(history_root, "receipts")
         state_root = ensure_private_child_directory(cognition_root, "state")
         return history_root, state_root
     cognition_root = run_root / "resident-cognition"
     cognition_root.mkdir(mode=0o700, exist_ok=False)
     history_root, state_root = cognition_root / "history", cognition_root / "state"
     history_root.mkdir(mode=0o700, exist_ok=False)
+    (history_root / "records").mkdir(mode=0o700, exist_ok=False)
+    (history_root / "receipts").mkdir(mode=0o700, exist_ok=False)
     state_root.mkdir(mode=0o700, exist_ok=False)
     return history_root, state_root
 

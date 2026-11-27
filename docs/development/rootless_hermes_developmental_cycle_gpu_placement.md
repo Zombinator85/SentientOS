@@ -1034,8 +1034,11 @@ receipt, copies records and receipts into that cycle's private history root,
 reloads the copy, and binds a digest of both inventories into preregistration
 and the cycle result. A configured seed requires a nonzero external protocol
 digest; the audit recomputes the retained preregistration digest and checks its
-seed summary against the prior boundary. The evidence marks model attention as
-unverified. The default remains an empty isolated history. To build a sequential chain, point
+seed summary against the prior boundary. Each new cycle history now creates its
+`records/` and `receipts/` collections before the seed-copy boundary check, so
+an empty seed has the same valid store shape as populated history. The evidence
+marks model attention as unverified. The default remains an empty isolated
+history. To build a sequential chain, point
 each later invocation at the preceding cycle's
 `resident-cognition/history` directory. The verifier can then compare retained
 history inventories across cycle roots. The audit recomputes the declared seed
