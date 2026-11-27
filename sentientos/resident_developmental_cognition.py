@@ -96,6 +96,7 @@ from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
     OWNER_COGNITION_FEEDBACK_FAILURE_CODE,
+    OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND,
     CognitionObservation,
     DevelopmentalInferenceDeferred,
     DevelopmentalHistoryProjection,
@@ -12664,7 +12665,15 @@ class ResidentDevelopmentalCognitionOwner:
             recovered_tick = correlation[:-len(suffix)]
             if not recovered_tick:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
-            expected_operation = "resident-developmental-writeback:" + recovered_tick + ":" + str(candidate.get("candidate_id"))
+            provenance = candidate.get("transformation_provenance")
+            provenance_kind = (provenance.get("kind")
+                if isinstance(provenance, Mapping) else None)
+            operation_prefix = (
+                "resident-developmental-companion-feedback:"
+                if provenance_kind == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND
+                else "resident-developmental-writeback:")
+            expected_operation = (operation_prefix + recovered_tick + ":"
+                + str(candidate.get("candidate_id")))
             if not recovered_tick or record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
             existing = ticks.get(recovered_tick)

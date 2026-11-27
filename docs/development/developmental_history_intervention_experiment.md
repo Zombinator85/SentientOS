@@ -707,7 +707,12 @@ existing separately admitted writeback path. Append and recovery validation
 allow an empty selected-fact set only for this typed feedback candidate; the
 model-authored lesson candidate contract remains separate. The generic bounded
 history packet exposes only the short interpretation and its epistemic status,
-not the rejected answer or full receipt.
+not the rejected answer or full receipt. Recovery validates this typed feedback
+record against the dedicated resident-developmental-companion-feedback
+operation prefix, exact recovered tick, and candidate ID. Ordinary lesson
+writebacks retain the resident-developmental-writeback prefix. These distinct
+checks keep the feedback-specific admission binding intact while allowing the
+record to rebuild the durable cognition checkpoint after restart.
 
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to
