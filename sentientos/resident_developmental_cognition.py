@@ -8926,8 +8926,64 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                     continue
                 ids = tuple(str(item["record_id"]) for item in selected_refs)
                 digests = tuple(str(item["record_digest"]) for item in selected_refs)
+                # Bind the history that was actually serialized into the governed
+                # model request. Selection custody alone proves what retrieval
+                # chose, while the prompt digest alone does not make the delivered
+                # history projection independently inspectable without retaining
+                # the prompt. Hash only the exact model-visible history fields.
+                try:
+                    prompt_value = json.loads(prompt)
+                except (TypeError, ValueError) as exc:
+                    raise ResidentDevelopmentalCognitionError(
+                        "developmental_history_prompt_delivery_invalid") from exc
+                history_prompt_fields = (
+                    "developmental_history",
+                    "historical_embodiment_reports",
+                    "developmental_history_selection",
+                )
+                if (not isinstance(prompt_value, Mapping)
+                        or any(prompt_value.get(key) != bound.get(key)
+                            for key in history_prompt_fields)):
+                    raise ResidentDevelopmentalCognitionError(
+                        "developmental_history_prompt_delivery_context_mismatch")
+                delivered_packets = prompt_value.get("developmental_history")
+                delivered_reports = prompt_value.get(
+                    "historical_embodiment_reports")
+                if (not isinstance(delivered_packets, list)
+                        or any(not isinstance(packet, Mapping)
+                            or not isinstance(packet.get("record_id"), str)
+                            or not isinstance(packet.get("record_digest"), str)
+                            for packet in delivered_packets)
+                        or (delivered_reports is not None
+                            and not isinstance(delivered_reports, list))):
+                    raise ResidentDevelopmentalCognitionError(
+                        "developmental_history_prompt_delivery_packets_invalid")
+                packet_ids = [packet["record_id"] for packet in delivered_packets]
+                packet_digests = [packet["record_digest"]
+                    for packet in delivered_packets]
+                history_payload = {key: prompt_value.get(key)
+                    for key in history_prompt_fields}
+                delivery_binding = {
+                    "schema_version": (
+                        "sentientos.developmental_history_prompt_delivery_binding:v1"),
+                    "prompt_digest": _digest({"prompt": prompt}),
+                    "history_payload_digest": _digest(history_payload),
+                    "developmental_history_packet_count": len(delivered_packets),
+                    "historical_embodiment_report_count": (
+                        len(delivered_reports) if isinstance(delivered_reports, list)
+                        else 0),
+                    "delivered_packet_record_ids": packet_ids,
+                    "delivered_packet_record_digests": packet_digests,
+                    "selected_record_ids": list(ids),
+                    "selected_record_digests": list(digests),
+                    "raw_prompt_or_history_retained": False,
+                    "authority": False,
+                    "learning_established": False,
+                }
                 metadata = {**metadata,
-                    "developmental_history_selection": custody_selection}
+                    "developmental_history_selection": custody_selection,
+                    "developmental_history_prompt_delivery_binding": (
+                        delivery_binding)}
                 if history_prompt_identity_binding is not None:
                     selected_identity_binding = {
                         **history_prompt_identity_binding,
