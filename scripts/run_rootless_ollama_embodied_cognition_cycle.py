@@ -6587,7 +6587,7 @@ def run() -> dict[str, Any]:
         # evidence of improved performance.
         _set_run_stage("objective_task_family_acquisition")
         later_pre_action_snapshot = _objective_task_source()
-        existing_history = owner.writeback.store.inspect_completed_records()
+        existing_history = owner.writeback.inspect_completed_records()
         INITIAL_HISTORY_BOOTSTRAP_EVIDENCE = {
             "schema_version": "sentientos.initial_history_bootstrap_evidence:v1",
             "status": "skipped_existing_history" if existing_history else "pending",
@@ -6617,7 +6617,7 @@ def run() -> dict[str, Any]:
                 tick_id=RUN_ID + ":initial-history-bootstrap",
                 withhold_developmental_history=True,
                 durable_learning_no_history_observation=True)
-            bootstrap_records = owner.writeback.store.inspect_completed_records()
+            bootstrap_records = owner.writeback.inspect_completed_records()
             bootstrap_record_pair = next((pair for pair in bootstrap_records
                 if pair[0].record_id == bootstrap.written_record_id), None)
             bootstrap_observation = (
