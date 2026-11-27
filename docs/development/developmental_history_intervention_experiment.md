@@ -617,3 +617,11 @@ records zero hosted companion deliveries, and governed release found Hermes
 not resident. The v24 cycle ID is retired. The abstention guidance has been
 shortened without raising the input limit; a new plan must bind this revised
 prompt before another inference attempt.
+
+Plan v25 replaces the retired v24 campaign. Its digest is
+`720511619016e0370e09e69235453ecc975042b4e02b2aba32b8378a621ae6d7`; it
+retains the v23 cycle 1 history boundary and preregisters two fresh cycles with
+12 acquisition and 12 transfer probes each. The compact abstention guidance is
+bound to source commit `cdb285601`. Model-free verification matched all 2,557
+implementation pins and both seed-specific model identities, with inference
+false at freeze.
