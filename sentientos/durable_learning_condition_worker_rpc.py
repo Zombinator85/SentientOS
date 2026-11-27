@@ -442,7 +442,21 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
             or (checked_request["operation"] not in {
                     "inspect_baseline", "inventory_profile_registry",
                     "recover_acquisition_receipts",
-                    "prepare_consolidation_snapshot"}
+                    "prepare_consolidation_snapshot",
+                    "reconstruct_strategy_projection",
+                    "reconstruct_strategy_projection_v2"}
+                and value.get("result") is not None)
+            or (checked_request["operation"] in {
+                    "reconstruct_strategy_projection",
+                    "reconstruct_strategy_projection_v2"}
+                and value["status"] in {"completed", "rejected"}
+                and (type(value.get("result")) is not dict
+                    or ConditionWorkerRPCDispatcher._result_digest(
+                        value["result"]) != value.get("result_digest")))
+            or (checked_request["operation"] in {
+                    "reconstruct_strategy_projection",
+                    "reconstruct_strategy_projection_v2"}
+                and value["status"] == "failed"
                 and value.get("result") is not None)
             or (checked_request["operation"] == "inspect_baseline"
                 and value["status"] == "failed"
@@ -770,6 +784,49 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
             and value.get("result") is not None):
         raise ConditionWorkerRPCError(
             "durable_learning_worker_rpc_snapshot_result_unexpected")
+    if (checked_request["operation"] ==
+            "reconstruct_strategy_projection_v2"
+            and value["status"] == "completed"):
+        result = value.get("result")
+        required = {"schema_version", "protocol_id", "protocol_digest",
+            "condition", "branch_id", "strategy_projection_policy_digest",
+            "strategy_projection", "projection_digest", "owner_tick_reloaded",
+            "consolidation_receipt_reference_verified",
+            "answer_exclusion_audit_verified",
+            "answer_example_exclusion_verified", "probe_use_eligible",
+            "supervisor_recovery_evidence_eligible", "adoption_performed",
+            "authority"}
+        projection = (result.get("strategy_projection")
+            if isinstance(result, Mapping) else None)
+        expected_projection_digest = (projection.get("projection_digest")
+            if isinstance(projection, Mapping) else None)
+        if (type(result) is not dict or set(result) != required
+                or result.get("schema_version") !=
+                    "sentientos.durable_learning_worker_strategy_projection:v2"
+                or result.get("protocol_id") != checked_request["protocol_id"]
+                or result.get("protocol_digest") !=
+                    checked_request["protocol_digest"]
+                or result.get("condition") != checked_request["condition"]
+                or not isinstance(result.get("branch_id"), str)
+                or re.fullmatch(
+                    r"devexp-durable-learning-branch-[0-9a-f]{24}",
+                    result["branch_id"]) is None
+                or result.get("strategy_projection_policy_digest") !=
+                    checked_request["payload"][
+                        "strategy_projection_policy_digest"]
+                or (projection is not None and (
+                    not isinstance(projection, Mapping)
+                    or not _require_digest(expected_projection_digest)))
+                or result.get("projection_digest") != expected_projection_digest
+                or result.get("owner_tick_reloaded") is not True
+                or any(result.get(key) is not False for key in (
+                    "consolidation_receipt_reference_verified",
+                    "answer_exclusion_audit_verified",
+                    "answer_example_exclusion_verified", "probe_use_eligible",
+                    "supervisor_recovery_evidence_eligible",
+                    "adoption_performed", "authority"))):
+            raise ConditionWorkerRPCError(
+                "durable_learning_worker_rpc_strategy_projection_result_invalid")
     return {"schema_version": "sentientos.durable_learning_condition_worker_rpc_verification:v1",
         "request_id": checked_request["request_id"],
         "condition": checked_request["condition"],

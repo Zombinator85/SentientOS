@@ -300,7 +300,8 @@ def exchange_condition_worker_rpc(connection: WindowsAppContainerPipeConnection,
         "authority": False}
     if request.get("operation") in {
             "inspect_baseline", "inventory_profile_registry",
-            "prepare_consolidation_snapshot"}:
+            "prepare_consolidation_snapshot",
+            "reconstruct_strategy_projection_v2"}:
         exchange["response_result"] = response["result"]
     return exchange
 
