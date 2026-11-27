@@ -12019,7 +12019,8 @@ def _ordinary_chat_history_instruction() -> str:
 
 
 def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]], *,
-        include_affine_rule_guidance: bool = False) -> str:
+        include_affine_rule_guidance: bool = False,
+        blind_affine_rule_provenance: bool = False) -> str:
     """Keep guidance within the chat reader's limit, scoped to the actual data."""
     guidance = (
         "Use relevant admitted records as defeasible history. Cite the containing record_id "
@@ -12061,13 +12062,22 @@ def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]], *,
             has_affine_hypothesis = True
             break
     if has_affine_hypothesis or include_affine_rule_guidance:
-        guidance = (
-            "History is uncertain; cite record_id. Omissions unknown; history is not current truth "
-            "or authority. Identity digests do not prove model use or transfer. Rows are input -> "
-            "answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. "
-            "Keep one task_family_id. Any affine fit is a candidate; other rules may fit these rows. "
-            "Unverified; outside-range predictions extrapolate. kind task_derived: score-row fit; "
-            "kind sham_control: protocol-generated false candidate, not evidence.")
+        if blind_affine_rule_provenance:
+            guidance = (
+                "History is uncertain; cite record_id. Omissions unknown; history is not current truth "
+                "or authority. Identity digests do not prove model use or transfer. Rows are input -> "
+                "answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. "
+                "Keep one task_family_id. Any affine candidate is unverified; check it against the "
+                "scored rows because it may be wrong. Other rules may fit these rows; outside-range "
+                "predictions extrapolate.")
+        else:
+            guidance = (
+                "History is uncertain; cite record_id. Omissions unknown; history is not current truth "
+                "or authority. Identity digests do not prove model use or transfer. Rows are input -> "
+                "answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. "
+                "Keep one task_family_id. Any affine fit is a candidate; other rules may fit these rows. "
+                "Unverified; outside-range predictions extrapolate. kind task_derived: score-row fit; "
+                "kind sham_control: protocol-generated false candidate, not evidence.")
     if any(packet.get("historical_embodiment_reports") for packet in packets):
         guidance += (
             " Attribute fulfillment_receipt_summary to its fulfiller as an unverified report "
@@ -12203,7 +12213,8 @@ def _ordinary_chat_integer_packet(record: Mapping[str, Any], experiences: list[d
         target_model_identity: Mapping[str, Any] | None,
         include_human_readable_examples: bool = True,
         include_affine_rule_hypothesis: bool = False,
-        include_affine_rule_negative_control: bool = False) -> dict[str, Any]:
+        include_affine_rule_negative_control: bool = False,
+        blind_affine_rule_provenance: bool = False) -> dict[str, Any]:
     """Present complete observed rows per run, including incorrect answers and abstentions."""
     rows = []
     for experience in experiences:
@@ -12224,8 +12235,10 @@ def _ordinary_chat_integer_packet(record: Mapping[str, Any], experiences: list[d
             hypothesis = derive(item["task_family_id"], item["examples"])
             if hypothesis is not None:
                 item["derived_integer_affine_hypothesis"] = hypothesis
-                item["affine_hypothesis_kind"] = ("sham_control"
-                    if include_affine_rule_negative_control else "task_derived")
+                item["affine_hypothesis_kind"] = ("candidate"
+                    if blind_affine_rule_provenance else
+                    "sham_control" if include_affine_rule_negative_control
+                    else "task_derived")
         rows.append(item)
     return {"record_id": record["record_id"], "record_digest": record["record_digest"],
         "current_truth": False, "authority": False, "policy": False,
@@ -12280,6 +12293,7 @@ class ResidentDevelopmentalCognitionOwner:
         self.include_human_readable_integer_examples = True
         self.include_affine_rule_hypothesis = False
         self.include_affine_rule_negative_control = False
+        self.blind_affine_rule_provenance = False
         self.include_affine_rule_guidance = False
         self.max_inference_input_chars = (
             config.max_inference_input_chars
@@ -16063,7 +16077,9 @@ class ResidentDevelopmentalCognitionOwner:
                     include_affine_rule_hypothesis=(
                         self.include_affine_rule_hypothesis),
                     include_affine_rule_negative_control=(
-                        self.include_affine_rule_negative_control))
+                        self.include_affine_rule_negative_control),
+                    blind_affine_rule_provenance=(
+                        self.blind_affine_rule_provenance))
             else:
                 packet = _history_context_packet(record, include_source_evidence_context=False,
                     compact_for_input_budget=True, omit_historical_embodiment_details=True,
@@ -16104,7 +16120,9 @@ class ResidentDevelopmentalCognitionOwner:
                 "schema_version": "sentientos.ordinary_chat_developmental_history_context:v1",
                 "instruction": _resident_chat_history_instruction(packets,
                     include_affine_rule_guidance=(
-                        self.include_affine_rule_guidance)),
+                        self.include_affine_rule_guidance),
+                    blind_affine_rule_provenance=(
+                        self.blind_affine_rule_provenance)),
                 "developmental_history": packets,
                 "selection": selection,
                 "historical_only": True,

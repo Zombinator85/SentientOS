@@ -163,23 +163,33 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v10"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True):
         raise ValueError("distance-ladder model-free preflight is not qualified")
-    protocol_has_affine_negative_control = protocol.get("schema", "").endswith(":v9")
+    protocol_has_blinded_affine_provenance = protocol.get("schema", "").endswith(":v10")
+    protocol_has_affine_negative_control = protocol.get("schema", "").endswith((":v9", ":v10"))
     if include_affine_negative_control != protocol_has_affine_negative_control:
         raise ValueError("negative-control option does not match the frozen protocol")
+    if (protocol_has_blinded_affine_provenance
+            != (protocol.get("affine_candidate_provenance_visibility")
+                == "model_blinded_neutral_candidate_label:v1")
+            or (protocol_has_blinded_affine_provenance
+                and protocol.get("arm_hypothesis_provenance") != {
+                    "derived_history": "task_derived",
+                    "sham_history": "sham_control"})):
+        raise ValueError("blinded affine provenance mapping is not frozen correctly")
     expected_arms = (["history", "derived_history", "sham_history", "empty"]
         if protocol_has_affine_negative_control else
         ["history", "derived_history", "empty"]
         if protocol.get("schema", "").endswith(":v8") else ["history", "empty"])
     if (protocol.get("arms") != expected_arms
             or (protocol.get("derived_rule_hypothesis_treatment") is not None
-                and not protocol.get("schema", "").endswith((":v8", ":v9")))
-            or (protocol.get("schema", "").endswith((":v8", ":v9"))
+                and not protocol.get("schema", "").endswith((":v8", ":v9", ":v10")))
+            or (protocol.get("schema", "").endswith((":v8", ":v9", ":v10"))
                 and protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1")
             or (protocol_has_affine_negative_control
@@ -189,7 +199,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 and len(expected_arms) in {3, 4})
             or protocol_has_affine_negative_control != (len(expected_arms) == 4)):
         raise ValueError("run treatment does not match the frozen preflight arms")
-    if protocol.get("schema", "").endswith((":v8", ":v9")):
+    if protocol.get("schema", "").endswith((":v8", ":v9", ":v10")):
         implementation_hashes = protocol.get("implementation_sha256")
         if (not isinstance(implementation_hashes, dict)
                 or set(implementation_hashes) != set(FROZEN_PREFLIGHT_IMPLEMENTATION_FILES)
@@ -269,13 +279,14 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("model-free protocol has an unknown example presentation")
         history_owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
-        if protocol.get("schema", "").endswith((":v8", ":v9")):
+        if protocol.get("schema", "").endswith((":v8", ":v9", ":v10")):
             if (protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1"
                     or protocol.get("derived_rule_hypothesis_projection_verified") is not True
                     or not derive_affine_hypothesis):
                 raise ValueError("derived affine hypothesis preflight is not qualified")
             history_owner.include_affine_rule_guidance = True
+            history_owner.blind_affine_rule_provenance = protocol_has_blinded_affine_provenance
             derived_root = root / "derived-history" / "resident-cognition"
             derived_root.parent.mkdir(parents=True, exist_ok=True)
             _copy_without_symlinks(history_root, derived_root)
@@ -285,6 +296,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 example_presentation == "record_linked")
             derived_owner.include_affine_rule_hypothesis = True
             derived_owner.include_affine_rule_guidance = True
+            derived_owner.blind_affine_rule_provenance = protocol_has_blinded_affine_provenance
             owners_extra = {"derived_history": derived_owner}
             if protocol_has_affine_negative_control:
                 sham_root = root / "sham-history" / "resident-cognition"
@@ -296,6 +308,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                     example_presentation == "record_linked")
                 sham_owner.include_affine_rule_negative_control = True
                 sham_owner.include_affine_rule_guidance = True
+                sham_owner.blind_affine_rule_provenance = protocol_has_blinded_affine_provenance
                 owners_extra["sham_history"] = sham_owner
         elif derive_affine_hypothesis:
             raise ValueError("derived affine hypothesis requires its frozen candidate preflight")
@@ -358,7 +371,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v12"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v13"
+                if protocol_has_blinded_affine_provenance else
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v12"
                 if protocol_has_affine_negative_control else
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v11"
                 if derive_affine_hypothesis else
@@ -397,6 +412,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             "affine_negative_control_treatment": (
                 protocol.get("affine_negative_control_treatment")
                 if protocol_has_affine_negative_control else None),
+            "affine_candidate_provenance_visibility": protocol.get(
+                "affine_candidate_provenance_visibility"),
+            "arm_hypothesis_provenance": protocol.get("arm_hypothesis_provenance"),
             "arms": protocol["arms"],
             "trial_order": [{"tier": tier, "arm": arm} for tier, arm in trial_order],
             "tiers": {tier: {"probe_inputs": entry["probe_inputs"],
@@ -413,7 +431,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "work/run_sibling_chat_recall.py", "sentientos/chat_service.py",
                 "sentientos/conversation_session.py", "sentientos/resident_developmental_cognition.py",
                 "work/score_ordinary_chat_transfer_distance_ladder.py")},
-            "primary_outcome": ("Derived-history minus sham-history exact-answer count per tier; report derived and sham against raw and empty history."
+            "primary_outcome": ("Blinded derived-history minus sham-history exact-answer count per tier; provenance mapping is retained in the plan outside model-visible prompts."
+                if protocol_has_blinded_affine_provenance else
+                "Derived-history minus sham-history exact-answer count per tier; report derived and sham against raw and empty history."
                 if protocol_has_affine_negative_control else
                 "Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
                 if derive_affine_hypothesis else
@@ -508,7 +528,7 @@ if __name__ == "__main__":
     parser.add_argument("--derive-affine-hypothesis", action="store_true",
         help="Expose a non-authoritative affine candidate fitted from all correct scored history rows")
     parser.add_argument("--include-affine-negative-control", action="store_true",
-        help="Add a provenance-labeled same-width sham candidate arm; requires --derive-affine-hypothesis")
+        help="Add a same-width sham candidate arm; requires --derive-affine-hypothesis")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path,
         help="Use a separately frozen model-free protocol report")

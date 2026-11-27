@@ -190,23 +190,27 @@ checked either candidate against the historical rows. Preserve v9 as the
 label-informed baseline; do not reinterpret its contrast as blinded evidence
 evaluation.
 
-The next protocol revision should add a blinded candidate-content comparison.
-Keep the true/sham assignment and exact source linkage in the frozen report,
-but present both arms with the same neutral candidate label and identical
-instruction that candidates are unverified and must be checked against the
-listed score rows. The prompt-bound validator must still independently
-recompute each candidate and retain the true/sham assignment outside the
-model-visible prompt. Freeze prompt digests, answer-free probes, trial order,
-and arm mapping before any response run. The primary contrast then asks
-whether the model responds differently to a score-consistent candidate than
-to a same-width false candidate when provenance labels cannot reveal the
-answer. This would test evidence checking in the immediate task; it still
-would not establish durable learning. A later-session test with the candidate
-removed, fresh probes, and independent replication remains necessary.
+The model-free [v10 blinded-candidate preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-blinded-affine-candidate-preflight-v10.json)
+implements that follow-up. Both candidate arms expose only the neutral
+`candidate` label and share the same instruction to check the unverified
+candidate against the scored rows. The report preserves the audit-side arm
+mapping (`derived_history` is the score-row fit; `sham_history` is the
+same-width false candidate), while the conversation validator independently
+recomputes each value. Candidate prompts are 7,854 characters in both arms,
+with identical guidance and score evidence. The report binds the probe and
+trial schedule, prompt digests, source snapshot, and implementation hashes,
+and reconstructs exactly. No model-bound plan or response run exists yet.
+The primary contrast now tests whether model behavior differs for a
+score-consistent candidate versus a same-width false candidate without
+provenance labels revealing which is which. This tests evidence checking in
+the immediate task; it still does not establish durable learning. A
+later-session test with the candidate removed, fresh probes, and independent
+replication remains necessary.
 
 The v9 report records the selected history record and state digest for each
-arm, freezes a counterbalanced fixed trial order, and reconstructs exactly from
-the same parent snapshot. It records `inference_performed: false` and
+arm and freezes a counterbalanced fixed trial order. It reconstructed exactly
+under its bound source revision (`a6f9a297`) from the same parent snapshot.
+It records `inference_performed: false` and
 `learning_established: false`; no model-bound plan or response run exists yet.
 The three tiers remain strata in one task, not independent replications. Even
 a favorable derived-versus-sham score would not establish model learning,

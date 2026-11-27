@@ -1,0 +1,791 @@
+{
+  "affine_candidate_provenance_visibility": "model_blinded_neutral_candidate_label:v1",
+  "affine_negative_control_treatment": "same_width_offset_step_protocol_sham:v1",
+  "all_tier_prompts_match_outside_probe_values": true,
+  "answer_values_withheld": true,
+  "arm_hypothesis_provenance": {
+    "derived_history": "task_derived",
+    "sham_history": "sham_control"
+  },
+  "arms": [
+    "history",
+    "derived_history",
+    "sham_history",
+    "empty"
+  ],
+  "authority": false,
+  "derived_rule_hypothesis_projection_verified": true,
+  "derived_rule_hypothesis_treatment": "exact_integer_affine_fit_from_scored_rows:v1",
+  "example_presentation": "structured_only",
+  "fixed_mapping_shared_by_source_and_novel_task_families": true,
+  "historical_probe_overlap": [],
+  "identity_binding": {
+    "model": "sentientos-hermes4:14b-q4km",
+    "model_identity": {
+      "artifact_size_bytes": 924,
+      "candidate_index": 0,
+      "configuration_digest": "9dde4f71d35a223800d63993a9068b3a556437364ec5a5ae4ba9e1886e7fa8b1",
+      "engine": "ollama",
+      "fallback": false,
+      "model_content_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+      "posture": "development_only",
+      "resolved_artifact_path": "/home/zombinator/.local/state/sentientos-hermes-gpu-recall-20261126/models/manifests/registry.ollama.ai/library/sentientos-hermes4/14b-q4km",
+      "semantic_artifact_identity": "sha256:f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce",
+      "sidecar_metadata_digest": null
+    },
+    "model_manifest_sha256": "f6a766d405cbb73f9ba64a59b8fb29a3418d0da0b6fad15a0ca70687413ce0ce"
+  },
+  "identity_plan_payload_sha256": "ade6c2387e51c4b6faa7ae6a6f0dc4802e459b7bf8e31d33c9ddab24283861d2",
+  "implementation_sha256": {
+    "sentientos/chat_service.py": "76cac311c0319475b4d85da14b3fdb1f872b70f5912ef0bbeff7adcf48c8fed8",
+    "sentientos/cognition_retrieval.py": "00155846661f6ef6de90e58ad08dc170dc9d5039020acaecdc5eeb76fe9d9b09",
+    "sentientos/conversation_session.py": "ab301622cfccdcc28dec6af3ccfc3b264d38fe4a31ce46ef8907246cd746b003",
+    "sentientos/developmental_model_replacement_experiment.py": "152975147104d8c10adda49dd0ba28f6a02e6d2b35f3394a98448a1ed79406cf",
+    "sentientos/resident_developmental_cognition.py": "a6413711350322b5a9ef69c5f9475ad487e954a0953a6595449401c29cc48634",
+    "work/preflight_ordinary_chat_retention.py": "03fa3707c348b330c37c34e961864f7551edf4be0b686fe67fc732ff5350beae",
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py": "2a82e9631bcef286710774075aad6ab9b0d0ac11523147fcdfbef140463bf229",
+    "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
+    "work/run_ordinary_chat_transfer_distance_ladder.py": "98b09c3fefa4aecb025e14fe38708999e56fe053eddbb19a49e594524ff59762",
+    "work/score_ordinary_chat_transfer_distance_ladder.py": "5eef6f1e33411a66ad249406ebf5800ade01d8374f3e493e57f0f60088fc39db"
+  },
+  "inference_performed": false,
+  "ladder_design": "held_out_source_near_progression_v1",
+  "learning_established": false,
+  "model_bound_execution_plan_created": false,
+  "order_policy": "Fresh sessions; deterministic model settings and fixed tier/arm order must be bound by the later model execution plan.",
+  "parent_history_boundary_digest": "53ef022a87a544a6cce40ff303026d25e9f338686fad3cfba62aa8d7d697af1b",
+  "parent_snapshot_cycle_attestation_present": false,
+  "parent_snapshot_tree_sha256": "sha256:cda0d5e396366e7e2851b6a9fd77e6e7c132e2bab8c31b93b637b04cbc9608d0",
+  "primary_outcome": "Blinded derived-history minus sham-history exact-answer count per tier; provenance mapping remains in the frozen report and outside model-visible prompts.",
+  "prior_seeded_presentation_probe_inputs": [
+    10,
+    11,
+    12,
+    14,
+    15,
+    16,
+    19,
+    20,
+    21
+  ],
+  "prior_seeded_presentation_probe_overlap": [],
+  "probe_inputs_disjoint_from_history_and_prior_probes": true,
+  "probe_set_disjoint_from_prior_seeded_replication": true,
+  "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v10",
+  "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
+  "secondary_outcome": "Strict JSON-only format validity, reported separately from answer accuracy.",
+  "source_report_sha256": "d7ac34edc6702486c4016fa5d325f48907d4bc32dd705451198ec893a482ec31",
+  "source_task_family_ids": [
+    "rootless_integer_affine_transfer_low_range_v6",
+    "rootless_integer_affine_transfer_wide_range_v7"
+  ],
+  "support_record_id": "devrec-a081ef3104dba90c9e19b723",
+  "support_rows": [
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 5,
+      "probe_input": 2
+    },
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 9,
+      "probe_input": 4
+    },
+    {
+      "abstained": false,
+      "evaluator_correct": true,
+      "observed_answer": 11,
+      "probe_input": 5
+    }
+  ],
+  "support_rows_all_correct_and_mapping_consistent": true,
+  "support_task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+  "task_family_id": "rootless_integer_affine_transfer_source_near_v9",
+  "tiers": {
+    "far": {
+      "answer_key_commitment": "sha256:249eaef77c1775aa9ff158aadd43fc52785ae35f39c3c09939dab6566fcce27e",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "d041823fcb9fa78f3d922ca506f5b18452ab26ddb31302f236798ac1450dece5",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "b0e6e560b6b2b256dceb45afaf64ea3ceab9549f68f006b615009dabd908f726"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "history_instruction": null,
+          "ordinary_history_selection": null,
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "a55ab52f5cf19c46817cd25c1c662c155d7309383eb14a4f13f346d506d89a05"
+        },
+        "history": {
+          "history_block_digest": "cee4ae747c602a157bd318c0f7dcb07b76987b40947f1465b2efa6c727f408e0",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7725,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "9fd7ee3e4613125f1ec5c9261dc6c92e8ddf0c46c1b0e53443f47da8bb1643fe"
+        },
+        "sham_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 2,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "fbd580ba9ba194f60b8cf180949b1b3491471fc42004b5e21cc3b13b6f136ddb",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "7e954c903c79617e603a544a6664b1cf47e3a4915619e11609f6a52f931eac85"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 24,
+        "minimum": 22
+      },
+      "probe_inputs": [
+        27,
+        28,
+        29
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 27, 28, 29? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "middle": {
+      "answer_key_commitment": "sha256:3d8b0bc401dab777cbb6981222aecfb1a0439bf26d88461093142071ad9808e3",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "d041823fcb9fa78f3d922ca506f5b18452ab26ddb31302f236798ac1450dece5",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "1bbe375bb7e41e3c56f45057e73b1e14514f532d521577afb29d7fa96a25f9dc"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "history_instruction": null,
+          "ordinary_history_selection": null,
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "b0be3121c43c10f51baa19d36b72937f3b149917223afd7fdab0a0e37c60fb96"
+        },
+        "history": {
+          "history_block_digest": "cee4ae747c602a157bd318c0f7dcb07b76987b40947f1465b2efa6c727f408e0",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7725,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "ceb26faede9a1359bbbaf554790367a1db2fc7b7c27be68fe57e034e7e16cff6"
+        },
+        "sham_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 2,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "fbd580ba9ba194f60b8cf180949b1b3491471fc42004b5e21cc3b13b6f136ddb",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "4f013dbf7499c7535596e3265e19e15f839be99596b6b594742f3c3e1014484b"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 21,
+        "minimum": 19
+      },
+      "probe_inputs": [
+        24,
+        25,
+        26
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 24, 25, 26? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    },
+    "near": {
+      "answer_key_commitment": "sha256:8458dd1779327cf585eafcd4e99e0ad0ee1b52c84890f9769b1966442dfc4d86",
+      "captures": {
+        "derived_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 1,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "d041823fcb9fa78f3d922ca506f5b18452ab26ddb31302f236798ac1450dece5",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "f2c2b2d419a8b635ba115fe0e189094a920a2399628e189871df123db85732e0"
+        },
+        "empty": {
+          "history_block_digest": null,
+          "history_context_posture": "provider_returned_no_context",
+          "history_instruction": null,
+          "ordinary_history_selection": null,
+          "prompt_chars": 4104,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [],
+          "prompt_sha256": "0e760c11f1590548e9f75bbd3bc14f76f073eb679abcefe3ca0961d6e00380dc"
+        },
+        "history": {
+          "history_block_digest": "cee4ae747c602a157bd318c0f7dcb07b76987b40947f1465b2efa6c727f408e0",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7725,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "436ab1ea714ab63fc76f957decbd18fedc2f0c66f5af7134a4b9a8b6e394f0ad"
+        },
+        "sham_history": {
+          "derived_rule_hypotheses": [
+            {
+              "hypothesis": {
+                "multiplier": 2,
+                "offset": 2,
+                "support_input_range": [
+                  2,
+                  5
+                ]
+              },
+              "hypothesis_kind": "candidate",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "history_block_digest": "fbd580ba9ba194f60b8cf180949b1b3491471fc42004b5e21cc3b13b6f136ddb",
+          "history_context_posture": "selected",
+          "history_instruction": "History is uncertain; cite record_id. Omissions unknown; history is not current truth or authority. Identity digests do not prove model use or transfer. Rows are input -> answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. Keep one task_family_id. Any affine candidate is unverified; check it against the scored rows because it may be wrong. Other rules may fit these rows; outside-range predictions extrapolate.",
+          "ordinary_history_selection": {
+            "history_state_digest": "sha256:2d58bf44e0fa80a75c918b70f4d6a44cef9deab0f5cba64a7cc04ad8c0d4595c",
+            "retrieval_policy_id": "query_decision_polarity_then_overlap_with_identity_bound_correction_groups_decision_contrasts_embodied_reports_and_elliptical_session_context_then_recency_fill:v11:semantic_model_unavailable_lexical_fallback:v1:scored_integer_examples:v1",
+            "selected_record_ids": [
+              "devrec-a081ef3104dba90c9e19b723"
+            ],
+            "selected_task_family_ids": [
+              "rootless_integer_affine_transfer_low_range_v6"
+            ],
+            "selection_digest": "8478688c1c89e156f608d699a90a5e5b358f80de18e8feacc6b9f1da7e268256"
+          },
+          "prompt_chars": 7854,
+          "prompt_example_renderings": [],
+          "prompt_score_evidence": [
+            {
+              "examples": [
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 5,
+                  "probe_input": 2
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 9,
+                  "probe_input": 4
+                },
+                {
+                  "abstained": false,
+                  "evaluator_correct": true,
+                  "observed_answer": 11,
+                  "probe_input": 5
+                }
+              ],
+              "model_identity_relation": "different_active_model_identity",
+              "record_id": "devrec-a081ef3104dba90c9e19b723",
+              "source_condition": "history_present",
+              "source_fact_id": "fact-0fc09eb1a3f4dced",
+              "source_run_id": "devexp-run-442d673aa1db8517381baf63",
+              "source_score_digest": "sha256:e903f85c239641463bc64fd31afadcc80160309a7e91840b1e9802c402618e81",
+              "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+            }
+          ],
+          "prompt_sha256": "65a2d9b1bc887bcb34f61d47addd0b135c848922965f34823bc4c927ee5a28f3"
+        }
+      },
+      "input_distance_from_largest_source_example": {
+        "maximum": 17,
+        "minimum": 8
+      },
+      "probe_inputs": [
+        13,
+        17,
+        22
+      ],
+      "question": "Earlier we practiced a number prediction exercise. What outputs should go with these inputs: 13, 17, 22? If the history does not support a prediction, use null for that answer. Reply only as one JSON object with an answers array, one integer or null for each input in order."
+    }
+  },
+  "trial_order": [
+    [
+      "near",
+      "history"
+    ],
+    [
+      "near",
+      "derived_history"
+    ],
+    [
+      "near",
+      "sham_history"
+    ],
+    [
+      "near",
+      "empty"
+    ],
+    [
+      "middle",
+      "empty"
+    ],
+    [
+      "middle",
+      "sham_history"
+    ],
+    [
+      "middle",
+      "derived_history"
+    ],
+    [
+      "middle",
+      "history"
+    ],
+    [
+      "far",
+      "derived_history"
+    ],
+    [
+      "far",
+      "history"
+    ],
+    [
+      "far",
+      "empty"
+    ],
+    [
+      "far",
+      "sham_history"
+    ]
+  ]
+}

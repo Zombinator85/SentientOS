@@ -97,11 +97,14 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                  identity_plan: Mapping[str, Any] | None = None,
                  example_presentation: str = "record_linked",
                  derive_affine_hypothesis: bool = False,
-                 include_affine_negative_control: bool = False) -> dict[str, Any]:
+                 include_affine_negative_control: bool = False,
+                 blind_affine_provenance: bool = False) -> dict[str, Any]:
     if example_presentation not in {"structured_only", "record_linked"}:
         raise ValueError("unknown integer-example presentation")
     if include_affine_negative_control and not derive_affine_hypothesis:
         raise ValueError("negative control requires the derived-candidate treatment")
+    if blind_affine_provenance and not include_affine_negative_control:
+        raise ValueError("blinded provenance requires the affine negative-control arm")
     arms = (("history", "derived_history", "sham_history", "empty")
         if include_affine_negative_control else
         ("history", "derived_history", "empty") if derive_affine_hypothesis else ARMS)
@@ -166,6 +169,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             example_presentation == "record_linked")
         owner.include_affine_rule_hypothesis = False
         owner.include_affine_rule_guidance = False
+        owner.blind_affine_rule_provenance = blind_affine_provenance
         baseline_arm = prior["arms"]["parent"]
         if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline_arm[
                 "admitted_boundary_digest"]:
@@ -186,6 +190,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
         empty_root.mkdir(parents=True)
         empty_owner = _owner(empty_root, kinds, parent_cycle, request)
         empty_owner.include_affine_rule_hypothesis = False
+        empty_owner.blind_affine_rule_provenance = blind_affine_provenance
         expected_evidence = prior["questions"]["novel_range_transfer"]["captures"]["parent"][
             "prompt_score_evidence"]
         if len(expected_evidence) != 1 or len(expected_evidence[0]["examples"]) != 3:
@@ -221,6 +226,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                     derive_affine_hypothesis and arm == "derived_history")
                 current_owner.include_affine_rule_negative_control = (
                     include_affine_negative_control and arm == "sham_history")
+                current_owner.blind_affine_rule_provenance = blind_affine_provenance
                 chat_root = root / "chats" / tier / arm
                 chat_root.mkdir(parents=True, exist_ok=True)
                 base, capture = _service_request(current_owner,
@@ -274,7 +280,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                         "source_run_id": evidence["source_run_id"],
                         "source_score_digest": evidence["source_score_digest"],
                         "source_fact_id": evidence["source_fact_id"],
-                        "hypothesis_kind": "task_derived",
+                        "hypothesis_kind": ("candidate" if blind_affine_provenance
+                            else "task_derived"),
                         "hypothesis": hypothesis,
                     })
             expected_shams = []
@@ -290,7 +297,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                         "source_run_id": evidence["source_run_id"],
                         "source_score_digest": evidence["source_score_digest"],
                         "source_fact_id": evidence["source_fact_id"],
-                        "hypothesis_kind": "sham_control",
+                        "hypothesis_kind": ("candidate" if blind_affine_provenance
+                            else "sham_control"),
                         "hypothesis": hypothesis,
                     })
             sham_hypotheses = captures.get("sham_history", {}).get(
@@ -347,7 +355,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9"
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v10"
+                if blind_affine_provenance else
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v9"
                 if include_affine_negative_control else
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v8"
                 if derive_affine_hypothesis else
@@ -360,6 +370,15 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "affine_negative_control_treatment": (
                 "same_width_offset_step_protocol_sham:v1"
                 if include_affine_negative_control else None),
+            "affine_candidate_provenance_visibility": (
+                "model_blinded_neutral_candidate_label:v1"
+                if blind_affine_provenance else
+                "model_visible_provenance_labels:v1"
+                if include_affine_negative_control else None),
+            "arm_hypothesis_provenance": ({
+                "derived_history": "task_derived",
+                "sham_history": "sham_control",
+            } if blind_affine_provenance else None),
             "derived_rule_hypothesis_projection_verified": derive_affine_hypothesis,
             "source_report_sha256": _sha(SOURCE_REPORT.read_bytes()),
             "task_family_id": task_family,
@@ -406,7 +425,9 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             } if identity_plan is not None else None),
             "answer_values_withheld": True,
             "scoring": "Exact integer equality per probe, fixed three-probe denominator per tier and arm.",
-            "primary_outcome": ("Derived-history minus sham-history exact-answer count per tier; report derived and sham against raw and empty history."
+            "primary_outcome": ("Blinded derived-history minus sham-history exact-answer count per tier; provenance mapping remains in the frozen report and outside model-visible prompts."
+                if blind_affine_provenance else
+                "Derived-history minus sham-history exact-answer count per tier; report derived and sham against raw and empty history."
                 if include_affine_negative_control else
                 "Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
                 if derive_affine_hypothesis else
@@ -439,7 +460,9 @@ def main() -> None:
     parser.add_argument("--derive-affine-hypothesis", action="store_true",
         help="Project a non-authoritative exact affine candidate fitted from all scored history rows")
     parser.add_argument("--include-affine-negative-control", action="store_true",
-        help="Add a provenance-labeled same-width false candidate arm; requires --derive-affine-hypothesis")
+        help="Add a same-width false candidate arm; requires --derive-affine-hypothesis")
+    parser.add_argument("--blind-affine-provenance", action="store_true",
+        help="Hide true/sham provenance labels from the prompt while retaining arm mapping in the report")
     parser.add_argument("--parent-snapshot", type=Path,
         help="Verified resident-cognition plus inference-custody snapshot directory")
     parser.add_argument("--identity-plan", type=Path,
@@ -470,7 +493,8 @@ def main() -> None:
                           identity_plan=identity_plan,
                           example_presentation=args.example_presentation,
                           derive_affine_hypothesis=args.derive_affine_hypothesis,
-                          include_affine_negative_control=args.include_affine_negative_control)
+                          include_affine_negative_control=args.include_affine_negative_control,
+                          blind_affine_provenance=args.blind_affine_provenance)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.verify_report is not None:
         if json.loads(args.verify_report.read_text(encoding="utf-8")) != report:

@@ -1731,6 +1731,17 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
                         derive_hypothesis = derive_ordinary_chat_integer_affine_hypothesis
                     elif hypothesis_kind == "sham_control":
                         derive_hypothesis = derive_ordinary_chat_integer_affine_negative_control
+                    elif hypothesis_kind == "candidate":
+                        task_derived = derive_ordinary_chat_integer_affine_hypothesis(
+                            experience.get("task_family_id"), experience.get("examples"))
+                        sham = derive_ordinary_chat_integer_affine_negative_control(
+                            experience.get("task_family_id"), experience.get("examples"))
+                        candidate = experience.get("derived_integer_affine_hypothesis")
+                        if (candidate is None
+                                or candidate != task_derived and candidate != sham):
+                            raise ValueError(
+                                "ordinary_chat_history_affine_hypothesis_invalid")
+                        continue
                     else:
                         raise ValueError("ordinary_chat_history_affine_hypothesis_invalid")
                     expected_hypothesis = derive_hypothesis(
