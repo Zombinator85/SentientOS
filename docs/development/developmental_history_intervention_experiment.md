@@ -954,3 +954,7 @@ The preserved neutral v2 12-by-12 plan uses the rootless_integer_affine_transfer
 The optional history-enabled competence protocol is a distinct, score-bound outcome with its own source and target task-family requirements. A future plan seeking that outcome must preregister the compatible protocol and its source evidence before execution. The current frozen v14 plan remains unchanged and unstarted; no result from it is inferred here.
 
 The recovery inspector now also reports the recorded source revision, worktree content status, and clean flag from each failure artifact. These fields help distinguish failures captured under different source revisions; they do not establish that a revision caused a failure. In the two inspected failures, the recorded revisions are dc349b9a2655b7b46e5a2a0b5ea3fb3f89b7c409 and 825048e13ec43a34cb6e79b410890e704784a7d8; both artifacts report complete, clean source snapshots.
+
+### Confidence audit evidence integrity
+
+The CPU-only campaign confidence auditor now recomputes each acquisition run digest and every selected developmental record digest and identity before summarizing confidence or comparing retained task-family mappings. It also fails closed if a selected record claims current truth, authority, policy, or canonical explicit-user-retention status. The report schema is v3 and exposes the number and integrity posture of selected records verified. These checks strengthen artifact integrity; they do not show that the model attended to history, that confidence is calibrated, or that learning occurred.
