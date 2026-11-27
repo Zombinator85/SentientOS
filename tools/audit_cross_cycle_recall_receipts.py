@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 EXPECTED_CONDITIONS = ("history_present", "history_withheld", "history_restored")
+RECEIPT_SCHEMA_PREFIX = "sentientos.local_model_invocation_receipt:v"
 
 
 def canonical_digest(value: Any) -> str:
@@ -31,6 +32,37 @@ def normalized_file_digest(path: Path) -> str:
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def semantic_receipt_digest(receipt: dict[str, Any]) -> str:
+    schema = receipt.get("schema_version")
+    if not isinstance(schema, str) or not schema.startswith(RECEIPT_SCHEMA_PREFIX):
+        raise ValueError("unsupported_receipt_schema")
+    try:
+        version = int(schema.removeprefix(RECEIPT_SCHEMA_PREFIX))
+    except ValueError as exc:
+        raise ValueError("unsupported_receipt_schema") from exc
+    if version < 2 or version > 10:
+        raise ValueError("unsupported_receipt_schema")
+
+    legacy_keys = (
+        "request", "status", "reason_codes", "output_digest",
+        "output_size_bytes", "generation_config", "admission_decision_ref",
+        "purpose", "output_truncated", "fallback_occurred", "effects",
+    )
+    keys = ["schema_version", *legacy_keys, "observed_at"]
+    versioned_fields = (
+        (3, "backend_completion"),
+        (4, "cancellation_admission_decision_ref"),
+        (5, "cancellation_resource_observation"),
+        (6, "cancellation_admission_decision"),
+        (7, "cancellation_admission_record"),
+        (8, "admission_decision_record"),
+        (10, "cancellation_preemption_ref"),
+    )
+    keys.extend(field for first_version, field in versioned_fields
+        if version >= first_version)
+    return canonical_digest({key: receipt.get(key) for key in keys})
 
 
 def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
@@ -67,6 +99,7 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         )
         receipt_bytes = receipt_path.read_bytes()
         receipt = json.loads(receipt_bytes)
+        semantic_digest = semantic_receipt_digest(receipt)
         raw_output = receipt.get("output_text")
         parsed: Any = None
         try:
@@ -115,6 +148,12 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         }
         links = {
             "receipt_id_matches": receipt.get("receipt_id") == receipt_id,
+            "receipt_id_matches_semantic_digest": (
+                receipt_id == "lmrec-" + semantic_digest[:24]
+            ),
+            "receipt_semantic_digest_matches": (
+                receipt.get("receipt_digest") == semantic_digest
+            ),
             "receipt_completed": receipt.get("status") == "admitted_completed",
             "output_digest_matches_receipt": (
                 output_digest == receipt.get("output_digest")
@@ -133,6 +172,8 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         audited.append({
             "condition_id": condition,
             "inference_receipt_id": receipt_id,
+            "receipt_schema_version": receipt.get("schema_version"),
+            "receipt_digest": semantic_digest,
             "receipt_file_sha256": hashlib.sha256(receipt_bytes).hexdigest(),
             "output_digest": receipt.get("output_digest"),
             "response_digest": response_digest,
