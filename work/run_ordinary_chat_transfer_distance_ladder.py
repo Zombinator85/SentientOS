@@ -258,8 +258,13 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                     if captured.get("prompt_example_renderings") != tier_protocol[
                             "captures"]["history"].get("prompt_example_renderings"):
                         raise ValueError(f"{tier} history prompt changed the bound rendering")
+                    if captured.get("derived_rule_hypotheses", []) != tier_protocol[
+                            "captures"]["history"].get("derived_rule_hypotheses", []):
+                        raise ValueError(
+                            f"{tier} history prompt changed the bound derived candidate")
                 elif (captured["prompt_score_evidence"]
                         or captured.get("prompt_example_renderings")
+                        or captured.get("derived_rule_hypotheses")
                         or captured["history_block_digest"] is not None):
                     raise ValueError(f"{tier} empty control exposed developmental history")
             if base_by_condition[tier + "_history"] != base_by_condition[tier + "_empty"]:
