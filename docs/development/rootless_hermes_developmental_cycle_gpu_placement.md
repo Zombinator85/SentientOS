@@ -4727,3 +4727,20 @@ Hermes manifest and 2,557 implementation hashes for source commit
 WSL source worktree; no v19 inference had been performed at plan freeze.
 Artifact:
 [`campaign-plan-wsl-v19.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v19.json).
+
+The initial v19 cycle launch stopped during model/runtime preflight because
+system Python did not have the pinned `psutil` dependency available. It wrote
+no inference receipts, did not load Hermes, and did not write a terminal cycle
+artifact. That cycle ID and plan are retired and remain immutable. The
+replacement v20 plan uses the experiment virtual environment plus its pinned
+dependency directory and fresh IDs and seeds. It keeps the same v14 12-probe
+acquisition/transfer design and v18 cycle 0 history boundary. Plan digest
+`f24dacb37f8841ca84738a80fedbb8635ed1ba1cd38cde1371f8bff67483f460`; campaign
+`rootless-history-campaign-9061ef8fc499fd1c285d`; cycle IDs
+`rootless-cognition-cycle-6163ab47a74c856bc9c7` and
+`rootless-cognition-cycle-3e42bd3343431372ce9d`; task seeds `4007582544` and
+`348978639`; backend seeds `1275068451` and `668384969`. Model-free verification
+passed against the clean WSL source worktree, with 2,557 implementation pins
+and both model identities matching. No v20 inference had been performed at
+plan freeze. Artifact:
+[`campaign-plan-wsl-v20.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v20.json).
