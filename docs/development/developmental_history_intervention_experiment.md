@@ -691,27 +691,27 @@ the next cycle. The controlled intervention intentionally avoids writing
 history during its present/withheld/restored conditions, so this feedback must
 be appended only after all three conditions have completed.
 
-The next improvement should add a separate, owner-authored performance record
-for a completed controlled intervention. It should bind the source observation
-and invocation receipt, validation code, retrieved-history allowlist digest,
-and qualification result; it should omit rejected answer text and keep
+An owner-authored performance record is now created after
+`run_companion_history_intervention` has validated all three captures. The
+withheld-condition citation rejection is bound to its persisted cognition
+observation, invocation receipt, validation code, retrieved-history allowlist
+digest, and qualification result. The answer text is omitted; the record keeps
 `decision_qualified=false`, `current_truth=false`, `authority=false`, and
-`canonical_explicit_user_retention=false`. The record is historical evidence
-about system performance, not a belief about the world or an instruction about
-what the intelligence should want.
+`canonical_explicit_user_retention=false`. It uses a distinct
+`owner_verified_companion_qualification_feedback:v1` candidate kind and the
+existing separately admitted writeback path. Append and recovery validation
+allow an empty selected-fact set only for this typed feedback candidate; the
+model-authored lesson candidate contract remains separate. The generic bounded
+history packet exposes only the short interpretation and its epistemic status,
+not the rejected answer or full receipt.
 
-The implementation boundary is after `run_companion_history_intervention` has
-validated all three captures, never between conditions. Add a distinct
-owner-feedback candidate kind to `DevelopmentalWritebackController`; its
-append and recovery validators must rebind the feedback to the persisted
-observation and invocation receipt, and permit an empty selected-fact set only
-for this verified kind. Project its bounded performance fields through
-`_history_context_packet` without adding raw response text. The existing
-model-authored lesson candidate contract must remain separate. A fresh
-preregistered follow-up should then compare later held-out decisions with and
-without that record actually retrieved, while preserving same-cycle condition
-isolation. Only a durable, held-out change in qualification or correctness can
-support a learning claim.
+This implementation has not yet been exercised in a new cycle. A fresh
+preregistered follow-up must verify that the feedback record is committed after
+the three conditions, recovered across the next cycle boundary, selected for
+the later question, and actually delivered to the model. It should compare
+later held-out decisions with and without the record while preserving same-cycle
+condition isolation. Only a durable, held-out change in qualification or
+correctness can support a learning claim.
 
 The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained

@@ -54,6 +54,14 @@ PRINCIPAL = "deterministic_resident_developmental_writeback_controller"
 EFFECTS = tuple(sorted(RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.required_effects))
 PURPOSE = "resident_developmental_interpretation"
 COGNITION_LESSON_PROVENANCE_KIND = "history_conditioned_cognition_conclusion:v1"
+OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND = (
+    "owner_verified_companion_qualification_feedback:v1")
+OWNER_COGNITION_FEEDBACK_FAILURE_CODE = (
+    "companion_interaction_history_id_not_allowed")
+OWNER_COGNITION_FEEDBACK_INTERPRETATION = (
+    "A withheld-history output was rejected because its citation was "
+    "unavailable; it was not a qualified decision. Do not use its answer "
+    "as evidence.")
 MAX_SELECTED_FACTS = 16
 MAX_SELECTED_EVIDENCE_BYTES = 6000
 MAX_COMPLETE_CONSEQUENCE_CYCLE_SELECTED_EVIDENCE_BYTES = 65_536
@@ -3481,6 +3489,130 @@ class ResidentDevelopmentalWritebackController:
         return replace(raw, candidate_id=cid, candidate_digest=digest)
 
     @staticmethod
+    def candidate_from_owner_companion_qualification_feedback(
+            selection: SelectedEvidence, *, observation: Mapping[str, Any],
+            receipt: Mapping[str, Any], diagnostic: Mapping[str, Any]
+            ) -> DevelopmentalCandidate:
+        """Create answer-free historical feedback from an owner-rejected citation."""
+        sid, sdigest = _identity("devsel", selection.semantic_payload())
+        if ((selection.selection_id, selection.selection_digest) != (sid, sdigest)
+                or selection.facts or selection.sources):
+            raise DevelopmentalWritebackError(
+                "owner_cognition_feedback_selection_invalid")
+        request = receipt.get("request")
+        effects = receipt.get("effects")
+        if (not isinstance(request, Mapping)
+                or not isinstance(effects, Mapping)
+                or receipt.get("status") != "admitted_completed"
+                or receipt.get("output_truncated") is not False
+                or receipt.get("fallback_occurred") is not False
+                or effects.get("local_model_inference") is not True
+                or not isinstance(observation, Mapping)
+                or observation.get("condition_id") != "history_withheld"
+                or observation.get("inference_receipt_id")
+                    != receipt.get("receipt_id")
+                or observation.get("inference_receipt_digest")
+                    != receipt.get("receipt_digest")
+                or observation.get("output_digest") != receipt.get("output_digest")
+                or observation.get("request_id") != request.get("request_id")
+                or observation.get("request_digest") != request.get("request_digest")
+                or observation.get("current_snapshot_id") != selection.snapshot_id
+                or observation.get("current_snapshot_digest") != selection.snapshot_digest
+                or not isinstance(diagnostic, Mapping)
+                or diagnostic.get("schema_version")
+                    != "sentientos.rejected_cognition_output_diagnostic:v1"
+                or diagnostic.get("status")
+                    != "complete_receipt_text_verified_json_object"
+                or diagnostic.get("validation_error_code")
+                    != OWNER_COGNITION_FEEDBACK_FAILURE_CODE
+                or diagnostic.get("output_digest") != receipt.get("output_digest")
+                or diagnostic.get("raw_history_citations_condition_compatible") is not False
+                or diagnostic.get("decision_qualified") is not False
+                or diagnostic.get("current_truth") is not False
+                or diagnostic.get("authority") is not False):
+            raise DevelopmentalWritebackError(
+                "owner_cognition_feedback_source_invalid")
+        retrieved_ids = observation.get("retrieved_record_ids")
+        retrieved_digests = observation.get("retrieved_record_digests")
+        if (not isinstance(retrieved_ids, (list, tuple))
+                or not isinstance(retrieved_digests, (list, tuple))
+                or len(retrieved_ids) != len(retrieved_digests)
+                or any(not isinstance(value, str) or not value
+                    for value in retrieved_ids)
+                or any(not isinstance(value, str) or not value
+                    for value in retrieved_digests)
+                or len(set(retrieved_ids)) != len(retrieved_ids)
+                or retrieved_ids or retrieved_digests):
+            raise DevelopmentalWritebackError(
+                "owner_cognition_feedback_allowlist_invalid")
+        source_observation = {key: observation.get(key) for key in (
+            "observation_id", "observation_digest", "condition_id",
+            "request_id", "request_digest", "inference_receipt_id",
+            "inference_receipt_digest", "output_digest",
+            "current_snapshot_id", "current_snapshot_digest")}
+        source_observation["retrieved_record_ids"] = list(retrieved_ids)
+        source_observation["retrieved_record_digests"] = list(retrieved_digests)
+        feedback = {
+            "schema_version": "sentientos.owner_cognition_feedback:v1",
+            "failure_code": OWNER_COGNITION_FEEDBACK_FAILURE_CODE,
+            "source_observation": source_observation,
+            "source_observation_digest": digest_payload(source_observation),
+            "source_receipt_id": receipt.get("receipt_id"),
+            "source_receipt_digest": receipt.get("receipt_digest"),
+            "source_output_digest": receipt.get("output_digest"),
+            "decision_validation_status": "rejected_invalid_output",
+            "decision_validation_error_code": diagnostic.get(
+                "validation_error_code"),
+            "history_allowlist_digest": digest_payload({
+                "record_ids": list(retrieved_ids),
+                "record_digests": list(retrieved_digests)}),
+            "history_allowlist_count": len(retrieved_ids),
+            "raw_response_digest": diagnostic.get("raw_response_digest"),
+            "decision_qualified": False,
+            "current_truth": False,
+            "authority": False,
+            "policy": False,
+            "canonical_explicit_user_retention": False,
+        }
+        request_semantic = {key: value for key, value in request.items()
+            if key not in {"request_id", "request_digest", "raw_prompt_stored",
+                "ephemeral_prompt_handling"}}
+        if (not isinstance(request.get("request_id"), str)
+                or not isinstance(request.get("request_digest"), str)
+                or digest_payload(request_semantic) != request.get("request_digest")
+                or not isinstance(receipt.get("receipt_id"), str)
+                or not isinstance(receipt.get("receipt_digest"), str)
+                or not isinstance(receipt.get("output_digest"), str)
+                or not isinstance(diagnostic.get("raw_response_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}",
+                    diagnostic["raw_response_digest"]) is None):
+            raise DevelopmentalWritebackError(
+                "owner_cognition_feedback_request_binding_invalid")
+        provenance = {
+            "kind": OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND,
+            "feedback": feedback,
+            "source_request": dict(request),
+            "model_id": request.get("model_id"),
+            "model_artifact_digest": request.get("model_artifact_digest"),
+            "candidate_posture": "owner_verified_historical_performance_not_world_truth",
+            "current_truth": False,
+            "authority": False,
+            "policy": False,
+            "canonical_explicit_user_retention": False,
+        }
+        raw = DevelopmentalCandidate(
+            OWNER_COGNITION_FEEDBACK_INTERPRETATION, "low",
+            "owner_verified_cognition_performance_feedback",
+            selection.snapshot_id, selection.snapshot_digest,
+            selection.selection_id, selection.selection_digest, (), (),
+            str(request.get("model_id")), request.get("model_artifact_digest"),
+            str(request.get("request_id")), str(request.get("request_digest")),
+            str(receipt.get("receipt_id")), str(receipt.get("receipt_digest")),
+            str(receipt.get("output_digest")), provenance)
+        cid, candidate_digest = _identity("devcand", raw.semantic_payload())
+        return replace(raw, candidate_id=cid, candidate_digest=candidate_digest)
+
+    @staticmethod
     def infer_candidate(selection: SelectedEvidence, *, invoker: LocalModelInvoker,
                         correlation_id: str, budget: LocalModelInvocationBudget | None = None,
                         timeout_seconds: int = 30,
@@ -3822,9 +3954,9 @@ class ResidentDevelopmentalWritebackController:
                 raise DevelopmentalWritebackError("durable_candidate_digest_mismatch")
             _validate_candidate_source_bindings(candidate)
             _verify_history_conditioned_candidate(candidate)
-            is_cognition_candidate = (
-                candidate.transformation_provenance.get("kind")
-                == COGNITION_LESSON_PROVENANCE_KIND)
+            is_cognition_candidate = candidate.transformation_provenance.get(
+                "kind") in {COGNITION_LESSON_PROVENANCE_KIND,
+                    OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND}
             if ((not candidate.selected_fact_ids and not is_cognition_candidate)
                     or len(candidate.selected_fact_ids) > MAX_SELECTED_FACTS
                     or len(set(candidate.selected_fact_ids)) != len(candidate.selected_fact_ids)
@@ -4011,6 +4143,9 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
     provenance = candidate.transformation_provenance
     if not isinstance(provenance, Mapping):
         raise DevelopmentalWritebackError("candidate_transformation_provenance_invalid")
+    if provenance.get("kind") == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND:
+        _verify_owner_companion_feedback_candidate(candidate)
+        return
     if provenance.get("kind") != COGNITION_LESSON_PROVENANCE_KIND:
         return
     source_text = provenance.get("source_output_text")
@@ -4163,6 +4298,114 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
                     and not context.get("retrieved_record_ids")
                     and not context.get("retrieved_record_digests")))):
         raise DevelopmentalWritebackError("cognition_candidate_lineage_invalid")
+
+
+def _verify_owner_companion_feedback_candidate(
+        candidate: DevelopmentalCandidate) -> None:
+    provenance = candidate.transformation_provenance
+    feedback = provenance.get("feedback")
+    source_request = provenance.get("source_request")
+    if (set(provenance) != {"kind", "feedback", "source_request", "model_id",
+            "model_artifact_digest", "candidate_posture", "current_truth",
+            "authority", "policy", "canonical_explicit_user_retention"}
+            or not isinstance(feedback, Mapping)
+            or set(feedback) != {"schema_version", "failure_code",
+                "source_observation", "source_observation_digest",
+                "source_receipt_id", "source_receipt_digest",
+                "source_output_digest", "history_allowlist_digest",
+                "history_allowlist_count", "decision_validation_status",
+                "decision_validation_error_code", "raw_response_digest",
+                "decision_qualified", "current_truth", "authority", "policy",
+                "canonical_explicit_user_retention"}
+            or not isinstance(source_request, Mapping)
+            or provenance.get("candidate_posture")
+                != "owner_verified_historical_performance_not_world_truth"
+            or any(provenance.get(key) is not False for key in (
+                "current_truth", "authority", "policy",
+                "canonical_explicit_user_retention"))
+            or feedback.get("schema_version")
+                != "sentientos.owner_cognition_feedback:v1"
+            or feedback.get("failure_code")
+                != OWNER_COGNITION_FEEDBACK_FAILURE_CODE
+            or feedback.get("decision_validation_status")
+                != "rejected_invalid_output"
+            or feedback.get("decision_validation_error_code")
+                != OWNER_COGNITION_FEEDBACK_FAILURE_CODE
+            or any(feedback.get(key) is not False for key in (
+                "decision_qualified", "current_truth", "authority", "policy",
+                "canonical_explicit_user_retention"))
+            or type(feedback.get("history_allowlist_count")) is not int
+            or feedback.get("history_allowlist_count") != 0
+            or not isinstance(feedback.get("source_observation"), Mapping)
+            or not isinstance(feedback.get("source_observation_digest"), str)
+            or digest_payload(dict(feedback["source_observation"]))
+                != feedback.get("source_observation_digest")
+            or feedback.get("raw_response_digest") is not None
+                and (not isinstance(feedback.get("raw_response_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        feedback["raw_response_digest"]) is None)):
+        raise DevelopmentalWritebackError(
+            "owner_cognition_feedback_candidate_invalid")
+    observation = feedback["source_observation"]
+    retrieved_ids = observation.get("retrieved_record_ids")
+    retrieved_digests = observation.get("retrieved_record_digests")
+    expected_observation_fields = {
+        "observation_id", "observation_digest", "condition_id", "request_id",
+        "request_digest", "inference_receipt_id", "inference_receipt_digest",
+        "output_digest", "current_snapshot_id", "current_snapshot_digest",
+        "retrieved_record_ids", "retrieved_record_digests"}
+    request_semantic = {key: value for key, value in source_request.items()
+        if key not in {"request_id", "request_digest", "raw_prompt_stored",
+            "ephemeral_prompt_handling"}}
+    if (set(observation) != expected_observation_fields
+            or not isinstance(observation.get("observation_digest"), str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                observation["observation_digest"]) is None
+            or observation.get("observation_id") != "devcog-"
+                + observation["observation_digest"][7:31]
+            or observation.get("condition_id") != "history_withheld"
+            or observation.get("current_snapshot_id") != candidate.snapshot_id
+            or observation.get("current_snapshot_digest") != candidate.snapshot_digest
+            or observation.get("request_id") != candidate.request_id
+            or observation.get("request_digest") != candidate.request_digest
+            or observation.get("inference_receipt_id")
+                != candidate.inference_receipt_id
+            or observation.get("inference_receipt_digest")
+                != candidate.inference_receipt_digest
+            or observation.get("output_digest") != candidate.output_digest
+            or not isinstance(retrieved_ids, list) or retrieved_ids
+            or not isinstance(retrieved_digests, list) or retrieved_digests
+            or feedback.get("history_allowlist_digest")
+                != digest_payload({"record_ids": retrieved_ids,
+                    "record_digests": retrieved_digests})
+            or source_request.get("request_id") != candidate.request_id
+            or source_request.get("request_digest") != candidate.request_digest
+            or source_request.get("model_id") != candidate.model_id
+            or source_request.get("model_artifact_digest")
+                != candidate.model_artifact_digest
+            or provenance.get("model_id") != candidate.model_id
+            or provenance.get("model_artifact_digest")
+                != candidate.model_artifact_digest
+            or digest_payload(request_semantic) != candidate.request_digest
+            or feedback.get("source_receipt_id") != candidate.inference_receipt_id
+            or feedback.get("source_receipt_digest")
+                != candidate.inference_receipt_digest
+            or feedback.get("source_output_digest") != candidate.output_digest
+            or candidate.interpretation != OWNER_COGNITION_FEEDBACK_INTERPRETATION
+            or candidate.uncertainty != "low"
+            or candidate.epistemic_status
+                != "owner_verified_cognition_performance_feedback"
+            or candidate.selected_fact_ids or candidate.selected_facts
+            or candidate.selected_sources):
+        raise DevelopmentalWritebackError(
+            "owner_cognition_feedback_lineage_invalid")
+    empty_selection = {"snapshot_id": candidate.snapshot_id,
+        "snapshot_digest": candidate.snapshot_digest,
+        "facts": [], "sources": [], "conflicts": []}
+    if _identity("devsel", empty_selection) != (
+            candidate.selection_id, candidate.selection_digest):
+        raise DevelopmentalWritebackError(
+            "owner_cognition_feedback_selection_identity_invalid")
 
 
 def measure_changed_cognition(*, with_record: CognitionObservation, without_record: CognitionObservation,

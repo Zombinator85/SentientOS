@@ -95,6 +95,7 @@ from .persistent_epistemic_state import (EpistemicCognitiveProjection,
 from .resident_developmental_writeback import (
     EFFECTS,
     PRINCIPAL,
+    OWNER_COGNITION_FEEDBACK_FAILURE_CODE,
     CognitionObservation,
     DevelopmentalInferenceDeferred,
     DevelopmentalHistoryProjection,
@@ -11619,6 +11620,8 @@ class ResidentCompanionHistoryInterventionResult:
     response_text_classification: str
     restored_prompt_matches: bool
     conditions: tuple[Mapping[str, Any], ...]
+    feedback_record_id: str | None = None
+    feedback_writeback_receipt_id: str | None = None
     authority: bool = False
     action_authority: bool = False
     canonical_explicit_user_retention_mutated: bool = False
@@ -19314,8 +19317,9 @@ class ResidentDevelopmentalCognitionOwner:
 
         This is an explicitly configured experimental path. It creates the
         existing preregistered history-intervention record and three ordinary
-        cognition observations; it grants no action authority and does not
-        write developmental history from the companion response.
+        cognition observations; it grants no action authority. After all three
+        conditions are validated, a withheld-condition citation rejection can
+        produce a separate answer-free owner performance record.
         """
         if trial_index is not None:
             if (type(trial_index) is not int or trial_index < 0
@@ -19612,6 +19616,57 @@ class ResidentDevelopmentalCognitionOwner:
         else:
             response_classification = (
                 "history_restoration_unstable_response_text")
+        feedback_record_id = None
+        feedback_writeback_receipt_id = None
+        withheld_capture = next((item for item in captures
+            if item.get("condition_id") == "history_withheld"), None)
+        diagnostic = (withheld_capture.get("rejected_output_diagnostic")
+            if isinstance(withheld_capture, Mapping) else None)
+        if (isinstance(withheld_capture, Mapping)
+                and withheld_capture.get("decision_validation_status")
+                    == "rejected_invalid_output"
+                and withheld_capture.get("decision_validation_error_code")
+                    == OWNER_COGNITION_FEEDBACK_FAILURE_CODE
+                and isinstance(diagnostic, Mapping)):
+            observation_id = withheld_capture.get("cognition_observation_id")
+            observation_digest = withheld_capture.get(
+                "cognition_observation_digest")
+            if not isinstance(observation_id, str) or not isinstance(
+                    observation_digest, str):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_feedback_observation_identity_invalid")
+            verified_observation = self.verified_cognition_observation(
+                observation_id, observation_digest)
+            verified_receipt = self.verified_cognition_invocation_receipt(
+                observation_id, observation_digest)
+            selection = self.writeback.empty_selection(
+                snapshot_id=snapshot.snapshot_id,
+                snapshot_digest=snapshot.digest)
+            candidate = self.writeback.candidate_from_owner_companion_qualification_feedback(
+                selection, observation=verified_observation,
+                receipt=verified_receipt, diagnostic=diagnostic)
+            operation_id = (
+                f"resident-developmental-companion-feedback:{tick_id}:"
+                f"{candidate.candidate_id}")
+            config_digest = self.writeback.admission_configuration_digest(
+                candidate, operation_id=operation_id)
+            admission = self.admission_authority.issue_next(
+                admission_id_for_sequence=lambda sequence:
+                    f"resident-admission-{candidate.candidate_id}-{sequence}",
+                capability_id=RESIDENT_DEVELOPMENTAL_WRITEBACK,
+                definition_version=1,
+                subsystem_kind="memory_context_reflection",
+                principal_id=PRINCIPAL, principal_kind=PRINCIPAL,
+                effects=EFFECTS, subject_id=candidate.candidate_id,
+                request_configuration_digest=config_digest,
+                provenance=f"configured-resident-control-plane:{tick_id}:feedback",
+                affirmative_preconditions=(
+                    RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements))
+            feedback_record, feedback_receipt = self.writeback.append(
+                candidate, admission=admission, operation_id=operation_id,
+                correlation_id=f"{tick_id}:owner-companion-feedback")
+            feedback_record_id = feedback_record.record_id
+            feedback_writeback_receipt_id = feedback_receipt.receipt_id
         return ResidentCompanionHistoryInterventionResult(
             status="completed_controlled_intervention", tick_id=tick_id,
             snapshot_id=snapshot.snapshot_id,
@@ -19621,6 +19676,8 @@ class ResidentDevelopmentalCognitionOwner:
             restored_prompt_matches=(
                 captures[0].get("prompt_digest") == captures[2].get("prompt_digest")),
             conditions=tuple(dict(item) for item in captures),
+            feedback_record_id=feedback_record_id,
+            feedback_writeback_receipt_id=feedback_writeback_receipt_id,
             authority=False, action_authority=False,
             canonical_explicit_user_retention_mutated=False)
 

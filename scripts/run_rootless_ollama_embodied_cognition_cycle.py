@@ -8089,6 +8089,10 @@ def run() -> dict[str, Any]:
                 "question_digest": companion_intervention.question_digest,
                 "changed_cognition_measurement_id":
                     companion_intervention.changed_cognition_measurement_id,
+                "owner_feedback_record_id":
+                    companion_intervention.feedback_record_id,
+                "owner_feedback_writeback_receipt_id":
+                    companion_intervention.feedback_writeback_receipt_id,
                 "response_text_classification": companion_intervention.response_text_classification,
                 "semantic_decisions": semantic_decisions,
                 "semantic_decision_classification": semantic_decision_classification,
