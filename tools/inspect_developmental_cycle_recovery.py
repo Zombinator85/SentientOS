@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -34,6 +35,26 @@ def _load_mapping(path: Path) -> Mapping[str, Any] | None:
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     return value if isinstance(value, Mapping) else None
+
+
+def _receipt_validation(receipt: Mapping[str, Any] | None) -> tuple[str, list[str]]:
+    if receipt is None:
+        return "missing", []
+    repository_root = Path(__file__).resolve().parents[1]
+    if str(repository_root) not in sys.path:
+        sys.path.insert(0, str(repository_root))
+    try:
+        from sentientos.governed_local_model_invocation import validate_receipt
+        valid, reasons = validate_receipt(receipt)
+    except (ImportError, OSError, TypeError, ValueError):
+        return "validator_unavailable", []
+    safe_reasons = [
+        reason for reason in reasons
+        if isinstance(reason, str)
+        and reason.replace("_", "").isalnum()
+        and len(reason) <= 96
+    ]
+    return ("verified" if valid and not safe_reasons else "invalid"), safe_reasons
 
 
 def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
@@ -63,6 +84,8 @@ def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
             receipt_id = decision.get("inference_receipt_id")
             receipt_path = receipts / (str(receipt_id) + ".json")
             receipt = _load_mapping(receipt_path)
+            receipt_integrity, receipt_validation_reasons = (
+                _receipt_validation(receipt))
             output_text = receipt.get("output_text") if receipt else None
             output_text_valid = (
                 isinstance(output_text, str)
@@ -120,6 +143,8 @@ def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
                 "decision_index": index,
                 "receipt_id": receipt_id,
                 "receipt_present": receipt is not None,
+                "receipt_semantic_integrity": receipt_integrity,
+                "receipt_validation_reasons": receipt_validation_reasons,
                 "receipt_id_matches_decision": receipt_id_matches,
                 "receipt_digest_matches_decision": receipt_digest_matches_decision,
                 "output_digest_matches_receipt": output_digest_matches_receipt,
@@ -250,6 +275,7 @@ def main() -> int:
     print(json.dumps(report, sort_keys=True, indent=2))
     has_integrity_conflict = any(
         not item.get("run_digest_valid")
+        or item.get("receipt_semantic_integrity") != "verified"
         or not item.get("receipt_id_matches_decision")
         or not item.get("receipt_digest_matches_decision")
         or not item.get("output_digest_matches_receipt")
