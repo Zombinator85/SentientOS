@@ -765,7 +765,10 @@ That completed result uses the v1 score serialization, whose
 `delivery_verified` field only compared history citations with the expected
 record IDs; it did not establish that content was delivered to or used by the
 model. The current v2 score serialization reports selection, citation,
-response, and expected-use assessments separately. Its labels are diagnostic
+response, and condition-criterion assessments separately. A criterion match
+records only that the observed response, citation, and selection match the
+protocol. It does not establish that the model cognitively used the record or
+that the record caused the response. These labels are diagnostic
 decompositions of the same frozen protocol criteria and do not retroactively
 change the preregistered result.
 
