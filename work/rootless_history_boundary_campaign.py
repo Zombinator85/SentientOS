@@ -833,6 +833,7 @@ def create_plan(*, history_root: Path, campaign_id: str,
                 raise ValueError("history_campaign_novel_cycle_probe_reuse")
     elif task_family_id in {_TASK_FAMILY, _WIDE_TASK_FAMILY}:
         planned_probe_sets = []
+        acquisition_probe_sets: list[set[int]] = []
         for seed in task_generation_seeds:
             acquisition_task, transfer_task = (
                 rootless_integer_affine_transfer_task_pair(seed,
@@ -844,10 +845,23 @@ def create_plan(*, history_root: Path, campaign_id: str,
             transfer_inputs = set(transfer_task.specification()["probe_inputs"])
             if acquisition_inputs & transfer_inputs:
                 raise ValueError("history_campaign_source_task_probe_overlap")
-            probe_set = acquisition_inputs | transfer_inputs
-            planned_probe_sets.append(probe_set)
-        # Cross-cycle reuse is allowed for low-range acquisition sources;
-        # exact inputs are deduplicated by the source-evidence eligibility gate.
+            acquisition_probe_sets.append(acquisition_inputs)
+            planned_probe_sets.append(acquisition_inputs | transfer_inputs)
+        if task_family_id == _TASK_FAMILY:
+            # Cross-cycle reuse is allowed in the four-input low range, but
+            # at least the preregistered number of source runs must each have
+            # a possible unique correct-input contribution.
+            distinct_acquisition_sets = {
+                tuple(sorted(probe_set)) for probe_set in acquisition_probe_sets}
+            if len(distinct_acquisition_sets) < (
+                    _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL[
+                        "minimum_score_bound_correct_source_runs"]):
+                raise ValueError(
+                    "history_campaign_low_range_source_probe_contribution_infeasible")
+        else:
+            for index, probe_set in enumerate(planned_probe_sets):
+                if any(probe_set & prior for prior in planned_probe_sets[:index]):
+                    raise ValueError("history_campaign_wide_cycle_probe_reuse")
     semantic = {
         "schema_version": plan_schema,
         "campaign_id": campaign_id,
