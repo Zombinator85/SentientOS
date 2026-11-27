@@ -112,10 +112,12 @@ rescored artifact is
 it records the bound plan and preflight digests and keeps
 `learning_established: false`.
 
-The same scorer was then run on three more completed source-near conditions.
-In all four conditions, history and empty-history arms each scored 0/9 exact
-answers, and each history-minus-empty difference was zero. The scorer's tier
-counts matched the run's earlier independent score in all four cases.
+The same scorer was then run on three more completed source-near conditions,
+plus a separate run with a frozen matched comparison for concise history
+guidance. Across all five conditions, history and empty-history arms each
+scored 0/9 exact answers, and each history-minus-empty difference was zero.
+The scorer's tier counts matched the earlier independent scores in all five
+reports.
 
 | Condition | History exact | Empty exact | Strict JSON |
 | --- | ---: | ---: | --- |
@@ -123,6 +125,7 @@ counts matched the run's earlier independent score in all four cases.
 | Rule derivation | 0/9 | 0/9 | History invalid at all three distances; empty valid |
 | History-scope clarification | 0/9 | 0/9 | Valid in both arms |
 | Record-linked rendering | 0/9 | 0/9 | Valid in both arms |
+| Concise history guidance | 0/9 | 0/9 | Valid in both arms |
 
 These are prompt-condition comparisons over the same model and source history,
 not four independent replications. They show that the tested source-near
@@ -132,6 +135,13 @@ should be read alongside that format failure. The corresponding new score
 artifacts are `independent-score-codex-v2.json` within each run directory. The
 v2 report also binds the scorer source and records the session and receipt IDs
 for each arm/tier score.
+
+For concise history guidance, the run's paired comparison confirms the history
+block changed while the model, probes, scored support, empty prompts, output
+constraint, and prompt text outside the history block matched. It still
+produced no exact-answer or valid-format improvement. This is a single matched
+pair, not a replicated intervention. See the [paired comparison](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-prompt-guidance-v1/history-guidance-comparison.json)
+and [receipt-bound rescore](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-hermes-prompt-guidance-v1/independent-score-codex-v2.json).
 
 The baseline and history-scope history arms returned the same answer payloads
 at every distance. Record-linked rendering changed the guesses, but none
