@@ -770,7 +770,7 @@ fresh novel-range cycles with three acquisition and three transfer probes
 each. Its preregistration_timing_independently_attested field is false. The
 v2 protocol digest is a separate run-preregistration value supplied through
 SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST; it is not embedded in this
-campaign plan. The current launch binding is
+campaign plan. The v11 plan's launch binding was
 campaign-run-card-v2.json. On 2026-11-27, CPU-only `verify-plan` recomputed all
 2,558 implementation pins and both model identity recipes: implementation
 digest `a7f04b1b1845ee559aed9953173b70453288cc2fdfc055f6e841affdbfa35ec5`,
@@ -783,8 +783,8 @@ a per-cycle GPU confirmation gate. The mode-0600 run card SHA-256 is
 The read-only [run-card verifier](../../tools/verify_owner_feedback_campaign_run_card.py)
 also checks the initial history boundary, cycle-to-cycle history path, all
 ordered IDs and seeds, custody mode, and required per-cycle GPU gate. Its
-SHA-256 is `893e665cc472337d8ddf57a7ef586a14bab60d34a72be37ed912ca558a7847ff`;
-the prepared card passed all 16 checks. It validates launch custody and current
+SHA-256 at the v11 verification is `893e665cc472337d8ddf57a7ef586a14bab60d34a72be37ed912ca558a7847ff`;
+that prepared card passed all 16 checks. It validates launch custody and current
 pins without loading a model. The helper was added after plan freeze and is not
 part of the plan's pinned experiment implementation; its digest is recorded
 separately. No inference was performed by either check. The run card's launch
@@ -811,10 +811,10 @@ cycle IDs are `rootless-cognition-cycle-f693f18b055e42fca02b` and
 1149774101 and 781169057, and backend seeds are 21902234 and 1942124107.
 The model manifest and v2 protocol digest remain bound separately as recorded
 above. CPU-only `verify-plan` matched all 2,558 implementation pins and both
-model identities. The private
-`campaign-run-card-neutral-v2-12x12.json` agrees with the plan and passed all
-16 checks in the offline run-card verifier; its mode-0600 SHA-256 is
-`008a63b9eeef7efb6fbad45c308ba0dd739c19de835280c1d23f8022627d324f`.
+model identities. The revised private `campaign-run-card-neutral-v2-12x12-rev2.json` binds
+the task family, probe counts, and initial-history digest explicitly. It passed
+all 17 checks in the updated offline run-card verifier; its mode-0600 SHA-256
+is `67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960`.
 Both cycles remain `prepared_not_started`; no inference was performed, and
 preregistration timing is not independently attested. This is only a stronger
 measurement plan. Even a fully qualified neutral-query result would not show
