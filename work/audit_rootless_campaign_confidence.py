@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v2"
+REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v3"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 
@@ -137,13 +137,27 @@ def _history_mapping_relation(*, cycle_root: Path,
     current_mapping = _affine_mapping(current_descriptor)
     matching = conflicting = unknown = 0
     family_fact_count = 0
+    record_integrity_verified_count = 0
     for record_id, record_digest in zip(ids, digests):
         if (not isinstance(record_id, str)
                 or not isinstance(record_digest, str)):
             raise ValueError("confidence_audit_history_reference_invalid")
         record = _read_object(record_root / (record_id + ".json"))
-        if record.get("record_id") != record_id or record.get("record_digest") != record_digest:
+        semantic_record = {key: value for key, value in record.items()
+            if key not in {"record_id", "record_digest"}}
+        expected_record_digest = "sha256:" + _digest(semantic_record)
+        expected_record_id = "devrec-" + expected_record_digest.removeprefix(
+            "sha256:")[:24]
+        if (record.get("record_id") != record_id
+                or record_id != expected_record_id
+                or record.get("record_digest") != record_digest
+                or record_digest != expected_record_digest):
             raise ValueError("confidence_audit_history_record_digest_mismatch")
+        if any(record.get(flag) is not False for flag in (
+                "current_truth", "authority", "policy",
+                "canonical_explicit_user_retention")):
+            raise ValueError("confidence_audit_history_record_posture_invalid")
+        record_integrity_verified_count += 1
         candidate = record.get("candidate")
         facts = candidate.get("selected_facts") if isinstance(candidate, Mapping) else None
         if not isinstance(facts, list):
@@ -178,6 +192,8 @@ def _history_mapping_relation(*, cycle_root: Path,
         posture = "all_projectable_selected_mappings_match_current_task"
     return {
         "selected_record_count": len(ids),
+        "record_integrity_verified_count": record_integrity_verified_count,
+        "record_integrity_posture": "all_selected_record_digests_and_postures_verified",
         "selected_records_with_task_family_examples": family_fact_count,
         "mapping_match_count": matching,
         "mapping_conflict_count": conflicting,
@@ -289,6 +305,10 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
         run = _read_object(run_path)
         if run.get("run_id") != run_id or run.get("run_digest") != run_digest:
             raise ValueError("confidence_audit_acquisition_run_binding_invalid")
+        semantic_run = {key: value for key, value in run.items()
+            if key not in {"run_id", "run_digest"}}
+        if run_digest != "sha256:" + _digest(semantic_run):
+            raise ValueError("confidence_audit_acquisition_run_digest_mismatch")
         score_rows = run.get("objective_scores")
         if (not isinstance(score_rows, list) or len(score_rows) != len(CONDITION_ORDER)
                 or tuple(row.get("condition_id") for row in score_rows
