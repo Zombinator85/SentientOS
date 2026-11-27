@@ -780,8 +780,15 @@ cycle order, and task/backend seeds; its protocol and manifest digests match
 their pinned files, and both cycle entries remain `prepared_not_started` behind
 a per-cycle GPU confirmation gate. The mode-0600 run card SHA-256 is
 `79ae1b03f7afd5386a5b561af307485fd8a11044d358812a653f2dfa2f85132a`.
-No inference was performed by either check. The run card's launch bindings and
-hash are custody metadata, not independent timestamp attestation. Even a
+The read-only [run-card verifier](../../tools/verify_owner_feedback_campaign_run_card.py)
+also checks the initial history boundary, cycle-to-cycle history path, all
+ordered IDs and seeds, custody mode, and required per-cycle GPU gate. Its
+SHA-256 is `893e665cc472337d8ddf57a7ef586a14bab60d34a72be37ed912ca558a7847ff`;
+the prepared card passed all 16 checks. It validates launch custody and current
+pins without loading a model. The helper was added after plan freeze and is not
+part of the plan's pinned experiment implementation; its digest is recorded
+separately. No inference was performed by either check. The run card's launch
+bindings and hash are custody metadata, not independent timestamp attestation. Even a
 passing single-record v2 probe would show only a protocol-bounded neutral-query
 recall result, not generalization, durable learning, or causal use of history.
 
