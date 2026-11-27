@@ -3580,18 +3580,54 @@ class ResidentDevelopmentalWritebackController:
         if (not isinstance(request.get("request_id"), str)
                 or not isinstance(request.get("request_digest"), str)
                 or digest_payload(request_semantic) != request.get("request_digest")
+                or request.get("raw_prompt_stored") is not False
+                or request.get("ephemeral_prompt_handling")
+                    != "raw prompt used only for immediate local backend call"
                 or not isinstance(receipt.get("receipt_id"), str)
                 or not isinstance(receipt.get("receipt_digest"), str)
                 or not isinstance(receipt.get("output_digest"), str)
+                or not isinstance(request.get("prompt_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}",
+                    request["prompt_digest"]) is None
+                or type(request.get("prompt_size")) is not int
+                or request["prompt_size"] < 0
                 or not isinstance(diagnostic.get("raw_response_digest"), str)
                 or re.fullmatch(r"[0-9a-f]{64}",
                     diagnostic["raw_response_digest"]) is None):
             raise DevelopmentalWritebackError(
                 "owner_cognition_feedback_request_binding_invalid")
+        source_request_binding = {
+            "schema_version": "sentientos.owner_cognition_request_binding:v1",
+            "request_id": request["request_id"],
+            "request_digest": request["request_digest"],
+            "purpose": request.get("purpose"),
+            "prompt_digest": request["prompt_digest"],
+            "prompt_size": request["prompt_size"],
+            "model_id": request.get("model_id"),
+            "model_artifact_digest": request.get("model_artifact_digest"),
+            "active_model_identity_digest": digest_payload(
+                request.get("active_model_identity")),
+            "authority_map_digest": request.get("authority_map_digest"),
+            "authority_map_policy_digest": request.get(
+                "authority_map_policy_digest"),
+            "caller": request.get("caller"),
+            "lifecycle_phase": request.get("lifecycle_phase"),
+            "correlation_id": request.get("correlation_id"),
+            "expected_output_format": request.get("expected_output_format"),
+            "structured_output_schema_digest": digest_payload(
+                request.get("structured_output_schema")),
+            "budget_digest": digest_payload(request.get("budget")),
+            "upstream_evidence_digest": digest_payload(
+                request.get("upstream_evidence")),
+            "linkage_digest": digest_payload(request.get("linkage")),
+            "allowed_effects": dict(effects),
+            "forbidden_effects_digest": digest_payload(
+                request.get("forbidden_effects")),
+        }
         provenance = {
             "kind": OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND,
             "feedback": feedback,
-            "source_request": dict(request),
+            "source_request_binding": source_request_binding,
             "model_id": request.get("model_id"),
             "model_artifact_digest": request.get("model_artifact_digest"),
             "candidate_posture": "owner_verified_historical_performance_not_world_truth",
@@ -4304,8 +4340,8 @@ def _verify_owner_companion_feedback_candidate(
         candidate: DevelopmentalCandidate) -> None:
     provenance = candidate.transformation_provenance
     feedback = provenance.get("feedback")
-    source_request = provenance.get("source_request")
-    if (set(provenance) != {"kind", "feedback", "source_request", "model_id",
+    source_request = provenance.get("source_request_binding")
+    if (set(provenance) != {"kind", "feedback", "source_request_binding", "model_id",
             "model_artifact_digest", "candidate_posture", "current_truth",
             "authority", "policy", "canonical_explicit_user_retention"}
             or not isinstance(feedback, Mapping)
@@ -4340,10 +4376,9 @@ def _verify_owner_companion_feedback_candidate(
             or not isinstance(feedback.get("source_observation_digest"), str)
             or digest_payload(dict(feedback["source_observation"]))
                 != feedback.get("source_observation_digest")
-            or feedback.get("raw_response_digest") is not None
-                and (not isinstance(feedback.get("raw_response_digest"), str)
-                    or re.fullmatch(r"[0-9a-f]{64}",
-                        feedback["raw_response_digest"]) is None)):
+            or not isinstance(feedback.get("raw_response_digest"), str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                feedback["raw_response_digest"]) is None):
         raise DevelopmentalWritebackError(
             "owner_cognition_feedback_candidate_invalid")
     observation = feedback["source_observation"]
@@ -4354,10 +4389,49 @@ def _verify_owner_companion_feedback_candidate(
         "request_digest", "inference_receipt_id", "inference_receipt_digest",
         "output_digest", "current_snapshot_id", "current_snapshot_digest",
         "retrieved_record_ids", "retrieved_record_digests"}
-    request_semantic = {key: value for key, value in source_request.items()
-        if key not in {"request_id", "request_digest", "raw_prompt_stored",
-            "ephemeral_prompt_handling"}}
+    expected_request_binding_fields = {
+        "schema_version", "request_id", "request_digest", "purpose",
+        "prompt_digest", "prompt_size", "model_id", "model_artifact_digest",
+        "active_model_identity_digest", "authority_map_digest",
+        "authority_map_policy_digest", "caller", "lifecycle_phase",
+        "correlation_id", "expected_output_format",
+        "structured_output_schema_digest", "budget_digest",
+        "upstream_evidence_digest", "linkage_digest", "allowed_effects",
+        "forbidden_effects_digest"}
+    request_digest_fields = (
+        "prompt_digest", "active_model_identity_digest",
+        "structured_output_schema_digest", "budget_digest",
+        "upstream_evidence_digest", "linkage_digest",
+        "forbidden_effects_digest")
     if (set(observation) != expected_observation_fields
+            or set(source_request) != expected_request_binding_fields
+            or source_request.get("schema_version")
+                != "sentientos.owner_cognition_request_binding:v1"
+            or source_request.get("request_id") != candidate.request_id
+            or source_request.get("request_digest") != candidate.request_digest
+            or not isinstance(source_request.get("purpose"), str)
+                or not source_request["purpose"]
+            or any(not isinstance(source_request.get(key), str)
+                or re.fullmatch(r"[0-9a-f]{64}", source_request[key]) is None
+                for key in request_digest_fields)
+            or type(source_request.get("prompt_size")) is not int
+            or source_request["prompt_size"] < 0
+            or source_request.get("model_id") != candidate.model_id
+            or source_request.get("model_artifact_digest")
+                != candidate.model_artifact_digest
+            or not isinstance(source_request.get("authority_map_digest"), str)
+            or source_request.get("authority_map_policy_digest") is not None
+                and (not isinstance(source_request.get(
+                        "authority_map_policy_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}", source_request[
+                        "authority_map_policy_digest"]) is None)
+            or any(not isinstance(source_request.get(key), str)
+                or not source_request[key] for key in (
+                    "caller", "lifecycle_phase", "correlation_id"))
+            or source_request.get("expected_output_format") != "json"
+            or source_request.get("allowed_effects")
+                != {"local_model_inference": True}
+            or not isinstance(source_request.get("forbidden_effects_digest"), str)
             or not isinstance(observation.get("observation_digest"), str)
             or re.fullmatch(r"sha256:[0-9a-f]{64}",
                 observation["observation_digest"]) is None
@@ -4378,15 +4452,9 @@ def _verify_owner_companion_feedback_candidate(
             or feedback.get("history_allowlist_digest")
                 != digest_payload({"record_ids": retrieved_ids,
                     "record_digests": retrieved_digests})
-            or source_request.get("request_id") != candidate.request_id
-            or source_request.get("request_digest") != candidate.request_digest
-            or source_request.get("model_id") != candidate.model_id
-            or source_request.get("model_artifact_digest")
-                != candidate.model_artifact_digest
             or provenance.get("model_id") != candidate.model_id
             or provenance.get("model_artifact_digest")
                 != candidate.model_artifact_digest
-            or digest_payload(request_semantic) != candidate.request_digest
             or feedback.get("source_receipt_id") != candidate.inference_receipt_id
             or feedback.get("source_receipt_digest")
                 != candidate.inference_receipt_digest

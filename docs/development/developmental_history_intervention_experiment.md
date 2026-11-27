@@ -695,7 +695,11 @@ An owner-authored performance record is now created after
 `run_companion_history_intervention` has validated all three captures. The
 withheld-condition citation rejection is bound to its persisted cognition
 observation, invocation receipt, validation code, retrieved-history allowlist
-digest, and qualification result. The answer text is omitted; the record keeps
+digest, and qualification result. The complete request is checked against the
+verified receipt before writeback, while retained provenance stores only the
+request identity and digests of the prompt, model identity, schema, budget,
+upstream evidence, and linkage. It does not retain the prompt, upstream
+evidence payload, or rejected answer text. The record keeps
 `decision_qualified=false`, `current_truth=false`, `authority=false`, and
 `canonical_explicit_user_retention=false`. It uses a distinct
 `owner_verified_companion_qualification_feedback:v1` candidate kind and the
