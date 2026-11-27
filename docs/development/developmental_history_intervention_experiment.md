@@ -771,9 +771,19 @@ each. Its preregistration_timing_independently_attested field is false. The
 v2 protocol digest is a separate run-preregistration value supplied through
 SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST; it is not embedded in this
 campaign plan. The current launch binding is
-campaign-run-card-v2.json. Even a passing single-record v2 probe would show
-only a protocol-bounded neutral-query recall result, not generalization,
-durable learning, or causal use of history.
+campaign-run-card-v2.json. On 2026-11-27, CPU-only `verify-plan` recomputed all
+2,558 implementation pins and both model identity recipes: implementation
+digest `a7f04b1b1845ee559aed9953173b70453288cc2fdfc055f6e841affdbfa35ec5`,
+with source and identity pins matching. A separate custody check confirmed the
+private v2 run card agrees with the frozen plan on campaign ID, plan digest,
+cycle order, and task/backend seeds; its protocol and manifest digests match
+their pinned files, and both cycle entries remain `prepared_not_started` behind
+a per-cycle GPU confirmation gate. The mode-0600 run card SHA-256 is
+`79ae1b03f7afd5386a5b561af307485fd8a11044d358812a653f2dfa2f85132a`.
+No inference was performed by either check. The run card's launch bindings and
+hash are custody metadata, not independent timestamp attestation. Even a
+passing single-record v2 probe would show only a protocol-bounded neutral-query
+recall result, not generalization, durable learning, or causal use of history.
 
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
