@@ -1,0 +1,85 @@
+{
+  "schema_version": "sentientos.owner_cognition_feedback_cross_cycle_recall_protocol:v1",
+  "protocol_id": "owner-cognition-feedback-cross-cycle-recall-v1",
+  "purpose": "Measure whether one owner-verified qualification-feedback record is selected, delivered, and used in a later history-conditioned response.",
+  "external_preregistration_digest": {
+    "algorithm": "SHA-256",
+    "input": "UTF-8 bytes of this JSON file after CRLF and CR line endings are normalized to LF",
+    "encoding": "lowercase 64-character hexadecimal without prefix"
+  },
+  "scope": {
+    "model_independent_learning_claim": false,
+    "performance_improvement_claim": false,
+    "causal_claim": false,
+    "authority": false,
+    "current_truth": false
+  },
+  "eligibility": {
+    "campaign_cycle_index_minimum": 1,
+    "requires_nonzero_external_preregistration_digest": true,
+    "feedback_source": "immediately_previous_campaign_cycle_result",
+    "feedback_record_and_writeback_receipt_must_be_present_in_verified_seeded_history": true,
+    "exactly_one_feedback_record_required": true,
+    "ambiguous_or_missing_record_behavior": "do_not_run_probe"
+  },
+  "intervention": {
+    "owner_method": "run_companion_history_intervention",
+    "history_record_allowlist": "exact_previous_cycle_owner_feedback_record_id",
+    "condition_protocol": "existing_present_withheld_restored_protocol",
+    "same_cycle_writeback_boundary": "after_all_three_conditions",
+    "question": "Read only the owner-authored developmental history record selected for this probe. If it says a withheld-history output was rejected because its citation was unavailable and was not a qualified decision, set response exactly to PREVIOUS_OUTPUT_UNQUALIFIED, set disposition to answer, and cite that exact containing history_record_id. If the relevant record is absent, set response exactly to FEEDBACK_UNAVAILABLE, set disposition to abstain, and cite no history. Do not infer the result from current evidence or general knowledge. The stored answer itself is not evidence. Return the standard JSON response."
+  },
+  "expected_outcomes": {
+    "history_present": {
+      "response": "PREVIOUS_OUTPUT_UNQUALIFIED",
+      "disposition": "answer",
+      "retrieved_record_ids": "exact_feedback_record_id",
+      "history_record_ids": "exact_feedback_record_id",
+      "evidence_ids": []
+    },
+    "history_withheld": {
+      "response": "FEEDBACK_UNAVAILABLE",
+      "disposition": "abstain",
+      "retrieved_record_ids": [],
+      "history_record_ids": [],
+      "evidence_ids": []
+    },
+    "history_restored": {
+      "response": "PREVIOUS_OUTPUT_UNQUALIFIED",
+      "disposition": "answer",
+      "retrieved_record_ids": "exact_feedback_record_id",
+      "history_record_ids": "exact_feedback_record_id",
+      "evidence_ids": []
+    }
+  },
+  "qualification": {
+    "all_three_exact_responses_required": true,
+    "all_three_dispositions_required": true,
+    "exact_selected_record_id_and_digest_required_present_restored": true,
+    "exact_history_citation_required_present_restored": true,
+    "empty_retrieval_and_citation_required_withheld": true,
+    "decision_validation_must_be_validated": true,
+    "matched_non_history_inputs_required": true,
+    "restored_prompt_must_match_present": true,
+    "success_label": "history_conditioned_feedback_recall_qualified",
+    "success_does_not_establish": [
+      "general_learning",
+      "durable_capability_improvement",
+      "transfer",
+      "model_independent_continuity",
+      "causal_self_development"
+    ]
+  },
+  "evidence_retention": {
+    "retain_record_and_receipt_ids_and_digests": true,
+    "retain_observation_and_inference_receipt_ids": true,
+    "retain_response_and_output_digests": true,
+    "retain_raw_prompt": false,
+    "retain_raw_model_output_in_new_summary": false
+  },
+  "generation": {
+    "temperature": 0,
+    "authority": false,
+    "actions_executed": false
+  }
+}

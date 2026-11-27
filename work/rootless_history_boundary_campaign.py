@@ -114,6 +114,7 @@ _EXPERIMENT_IMPLEMENTATION_EXTRA_FILES = (
     "docs/development/rootless_planned_cycle_strategy_inclusion_ablation.schema.json",
     "docs/development/rootless_planned_cycle_historical_examples_ablation.schema.json",
     "docs/development/developmental_history_task_score_lineage_failure.schema.json",
+    "docs/development/owner_cognition_feedback_cross_cycle_recall_protocol.json",
 )
 _EXPERIMENT_IMPLEMENTATION_ROOT_PACKAGES = (
     "agents", "codex", "control_plane", "daemon", "embodiment",
@@ -124,6 +125,7 @@ _EXPERIMENT_IMPLEMENTATION_PATH = re.compile(
     r"scripts/.+\.py|work/.+\.py|[A-Za-z_][A-Za-z0-9_]*/.+\.py|"
     r"semantic_embeddings\.py|"
     r"docs/development/(?:authenticated_observer_ingress_receipt|"
+    r"owner_cognition_feedback_cross_cycle_recall_protocol|"
     r"observation_authentication_receipt_summary|"
     r"history_transfer_evidence_precondition|"
     r"history_transfer_precondition_audit|"

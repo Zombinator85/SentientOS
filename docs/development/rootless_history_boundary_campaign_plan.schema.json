@@ -102,7 +102,7 @@
       "type": "object",
       "minProperties": 3,
       "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-      "propertyNames": {"pattern": "^([A-Za-z_][A-Za-z0-9_]*\\.py|sentientos/.+\\.py|scripts/.+\\.py|work/.+\\.py|[A-Za-z_][A-Za-z0-9_]*/.+\\.py|semantic_embeddings\\.py|docs/development/(authenticated_observer_ingress_receipt|observation_authentication_receipt_summary|history_transfer_evidence_precondition|history_transfer_precondition_audit|rootless_history_boundary_campaign_plan|rootless_novel_acquisition_transfer_probe_preflight|rootless_history_boundary_campaign_audit|rootless_planned_cycle_strategy_inclusion_ablation|rootless_planned_cycle_historical_examples_ablation|developmental_history_task_score_lineage_failure)\\.schema\\.json)$"}
+      "propertyNames": {"pattern": "^([A-Za-z_][A-Za-z0-9_]*\\.py|sentientos/.+\\.py|scripts/.+\\.py|work/.+\\.py|[A-Za-z_][A-Za-z0-9_]*/.+\\.py|semantic_embeddings\\.py|docs/development/(?:owner_cognition_feedback_cross_cycle_recall_protocol\\.json|(?:authenticated_observer_ingress_receipt|observation_authentication_receipt_summary|history_transfer_evidence_precondition|history_transfer_precondition_audit|rootless_history_boundary_campaign_plan|rootless_novel_acquisition_transfer_probe_preflight|rootless_history_boundary_campaign_audit|rootless_planned_cycle_strategy_inclusion_ablation|rootless_planned_cycle_historical_examples_ablation|developmental_history_task_score_lineage_failure)\\.schema\\.json))$"}
     },
     "transfer_probe_count": {"type": "integer", "minimum": 4, "maximum": 16},
     "cross_range_history_enabled_competence": {

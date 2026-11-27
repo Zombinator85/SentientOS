@@ -709,13 +709,29 @@ model-authored lesson candidate contract remains separate. The generic bounded
 history packet exposes only the short interpretation and its epistemic status,
 not the rejected answer or full receipt.
 
-This implementation has not yet been exercised in a new cycle. A fresh
-preregistered follow-up must verify that the feedback record is committed after
-the three conditions, recovered across the next cycle boundary, selected for
-the later question, and actually delivered to the model. It should compare
-later held-out decisions with and without the record while preserving same-cycle
-condition isolation. Only a durable, held-out change in qualification or
-correctness can support a learning claim.
+The rootless cycle runner now has an explicit cross-cycle recall probe. In a
+later campaign cycle, it follows the immediately preceding cycle's result to
+the exact feedback record and writeback receipt, verifies that pair in the
+seeded history store, and runs the existing present/withheld/restored
+intervention with that record as the only allowed history item. A missing or
+inconsistent prior result, record, or receipt prevents the probe. The score requires exact expected
+responses and dispositions, selected-record identity and digest, history
+citations, empty evidence IDs, matched non-history inputs, and exact prompt
+restoration. The summary stores IDs and digests rather than model output text.
+Its fixed query and scoring rules are frozen in
+`owner_cognition_feedback_cross_cycle_recall_protocol.json`; its digest must
+be supplied as the external preregistration digest before the campaign starts.
+The required digest is SHA-256 of the protocol JSON encoded as UTF-8 after
+normalizing CRLF and CR line endings to LF, in lowercase hexadecimal without a
+prefix. The runner checks that digest against the protocol file before it
+enables the follow-up probe; the campaign plan
+separately binds the source and model implementation hashes.
+
+This follow-up has not yet been run. A qualifying single-probe result would
+show that this exact record was retrieved and used in this controlled question;
+it would not establish general learning, durable capability improvement,
+transfer, model-independent continuity, or causal self-development. Those
+claims still require repeated, held-out outcome evidence.
 
 The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained
