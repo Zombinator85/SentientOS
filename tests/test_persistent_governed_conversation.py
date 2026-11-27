@@ -4907,6 +4907,7 @@ def test_gaming_chat_trims_supplemental_memory_before_recent_transcript(
         selected = len(memory_text) <= budget_chars
         selected = selected and verified
         return {
+            "read_only": True,
             "memories": ([memory_record] if selected else []),
             "selected_memory_ids": ([memory_record["id"]] if selected else []),
             "snapshot_digest": ("a" if selected else "b") * 64,
