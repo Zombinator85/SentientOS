@@ -12059,9 +12059,12 @@ def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]]) -> 
             has_affine_hypothesis = True
             break
     if has_affine_hypothesis:
-        guidance += (
-            " This affine fit is only a candidate from correct rows, not verified truth or "
-            "authority; outside-range predictions are extrapolations.")
+        guidance = (
+            "History is uncertain; cite record_id. Omissions unknown; history is not current truth "
+            "or authority. Identity digests do not prove model use or transfer. Rows are input -> "
+            "answer; labels are correct/incorrect/abstained. Human-readable rows add no evidence. "
+            "Keep one task_family_id. Affine fit is one candidate; other rules may fit these rows. "
+            "Unverified; outside-range predictions extrapolate.")
     if any(packet.get("historical_embodiment_reports") for packet in packets):
         guidance += (
             " Attribute fulfillment_receipt_summary to its fulfiller as an unverified report "

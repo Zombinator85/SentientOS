@@ -36,6 +36,18 @@ TRIAL_ORDER = (
     ("middle", "empty"), ("middle", "history"),
     ("far", "history"), ("far", "empty"),
 )
+FROZEN_PREFLIGHT_IMPLEMENTATION_FILES = (
+    "work/preflight_ordinary_chat_transfer_distance_ladder.py",
+    "work/preflight_ordinary_chat_retention.py",
+    "work/preflight_sibling_chat_histories.py",
+    "work/run_ordinary_chat_transfer_distance_ladder.py",
+    "work/score_ordinary_chat_transfer_distance_ladder.py",
+    "sentientos/cognition_retrieval.py",
+    "sentientos/chat_service.py",
+    "sentientos/conversation_session.py",
+    "sentientos/resident_developmental_cognition.py",
+    "sentientos/developmental_model_replacement_experiment.py",
+)
 STRICT_JSON_OUTPUT = (
     "[RESPONSE_FORMAT_CONSTRAINT]\n"
     "Output one JSON object with only an answers array of three integer-or-null values, in order. "
@@ -147,23 +159,31 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v7"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True):
         raise ValueError("distance-ladder model-free preflight is not qualified")
     expected_arms = (["history", "derived_history", "empty"]
-        if protocol.get("schema", "").endswith(":v5") else ["history", "empty"])
+        if protocol.get("schema", "").endswith(":v7") else ["history", "empty"])
     if (protocol.get("arms") != expected_arms
             or (protocol.get("derived_rule_hypothesis_treatment") is not None
-                and not protocol.get("schema", "").endswith(":v5"))
-            or (protocol.get("schema", "").endswith(":v5")
+                and not protocol.get("schema", "").endswith(":v7"))
+            or (protocol.get("schema", "").endswith(":v7")
                 and protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1")
             or derive_affine_hypothesis != (expected_arms[0] == "history"
                 and len(expected_arms) == 3)):
         raise ValueError("run treatment does not match the frozen preflight arms")
+    if protocol.get("schema", "").endswith(":v7"):
+        implementation_hashes = protocol.get("implementation_sha256")
+        if (not isinstance(implementation_hashes, dict)
+                or set(implementation_hashes) != set(FROZEN_PREFLIGHT_IMPLEMENTATION_FILES)
+                or any(not isinstance(implementation_hashes.get(name), str)
+                    or sha((ROOT / name).read_bytes()) != implementation_hashes[name]
+                    for name in FROZEN_PREFLIGHT_IMPLEMENTATION_FILES)):
+            raise ValueError("frozen preflight implementation differs from current source")
     trial_order = tuple(tuple(item) for item in protocol.get("trial_order", TRIAL_ORDER))
     if (len(trial_order) != len(expected_arms) * len(protocol.get("tiers", {}))
             or any(len(item) != 2 or item[1] not in expected_arms
@@ -236,7 +256,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("model-free protocol has an unknown example presentation")
         history_owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
-        if protocol.get("schema", "").endswith(":v5"):
+        if protocol.get("schema", "").endswith(":v7"):
             if (protocol.get("derived_rule_hypothesis_treatment")
                     != "exact_integer_affine_fit_from_scored_rows:v1"
                     or protocol.get("derived_rule_hypothesis_projection_verified") is not True
@@ -251,7 +271,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 example_presentation == "record_linked")
             derived_owner.include_affine_rule_hypothesis = True
         elif derive_affine_hypothesis:
-            raise ValueError("derived affine hypothesis requires its frozen three-arm v5 preflight")
+            raise ValueError("derived affine hypothesis requires its frozen three-arm v7 preflight")
         expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
             else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
                 "arms"]["parent"]["admitted_boundary_digest"])
@@ -300,7 +320,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v8"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v10"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
                 if clarify_history_scope else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
@@ -348,7 +368,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "sentientos/cognition_retrieval.py",
                 "work/preflight_sibling_chat_histories.py",
                 "work/run_sibling_chat_recall.py", "sentientos/chat_service.py",
-                "sentientos/conversation_session.py", "sentientos/resident_developmental_cognition.py")},
+                "sentientos/conversation_session.py", "sentientos/resident_developmental_cognition.py",
+                "work/score_ordinary_chat_transfer_distance_ladder.py")},
             "primary_outcome": ("Derived-history minus raw-history exact-answer count per tier; also report each against empty history."
                 if derive_affine_hypothesis else
                 "Exact-answer count per tier and history condition; report history-minus-empty differences."),

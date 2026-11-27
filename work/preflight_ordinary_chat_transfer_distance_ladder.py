@@ -287,6 +287,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "work/preflight_ordinary_chat_transfer_distance_ladder.py",
             "work/preflight_ordinary_chat_retention.py",
             "work/preflight_sibling_chat_histories.py",
+            "work/run_ordinary_chat_transfer_distance_ladder.py",
+            "work/score_ordinary_chat_transfer_distance_ladder.py",
             "sentientos/cognition_retrieval.py",
             "sentientos/chat_service.py",
             "sentientos/conversation_session.py",
@@ -294,7 +296,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v5"
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v7"
                 if derive_affine_hypothesis else
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"),
             "ladder_design": ladder_design,
