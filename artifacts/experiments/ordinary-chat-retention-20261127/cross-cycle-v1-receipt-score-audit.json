@@ -1,0 +1,123 @@
+{
+  "all_protocol_criteria_met": false,
+  "all_receipt_links_verified": true,
+  "audit_scope": {
+    "authority": false,
+    "learning_claim": false,
+    "raw_model_output_included": false,
+    "raw_prompt_included": false
+  },
+  "condition_count": 3,
+  "conditions": [
+    {
+      "all_protocol_criteria_met": false,
+      "all_receipt_links_verified": true,
+      "condition_id": "history_present",
+      "inference_receipt_id": "lmrec-d38244443ef9941a59a8f1c9",
+      "links": {
+        "output_digest_matches_receipt": true,
+        "output_digest_matches_score": true,
+        "output_size_matches_receipt": true,
+        "receipt_completed": true,
+        "receipt_id_matches": true,
+        "receipt_id_matches_semantic_digest": true,
+        "receipt_semantic_digest_matches": true,
+        "response_digest_matches_score": true
+      },
+      "output_digest": "94bf690499880510572211e54a24b3c6c12bdb1a51c855219de8f590c9ebcfd4",
+      "protocol_criteria": {
+        "disposition_matches_protocol": false,
+        "evidence_ids_match_protocol": true,
+        "history_citations_match_protocol": false,
+        "response_matches_protocol": false,
+        "score_row_expected_disposition_matches_protocol": true,
+        "score_row_expected_response_matches_protocol": true,
+        "score_row_selected_digests_match_protocol": true,
+        "score_row_selected_ids_match_protocol": true
+      },
+      "receipt_digest": "d38244443ef9941a59a8f1c92a7505a0332b71962390860bfd2207d5f0bb5e00",
+      "receipt_file_sha256": "eb4dbd743220a745d17b206719e2a0aeda17c11dd250384a16d08426c6b8661b",
+      "receipt_schema_version": "sentientos.local_model_invocation_receipt:v8",
+      "recorded_condition_criteria_met": null,
+      "recorded_decision_validation_status": "validated",
+      "response_digest": "548665d383081950bfd7e69c71dc61fbcce12f7d11eac6f3f96b302179c6b8fe",
+      "structured_output_parse_valid": true
+    },
+    {
+      "all_protocol_criteria_met": false,
+      "all_receipt_links_verified": true,
+      "condition_id": "history_withheld",
+      "inference_receipt_id": "lmrec-7dc30b0faf550bc27e1c7bb9",
+      "links": {
+        "output_digest_matches_receipt": true,
+        "output_digest_matches_score": true,
+        "output_size_matches_receipt": true,
+        "receipt_completed": true,
+        "receipt_id_matches": true,
+        "receipt_id_matches_semantic_digest": true,
+        "receipt_semantic_digest_matches": true,
+        "response_digest_matches_score": true
+      },
+      "output_digest": "2ebb97aab7e69ee88afe01626254675f40ca367b2cecb068234ebfe02d58baba",
+      "protocol_criteria": {
+        "disposition_matches_protocol": false,
+        "evidence_ids_match_protocol": false,
+        "history_citations_match_protocol": true,
+        "response_matches_protocol": false,
+        "score_row_expected_disposition_matches_protocol": true,
+        "score_row_expected_response_matches_protocol": true,
+        "score_row_selected_digests_match_protocol": true,
+        "score_row_selected_ids_match_protocol": true
+      },
+      "receipt_digest": "7dc30b0faf550bc27e1c7bb95c1effa2528344e6f6c8599eeebf0bb132d3e2c4",
+      "receipt_file_sha256": "9803d2124b99168e2f8b68aefcf6c6899b701f64788c2fcb6133b1beeb6eff76",
+      "receipt_schema_version": "sentientos.local_model_invocation_receipt:v8",
+      "recorded_condition_criteria_met": null,
+      "recorded_decision_validation_status": "validated",
+      "response_digest": "65a40ea78aba68c7614bbd15f9fc844cb43c0aa10a3c4ab2546441c1c4d207b2",
+      "structured_output_parse_valid": true
+    },
+    {
+      "all_protocol_criteria_met": false,
+      "all_receipt_links_verified": true,
+      "condition_id": "history_restored",
+      "inference_receipt_id": "lmrec-7e7e46b33e2abd887e22ea0e",
+      "links": {
+        "output_digest_matches_receipt": true,
+        "output_digest_matches_score": true,
+        "output_size_matches_receipt": true,
+        "receipt_completed": true,
+        "receipt_id_matches": true,
+        "receipt_id_matches_semantic_digest": true,
+        "receipt_semantic_digest_matches": true,
+        "response_digest_matches_score": true
+      },
+      "output_digest": "94bf690499880510572211e54a24b3c6c12bdb1a51c855219de8f590c9ebcfd4",
+      "protocol_criteria": {
+        "disposition_matches_protocol": false,
+        "evidence_ids_match_protocol": true,
+        "history_citations_match_protocol": false,
+        "response_matches_protocol": false,
+        "score_row_expected_disposition_matches_protocol": true,
+        "score_row_expected_response_matches_protocol": true,
+        "score_row_selected_digests_match_protocol": true,
+        "score_row_selected_ids_match_protocol": true
+      },
+      "receipt_digest": "7e7e46b33e2abd887e22ea0e2d63e45a972315fd6c4ee0aca7924b6f460da5fe",
+      "receipt_file_sha256": "2e93992398f32a5ac0d699e881e2f88c8b8f526ee82cb1c4e539dc27c909b136",
+      "receipt_schema_version": "sentientos.local_model_invocation_receipt:v8",
+      "recorded_condition_criteria_met": null,
+      "recorded_decision_validation_status": "validated",
+      "response_digest": "548665d383081950bfd7e69c71dc61fbcce12f7d11eac6f3f96b302179c6b8fe",
+      "structured_output_parse_valid": true
+    }
+  ],
+  "cycle_id": "rootless-cognition-cycle-7e59c1f038f941dcbfbc",
+  "cycle_result_sha256": "a2dccde54d3d23e170b6b71e357ae8f99b9156ccd83e6d38b1e6d3b84679f4a3",
+  "protocol_binding_verified": true,
+  "protocol_sha256": "dc876a24153465ad632fc1893bd564192cbcf51a4cc5654728b7081d99174b60",
+  "recall_schema_version": "sentientos.cross_cycle_owner_feedback_recall:v1",
+  "recall_status": "completed_scored_probe",
+  "recorded_qualification": false,
+  "schema_version": "sentientos.cross_cycle_recall_receipt_score_audit:v1"
+}
