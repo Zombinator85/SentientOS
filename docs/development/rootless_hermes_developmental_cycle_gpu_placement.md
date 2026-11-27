@@ -4581,3 +4581,15 @@ Plan v14 binds the normalized-generation comparison fix and the new progression-
 Before launch, a model-free replay of v14's frozen task-generation seeds found three exact probe values shared across its two cycles. v14 is retired and neither cycle may be run. The planner now rejects wide-range plans that reuse a probe within an acquisition/transfer pair or across campaign cycles. This prevents previously scored examples from silently reappearing in later history conditions; a fresh plan must pass this guard before any inference.
 
 Replacement plan v15 passes the new disjoint-probe planner guard: each cycle's 3 acquisition and 12 transfer inputs are disjoint, and the two 15-input cycle suites have no exact overlap. The model-free verifier matched all 2,557 implementation pins and both model identities. Campaign `rootless-history-campaign-fa8a5a732f884f5b9df7`, plan digest `3ec48f1a9f9cd3e71c89baef057f5329d13099f3fc5f4d1677f1e559dd804192`; cycle IDs `rootless-cognition-cycle-e9288c632e9942f4acb5` and `rootless-cognition-cycle-45fbb925f7db426c8a06`; task seeds `130304764` and `4094112148`; backend seeds `527158896` and `841446896`. It binds source commit `e4f3ecd1b6fecd2141195bf43bc4161703f3320b`. Artifact: [`campaign-plan-wsl-v15.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v15.json). No v15 inference has been performed.
+
+The v15 first cycle reached transfer-history writeback and stopped with
+`developmental_history_task_family_binding_invalid`. The terminal artifact had
+no diagnostic to distinguish which bounded binding check rejected the projected
+fact. The writeback validator now emits a structural diagnostic containing only
+failed check identifiers (for example, missing descriptor or probe-count
+mismatch); it does not include task text, model output, or evidence values. This
+preserves the existing fail-closed checks and makes a future fresh cycle's
+failure actionable. The cycle is incomplete, made no learning claim, and is
+spent; no retry or cycle-1 inference has been run. The model is unloaded and
+GPU utilization returned near idle. A fresh implementation-bound plan is
+required before another inference campaign.

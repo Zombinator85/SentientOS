@@ -2645,17 +2645,41 @@ def _developmental_history_interpretation_projection(
             and row.get("condition_id") == "history_present"), None)
         probe_results = history_score.get("probe_results") if isinstance(history_score, Mapping) else None
         probes = descriptor.get("probe_inputs") if isinstance(descriptor, Mapping) else None
-        if (not isinstance(history_score, Mapping)
-                or not isinstance(family_id, str) or not family_id or len(family_id) > 96
-                or not isinstance(descriptor, Mapping)
-                or descriptor.get("task_family_id") != family_id
-                or original.get("task_family_posture") != "operator_declared_protocol_bound"
-                or not isinstance(original.get("acquisition_examples"), list)
-                or len(original["acquisition_examples"]) > 16
-                or not isinstance(probes, (list, tuple)) or len(probes) != len(original["acquisition_examples"])
-                or not isinstance(probe_results, (list, tuple)) or len(probe_results) != len(probes)
-                or not isinstance(history_score.get("score_digest"), str)):
-            raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
+        binding_failures: list[str] = []
+        if not isinstance(history_score, Mapping):
+            binding_failures.append("history_present_score_missing")
+        if not isinstance(family_id, str) or not family_id or len(family_id) > 96:
+            binding_failures.append("task_family_id_invalid")
+        if not isinstance(descriptor, Mapping):
+            binding_failures.append("task_descriptor_missing")
+        elif descriptor.get("task_family_id") != family_id:
+            binding_failures.append("task_descriptor_family_mismatch")
+        if original.get("task_family_posture") != "operator_declared_protocol_bound":
+            binding_failures.append("task_family_posture_unrecognized")
+        acquisition_examples = original.get("acquisition_examples")
+        if not isinstance(acquisition_examples, list):
+            binding_failures.append("acquisition_examples_missing")
+        elif len(acquisition_examples) > 16:
+            binding_failures.append("acquisition_examples_over_bound")
+        if not isinstance(probes, (list, tuple)):
+            binding_failures.append("task_probe_inputs_missing")
+        elif isinstance(acquisition_examples, list) and len(probes) != len(acquisition_examples):
+            binding_failures.append("task_probe_acquisition_count_mismatch")
+        if not isinstance(probe_results, (list, tuple)):
+            binding_failures.append("history_score_probe_results_missing")
+        elif isinstance(probes, (list, tuple)) and len(probe_results) != len(probes):
+            binding_failures.append("history_score_probe_count_mismatch")
+        if not isinstance(history_score, Mapping) or not isinstance(
+                history_score.get("score_digest"), str):
+            binding_failures.append("history_score_digest_missing")
+        if binding_failures:
+            raise DevelopmentalWritebackError(
+                "developmental_history_task_family_binding_invalid",
+                diagnostic={
+                    "schema_version": (
+                        "sentientos.developmental_history_task_family_binding_failure:v1"),
+                    "failed_checks": binding_failures,
+                })
         if not isinstance(history_score, Mapping) or not isinstance(history_condition, Mapping):
             raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
         expected_examples: list[dict[str, Any]] = []
