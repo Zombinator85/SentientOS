@@ -298,6 +298,27 @@ def test_distinctive_memory_anchor_beats_multiple_common_term_matches(
     assert [record["id"] for record in selected] == ["memory-atlas"]
 
 
+def test_shared_archive_term_does_not_retrieve_unrelated_memories(
+        tmp_path: Path, monkeypatch) -> None:
+    store = CanonicalMemoryStore(tmp_path / "unused-memory")
+    records = [
+        {"id": "memory-battery",
+            "text": "The battery calibration archive is stored in drawer amber.",
+            "timestamp": "2026-01-01T00:00:00Z"},
+        {"id": "memory-moon",
+            "text": "The moon observation archive is stored in cabinet blue.",
+            "timestamp": "2026-01-02T00:00:00Z"},
+    ]
+    monkeypatch.setattr(store, "_records", lambda: (records, "complete"))
+
+    selected = store.retrieve(
+        "What happens next? Where is the battery calibration archive?")["memories"]
+    generic = store.retrieve("Where is the archive?")["memories"]
+
+    assert [record["id"] for record in selected] == ["memory-battery"]
+    assert generic == []
+
+
 def test_invalid_memory_timestamp_never_wins_recency_tie(
         tmp_path: Path, monkeypatch) -> None:
     store = CanonicalMemoryStore(tmp_path / "unused-memory")

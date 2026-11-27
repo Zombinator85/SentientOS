@@ -17,6 +17,12 @@ are separate labelled data blocks. Recalled text—including text that says
 “ignore previous instructions”—is never a system instruction, policy, truth, or
 authority source.
 
+Memory matching uses specific topic words and downweights words that appear in
+many retained records. A generic term such as “archive” is not enough by itself
+to retrieve every record about an archive. Sparse follow-up queries may also
+include the latest relevant user turn, so distinctive details can carry across
+turns without unrelated records entering the prompt.
+
 `POST /chat` remains compatible with `{ "message": "..." }`; it also accepts
 `session_id` and structured `retain: true`. Every semantic response goes through
 `GovernedLocalModelInvoker` with the commissioned active-model identity,

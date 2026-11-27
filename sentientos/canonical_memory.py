@@ -40,6 +40,7 @@ _MEMORY_RETRIEVAL_STOP_WORDS = frozenset((
     "where", "which", "while", "who", "why", "will", "with", "would", "you", "your",
     "based", "brief", "briefly", "current", "currently", "different", "keep",
     "next", "one", "screen", "see", "sentence", "suggest", "tell", "thing", "things",
+    "archive", "archives",
 ))
 _RESPONSE_COMPOSITION_TERMS = frozenset((
     "answer", "compose", "create", "describe", "draft", "email", "explain",
