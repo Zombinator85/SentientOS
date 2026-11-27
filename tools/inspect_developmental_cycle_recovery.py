@@ -47,6 +47,13 @@ def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
         run = _load_mapping(run_path)
         if run is None:
             continue
+        semantic_run = {
+            key: value for key, value in run.items()
+            if key not in {"run_id", "run_digest"}
+        }
+        run_digest_valid = (
+            run.get("run_digest") == "sha256:" + _digest(semantic_run)
+        )
         decisions = run.get("companion_intervention_decisions")
         if not isinstance(decisions, list):
             continue
@@ -79,22 +86,57 @@ def _companion_response_findings(root: Path) -> list[dict[str, Any]]:
                 if response_is_string:
                     response_digest = _digest({"text": response})
             decision_digest = decision.get("response_digest")
+            validation_status = decision.get("decision_validation_status")
+            normalization = decision.get("disposition_normalization")
+            rejected_marker_matches = (
+                validation_status == "rejected_invalid_output"
+                and decision_digest
+                    == _digest({"text": "INVALID_EXPERIMENTAL_RESPONSE"})
+            )
+            if response_digest is not None and response_digest == decision_digest:
+                response_assessment = "receipt_response_digest_verified"
+            elif rejected_marker_matches:
+                response_assessment = "rejected_output_marker_digest_verified"
+            elif validation_status == "validated" and isinstance(normalization, str):
+                response_assessment = "governed_normalized_response_not_reconstructible"
+            else:
+                response_assessment = "unexplained_response_digest_mismatch"
+            receipt_id_matches = (
+                receipt is not None and receipt.get("receipt_id") == receipt_id
+            )
+            receipt_digest_matches_decision = (
+                receipt is not None
+                and decision.get("inference_receipt_digest")
+                    == receipt.get("receipt_digest")
+            )
+            output_digest_matches_receipt = (
+                receipt is not None
+                and decision.get("output_digest") == receipt.get("output_digest")
+            )
             findings.append({
                 "run_id": run.get("run_id"),
                 "run_file": run_path.name,
+                "run_digest_valid": run_digest_valid,
                 "decision_index": index,
                 "receipt_id": receipt_id,
                 "receipt_present": receipt is not None,
+                "receipt_id_matches_decision": receipt_id_matches,
+                "receipt_digest_matches_decision": receipt_digest_matches_decision,
+                "output_digest_matches_receipt": output_digest_matches_receipt,
                 "receipt_output_integrity": (
                     "verified" if output_text_valid else "missing_or_invalid"
                 ),
                 "receipt_response_is_string": response_is_string,
                 "decision_response_digest": decision_digest,
                 "receipt_response_digest": response_digest,
-                "response_digest_matches": (
+                "decision_validation_status": validation_status,
+                "disposition_normalization": normalization,
+                "response_digest_assessment": response_assessment,
+                "response_digest_matches_receipt": (
                     response_digest == decision_digest
                     if response_digest is not None else False
                 ),
+                "rejected_marker_digest_matches": rejected_marker_matches,
             })
     return findings
 
@@ -207,8 +249,15 @@ def main() -> int:
         parser.error(str(exc))
     print(json.dumps(report, sort_keys=True, indent=2))
     has_integrity_conflict = any(
-        item.get("receipt_output_integrity") != "verified"
-        or not item.get("response_digest_matches")
+        not item.get("run_digest_valid")
+        or not item.get("receipt_id_matches_decision")
+        or not item.get("receipt_digest_matches_decision")
+        or not item.get("output_digest_matches_receipt")
+        or item.get("receipt_output_integrity") != "verified"
+        or item.get("response_digest_assessment") in {
+            "governed_normalized_response_not_reconstructible",
+            "unexplained_response_digest_mismatch",
+        }
         for item in report["companion_response_checks"]
     ) or any(
         item.get("checkpoint_classification")
