@@ -3981,13 +3981,19 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
         return
     source_text = provenance.get("source_output_text")
     source_request = provenance.get("source_request")
+    source_request_keys = (set(source_request)
+        if isinstance(source_request, Mapping) else set())
+    expected_source_request_keys = {
+        "purpose", "prompt_digest", "prompt_size", "model_id",
+        "authority_map_digest", "model_artifact_digest", "active_model_identity",
+        "caller", "lifecycle_phase", "correlation_id", "expected_output_format",
+        "structured_output_schema", "budget", "upstream_evidence", "linkage",
+        "allowed_effects", "forbidden_effects", "request_id", "request_digest",
+        "raw_prompt_stored", "ephemeral_prompt_handling"}
     if (not isinstance(source_request, Mapping)
-            or set(source_request) != {"purpose", "prompt_digest", "prompt_size", "model_id",
-                "authority_map_digest", "model_artifact_digest", "active_model_identity",
-                "caller", "lifecycle_phase", "correlation_id", "expected_output_format",
-                "structured_output_schema", "budget", "upstream_evidence", "linkage",
-                "allowed_effects", "forbidden_effects", "request_id", "request_digest",
-                "raw_prompt_stored", "ephemeral_prompt_handling"}
+            or frozenset(source_request_keys) not in {
+                frozenset(expected_source_request_keys),
+                frozenset(expected_source_request_keys | {"authority_map_policy_digest"})}
             or source_request.get("purpose") != "resident_developmental_retrieval_cognition"
             or source_request.get("expected_output_format") != "json"
             or source_request.get("structured_output_schema") != RESIDENT_COGNITION_LESSON_OUTPUT_SCHEMA
@@ -3999,6 +4005,10 @@ def _verify_history_conditioned_candidate(candidate: DevelopmentalCandidate) -> 
             or source_request.get("forbidden_effects") != {
                 "provider_network": False, "tool": False, "memory": False,
                 "action": False, "adoption": False, "repository_mutation": False}
+            or ("authority_map_policy_digest" in source_request
+                and (not isinstance(source_request.get("authority_map_policy_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        source_request["authority_map_policy_digest"]) is None))
             or source_request.get("raw_prompt_stored") is not False):
         raise DevelopmentalWritebackError("cognition_candidate_request_invalid")
     request_semantic = {key: value for key, value in source_request.items()
