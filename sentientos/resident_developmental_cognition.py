@@ -11261,7 +11261,7 @@ _EXPLICIT_CURRENT_QUESTION_MARKER = re.compile(
     r"\b(?:current|currently|now|today|still)\b|\bright\s+now\b|\bat\s+present\b",
     re.IGNORECASE)
 _HISTORICAL_QUESTION_MARKER = re.compile(
-    r"\b(?:what did|what was|previously?|last time|last week|yesterday|historical|at the time)\b",
+    r"\b(?:what did|what was|previous(?:ly)?|last time|last week|yesterday|historical|at the time)\b",
     re.IGNORECASE)
 _IMPLICIT_CURRENT_CONDITION_QUESTION_MARKER = re.compile(
     r"^\s*(?:"
@@ -18620,9 +18620,14 @@ class ResidentDevelopmentalCognitionOwner:
                         "self_model_claim_ids": [],
                         "conversation_turn_ids": [],
                     }
-                decision = _normalize_present_answer_for_source_freshness(
-                    decision, question=interaction_question, current=current,
-                    prior_self_model=prior_self_model)
+                if not companion_intervention:
+                    # Controlled history trials measure the direct model
+                    # response under matched present/withheld/restored inputs.
+                    # Serving freshness rewrites would detach its response
+                    # digest from the invocation receipt.
+                    decision = _normalize_present_answer_for_source_freshness(
+                        decision, question=interaction_question, current=current,
+                        prior_self_model=prior_self_model)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
                 if companion_intervention and protocol is not None:
                     # A completed controlled-trial response that violates its

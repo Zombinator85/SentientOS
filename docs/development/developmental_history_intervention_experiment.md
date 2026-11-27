@@ -714,7 +714,12 @@ writebacks retain the resident-developmental-writeback prefix. When that
 companion tick is already checkpointed without a history record, recovery may
 attach this feedback record only if the checkpoint snapshot ID and digest
 match; other record conflicts remain errors. This models the feedback append
-as the durable writeback completing the existing cognition tick.
+as the durable writeback completing the existing cognition tick. The
+controlled history trials retain the direct model response so its digest remains
+bound to the invocation receipt. Serving-time freshness normalization continues
+to apply to ordinary companion decisions; trial outcomes are measured without
+that post-inference rewrite. The general historical cue also matches both the
+forms previous and previously.
 
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to
