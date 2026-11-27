@@ -729,7 +729,10 @@ intervention with that record as the only allowed history item. A missing or
 inconsistent prior result, record, or receipt prevents the probe. The score requires exact expected
 responses and dispositions, selected-record identity and digest, history
 citations, empty evidence IDs, matched non-history inputs, and exact prompt
-restoration. The summary stores IDs and digests rather than model output text.
+restoration. The result reports selection, citation, response, and expected-use
+assessments separately. Selection alone is not treated as model use; a record
+selected without its citation is recorded as selected but not cited. The summary
+stores IDs and digests rather than model output text.
 Its fixed query and scoring rules are frozen in
 `owner_cognition_feedback_cross_cycle_recall_protocol.json`; its digest must
 be supplied before the campaign starts using

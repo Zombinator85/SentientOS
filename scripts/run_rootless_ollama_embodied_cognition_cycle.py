@@ -6082,7 +6082,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         prior_feedback_reference: Mapping[str, Any]) -> dict[str, Any]:
     """Measure retrieval of one prior owner feedback record under fixed ablation."""
     base: dict[str, Any] = {
-        "schema_version": "sentientos.cross_cycle_owner_feedback_recall:v1",
+        "schema_version": "sentientos.cross_cycle_owner_feedback_recall:v2",
         "cycle_index": cycle_index,
         "external_preregistration_digest": _optional_preregistration_digest(
             PREREGISTRATION_DIGEST),
@@ -6187,14 +6187,44 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         expected_digests = [record.record_digest] if should_retrieve else []
         selection_verified = (retrieved_ids == expected_ids
             and retrieved_digests == expected_digests)
-        delivery_verified = citations == expected_ids
-        response_correct = (isinstance(row, Mapping)
-            and row.get("decision_validation_status", "validated") == "validated"
-            and row.get("decision_validation_error_code") is None
+        citation_verified = citations == expected_ids
+        validation_status = (row.get("decision_validation_status", "validated")
+            if isinstance(row, Mapping) else None)
+        validation_error = (row.get("decision_validation_error_code")
+            if isinstance(row, Mapping) else None)
+        response_matches = (isinstance(row, Mapping)
             and row.get("response") == expected_response
             and row.get("disposition") == expected_disposition
-            and row.get("evidence_ids") == []
-            and selection_verified and delivery_verified)
+            and row.get("evidence_ids") == [])
+        if validation_status != "validated" or validation_error is not None:
+            response_assessment = "decision_not_validated"
+        elif response_matches:
+            response_assessment = "expected_response_and_disposition"
+        else:
+            response_assessment = "response_or_disposition_mismatch"
+        if should_retrieve:
+            selection_assessment = ("expected_record_selected"
+                if selection_verified else "expected_record_selection_mismatch")
+            citation_assessment = ("expected_record_cited"
+                if citation_verified else "selected_record_not_cited")
+        else:
+            selection_assessment = ("expected_absence_preserved"
+                if selection_verified else "unexpected_record_selected")
+            citation_assessment = ("no_citation_as_expected"
+                if citation_verified else "unexpected_history_citation")
+        response_correct = (selection_verified and citation_verified
+            and response_assessment == "expected_response_and_disposition")
+        if should_retrieve and selection_verified and not citation_verified:
+            use_assessment = "record_selected_but_not_cited"
+        elif (not should_retrieve and selection_verified
+                and response_assessment != "expected_response_and_disposition"):
+            use_assessment = "withheld_condition_response_not_correct"
+        elif response_correct:
+            use_assessment = "expected_record_retrieved_cited_and_used"
+        elif selection_verified:
+            use_assessment = "selection_verified_expected_use_not_demonstrated"
+        else:
+            use_assessment = "selection_not_verified"
         measured_conditions.append({
             "condition_id": condition_id,
             "expected_response": expected_response,
@@ -6209,7 +6239,11 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
                 "matched_control_inputs_digest")
                 if isinstance(row, Mapping) else None,
             "selection_verified": selection_verified,
-            "delivery_verified": delivery_verified,
+            "selection_assessment": selection_assessment,
+            "citation_verified": citation_verified,
+            "citation_assessment": citation_assessment,
+            "response_assessment": response_assessment,
+            "model_use_assessment": use_assessment,
             "response_digest": row.get("response_digest")
                 if isinstance(row, Mapping) else None,
             "output_digest": row.get("output_digest")
@@ -6218,9 +6252,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
                 if isinstance(row, Mapping) else None,
             "inference_receipt_id": row.get("inference_receipt_id")
                 if isinstance(row, Mapping) else None,
-            "decision_validation_status": row.get(
-                "decision_validation_status", "validated")
-                if isinstance(row, Mapping) else None,
+            "decision_validation_status": validation_status,
             "observed_disposition": row.get("disposition")
                 if isinstance(row, Mapping) else None,
             "response_correct": response_correct,
