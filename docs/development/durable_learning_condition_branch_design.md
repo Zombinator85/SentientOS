@@ -1708,7 +1708,8 @@ Before delayed-probe evidence is loaded, `reconcile_recovered_consolidation_arti
 can reconstruct missing controller-side intent and receipt artifacts from a
 completed v2 run. It requires the supervisor's snapshot result and owner-tick
 completion to agree, derives the append-only state delta, persists immutable
-artifacts, and reloads them through `_verify_persisted_consolidation_receipt(...)`.
+artifacts, and validates the candidate receipt against the live owner state both
+before sealing and after reload through `_verify_persisted_consolidation_receipt(...)`.
 Existing receipts are reverified; incomplete or interrupted recovery runs do
 not produce artifacts. This closes the recovery-to-controller evidence gap
 without starting a tick or changing probe, adoption, retention, or authority

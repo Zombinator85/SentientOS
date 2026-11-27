@@ -14883,8 +14883,20 @@ class DurableDevelopmentalLearningRunner:
                 "consolidation_policy_preregistered": True,
                 "retention_contrast_eligible": False,
                 "authority": False}
+            receipt_digest = digest_payload(receipt_payload)
+            preview_receipt = {**receipt_payload,
+                "receipt_id":
+                    "devexp-durable-learning-consolidation-receipt-"
+                    + receipt_digest[:24],
+                "receipt_digest": receipt_digest}
+            self._verify_persisted_consolidation_receipt(
+                protocol=protocol, branch=branch, intent=intent,
+                receipt=preview_receipt)
             sealed = self._store.persist_consolidation_receipt(protocol,
                 intent=intent, receipt=receipt_payload)
+            if sealed != preview_receipt:
+                raise ValueError(
+                    "durable_learning_recovered_consolidation_seal_mismatch")
             reconciled[condition] = self._verify_persisted_consolidation_receipt(
                 protocol=protocol, branch=branch, intent=intent, receipt=sealed)
         return reconciled
