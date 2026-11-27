@@ -698,10 +698,20 @@ and qualification result; it should omit rejected answer text and keep
 `decision_qualified=false`, `current_truth=false`, `authority=false`, and
 `canonical_explicit_user_retention=false`. The record is historical evidence
 about system performance, not a belief about the world or an instruction about
-what the intelligence should want. A fresh preregistered follow-up should then
-compare later held-out decisions with and without that record actually
-retrieved, while preserving same-cycle condition isolation. Only a durable,
-held-out change in qualification or correctness can support a learning claim.
+what the intelligence should want.
+
+The implementation boundary is after `run_companion_history_intervention` has
+validated all three captures, never between conditions. Add a distinct
+owner-feedback candidate kind to `DevelopmentalWritebackController`; its
+append and recovery validators must rebind the feedback to the persisted
+observation and invocation receipt, and permit an empty selected-fact set only
+for this verified kind. Project its bounded performance fields through
+`_history_context_packet` without adding raw response text. The existing
+model-authored lesson candidate contract must remain separate. A fresh
+preregistered follow-up should then compare later held-out decisions with and
+without that record actually retrieved, while preserving same-cycle condition
+isolation. Only a durable, held-out change in qualification or correctness can
+support a learning claim.
 
 The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained
