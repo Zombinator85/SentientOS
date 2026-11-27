@@ -797,6 +797,23 @@ def create_plan(*, history_root: Path, campaign_id: str,
         for index, probe_set in enumerate(planned_probe_sets):
             if any(probe_set & prior for prior in planned_probe_sets[:index]):
                 raise ValueError("history_campaign_novel_cycle_probe_reuse")
+    elif task_family_id == _WIDE_TASK_FAMILY:
+        planned_probe_sets = []
+        for seed in task_generation_seeds:
+            acquisition_task, transfer_task = (
+                rootless_integer_affine_transfer_task_pair(seed,
+                    task_family_id=_WIDE_TASK_FAMILY,
+                    transfer_probe_count=transfer_probe_count))
+            acquisition_inputs = set(
+                acquisition_task.specification()["probe_inputs"])
+            transfer_inputs = set(transfer_task.specification()["probe_inputs"])
+            if acquisition_inputs & transfer_inputs:
+                raise ValueError("history_campaign_wide_task_probe_overlap")
+            probe_set = acquisition_inputs | transfer_inputs
+            planned_probe_sets.append(probe_set)
+        for index, probe_set in enumerate(planned_probe_sets):
+            if any(probe_set & prior for prior in planned_probe_sets[:index]):
+                raise ValueError("history_campaign_wide_cycle_probe_reuse")
     semantic = {
         "schema_version": plan_schema,
         "campaign_id": campaign_id,
