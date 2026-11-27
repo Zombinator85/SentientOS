@@ -4689,7 +4689,25 @@ pre-registered baseline competence gate. Acquisition scored 1/3, below the
 2/3 threshold required to compare the history conditions. Transfer was
 therefore skipped with
 `skipped_history_withheld_baseline_competence_not_demonstrated`; longitudinal
-progression did not run and no history effect or learning claim was made. This
-does not show that prior-cycle history helped or harmed performance. Both
-cycles recorded `governed_release_completed`; cycle 1 returned GPU memory to
-about 1.2 GiB used at its terminal sample.
+progression did not run. The retained acquisition condition counts were
+history-present 1/3, history-withheld 0/3, and history-restored 1/3: one probe
+favored present/restored history and the other two were incorrect in all
+conditions. Separately, the semantic companion-response assessment rejected
+the withheld response because it cited a disallowed history record
+(`companion_interaction_history_id_not_allowed`). The cycle-level assessment
+therefore did not qualify a history-associated decision difference or make a
+learning claim. The single-probe score difference is not evidence that
+prior-cycle history helped or harmed performance. Both cycles recorded
+`governed_release_completed`; cycle 1 returned GPU memory to about 1.2 GiB
+used at its terminal sample.
+
+The three-probe acquisition suite makes the competence gate sensitive to a
+small sample. The v7 acquisition domain contains only inputs 2–9, and v18's
+two disjoint cycles used six probes from that domain; a larger two-cycle suite
+cannot be preregistered there without reusing v18 inputs. The next measurement
+improvement adds plan-bound acquisition sample sizing for the v8 novel-range
+family. Plan schema v14 accepts 4–16 acquisition probes and scales the existing
+two-thirds competence threshold with `ceil(2n/3)`, so a 12-probe suite still
+requires 8 correct withheld-history probes. Older plans retain their existing
+three-probe interpretation. This increases measurement resolution without
+lowering the competence gate and does not itself establish learning.

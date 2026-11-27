@@ -2277,6 +2277,7 @@ def derive_rootless_task_commitment_nonces(master_key: str, *, seed: int,
 def rootless_integer_affine_transfer_task_pair(seed: int, *,
         task_family_id: str = ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY,
         history_task_family_ids: tuple[str, ...] | None = None,
+        acquisition_probe_count: int = 3,
         transfer_probe_count: int = 3,
         commitment_nonces: tuple[str, str] | None = None
         ) -> tuple[ObjectivePredictionTask, ObjectivePredictionTask]:
@@ -2287,6 +2288,7 @@ def rootless_integer_affine_transfer_task_pair(seed: int, *,
     family uses an acquisition range above v7 (1001–10000) and a separate
     transfer range (10001–1000000), keeping its novelty-focused probes
     distinct from prior v6/v7 inputs while still requiring a history audit.
+    Acquisition and transfer sample sizes are independently plan-bound.
     Matched target preflights may provide a private acquisition/transfer nonce
     pair so independently constructed plans commit to the same task. Leave it
     unset for ordinary plans, which continue to receive fresh nonces.
@@ -2294,6 +2296,10 @@ def rootless_integer_affine_transfer_task_pair(seed: int, *,
     if type(seed) is not int or not 0 < seed <= 2**32 - 1:
         raise DevelopmentalModelReplacementError(
             "objective_task_generation_seed_invalid")
+    if (type(acquisition_probe_count) is not int
+            or not 1 <= acquisition_probe_count <= 16):
+        raise DevelopmentalModelReplacementError(
+            "objective_acquisition_probe_count_invalid")
     if type(transfer_probe_count) is not int or not 1 <= transfer_probe_count <= 16:
         raise DevelopmentalModelReplacementError(
             "objective_transfer_probe_count_invalid")
@@ -2313,6 +2319,9 @@ def rootless_integer_affine_transfer_task_pair(seed: int, *,
     generator = random.Random(seed)
     acquisition_range, transfer_range = (
         FIXED_OBJECTIVE_TASK_FAMILY_PROBE_RANGES[family])
+    if acquisition_probe_count > acquisition_range[1] - acquisition_range[0] + 1:
+        raise DevelopmentalModelReplacementError(
+            "objective_acquisition_probe_count_invalid")
     registered_history_families = (history_task_family_ids
         if history_task_family_ids is not None else
         (family,)
@@ -2324,7 +2333,8 @@ def rootless_integer_affine_transfer_task_pair(seed: int, *,
         if family == ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY
         else ())
     acquisition_inputs = tuple(sorted(generator.sample(
-        range(acquisition_range[0], acquisition_range[1] + 1), 3)))
+        range(acquisition_range[0], acquisition_range[1] + 1),
+        acquisition_probe_count)))
     transfer_inputs = tuple(sorted(generator.sample(
         range(transfer_range[0], transfer_range[1] + 1),
         transfer_probe_count)))

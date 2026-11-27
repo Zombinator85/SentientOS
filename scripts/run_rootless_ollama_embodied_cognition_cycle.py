@@ -243,6 +243,7 @@ _SOURCE_PROVENANCE_GIT = (
 _OBJECTIVE_TRANSFER_TASK_FAMILY = (
     ROOTLESS_INTEGER_AFFINE_TRANSFER_TASK_FAMILY)
 _ACTIVE_OBJECTIVE_TRANSFER_TASK_FAMILY = _OBJECTIVE_TRANSFER_TASK_FAMILY
+_ACTIVE_OBJECTIVE_ACQUISITION_PROBE_COUNT = 3
 _ACTIVE_OBJECTIVE_TRANSFER_PROBE_COUNT = 3
 _SUPPORTED_OBJECTIVE_TRANSFER_TASK_FAMILIES = frozenset({
     "rootless_integer_affine_transfer_low_range_v5",
@@ -338,6 +339,7 @@ def _validate_history_campaign_launch() -> tuple[
         dict[str, Any] | None, str | None, dict[str, Any] | None,
         dict[str, Any] | None]:
     global _ACTIVE_OBJECTIVE_TRANSFER_TASK_FAMILY
+    global _ACTIVE_OBJECTIVE_ACQUISITION_PROBE_COUNT
     global _ACTIVE_OBJECTIVE_TRANSFER_PROBE_COUNT
     global WIDE_TRANSFER_PROBE_PREFLIGHT
     WIDE_TRANSFER_PROBE_PREFLIGHT = None
@@ -368,7 +370,8 @@ def _validate_history_campaign_launch() -> tuple[
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
-                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v13",
+                "sentientos.rootless_history_boundary_campaign_plan:v14"}:
             verify_model_identity_recipe(plan)
             if plan.get("schema_version") in {
                     "sentientos.rootless_history_boundary_campaign_plan:v8",
@@ -376,7 +379,8 @@ def _validate_history_campaign_launch() -> tuple[
                     "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
-                    "sentientos.rootless_history_boundary_campaign_plan:v13"}:
+                    "sentientos.rootless_history_boundary_campaign_plan:v13",
+                    "sentientos.rootless_history_boundary_campaign_plan:v14"}:
                 verify_experiment_implementation(plan)
     except (OSError, ValueError, RuntimeError) as exc:
         raise RootlessExperimentalError(
@@ -401,7 +405,8 @@ def _validate_history_campaign_launch() -> tuple[
                 or plan.get("schema_version") not in {
                     "sentientos.rootless_history_boundary_campaign_plan:v11",
                     "sentientos.rootless_history_boundary_campaign_plan:v12",
-                    "sentientos.rootless_history_boundary_campaign_plan:v13"})):
+                    "sentientos.rootless_history_boundary_campaign_plan:v13",
+                    "sentientos.rootless_history_boundary_campaign_plan:v14"})):
         raise RootlessExperimentalError(
             "history_campaign_experiment_implementation_unbound")
     model_recipe = plan.get("model_identity_recipe")
@@ -416,6 +421,8 @@ def _validate_history_campaign_launch() -> tuple[
             raise RootlessExperimentalError(
                 "history_campaign_runtime_gpu_layers_mismatch")
     _ACTIVE_OBJECTIVE_TRANSFER_TASK_FAMILY = task_family_id
+    _ACTIVE_OBJECTIVE_ACQUISITION_PROBE_COUNT = plan.get(
+        "acquisition_probe_count", 3)
     _ACTIVE_OBJECTIVE_TRANSFER_PROBE_COUNT = plan.get("transfer_probe_count", 3)
     cycle_ids = plan.get("ordered_cycle_ids")
     if not isinstance(cycle_ids, list) or cycle_ids.count(RUN_ID) != 1:
@@ -460,7 +467,8 @@ def _validate_history_campaign_launch() -> tuple[
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
-                "sentientos.rootless_history_boundary_campaign_plan:v13"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v13",
+                "sentientos.rootless_history_boundary_campaign_plan:v14"}:
         if index == 0:
             expected_admission_boundary = plan.get(
                 "initial_runtime_admission_ledger")
@@ -522,6 +530,7 @@ def _validate_history_campaign_launch() -> tuple[
             ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY}:
         acquisition, transfer = rootless_integer_affine_transfer_task_pair(
             EXPERIMENT_SEED, task_family_id=task_family_id,
+            acquisition_probe_count=plan.get("acquisition_probe_count", 3),
             transfer_probe_count=plan.get("transfer_probe_count", 3))
         acquisition_inputs = [acquisition.probe_input,
             *acquisition.additional_probe_inputs]
@@ -2348,7 +2357,12 @@ def _objective_probe_transition_summary(
     }
 
 
-_MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER = 2
+def _minimum_accurate_examples_for_affine_transfer(probe_count: int) -> int:
+    """Require the existing two-thirds competence threshold at any sample size."""
+    if type(probe_count) is not int or probe_count < 1:
+        raise RootlessExperimentalError(
+            "objective_family_acquisition_probe_count_invalid")
+    return (2 * probe_count + 2) // 3
 
 
 def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
@@ -2415,6 +2429,8 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
                 "objective_family_acquisition_score_invalid")
     if probe_count is None:
         raise RootlessExperimentalError("objective_family_acquisition_score_invalid")
+    required_competence_count = (
+        _minimum_accurate_examples_for_affine_transfer(probe_count))
     correct_count, withheld_correct_count, restored_correct_count = (
         condition_correct_counts)
     retained_examples = present.get("probe_results")
@@ -2427,7 +2443,7 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
         and row.get("correct") is None for row in retained_examples
         if isinstance(row, Mapping)) if isinstance(retained_examples, list) else 0)
     baseline_qualified = (type(withheld_correct_count) is int
-        and withheld_correct_count >= _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER)
+        and withheld_correct_count >= required_competence_count)
     if any(count is None for count in condition_correct_counts):
         baseline_classification = "one_or_more_condition_outcomes_unscoreable"
     elif not baseline_qualified:
@@ -2454,7 +2470,7 @@ def _objective_acquisition_summary(run: Mapping[str, Any]) -> dict[str, Any]:
         "retained_abstained_example_count": retained_abstained_count,
         "acquisition_outcome_status": present.get("status"),
         "baseline_competence_qualified": baseline_qualified,
-        "baseline_competence_threshold": _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER,
+        "baseline_competence_threshold": required_competence_count,
         "history_present_minus_withheld_correct_count": (
             correct_count - withheld_correct_count
             if type(correct_count) is int and type(withheld_correct_count) is int else None),
@@ -2471,7 +2487,8 @@ def _objective_transfer_eligibility(acquisition_summary: Mapping[str, Any]) -> d
     if type(accurate) is not int or accurate < 0:
         raise RootlessExperimentalError(
             "objective_family_acquisition_accuracy_count_invalid")
-    required = _MIN_ACCURATE_EXAMPLES_FOR_AFFINE_TRANSFER
+    probe_count = acquisition_summary.get("probe_count")
+    required = _minimum_accurate_examples_for_affine_transfer(probe_count)
     baseline_qualified = acquisition_summary.get("baseline_competence_qualified")
     if type(baseline_qualified) is not bool:
         raise RootlessExperimentalError(
@@ -3193,6 +3210,7 @@ def _objective_task_pair(seed: int) -> tuple[ObjectivePredictionTask, ObjectiveP
     try:
         return rootless_integer_affine_transfer_task_pair(seed,
             task_family_id=_ACTIVE_OBJECTIVE_TRANSFER_TASK_FAMILY,
+            acquisition_probe_count=_ACTIVE_OBJECTIVE_ACQUISITION_PROBE_COUNT,
             transfer_probe_count=_ACTIVE_OBJECTIVE_TRANSFER_PROBE_COUNT)
     except ValueError as exc:
         raise RootlessExperimentalError(
@@ -6194,7 +6212,8 @@ def run() -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v10",
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
-                "sentientos.rootless_history_boundary_campaign_plan:v13"}
+                "sentientos.rootless_history_boundary_campaign_plan:v13",
+                "sentientos.rootless_history_boundary_campaign_plan:v14"}
                 else campaign_plan["model_identity_digest"])
             if (digest_payload({"identity": session.active_model_identity})
                     != expected_identity_digest):
