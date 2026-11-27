@@ -823,6 +823,49 @@ preregistration timing is not independently attested. This is only a stronger
 measurement plan. Even a fully qualified neutral-query result would not show
 durable learning, general transfer, or causal development.
 
+### Earlier exploratory 12-probe recovery attempts
+
+Two earlier schema-v14 recovery campaigns used the same initial history
+boundary and model manifest, but they froze different source revisions and
+different plans. They are exploratory records, not matched replications and
+not runs of the neutral-query plan above.
+
+Campaign `rootless-history-campaign-8b56228e154e42c8ab14` used plan digest
+`0ab7515cc8682cab751a1a7a9d112485fef6307dd84d3e4f04abf56905f6e642`, task
+seeds 171234571/171234572, and backend seeds 2149/2927. Its cycle 0
+(`rootless-cognition-cycle-57ad73290576484f93f2`, source revision
+`dc349b9a2655b7b46e5a2a0b5ea3fb3f89b7c409`) completed with acquisition
+condition counts `[12, 0, 12]`. The frozen baseline threshold was 8, so the
+baseline gate was not met and transfer was skipped. Its cycle-result SHA-256
+is `7ec6b8b78510432b7b3f024073d3bbddeecaedea7a7961affbb55286cbbf1cf8`.
+Cycle 1 (`rootless-cognition-cycle-7824344d72b64d1393d5`) did not complete;
+recovery stopped at `controlled_history_intervention` with
+`run_artifact_companion_response_digest_unverified` and no cycle-result.
+Its failure-record SHA-256 is
+`5b900e4f6e0209bf34bedf1606f8ff9725a1d302b992c30c1cd0b4b7e6c5dd94`.
+
+Campaign `rootless-history-campaign-b49a65aa77294c74b8ac` used plan digest
+`2597540ceab8cb3b34e7dad938fed3d8c8ddf2af697f66b6db772c6392bc1cf5`, task
+seeds 171234569/171234570, and backend seeds 929/1421. Its cycle 0
+(`rootless-cognition-cycle-8d8618a0a8d14e8b916f`, source revision
+`825048e13ec43a34cb6e79b410890e704784a7d8`) completed with acquisition
+condition counts `[0, 0, 0]`. It also failed the threshold-8 baseline gate,
+so transfer was skipped. Its cycle-result SHA-256 is
+`32e180fd88b6669d9d983bb01ca13e7225df26ce137c485e6850d1ecc8660fec`.
+Cycle 1 (`rootless-cognition-cycle-26c43d409f1d4332a674`) did not complete;
+recovery stopped at `synthetic_pre_action_cognition` with
+`recovered_tick_record_conflict` and no cycle-result. Its failure-record
+SHA-256 is
+`204056545737aa44f0870b8e865cc64a52427a19c25afbb89761d298afaf722b`.
+
+These cycle-0 results show that neither run cleared the preregistered
+baseline-competence gate; they do not score transfer. The cycle-1 failures are
+execution/recovery integrity failures, not model-performance observations.
+Different source revisions and seeds prevent treating the two campaigns as a
+controlled replication. Together they motivate preserving cycle artifacts and
+checking recovery integrity, but establish no durable learning, transfer,
+history use, or developmental improvement.
+
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
 owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.
