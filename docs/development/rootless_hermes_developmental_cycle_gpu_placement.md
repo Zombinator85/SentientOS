@@ -4654,3 +4654,15 @@ the corrected progression comparator was not reached. V17 cycle 0 and its
 dependent cycle 1 are retired. The diagnostic now also reports the three
 bounded list counts, without exposing probe answers or model text, so a future
 writeback failure can distinguish missing examples from incomplete score rows.
+
+Replacement plan v18 binds the count-bearing diagnostic and uses fresh cycle
+IDs and seeds. It passed model-free verification with all 2,557 implementation
+pins and both model identities matching; within-cycle and cross-cycle probe
+overlap are all zero. Campaign `rootless-history-campaign-5b3a8e1d4f9067c2a5b1`,
+plan digest `01661770951299e2981a51574c339f91901d8200cc6163303d89cbd1baf073a6`;
+cycle IDs `rootless-cognition-cycle-2c7d93f1e4a85b0c36a2` and
+`rootless-cognition-cycle-a4d6f8b1c2035e7a91f0`; task seeds `1692789451` and
+`445429257`; backend seeds `926070354` and `152614881`. It binds source commit
+`72f93f1c0901602247bf335e4ce97fafc3684b31`. Artifact:
+[`campaign-plan-wsl-v18.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v18.json).
+At plan freeze, no v18 inference had been performed.
