@@ -8961,6 +8961,9 @@ def _bind_history_and_epistemic_context(*, context: Mapping[str, Any],
                 packet_ids = [packet["record_id"] for packet in delivered_packets]
                 packet_digests = [packet["record_digest"]
                     for packet in delivered_packets]
+                if packet_ids != list(ids) or packet_digests != list(digests):
+                    raise ResidentDevelopmentalCognitionError(
+                        "developmental_history_prompt_delivery_custody_mismatch")
                 history_payload = {key: prompt_value.get(key)
                     for key in history_prompt_fields}
                 delivery_binding = {
