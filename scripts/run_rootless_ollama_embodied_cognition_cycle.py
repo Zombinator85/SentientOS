@@ -7134,6 +7134,26 @@ def run() -> dict[str, Any]:
                         and (transfer_progression.get("status")
                             != "comparable_scored_episodes"
                             or len(transfer_progression.get("episodes", [])) != 2)):
+                    # Preserve only the bounded, derived gate results. A
+                    # terminal cycle failure must explain which progression
+                    # invariant failed without copying prompts or model output.
+                    RUN_FAILURE_DIAGNOSTIC = {
+                        "schema_version": (
+                            "sentientos.objective_task_family_progression_failure:v1"),
+                        "progression_status": transfer_progression.get("status"),
+                        "episode_count": len(transfer_progression.get("episodes", [])),
+                        "same_model_generation_controls": transfer_progression.get(
+                            "same_model_generation_controls"),
+                        "distinct_task_instances": transfer_progression.get(
+                            "distinct_task_instances"),
+                        "distinct_probe_sets": transfer_progression.get(
+                            "distinct_probe_sets"),
+                        "all_episodes_scoreable": transfer_progression.get(
+                            "all_episodes_scoreable"),
+                        "learning_established": False,
+                        "authority": False,
+                        "raw_prompts_or_model_outputs_included": False,
+                    }
                     raise RootlessExperimentalError(
                         "objective_family_progression_unverified")
                 transfer_condition_summaries = (
