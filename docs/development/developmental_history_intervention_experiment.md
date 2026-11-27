@@ -676,6 +676,18 @@ label for versioned older schemas. This makes the reason for the false chain
 status explicit; it does not turn the skipped qualification into verified
 evidence or alter the immutable v25 audit.
 
+## Confidence-saturation reanalysis of v23 and v25 acquisition scores
+
+The v3 confidence auditor independently reprocessed the acquisition scores for these two completed campaigns, verifying each acquisition-run digest and every selected-history record digest and posture. These reports cover the objective task-family acquisition conditions; they do not re-score the separate companion-history citation outcome or transfer probes.
+
+In v23, 28 probes were answered and none were correct; 44 were abstentions. In v25, 38 probes were answered: 33 were correct and 5 were incorrect, with 34 abstentions. Every answered probe in both campaigns carried the maximum reported confidence of 10,000 basis points. This is confidence saturation in these saved probes, not a calibration estimate.
+
+The v25 acquisition results came from cycle 0: history-present and history-restored scored 12/12, while history-withheld scored 9/12. Cycle 1 scored 0/12 in each condition; its report shows one incorrect answer each in present and restored and abstention on all withheld probes. These acquisition results align with the existing transfer gate record: cycle 0 met the withheld baseline threshold, while cycle 1 did not. They do not overturn the separately reported 0/12 transfer scores in cycle 0.
+
+v23 and v25 are not a controlled before-and-after comparison. Their task-generation and backend seeds differ, and their pinned model-identity digests differ. Of the 2,557 implementation pins, resident_developmental_cognition.py is the only path whose digest differs between the plans. The observed acquisition difference therefore does not show that the prompt revision, retained history, or system development caused the score change. Neither campaign establishes durable learning or calibration.
+
+The answer-value-free reports are [v23](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/confidence-diagnostic-v23.json), digest `9b47002ec38c691f709fb34945ad184ff9278baab8847c102c9fa756d58422be`, and [v25](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/confidence-diagnostic-v25.json), digest `a68b02842fcf30a8f18a18463590065e3817de962577659f14685a450d37e1b6`. Both report no learning, model attention, calibration, or authority.
+
 ## Next cognition gap: rejected decisions do not become feedback
 
 The cycle result binds each companion condition to its validation outcome, but
