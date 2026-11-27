@@ -64,6 +64,23 @@ def verify(card_path: Path) -> dict[str, Any]:
         card.get("campaign_plan_digest") == plan.get("plan_digest"))
     checks["plan_schema_matches"] = (
         card.get("campaign_plan_schema_version") == plan.get("schema_version"))
+    campaign_design = card.get("campaign_design")
+    if plan.get("schema_version") == "sentientos.rootless_history_boundary_campaign_plan:v14":
+        if not isinstance(campaign_design, dict):
+            raise ValueError("campaign_design_binding_missing")
+        boundary = plan.get("initial_history_boundary")
+        expected_design = {
+            "task_family_id": plan.get("task_family_id"),
+            "acquisition_probe_count": plan.get("acquisition_probe_count"),
+            "transfer_probe_count": plan.get("transfer_probe_count"),
+            "initial_history_boundary_digest": (
+                boundary.get("boundary_digest")
+                if isinstance(boundary, dict) else None),
+        }
+        checks["campaign_design_matches"] = campaign_design == expected_design
+    else:
+        checks["campaign_design_matches"] = (
+            campaign_design is None or isinstance(campaign_design, dict))
 
     recipe = plan.get("model_identity_recipe")
     if not isinstance(recipe, dict):
