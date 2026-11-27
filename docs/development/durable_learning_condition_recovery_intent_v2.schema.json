@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_recovery_intent_v2.schema.json",
+  "title": "Durable learning condition recovery launch intent v2",
+  "description": "One-shot, retry-blocking five-operation intent for policies that bind strategy projection reconstruction.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "setup_artifact", "worker_specs_digest", "worker_executable_digest_by_condition", "operation_sequence", "retry_blocked", "authority", "artifact_digest", "artifact_id"],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_condition_recovery_intent:v2" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "setup_artifact": { "$ref": "#/$defs/artifactRef" },
+    "worker_specs_digest": { "$ref": "#/$defs/digest" },
+    "worker_executable_digest_by_condition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/digest" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "operation_sequence": { "const": ["inspect_baseline", "recover_acquisition_receipts", "prepare_consolidation_snapshot", "consolidate_branch", "reconstruct_strategy_projection_v2"] },
+    "retry_blocked": { "const": true },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-recovery-intent-[0-9a-f]{24}$" }
+  },
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "artifactRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": { "artifact_id": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/digest" } }
+    }
+  }
+}

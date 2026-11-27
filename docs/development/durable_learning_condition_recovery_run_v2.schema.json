@@ -1,0 +1,297 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sentientos.local/schemas/durable_learning_condition_recovery_run_v2.schema.json",
+  "title": "Durable learning condition recovery supervisor run v2",
+  "description": "Records one supervised no-inference five-operation recovery attempt. A completed status means the bounded RPC sequence completed; it does not mean learning occurred.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "protocol_id", "protocol_digest", "intent_artifact", "status", "failure_phase", "failure_code", "worker_pair_launch", "condition_exchanges", "worker_process_observations", "cleanup_errors", "inference_performed", "scoring_performed", "developmental_writeback_performed", "learning_established", "authority", "artifact_digest", "artifact_id"],
+  "properties": {
+    "schema_version": { "const": "sentientos.durable_learning_condition_recovery_run:v2" },
+    "protocol_id": { "type": "string", "pattern": "^devexp-durable-learning-protocol-[0-9a-f]{24}$" },
+    "protocol_digest": { "$ref": "#/$defs/digest" },
+    "intent_artifact": { "$ref": "#/$defs/artifactRef" },
+    "status": { "enum": ["completed", "reconciliation_not_available", "interrupted"] },
+    "failure_phase": { "type": ["string", "null"] },
+    "failure_code": { "type": ["string", "null"] },
+    "worker_pair_launch": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/workerPairLaunch" }] },
+    "condition_exchanges": { "$ref": "#/$defs/byCondition" },
+    "worker_process_observations": { "$ref": "#/$defs/observations" },
+    "cleanup_errors": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
+    "inference_performed": { "const": false },
+    "scoring_performed": { "const": false },
+    "developmental_writeback_performed": { "const": false },
+    "learning_established": { "const": false },
+    "authority": { "const": false },
+    "artifact_digest": { "$ref": "#/$defs/digest" },
+    "artifact_id": { "type": "string", "pattern": "^devexp-durable-learning-worker-recovery-run-[0-9a-f]{24}$" }
+  },
+  "allOf": [{ "$ref": "#/$defs/runLifecycle" }],
+  "$defs": {
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "workerPairLaunch": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "protocol_id", "profile_pair_digest", "worker_observations", "both_condition_sids_match_observed_process_tokens", "conversation_store_process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority", "pipe_endpoints_created_for_both_conditions", "pipe_names_by_condition", "supervisor_process_id", "supervisor_process_creation_time_100ns", "environment_block_sha256_by_condition", "receipt_store_artifact_digest_by_condition", "access_probe_manifest_digest_by_condition", "baseline_runtime_manifest_digest_by_condition", "baseline_protocol_environment_bound", "rpc_dispatch_verified"],
+      "properties": {
+        "schema_version": { "const": "sentientos.windows_appcontainer_worker_pair_launch:v1" },
+        "protocol_id": { "type": "string", "minLength": 1 },
+        "profile_pair_digest": { "$ref": "#/$defs/digest" },
+        "worker_observations": { "$ref": "#/$defs/workerObservations" },
+        "both_condition_sids_match_observed_process_tokens": { "const": true },
+        "conversation_store_process_isolation_verified": { "const": false },
+        "filesystem_isolation_verified": { "const": false },
+        "retention_contrast_eligible": { "const": false },
+        "authority": { "const": false },
+        "pipe_endpoints_created_for_both_conditions": { "const": true },
+        "pipe_names_by_condition": { "$ref": "#/$defs/pipeNames" },
+        "supervisor_process_id": { "type": "integer", "minimum": 1 },
+        "supervisor_process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+        "environment_block_sha256_by_condition": { "$ref": "#/$defs/digestConditionMap" },
+        "receipt_store_artifact_digest_by_condition": { "$ref": "#/$defs/digestConditionMap" },
+        "access_probe_manifest_digest_by_condition": { "oneOf": [{ "type": "object", "maxProperties": 0 }, { "$ref": "#/$defs/digestConditionMap" }] },
+        "baseline_runtime_manifest_digest_by_condition": { "$ref": "#/$defs/digestConditionMap" },
+        "baseline_protocol_environment_bound": { "const": true },
+        "rpc_dispatch_verified": { "const": false }
+      }
+    },
+    "workerObservations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/workerObservation" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/workerObservation" }
+      }
+    },
+    "workerObservation": {
+      "type": "object",
+      "required": ["process_id", "process_creation_time_100ns", "token_is_appcontainer", "appcontainer_sid", "enabled_capability_count", "inherited_handles_requested", "requested_executable_sha256", "job_object_bound", "job_active_process_limit", "protocol_id", "condition", "profile_sid_matches_observed_process_sid", "authority"],
+      "properties": {
+        "process_id": { "type": "integer", "minimum": 1 },
+        "process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+        "token_is_appcontainer": { "const": true },
+        "appcontainer_sid": { "type": "string", "pattern": "^S-1-15-2-(?:[0-9]+-)*[0-9]+$" },
+        "enabled_capability_count": { "const": 0 },
+        "inherited_handles_requested": { "const": false },
+        "requested_executable_sha256": { "$ref": "#/$defs/digest" },
+        "job_object_bound": { "const": true },
+        "job_active_process_limit": { "const": 1 },
+        "protocol_id": { "type": "string", "minLength": 1 },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "profile_sid_matches_observed_process_sid": { "const": true },
+        "authority": { "const": false }
+      }
+    },
+    "pipeNames": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "relevant_experience_withheld": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "digestConditionMap": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/digest" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "artifactRef": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact_id", "artifact_digest"],
+      "properties": { "artifact_id": { "type": "string", "minLength": 1 }, "artifact_digest": { "$ref": "#/$defs/digest" } }
+    },
+    "byCondition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relevant_experience_available", "relevant_experience_withheld"],
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/exchanges" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/exchanges" }
+      }
+    },
+    "exchanges": {
+      "type": "array", "maxItems": 5,
+      "prefixItems": [
+        {
+          "allOf": [
+            { "$ref": "#/$defs/exchangeAttempt" },
+            { "properties": { "request": { "properties": {
+              "operation": { "const": "inspect_baseline" }
+            } } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/exchangeAttempt" },
+            { "properties": { "request": { "properties": {
+              "operation": { "const": "recover_acquisition_receipts" }
+            } } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/exchangeAttempt" },
+            { "properties": { "request": { "properties": {
+              "operation": { "const": "prepare_consolidation_snapshot" }
+            } } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/exchangeAttempt" },
+            { "properties": { "request": { "properties": {
+              "operation": { "const": "consolidate_branch" }
+            } } } }
+          ]
+        },
+        {
+          "allOf": [
+            { "$ref": "#/$defs/exchangeAttempt" },
+            { "properties": { "request": { "properties": {
+              "operation": { "const": "reconstruct_strategy_projection_v2" }
+            } } } }
+          ]
+        }
+      ],
+      "items": { "$ref": "#/$defs/exchangeAttempt" }
+    },
+    "exchangeAttempt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["request", "exchange"],
+      "properties": {
+        "request": { "$ref": "durable_learning_condition_worker_rpc.schema.json#/$defs/request" },
+        "exchange": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/rpcExchange" }] }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "request": { "properties": {
+            "operation": { "const": "inspect_baseline" }
+          } } } },
+          "then": { "properties": { "exchange": { "properties": {
+            "operation": { "const": "inspect_baseline" }
+          } } } }
+        },
+        {
+          "if": { "properties": { "request": { "properties": {
+            "operation": { "const": "recover_acquisition_receipts" }
+          } } } },
+          "then": { "properties": { "exchange": { "properties": {
+            "operation": { "const": "recover_acquisition_receipts" }
+          } } } }
+        },
+        {
+          "if": { "properties": { "request": { "properties": {
+            "operation": { "const": "prepare_consolidation_snapshot" }
+          } } } },
+          "then": { "properties": { "exchange": { "properties": {
+            "operation": { "const": "prepare_consolidation_snapshot" }
+          } } } }
+        },
+        {
+          "if": { "properties": { "request": { "properties": {
+            "operation": { "const": "consolidate_branch" }
+          } } } },
+          "then": { "properties": { "exchange": { "properties": {
+            "operation": { "const": "consolidate_branch" }
+          } } } }
+        },
+        {
+          "if": { "properties": { "request": { "properties": {
+            "operation": { "const": "reconstruct_strategy_projection_v2" }
+          } } } },
+          "then": { "properties": { "exchange": { "properties": {
+            "operation": { "const": "reconstruct_strategy_projection_v2" }
+          } } } }
+        }
+      ]
+    },
+    "rpcExchange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "request_id", "condition", "operation", "response_status", "response_result_digest", "peer_process_id", "peer_process_creation_time_100ns", "request_response_bound", "process_start_nonce_matched", "process_isolation_verified", "filesystem_isolation_verified", "retention_contrast_eligible", "authority"],
+      "properties": {
+        "schema_version": { "const": "sentientos.windows_appcontainer_pipe_rpc_exchange:v1" },
+        "request_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "condition": { "enum": ["relevant_experience_available", "relevant_experience_withheld"] },
+        "operation": { "enum": ["inspect_baseline", "recover_acquisition_receipts", "prepare_consolidation_snapshot", "consolidate_branch", "reconstruct_strategy_projection_v2"] },
+        "response_status": { "enum": ["completed", "rejected", "failed"] },
+        "response_result_digest": { "$ref": "#/$defs/digest" },
+        "peer_process_id": { "type": "integer", "minimum": 1 },
+        "peer_process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+        "request_response_bound": { "const": true },
+        "process_start_nonce_matched": { "const": true },
+        "process_isolation_verified": { "const": false },
+        "filesystem_isolation_verified": { "const": false },
+        "retention_contrast_eligible": { "const": false },
+        "authority": { "const": false },
+        "response_result": { "type": ["object", "null"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "operation": { "enum": ["inspect_baseline", "prepare_consolidation_snapshot", "reconstruct_strategy_projection_v2"] } } }, "then": { "required": ["response_result"] }, "else": { "not": { "required": ["response_result"] } } },
+        { "if": { "properties": { "operation": { "const": "inspect_baseline" }, "response_status": { "enum": ["completed", "rejected"] } } }, "then": { "properties": { "response_result": { "type": "object" } } } },
+        { "if": { "properties": { "operation": { "const": "inspect_baseline" }, "response_status": { "const": "failed" } } }, "then": { "properties": { "response_result": { "type": "null" } } } },
+        { "if": { "properties": { "operation": { "const": "prepare_consolidation_snapshot" } } }, "then": { "if": { "properties": { "response_status": { "const": "completed" } } }, "then": { "properties": { "response_result": { "type": "object" } } }, "else": { "properties": { "response_result": { "type": "null" } } } } },
+        { "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection_v2" }, "response_status": { "enum": ["completed", "rejected"] } } }, "then": { "properties": { "response_result": { "type": "object" } } } },
+        { "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection_v2" }, "response_status": { "const": "failed" } } }, "then": { "properties": { "response_result": { "type": "null" } } } }
+      ]
+    },
+    "observations": {
+      "type": "object", "additionalProperties": false,
+      "properties": {
+        "relevant_experience_available": { "$ref": "#/$defs/processObservation" },
+        "relevant_experience_withheld": { "$ref": "#/$defs/processObservation" }
+      }
+    },
+    "processObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["process_id", "process_creation_time_100ns", "observation_digest"],
+      "properties": {
+        "process_id": { "type": "integer", "minimum": 1 },
+        "process_creation_time_100ns": { "type": "integer", "minimum": 1 },
+        "observation_digest": { "$ref": "#/$defs/digest" }
+      }
+    },
+    "runLifecycle": {
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "enum": ["completed", "reconciliation_not_available"] } } },
+          "then": {
+            "properties": {
+              "worker_pair_launch": { "type": "object" },
+              "condition_exchanges": {
+                "properties": {
+                  "relevant_experience_available": { "minItems": 5 },
+                  "relevant_experience_withheld": { "minItems": 5 }
+                }
+              },
+              "worker_process_observations": { "required": ["relevant_experience_available", "relevant_experience_withheld"] }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "worker_pair_launch": { "type": "null" } } },
+          "then": {
+            "properties": {
+              "status": { "const": "interrupted" },
+              "failure_phase": { "const": "worker_pair_launch" },
+              "condition_exchanges": {
+                "properties": {
+                  "relevant_experience_available": { "maxItems": 0 },
+                  "relevant_experience_withheld": { "maxItems": 0 }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "worker_pair_launch": { "type": "object" } } },
+          "then": {
+            "properties": {
+              "worker_process_observations": { "required": ["relevant_experience_available", "relevant_experience_withheld"] }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

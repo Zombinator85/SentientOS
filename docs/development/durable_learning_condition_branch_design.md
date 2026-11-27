@@ -1535,13 +1535,15 @@ it does not execute a recovery worker or establish developmental learning.
 now consumes the complete persisted setup, writes a retry-blocking launch
 intent before starting processes, pins the recovery entrypoint through the
 existing launcher, binds each launched executable's observed digest to the
-prelaunch intent, and runs the four RPCs in order for both conditions. It
-passes the score-free snapshot projection into consolidation reconciliation,
-then records worker identities, request/response digests, result projections,
-cleanup state, and the terminal outcome in an immutable recovery-run artifact.
+prelaunch intent, and runs the versioned RPC sequence in order for both
+conditions. Policy-bearing protocols add projection reconstruction after
+consolidation; the run records its complete result beside the earlier request
+and response digests, worker identities, cleanup state, and terminal outcome.
 An unresolved intent blocks automatic relaunch after an interrupted process;
-the artifact schemas are `durable_learning_condition_recovery_intent.schema.json`
-and `durable_learning_condition_recovery_run.schema.json`.
+the v1 schemas are `durable_learning_condition_recovery_intent.schema.json`
+and `durable_learning_condition_recovery_run.schema.json`, while the extended
+sequence uses `durable_learning_condition_recovery_intent_v2.schema.json` and
+`durable_learning_condition_recovery_run_v2.schema.json`.
 
 Both persistence and reload validation enforce RPC progression: a worker cannot
 issue a later recovery operation after an earlier operation was rejected or
@@ -1671,17 +1673,16 @@ does not enable first-time writeback, delayed probes, or retention eligibility;
 the independent auditor must still verify the reconstructed projection before
 any prompt can receive it.
 
-This fifth RPC is currently a worker capability, not part of the persisted
-supervisor recovery sequence. Recovery intent and run artifact v1 still pin and
-validate exactly four operations, ending with `consolidate_branch`; their
-schemas do not retain a projection-reconstruction response. Therefore a direct
-`reconstruct_strategy_projection` exchange cannot be reported as a completed
-supervised recovery run or used as accepted recovery evidence. Integrating it
-requires a versioned recovery intent/run contract that captures the fifth
-request and response, verifies the reconstructed projection against the
-completed owner tick and persisted consolidation receipt, and binds the
-independent answer-exclusion attestation. Until then the worker result remains
-diagnostic and non-consumable.
+Recovery intent/run v1 remains immutable and pins exactly four operations,
+ending with `consolidate_branch`. Policy-bearing protocols now use intent/run
+v2, which adds a fifth `reconstruct_strategy_projection_v2` operation and
+persists its complete response. The run verifier binds that response to the
+protocol, condition, policy digest, request/result digest, and launched worker
+process. Protocols without a strategy-projection policy continue to use the
+four-operation v1 sequence. A v2 run records reconstruction evidence; it does
+not prove caller-held receipt or audit artifacts were verified. Those claims
+and probe eligibility remain false until independently bound by the
+experiment's persisted consolidation receipt and answer-exclusion attestation.
 
 The worker RPC now also has `reconstruct_strategy_projection_v2`. Its request
 contains only the protocol-bound strategy-projection policy digest; it no
@@ -1689,8 +1690,8 @@ longer accepts caller-supplied consolidation-receipt or audit digests that the
 worker cannot verify. Its result reports the policy digest and reconstructed
 projection, while keeping supervisor-evidence eligibility, audit verification,
 probe use, adoption, and authority false. The legacy v1 operation remains
-available for compatibility. This narrows the worker's claim surface but does
-not change the four-operation persisted supervisor workflow described above.
+available for compatibility. The v2 supervisor run persists the new result
+without upgrading it to probe-eligible learning evidence.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.

@@ -313,6 +313,18 @@ def _condition_worker_recovery_run_artifact_id(
     return "devexp-durable-learning-worker-recovery-run-" + suffix
 
 
+def _condition_worker_recovery_operations(
+        protocol: Mapping[str, Any]) -> list[str]:
+    operations = ["inspect_baseline", "recover_acquisition_receipts",
+        "prepare_consolidation_snapshot", "consolidate_branch"]
+    contract = protocol.get("condition_contract")
+    if (protocol.get("schema_version") in _POLICY_PROTOCOL_SCHEMAS
+            and isinstance(contract, Mapping)
+            and isinstance(contract.get("strategy_projection_policy_digest"), str)):
+        operations.append("reconstruct_strategy_projection_v2")
+    return operations
+
+
 def _verify_condition_worker_recovery_access_setup(value: Any, *,
         protocol: Mapping[str, Any], profile_pair: Mapping[str, Any],
         recovery_manifests: Mapping[str, Mapping[str, Any]],
@@ -418,25 +430,28 @@ def _verify_condition_worker_recovery_access_setup(value: Any, *,
 
 def _verify_condition_worker_recovery_exchange_map(*,
         condition_exchanges: Any, protocol: Mapping[str, Any], status: str,
-        worker_process_observations: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
+        worker_process_observations: Mapping[str, Any],
+        expected_operations: Sequence[str] | None = None
+        ) -> dict[str, list[dict[str, Any]]]:
     """Revalidate persisted recovery requests and supervisor-bound exchanges."""
     from .durable_learning_condition_worker_rpc import (
         ConditionWorkerRPCDispatcher, verify_condition_worker_rpc_request)
-    operations = ["inspect_baseline", "recover_acquisition_receipts",
-        "prepare_consolidation_snapshot", "consolidate_branch"]
+    operations = (list(expected_operations) if expected_operations is not None
+        else ["inspect_baseline", "recover_acquisition_receipts",
+            "prepare_consolidation_snapshot", "consolidate_branch"])
     if (not isinstance(condition_exchanges, Mapping)
             or not set(condition_exchanges) <= set(_CONDITIONS)):
         raise ValueError("durable_learning_worker_recovery_exchanges_invalid")
     if (status != "interrupted"
             and (set(condition_exchanges) != set(_CONDITIONS)
                 or any(not isinstance(condition_exchanges[condition], list)
-                    or len(condition_exchanges[condition]) != 4
+                    or len(condition_exchanges[condition]) != len(operations)
                     for condition in _CONDITIONS))):
         raise ValueError(
             "durable_learning_worker_recovery_exchange_sequence_incomplete")
     checked: dict[str, list[dict[str, Any]]] = {}
     for condition, raw_rows in condition_exchanges.items():
-        if (not isinstance(raw_rows, list) or len(raw_rows) > 4
+        if (not isinstance(raw_rows, list) or len(raw_rows) > len(operations)
                 or any(not isinstance(row, Mapping) or set(row) != {
                     "request", "exchange"} for row in raw_rows)):
             raise ValueError(
@@ -466,7 +481,8 @@ def _verify_condition_worker_recovery_exchange_map(*,
                 "retention_contrast_eligible", "authority"}
             has_result = request["operation"] in {
                 "inspect_baseline", "recover_acquisition_receipts",
-                "prepare_consolidation_snapshot"}
+                "prepare_consolidation_snapshot",
+                "reconstruct_strategy_projection_v2"}
             if has_result:
                 fields.add("response_result")
             if (not isinstance(exchange, Mapping) or set(exchange) != fields
@@ -497,6 +513,8 @@ def _verify_condition_worker_recovery_exchange_map(*,
                 operation = request["operation"]
                 response_status = exchange["response_status"]
                 result_required = (response_status == "completed"
+                    or (operation == "reconstruct_strategy_projection_v2"
+                        and response_status == "rejected")
                     or (operation == "inspect_baseline"
                         and response_status == "rejected"))
                 if ((result_required and not isinstance(result, Mapping))
@@ -508,6 +526,8 @@ def _verify_condition_worker_recovery_exchange_map(*,
                         or (operation == "recover_acquisition_receipts"
                             and response_status != "completed"
                             and result is not None)
+                        or (operation == "reconstruct_strategy_projection_v2"
+                            and response_status == "failed" and result is not None)
                         or (result is not None and
                             (not isinstance(result, Mapping)
                                 or ConditionWorkerRPCDispatcher._result_digest(
@@ -515,6 +535,66 @@ def _verify_condition_worker_recovery_exchange_map(*,
                                         "response_result_digest"]))):
                     raise ValueError(
                         "durable_learning_worker_recovery_exchange_result_mismatch")
+                if (operation == "reconstruct_strategy_projection_v2"
+                        and response_status in {"completed", "rejected"}):
+                    if response_status == "completed":
+                        required = {"schema_version", "protocol_id",
+                            "protocol_digest", "condition", "branch_id",
+                            "strategy_projection_policy_digest",
+                            "strategy_projection", "projection_digest",
+                            "owner_tick_reloaded",
+                            "consolidation_receipt_reference_verified",
+                            "answer_exclusion_audit_verified",
+                            "answer_example_exclusion_verified",
+                            "probe_use_eligible",
+                            "supervisor_recovery_evidence_eligible",
+                            "adoption_performed", "authority"}
+                        projection = result.get("strategy_projection")
+                        projection_digest = (projection.get("projection_digest")
+                            if isinstance(projection, Mapping) else None)
+                        branch_ids = protocol.get("condition_branch_ids")
+                        if (set(result) != required
+                                or result.get("schema_version") !=
+                                    "sentientos.durable_learning_worker_strategy_projection:v2"
+                                or result.get("protocol_id") != protocol.get("protocol_id")
+                                or result.get("protocol_digest") !=
+                                    protocol.get("protocol_digest")
+                                or result.get("condition") != condition
+                                or not isinstance(branch_ids, Mapping)
+                                or result.get("branch_id") !=
+                                    branch_ids.get(condition)
+                                or result.get("strategy_projection_policy_digest") !=
+                                    request["payload"][
+                                        "strategy_projection_policy_digest"]
+                                or (projection is not None and (
+                                    not isinstance(projection, Mapping)
+                                    or not isinstance(projection_digest, str)
+                                    or _HEX_DIGEST.fullmatch(
+                                        projection_digest) is None))
+                                or result.get("projection_digest") !=
+                                    projection_digest
+                                or result.get("owner_tick_reloaded") is not True
+                                or any(result.get(key) is not False for key in (
+                                    "consolidation_receipt_reference_verified",
+                                    "answer_exclusion_audit_verified",
+                                    "answer_example_exclusion_verified",
+                                    "probe_use_eligible",
+                                    "supervisor_recovery_evidence_eligible",
+                                    "adoption_performed", "authority"))):
+                            raise ValueError(
+                                "durable_learning_worker_recovery_projection_result_invalid")
+                    else:
+                        rejected_fields = {"reason_code",
+                            "consolidation_receipt_reference_verified",
+                            "answer_exclusion_audit_verified",
+                            "probe_use_eligible",
+                            "supervisor_recovery_evidence_eligible", "authority"}
+                        if (set(result) != rejected_fields
+                                or not isinstance(result.get("reason_code"), str)
+                                or any(result.get(key) is not False for key in
+                                    rejected_fields - {"reason_code"})):
+                            raise ValueError(
+                                "durable_learning_worker_recovery_projection_rejection_invalid")
                 if (operation == "recover_acquisition_receipts"
                         and response_status == "completed"):
                     required = {"receipt_index_digest", "receipt_count",
@@ -4387,8 +4467,10 @@ class DurableDevelopmentalLearningProtocolStore:
         if existing is not None:
             raise ValueError(
                 "durable_learning_worker_recovery_intent_already_exists")
+        operation_sequence = _condition_worker_recovery_operations(protocol)
+        intent_version = ("v2" if len(operation_sequence) == 5 else "v1")
         semantic = {"schema_version":
-                "sentientos.durable_learning_condition_recovery_intent:v1",
+                f"sentientos.durable_learning_condition_recovery_intent:{intent_version}",
             "protocol_id": protocol["protocol_id"],
             "protocol_digest": protocol["protocol_digest"],
             "setup_artifact": {"artifact_id": setup["artifact_id"],
@@ -4396,9 +4478,7 @@ class DurableDevelopmentalLearningProtocolStore:
             "worker_specs_digest": worker_specs_digest,
             "worker_executable_digest_by_condition": dict(
                 worker_executable_digest_by_condition),
-            "operation_sequence": ["inspect_baseline",
-                "recover_acquisition_receipts",
-                "prepare_consolidation_snapshot", "consolidate_branch"],
+            "operation_sequence": operation_sequence,
             "retry_blocked": True, "authority": False}
         artifact = {**semantic, "artifact_digest": digest_payload(semantic),
             "artifact_id": artifact_id}
@@ -4424,13 +4504,15 @@ class DurableDevelopmentalLearningProtocolStore:
         semantic = {key: value for key, value in artifact.items()
             if key not in {"artifact_id", "artifact_digest"}}
         setup = self.load_condition_worker_recovery_setup(protocol=protocol)
+        schema_version = artifact.get("schema_version")
         if (set(artifact) != {"schema_version", "protocol_id",
                 "protocol_digest", "setup_artifact", "worker_specs_digest",
                 "worker_executable_digest_by_condition",
                 "operation_sequence", "retry_blocked", "authority",
                 "artifact_digest", "artifact_id"}
-                or artifact.get("schema_version") !=
-                    "sentientos.durable_learning_condition_recovery_intent:v1"
+                or schema_version not in {
+                    "sentientos.durable_learning_condition_recovery_intent:v1",
+                    "sentientos.durable_learning_condition_recovery_intent:v2"}
                 or artifact.get("protocol_id") != protocol.get("protocol_id")
                 or artifact.get("protocol_digest") !=
                     protocol.get("protocol_digest")
@@ -4449,9 +4531,12 @@ class DurableDevelopmentalLearningProtocolStore:
                     or _HEX_DIGEST.fullmatch(value) is None
                     for value in artifact[
                         "worker_executable_digest_by_condition"].values())
-                or artifact.get("operation_sequence") != ["inspect_baseline",
-                    "recover_acquisition_receipts",
-                    "prepare_consolidation_snapshot", "consolidate_branch"]
+                or artifact.get("operation_sequence") != (
+                    ["inspect_baseline", "recover_acquisition_receipts",
+                        "prepare_consolidation_snapshot", "consolidate_branch"]
+                    if schema_version ==
+                        "sentientos.durable_learning_condition_recovery_intent:v1"
+                    else _condition_worker_recovery_operations(protocol))
                 or artifact.get("retry_blocked") is not True
                 or artifact.get("authority") is not False
                 or artifact.get("artifact_id") != artifact_id
@@ -4500,19 +4585,17 @@ class DurableDevelopmentalLearningProtocolStore:
                 or any(not isinstance(item, str) or not item
                     or len(item) > 128 for item in cleanup_errors)):
             raise ValueError("durable_learning_worker_recovery_run_invalid")
+        expected_operations = list(checked_intent["operation_sequence"])
         if any(not isinstance(rows, Sequence) or isinstance(rows,
-                (str, bytes)) or len(rows) > 4
+                (str, bytes)) or len(rows) > len(expected_operations)
                 or any(not isinstance(row, Mapping) for row in rows)
                 for rows in condition_exchanges.values()):
             raise ValueError("durable_learning_worker_recovery_exchanges_invalid")
         exchanges = {condition: [dict(row) for row in rows]
             for condition, rows in condition_exchanges.items()}
-        expected_operations = ["inspect_baseline",
-            "recover_acquisition_receipts", "prepare_consolidation_snapshot",
-            "consolidate_branch"]
         if (status != "interrupted"
                 and (set(exchanges) != set(_CONDITIONS)
-                    or any(len(exchanges[condition]) != 4
+                    or any(len(exchanges[condition]) != len(expected_operations)
                         for condition in _CONDITIONS))):
             raise ValueError(
                 "durable_learning_worker_recovery_exchange_sequence_incomplete")
@@ -4535,7 +4618,8 @@ class DurableDevelopmentalLearningProtocolStore:
                     "authority"}
                 has_result = checked_request["operation"] in {
                     "inspect_baseline", "recover_acquisition_receipts",
-                    "prepare_consolidation_snapshot"}
+                    "prepare_consolidation_snapshot",
+                    "reconstruct_strategy_projection_v2"}
                 if (checked_request.get("protocol_id") !=
                         protocol.get("protocol_id")
                         or checked_request.get("protocol_digest") !=
@@ -4591,8 +4675,12 @@ class DurableDevelopmentalLearningProtocolStore:
                     result = exchange.get("response_result")
                     operation = checked_request["operation"]
                     response_status = exchange["response_status"]
+                    result_required = (response_status == "completed"
+                        or (operation == "reconstruct_strategy_projection_v2"
+                            and response_status == "rejected"))
                     if ((response_status == "completed"
                             and not isinstance(result, Mapping))
+                            or (result_required and not isinstance(result, Mapping))
                             or (operation == "recover_acquisition_receipts"
                                 and response_status != "completed"
                                 and result is not None)
@@ -4651,7 +4739,8 @@ class DurableDevelopmentalLearningProtocolStore:
             observations[condition] = dict(row)
         _verify_condition_worker_recovery_exchange_map(
             condition_exchanges=exchanges, protocol=protocol, status=status,
-            worker_process_observations=observations)
+            worker_process_observations=observations,
+            expected_operations=expected_operations)
         _verify_condition_worker_recovery_lifecycle(
             status=status, failure_phase=failure_phase,
             launch_evidence=worker_pair_launch, exchanges=exchanges,
@@ -4662,8 +4751,10 @@ class DurableDevelopmentalLearningProtocolStore:
             profile_pair=(launch_profile.get("profile_pair")
                 if isinstance(launch_profile, Mapping) else None),
             recovery_inputs=launch_inputs)
+        run_version = ("v2" if checked_intent.get("schema_version") ==
+            "sentientos.durable_learning_condition_recovery_intent:v2" else "v1")
         semantic = {"schema_version":
-                "sentientos.durable_learning_condition_recovery_run:v1",
+                f"sentientos.durable_learning_condition_recovery_run:{run_version}",
             "protocol_id": protocol["protocol_id"],
             "protocol_digest": protocol["protocol_digest"],
             "intent_artifact": {"artifact_id": checked_intent["artifact_id"],
@@ -4717,6 +4808,7 @@ class DurableDevelopmentalLearningProtocolStore:
         launch_inputs = (self.load_condition_worker_recovery_inputs(
             protocol=protocol) if artifact.get("worker_pair_launch") is not None
                 else None)
+        schema_version = artifact.get("schema_version")
         if (set(artifact) != {"schema_version", "protocol_id",
                 "protocol_digest", "intent_artifact", "status", "failure_phase",
                 "failure_code",
@@ -4725,14 +4817,23 @@ class DurableDevelopmentalLearningProtocolStore:
                 "inference_performed", "scoring_performed",
                 "developmental_writeback_performed", "learning_established",
                 "authority", "artifact_digest", "artifact_id"}
-                or artifact.get("schema_version") !=
-                    "sentientos.durable_learning_condition_recovery_run:v1"
+                or schema_version not in {
+                    "sentientos.durable_learning_condition_recovery_run:v1",
+                    "sentientos.durable_learning_condition_recovery_run:v2"}
                 or artifact.get("protocol_id") != protocol.get("protocol_id")
                 or artifact.get("protocol_digest") !=
                     protocol.get("protocol_digest")
                 or intent is None or artifact.get("intent_artifact") != {
                     "artifact_id": intent["artifact_id"],
                     "artifact_digest": intent["artifact_digest"]}
+                or (schema_version ==
+                    "sentientos.durable_learning_condition_recovery_run:v2"
+                    and intent.get("schema_version") !=
+                        "sentientos.durable_learning_condition_recovery_intent:v2")
+                or (schema_version ==
+                    "sentientos.durable_learning_condition_recovery_run:v1"
+                    and intent.get("schema_version") !=
+                        "sentientos.durable_learning_condition_recovery_intent:v1")
                 or artifact.get("status") not in {"completed",
                     "reconciliation_not_available", "interrupted"}
                 or ((artifact.get("status") == "interrupted") !=
@@ -4782,7 +4883,8 @@ class DurableDevelopmentalLearningProtocolStore:
         _verify_condition_worker_recovery_exchange_map(
             condition_exchanges=artifact["condition_exchanges"],
             protocol=protocol, status=artifact["status"],
-            worker_process_observations=observations)
+            worker_process_observations=observations,
+            expected_operations=intent["operation_sequence"])
         _verify_condition_worker_recovery_lifecycle(
             status=artifact["status"], failure_phase=artifact["failure_phase"],
             launch_evidence=artifact["worker_pair_launch"],
@@ -14403,6 +14505,19 @@ class DurableDevelopmentalLearningRunner:
                             "completed", "rejected"}:
                         raise ValueError(
                             "durable_learning_worker_recovery_consolidation_invalid")
+                    if ("reconstruct_strategy_projection_v2" in
+                            intent["operation_sequence"]):
+                        if consolidated.get("response_status") != "completed":
+                            raise ValueError(
+                                "durable_learning_worker_recovery_consolidation_rejected")
+                        projection_reconstruction = exchange(condition,
+                            "reconstruct_strategy_projection_v2", {
+                                "strategy_projection_policy_digest":
+                                    contract["strategy_projection_policy_digest"]})
+                        if projection_reconstruction.get("response_status") not in {
+                                "completed", "rejected"}:
+                            raise ValueError(
+                                "durable_learning_worker_recovery_projection_reconstruction_invalid")
                 failure_phase = "worker_exit"
                 for condition, process in processes.items():
                     exit_code = process.wait(timeout_ms)
