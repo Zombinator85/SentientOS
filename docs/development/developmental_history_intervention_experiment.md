@@ -600,3 +600,12 @@ condition. This applies uniformly across the intervention conditions. The
 receipt and citation validator remains fail-closed; invalid citations are not
 normalized into valid decisions. A fresh plan is required to measure whether
 the stronger instruction improves response qualification.
+
+That follow-up is frozen as plan v24,
+`088a335bed520ba424bacc287c7c284c1b4c1cf4b06876482cc316f8e12df30a`, using
+the completed v23 cycle 1 history boundary
+`2d655527a32bf6c41d3288c129071b4d2ad1aac5978383ff0ee8310904c16454`. It
+preregisters two fresh cycles with 12 acquisition and 12 transfer probes each.
+Model-free verification matched all 2,557 implementation pins and both model
+identities, with inference false at plan freeze. The plan is bound to source
+commit `9508ca268` containing the shared prompt revision.
