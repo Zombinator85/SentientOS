@@ -745,11 +745,29 @@ checks the feedback protocol digest against the frozen JSON before it enables
 the follow-up probe. The campaign plan separately binds the source and model
 implementation hashes.
 
-This follow-up has not yet been run. A qualifying single-probe result would
-show that this exact record was retrieved and used in this controlled question;
-it would not establish general learning, durable capability improvement,
-transfer, model-independent continuity, or causal self-development. Those
-claims still require repeated, held-out outcome evidence.
+The preregistered two-cycle response-digest campaign completed its follow-up
+probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
+owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.
+The immutable follow-up result is
+`rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-7e59c1f038f941dcbfbc/cycle-result.json`
+(SHA-256 `a2dccde54d3d23e170b6b71e357ae8f99b9156ccd83e6d38b1e6d3b84679f4a3`).
+Present and restored conditions selected the exact expected feedback record
+and digest, but cited no history and abstained instead of returning the
+preregistered answer. The withheld condition selected and cited no history as
+expected, but answered instead of abstaining. Matched non-history inputs and
+present/restored prompt restoration passed. Therefore the probe did not qualify
+as history-conditioned feedback recall. It does not demonstrate model use and establishes no
+learning, durable capability improvement, transfer, model-independent
+continuity, or causal self-development. Those claims still require repeated,
+held-out outcome evidence.
+
+That completed result uses the v1 score serialization, whose
+`delivery_verified` field only compared history citations with the expected
+record IDs; it did not establish that content was delivered to or used by the
+model. The current v2 score serialization reports selection, citation,
+response, and expected-use assessments separately. Its labels are diagnostic
+decompositions of the same frozen protocol criteria and do not retroactively
+change the preregistered result.
 
 The v25 prompt-only trial remains useful evidence that the instruction digest
 changed while the model output did not. It does not test whether retained
