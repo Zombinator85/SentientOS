@@ -4515,3 +4515,14 @@ remain spent and must not be replayed.
 No developmental learning or transfer claim follows from these failed cycles.
 Their private WSL evidence roots remain preserved under
 `~/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/`.
+
+The replacement plan is frozen as
+[`campaign-plan-wsl-v6.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v6.json),
+campaign `rootless-history-campaign-5723e0fbe0183aefc439`, digest
+`ba7d1c26c41d29506c176ccff65ed33c56adff282c8e0d20cc063fc8d8331334`.
+Its two reserved cycle IDs are `rootless-cognition-cycle-e5154ed3d96fc023d4f4`
+and `rootless-cognition-cycle-521d1d4a1075fae32fc6`; task seeds are
+`4081117069` and `3329819306`. The model-free verifier confirmed the empty
+initial history boundary, v13 bootstrap declaration, and current pinned source
+and model identity implementations. The earlier v4 and v5 plans were retired
+after source changes before inference; none of their IDs may be reused.
