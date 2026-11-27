@@ -551,3 +551,17 @@ this is bound to the user's explicit GPU availability authorization and is
 recorded as an operator assertion, not inferred from telemetry. The v23
 model-free verifier matched all 2,557 implementation pins and both model
 identities.
+
+v23 cycle 0 completed under plan digest
+`e72d80f6fc280d7ee1c11a16a2f42f27a2596c2c77abef3fda1d3de64e187ba7` with 44
+invocation receipts, verified source provenance at `e29b44141`, and governed
+model release. The acquisition scored all 12 probes in each condition; all
+three conditions had 0 correct, below the preregistered threshold of 8. The
+withheld-baseline competence gate therefore skipped transfer. One structured
+history response was rejected for the withheld condition, so the cycle
+classifies the history decision comparison as invalid. It establishes no
+learning, improvement, changed action decision, or real-world consequence.
+Its answer-free 172-file evidence manifest is
+`cycle-0-v23-evidence-manifest.json`, digest
+`65d923f727b0acf5f35422637f6142df54621fd5e908063187a6651f83ea9728`; the
+exporter re-verified it against the completed cycle root.
