@@ -4516,13 +4516,19 @@ No developmental learning or transfer claim follows from these failed cycles.
 Their private WSL evidence roots remain preserved under
 `~/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/`.
 
-The replacement plan is frozen as
-[`campaign-plan-wsl-v6.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v6.json),
-campaign `rootless-history-campaign-5723e0fbe0183aefc439`, digest
-`ba7d1c26c41d29506c176ccff65ed33c56adff282c8e0d20cc063fc8d8331334`.
-Its two reserved cycle IDs are `rootless-cognition-cycle-e5154ed3d96fc023d4f4`
-and `rootless-cognition-cycle-521d1d4a1075fae32fc6`; task seeds are
-`4081117069` and `3329819306`. The model-free verifier confirmed the empty
-initial history boundary, v13 bootstrap declaration, and current pinned source
-and model identity implementations. The earlier v4 and v5 plans were retired
-after source changes before inference; none of their IDs may be reused.
+The replacement v13 plan is frozen as
+[`campaign-plan-wsl-v7.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v7.json),
+campaign `rootless-history-campaign-d8bcaf42cfde587a6d12`, digest
+`327547bbd1ac1b60d8f1c5333cd689a5f7538a5deeefb8a3f9d59743341a0e32`.
+Its two reserved cycle IDs are `rootless-cognition-cycle-ad26faa8d5bc7a69a2bc`
+and `rootless-cognition-cycle-a265b7e8d2d113afb632`; task seeds are
+`27752686` and `4277375274`. Model-free verification confirmed an empty initial
+history boundary, the declared bootstrap gates, and the pinned source and model
+identity implementations.
+
+The preceding v6 plan's first cycle reached acquisition preflight and stopped
+with `AttributeError` after two inference receipts, before the bootstrap step
+or any developmental writeback. The model unloaded and the GPU returned near
+idle. The runner was corrected to call the inventory API on the writeback owner.
+Both v6 slots are spent/retired and must not be reused. Plans v4, v5, and v6
+were superseded before or during execution; their cycle IDs remain reserved.
