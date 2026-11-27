@@ -726,13 +726,17 @@ later campaign cycle, it follows the immediately preceding cycle's result to
 the exact feedback record and writeback receipt, verifies that pair in the
 seeded history store, and runs the existing present/withheld/restored
 intervention with that record as the only allowed history item. A missing or
-inconsistent prior result, record, or receipt prevents the probe. The score requires exact expected
-responses and dispositions, selected-record identity and digest, history
-citations, empty evidence IDs, matched non-history inputs, and exact prompt
-restoration. The result reports selection, citation, response, and expected-use
-assessments separately. Selection alone is not treated as model use; a record
-selected without its citation is recorded as selected but not cited. The summary
-stores IDs and digests rather than model output text.
+inconsistent prior result, record, or receipt prevents the probe. The score
+requires exact expected responses and dispositions, selected-record identity
+and digest, history citations, empty evidence IDs, an explicitly validated
+decision, matched non-history inputs, and exact prompt restoration. The result
+reports selection, citation, response, and condition-criterion assessments
+separately. A criterion match requires all protocol checks, including explicit
+decision validation; a missing validation status fails the criterion. Selection
+alone is not treated as model use: a selected record without its citation is
+reported as selected but not cited. These observed checks still do not establish
+that the model cognitively used the record or that it caused the response. The
+summary stores IDs and digests rather than model output text.
 Its fixed query and scoring rules are frozen in
 `owner_cognition_feedback_cross_cycle_recall_protocol.json`; its digest must
 be supplied before the campaign starts using
