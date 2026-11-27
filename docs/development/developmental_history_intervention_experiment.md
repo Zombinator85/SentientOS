@@ -888,7 +888,10 @@ fails closed. Thus the saved error belongs to the older source revision
 `dc349b9...` and should be carried into any new frozen plan. The inspector is
 supplemental custody tooling outside the pinned experiment implementation.
 Its SHA-256 is
-`c3fecc86a362d761fc8df0baea160f1d634812bf73b4fbed4b6366452c98a89c`.
+`c3fecc86a362d761fc8df0baea160f1d634812bf73b4fbed4b6366452c98a89c`. Invoke it as
+`python tools/inspect_developmental_cycle_recovery.py <cycle-root>`; status 3
+flags a receipt-response mismatch or incompatible checkpoint, while 0 means
+no such conflict was found in the inspected artifacts.
 
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
