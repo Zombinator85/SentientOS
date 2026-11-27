@@ -5,13 +5,18 @@
 Rootless low-range source runs used for later cross-range history experiments
 can be preregistered with campaign plan schema v13. This version binds the
 low-range task family, a reproducible model identity recipe, the experiment
-implementation digests, and an explicit acquisition protocol requiring at
+implementation digests, and an empty initial developmental-history boundary.
+Its acquisition protocol requires at
 least two independently score-bound correct source runs with at least three
-distinct correct inputs in total. It keeps acquisition and transfer probes
-disjoint within and across planned cycles. The protocol records no learning or
-authority claim. Preparing or verifying a v13 plan performs no inference; the
-source eligibility gate is still established only from recovered run, score,
-invocation, writeback, and history evidence.
+distinct correct inputs in total. Its boundary audit recomputes acquisition
+and transfer probe separation, recovers each completed source run through the
+offline invocation receipt verifier and independent objective scorer, and
+checks that the score-bound examples were retained in the exact history
+writeback record. It reports eligibility counts without serializing probe
+values or per-input hashes. Acquisition and transfer probes must be disjoint
+within and across planned cycles. Meeting the threshold only establishes
+eligible source evidence for the later experiment; it is not a learning or
+authority claim. Preparing or verifying a v13 plan performs no inference.
 
 Earlier v5 low-range plans remain valid with their original contract. A v13
 plan provides stronger provenance for newly prepared source runs but does not

@@ -50,12 +50,16 @@ _WIDE_TASK_FAMILY = "rootless_integer_affine_transfer_wide_range_v7"
 _NOVEL_TASK_FAMILY = "rootless_integer_affine_transfer_novel_range_v8"
 _RANGE_TASK_FAMILIES = frozenset({_WIDE_TASK_FAMILY, _NOVEL_TASK_FAMILY})
 _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL = {
-    "schema_version": "sentientos.low_range_source_acquisition_protocol:v1",
+    "schema_version": "sentientos.low_range_source_acquisition_protocol:v2",
     "task_family_id": _TASK_FAMILY,
+    "require_empty_initial_history": True,
     "minimum_score_bound_correct_source_runs": 2,
     "minimum_distinct_correct_source_inputs": 3,
     "require_independent_oracle_scoring": True,
     "require_invocation_and_writeback_receipt_binding": True,
+    "score_bound_source_audit_schema_version":
+        "sentientos.rootless_history_projection_compaction_audit:v2",
+    "correct_input_values_in_audit": False,
     "learning_established": False,
     "authority": False,
 }
@@ -106,8 +110,9 @@ _EXPERIMENT_IMPLEMENTATION_EXTRA_FILES = (
     "docs/development/history_transfer_evidence_precondition.schema.json",
     "docs/development/history_transfer_precondition_audit.schema.json",
     "docs/development/rootless_history_boundary_campaign_plan.schema.json",
-    "docs/development/rootless_novel_acquisition_transfer_probe_preflight.schema.json",
     "docs/development/rootless_history_boundary_campaign_audit.schema.json",
+    "work/audit_rootless_history_projection_compaction.py",
+    "docs/development/rootless_novel_acquisition_transfer_probe_preflight.schema.json",
     "docs/development/rootless_planned_cycle_strategy_inclusion_ablation.schema.json",
     "docs/development/rootless_planned_cycle_historical_examples_ablation.schema.json",
     "docs/development/developmental_history_task_score_lineage_failure.schema.json",
@@ -701,6 +706,31 @@ def _plan_model_identity_digests(plan: Mapping[str, Any]) -> list[str]:
         and isinstance(cycle_ids, list) else [])
 
 
+def _validate_disjoint_planned_probe_sets(*, task_family_id: str,
+        task_generation_seeds: list[int], transfer_probe_count: int) -> None:
+    planned_probe_sets: list[set[int]] = []
+    for seed in task_generation_seeds:
+        acquisition_task, transfer_task = rootless_integer_affine_transfer_task_pair(
+            seed, task_family_id=task_family_id,
+            transfer_probe_count=transfer_probe_count)
+        acquisition_inputs = {acquisition_task.probe_input,
+            *acquisition_task.additional_probe_inputs}
+        transfer_inputs = {transfer_task.probe_input,
+            *transfer_task.additional_probe_inputs}
+        if acquisition_inputs & transfer_inputs:
+            code = ("history_campaign_novel_task_probe_sets_overlap"
+                if task_family_id == _NOVEL_TASK_FAMILY else
+                "history_campaign_source_task_probe_sets_overlap")
+            raise ValueError(code)
+        planned_probe_sets.append(acquisition_inputs | transfer_inputs)
+    for index, probe_set in enumerate(planned_probe_sets):
+        if any(probe_set & prior for prior in planned_probe_sets[:index]):
+            code = ("history_campaign_novel_cycle_probe_reuse"
+                if task_family_id == _NOVEL_TASK_FAMILY else
+                "history_campaign_source_cycle_probe_reuse")
+            raise ValueError(code)
+
+
 def create_plan(*, history_root: Path, campaign_id: str,
         task_family_id: str, model_identity_digests: list[str],
         ordered_cycle_ids: list[str],
@@ -742,6 +772,9 @@ def create_plan(*, history_root: Path, campaign_id: str,
         history_root.parent / "state")
     if boundary["file_count"] and recovery_state_boundary is None:
         raise ValueError("history_campaign_recovery_state_missing")
+    if (task_family_id == _TASK_FAMILY and model_identity_recipe is not None
+            and boundary["file_count"] != 0):
+        raise ValueError("history_campaign_low_range_source_initial_history_not_empty")
     if (model_identity_recipe is not None
             and task_family_id not in {_TASK_FAMILY, *_RANGE_TASK_FAMILIES}):
         raise ValueError("history_campaign_model_identity_recipe_family_invalid")
@@ -776,28 +809,10 @@ def create_plan(*, history_root: Path, campaign_id: str,
         if task_family_id == _WIDE_TASK_FAMILY else
         "sentientos.rootless_history_boundary_campaign_plan:v5")
     if task_family_id in {_TASK_FAMILY, _NOVEL_TASK_FAMILY}:
-        planned_probe_sets: list[set[int]] = []
-        for seed in task_generation_seeds:
-            acquisition_task, transfer_task = (
-                rootless_integer_affine_transfer_task_pair(seed,
-                    task_family_id=task_family_id,
-                    transfer_probe_count=transfer_probe_count))
-            acquisition_inputs = {acquisition_task.probe_input,
-                *acquisition_task.additional_probe_inputs}
-            transfer_inputs = {transfer_task.probe_input,
-                *transfer_task.additional_probe_inputs}
-            if acquisition_inputs & transfer_inputs:
-                code = ("history_campaign_novel_task_probe_sets_overlap"
-                    if task_family_id == _NOVEL_TASK_FAMILY else
-                    "history_campaign_source_task_probe_sets_overlap")
-                raise ValueError(code)
-            planned_probe_sets.append(acquisition_inputs | transfer_inputs)
-        for index, probe_set in enumerate(planned_probe_sets):
-            if any(probe_set & prior for prior in planned_probe_sets[:index]):
-                code = ("history_campaign_novel_cycle_probe_reuse"
-                    if task_family_id == _NOVEL_TASK_FAMILY else
-                    "history_campaign_source_cycle_probe_reuse")
-                raise ValueError(code)
+        _validate_disjoint_planned_probe_sets(
+            task_family_id=task_family_id,
+            task_generation_seeds=task_generation_seeds,
+            transfer_probe_count=transfer_probe_count)
     semantic = {
         "schema_version": plan_schema,
         "campaign_id": campaign_id,
@@ -912,6 +927,14 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
             raise ValueError("history_campaign_transfer_probe_count_invalid")
     elif "transfer_probe_count" in plan:
         raise ValueError("history_campaign_transfer_probe_count_version_invalid")
+    if schema_version in {
+            "sentientos.rootless_history_boundary_campaign_plan:v11",
+            "sentientos.rootless_history_boundary_campaign_plan:v12",
+            "sentientos.rootless_history_boundary_campaign_plan:v13"}:
+        _validate_disjoint_planned_probe_sets(
+            task_family_id=str(plan["task_family_id"]),
+            task_generation_seeds=task_seeds,
+            transfer_probe_count=plan.get("transfer_probe_count", 3))
     if schema_version in {
             "sentientos.rootless_history_boundary_campaign_plan:v7",
             "sentientos.rootless_history_boundary_campaign_plan:v8",
@@ -1038,6 +1061,10 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
             or initial.get("atomic_snapshot") is not False
             or not isinstance(initial.get("files"), list)):
         raise ValueError("history_campaign_initial_boundary_binding_invalid")
+    if (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v13"
+            and initial.get("file_count") != 0):
+        raise ValueError(
+            "history_campaign_low_range_source_initial_history_not_empty")
     if schema_version in {
             "sentientos.rootless_history_boundary_campaign_plan:v4",
             "sentientos.rootless_history_boundary_campaign_plan:v5",
@@ -1757,6 +1784,8 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
         if cognition_recovery_chain_verified else None)
     completed_cycle_count = 0
     verified_source_run_ids: set[str] = set()
+    score_bound_correct_source_run_ids: set[str] = set()
+    score_bound_correct_inputs: set[int] = set()
     for index, root in enumerate(cycle_roots):
         cycle_id, status, terminal_path = _cycle_identity(root)
         if cycle_id != cycle_ids[index]:
@@ -1850,6 +1879,8 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
         observed_source_run_id = None
         run_parameters_verified = False
         source_run_binding_verified = False
+        source_score_binding_verified = False
+        source_correct_input_count = 0
         expected_campaign_binding = {
             "campaign_id": plan["campaign_id"],
             "campaign_plan_digest": plan["plan_digest"],
@@ -1926,6 +1957,17 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
                     or not isinstance(task_descriptor, Mapping)
                     or task_descriptor.get("task_family_id") != plan["task_family_id"]):
                 raise ValueError("history_campaign_source_run_binding_invalid")
+            if plan.get("schema_version") == (
+                    "sentientos.rootless_history_boundary_campaign_plan:v13"):
+                expected_acquisition_task, _ = (
+                    rootless_integer_affine_transfer_task_pair(
+                        plan["ordered_task_generation_seeds"][index],
+                        task_family_id=_TASK_FAMILY))
+                expected_probe_inputs = [expected_acquisition_task.probe_input,
+                    *expected_acquisition_task.additional_probe_inputs]
+                if task_descriptor.get("probe_inputs") != expected_probe_inputs:
+                    raise ValueError(
+                        "history_campaign_source_task_seed_binding_invalid")
             source_run_binding_verified = True
             acquired_record_id = acquisition.get("history_record_id")
             acquired_record_path = (f"resident-cognition/history/records/"
@@ -1935,6 +1977,78 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
                 else None)
             if acquired_record_path is None or acquired_record_path not in current:
                 raise ValueError("history_campaign_acquisition_record_not_retained")
+            if plan.get("schema_version") == (
+                    "sentientos.rootless_history_boundary_campaign_plan:v13"):
+                from work.audit_rootless_history_projection_compaction import (
+                    create_audit as audit_score_bound_source_run)
+                projection_audit = audit_score_bound_source_run(
+                    cycle_root=resolved, run_id=observed_source_run_id)
+                task_outcome = acquisition.get("task_outcome")
+                score_binding = acquisition.get("history_score_binding")
+                if (projection_audit.get("schema_version") !=
+                        _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL[
+                            "score_bound_source_audit_schema_version"]
+                        or projection_audit.get("run_digest") != source_run_digest
+                        or projection_audit.get("source_record_id") != acquired_record_id
+                        or projection_audit.get("task_family_id") != _TASK_FAMILY
+                        or projection_audit.get("verified_condition_receipt_count") != 3
+                        or projection_audit.get("reconstructed_score_bound_example_count")
+                            != projection_audit.get("probe_count")
+                        or not isinstance(score_binding, Mapping)
+                        or score_binding.get("status") !=
+                            "verified_exact_source_run_score_to_history_binding"
+                        or score_binding.get("verified") is not True
+                        or score_binding.get("source_run_id") != observed_source_run_id
+                        or score_binding.get("expected_score_digest") !=
+                            projection_audit.get("history_present_score_digest")
+                        or not isinstance(task_outcome, Mapping)
+                        or task_outcome.get("history_present_score_digest") !=
+                            projection_audit.get("history_present_score_digest")):
+                    raise ValueError(
+                        "history_campaign_source_score_to_history_binding_invalid")
+                score_rows = source_run.get("objective_scores")
+                present_score = next((row.get("score") for row in score_rows
+                    if isinstance(row, Mapping)
+                    and row.get("condition_id") == "history_present"
+                    and isinstance(row.get("score"), Mapping)), None) \
+                    if isinstance(score_rows, list) else None
+                probe_results = (present_score.get("probe_results")
+                    if isinstance(present_score, Mapping) else None)
+                if not isinstance(probe_results, list):
+                    raise ValueError("history_campaign_source_score_rows_missing")
+                present_correct_count = sum(row.get("correct") is True
+                    for row in probe_results if isinstance(row, Mapping))
+                present_incorrect_count = sum(row.get("correct") is False
+                    for row in probe_results if isinstance(row, Mapping))
+                present_abstained_count = sum(
+                    row.get("abstained") is True
+                    and row.get("observed_answer") is None
+                    and row.get("correct") is None
+                    for row in probe_results if isinstance(row, Mapping))
+                expected_history_counts = {
+                    "example_count": len(probe_results),
+                    "correct_example_count": present_correct_count,
+                    "incorrect_example_count": present_incorrect_count,
+                    "abstained_example_count": present_abstained_count,
+                    "outcome_unknown_count": 0,
+                }
+                if (task_outcome.get("history_present_correct_count")
+                        != present_correct_count
+                        or task_outcome.get("probe_count") != len(probe_results)
+                        or score_binding.get("expected_counts") != expected_history_counts
+                        or score_binding.get("observed_counts") != expected_history_counts):
+                    raise ValueError(
+                        "history_campaign_source_score_summary_mismatch")
+                source_correct_input_values = {row["probe_input"]
+                    for row in probe_results
+                    if isinstance(row, Mapping)
+                    and type(row.get("probe_input")) is int
+                    and row.get("correct") is True}
+                source_correct_input_count = len(source_correct_input_values)
+                source_score_binding_verified = True
+                if source_correct_input_values:
+                    score_bound_correct_source_run_ids.add(observed_source_run_id)
+                    score_bound_correct_inputs.update(source_correct_input_values)
             completed_cycle_count += 1
             verified_source_run_ids.add(observed_source_run_id)
         changed = sorted(path for path, row in previous.items()
@@ -1987,6 +2101,10 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
             "acquisition_history_record_id": acquired_record_id,
             "run_parameters_verified": run_parameters_verified,
             "source_run_binding_verified": source_run_binding_verified,
+            "source_score_to_history_binding_verified": (
+                source_score_binding_verified),
+            "score_bound_correct_input_count": source_correct_input_count,
+            "score_bound_correct_source_run": source_correct_input_count > 0,
             "failure_stage": failure_stage,
             "failure_code": failure_code,
             "new_history_paths": additions,
@@ -2021,6 +2139,9 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
         previous_recovery_state = current_recovery_state
     semantic = {
         "schema_version": (
+            "sentientos.rootless_history_boundary_campaign_audit:v12"
+            if plan.get("schema_version") ==
+                "sentientos.rootless_history_boundary_campaign_plan:v13" else
             "sentientos.rootless_history_boundary_campaign_audit:v11"
             if plan.get("task_family_id") == _NOVEL_TASK_FAMILY else
             "sentientos.rootless_history_boundary_campaign_audit:v10"),
@@ -2054,6 +2175,26 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
         "learning_established": False,
         "authority": False,
     }
+    if plan.get("schema_version") == (
+            "sentientos.rootless_history_boundary_campaign_plan:v13"):
+        minimum_runs = _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL[
+            "minimum_score_bound_correct_source_runs"]
+        minimum_inputs = _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL[
+            "minimum_distinct_correct_source_inputs"]
+        eligible = (completed_cycle_count == len(cycle_ids)
+            and len(score_bound_correct_source_run_ids) >= minimum_runs
+            and len(score_bound_correct_inputs) >= minimum_inputs)
+        semantic.update({
+            "source_acquisition_eligibility_status": (
+                "minimum_source_evidence_threshold_met" if eligible else
+                "campaign_incomplete" if completed_cycle_count < len(cycle_ids) else
+                "minimum_source_evidence_threshold_not_met"),
+            "source_acquisition_eligible": eligible,
+            "score_bound_correct_source_run_count":
+                len(score_bound_correct_source_run_ids),
+            "distinct_score_bound_correct_input_count":
+                len(score_bound_correct_inputs),
+        })
     return {**semantic, "audit_digest": digest_payload(semantic)}
 
 
@@ -2070,7 +2211,8 @@ def main() -> None:
     prepare.add_argument("--gpu-layers", type=int, default=32)
     prepare.add_argument("--transfer-probe-count", type=int, default=3,
         help=("number of fixed transfer probes; 4-16 uses v10 for the v7 "
-            "cross-range design and v12 for the v8 novel-range design"))
+            "cross-range design and v12 for the v8 novel-range design; "
+            "model-pinned v13 is the low-range source acquisition design"))
     prepare.add_argument("--cross-range-history-enabled-competence",
         action="store_true",
         help="preregister the separate v6-history-enabled v7 competence outcome")

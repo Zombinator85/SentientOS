@@ -36,7 +36,8 @@
         "sentientos.rootless_history_boundary_campaign_audit:v8",
         "sentientos.rootless_history_boundary_campaign_audit:v9",
         "sentientos.rootless_history_boundary_campaign_audit:v10",
-        "sentientos.rootless_history_boundary_campaign_audit:v11"
+        "sentientos.rootless_history_boundary_campaign_audit:v11",
+        "sentientos.rootless_history_boundary_campaign_audit:v12"
       ]
     },
     "campaign_id": {
@@ -85,6 +86,16 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 32
+    },
+    "source_acquisition_eligibility_status": {
+      "enum": ["minimum_source_evidence_threshold_met", "minimum_source_evidence_threshold_not_met", "campaign_incomplete"]
+    },
+    "source_acquisition_eligible": {"type": "boolean"},
+    "score_bound_correct_source_run_count": {
+      "type": "integer", "minimum": 0, "maximum": 32
+    },
+    "distinct_score_bound_correct_input_count": {
+      "type": "integer", "minimum": 0, "maximum": 512
     },
     "history_transfer_precondition_snapshot_chain_verified": {
       "type": "boolean"
@@ -268,6 +279,9 @@
           "source_run_binding_verified": {
             "type": "boolean"
           },
+          "source_score_to_history_binding_verified": {"type": "boolean"},
+          "score_bound_correct_input_count": {"type": "integer", "minimum": 0, "maximum": 16},
+          "score_bound_correct_source_run": {"type": "boolean"},
           "failure_stage": {
             "type": [
               "string",
@@ -690,6 +704,38 @@
                 "history_transfer_precondition_record_digest",
                 "history_transfer_precondition_snapshot_verified",
                 "acquisition_probe_overlap_measurement_complete"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "sentientos.rootless_history_boundary_campaign_audit:v12"
+          }
+        },
+        "required": ["schema_version"]
+      },
+      "then": {
+        "required": [
+          "source_acquisition_eligibility_status",
+          "source_acquisition_eligible",
+          "score_bound_correct_source_run_count",
+          "distinct_score_bound_correct_input_count"
+        ],
+        "properties": {
+          "task_family_id": {
+            "const": "rootless_integer_affine_transfer_low_range_v6"
+          },
+          "cycle_boundaries": {
+            "items": {
+              "required": [
+                "source_score_to_history_binding_verified",
+                "score_bound_correct_input_count",
+                "score_bound_correct_source_run"
               ]
             }
           }
