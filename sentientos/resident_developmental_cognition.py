@@ -19664,7 +19664,7 @@ class ResidentDevelopmentalCognitionOwner:
                     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements))
             feedback_record, feedback_receipt = self.writeback.append(
                 candidate, admission=admission, operation_id=operation_id,
-                correlation_id=f"{tick_id}:owner-companion-feedback")
+                correlation_id=f"{tick_id}:resident-developmental-writeback")
             feedback_record_id = feedback_record.record_id
             feedback_writeback_receipt_id = feedback_receipt.receipt_id
         return ResidentCompanionHistoryInterventionResult(
