@@ -5426,6 +5426,14 @@ def _history_decision_contrast_context(payload: Mapping[str, Any], *,
     projection_version = (projection.get("schema_version")
         if isinstance(projection, Mapping) else None)
     contrast = payload.get("history_decision_contrast")
+    # The v4 interpretation projection is also used for score-bound task-family
+    # records. Those projections intentionally omit companion decisions, so a
+    # missing contrast there means "not applicable" rather than malformed.
+    if (projection_version ==
+            "sentientos.developmental_history_interpretation_projection:v4"
+            and payload.get("objective_task_family") is not None
+            and contrast is None):
+        return None
     if projection_version not in {
             "sentientos.developmental_history_interpretation_projection:v2",
             "sentientos.developmental_history_interpretation_projection:v3",
