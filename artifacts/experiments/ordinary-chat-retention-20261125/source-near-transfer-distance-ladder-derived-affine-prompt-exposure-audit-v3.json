@@ -1,5 +1,5 @@
 {
-  "audit_implementation_sha256": "fd65dc57c43e445b104ea84f496c18cf3ff15d6e3284e8800d26fb1e27eff0a6",
+  "audit_implementation_sha256": "0601e951cf872a18dbbfaf69a205b044fb9de43e6f26b3f00e3f15d359601d8f",
   "candidate_character_delta_constant_across_tiers": true,
   "candidate_character_delta_values": [
     92
@@ -10,7 +10,7 @@
   "preflight_path": "artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v8.json",
   "preflight_sha256": "fe5449589f8c1730de8f6d197c962fdab29aa984995ede8ab084040c3246fe65",
   "remaining_control_gap": "No length-matched sham-candidate arm is present. The raw-versus-derived contrast therefore estimates the effect of adding the candidate payload, including its additional prompt length.",
-  "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v2",
+  "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v3",
   "tiers": {
     "far": {
       "derived_minus_empty_chars": 3611,
