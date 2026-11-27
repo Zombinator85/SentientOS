@@ -730,9 +730,12 @@ inconsistent prior result, record, or receipt prevents the probe. The score
 requires exact expected responses and dispositions, selected-record identity
 and digest, history citations, empty evidence IDs, an explicitly validated
 decision, matched non-history inputs, and exact prompt restoration. The result
-reports selection, citation, response, and condition-criterion assessments
-separately. A criterion match requires all protocol checks, including explicit
-decision validation; a missing validation status fails the criterion. Selection
+reports selection, citation, response, decision-validation, and
+condition-criterion assessments separately. A criterion match requires all
+protocol checks, including explicit decision validation; a missing validation
+status fails the criterion. Response
+matching and validation status have separate assessments, so missing validation
+evidence does not obscure whether the response itself matched. Selection
 alone is not treated as model use: a selected record without its citation is
 reported as selected but not cited. These observed checks still do not establish
 that the model cognitively used the record or that it caused the response. The
@@ -769,7 +772,8 @@ That completed result uses the v1 score serialization, whose
 `delivery_verified` field only compared history citations with the expected
 record IDs; it did not establish that content was delivered to or used by the
 model. The current v2 score serialization reports selection, citation,
-response, and condition-criterion assessments separately.
+response, decision-validation, and condition-criterion assessments
+separately.
 The condition_criteria_met flag reports whether all per-condition
 checks pass together; it is not a response-only score. A criterion match
 records only that the observed response, citation, and selection match the

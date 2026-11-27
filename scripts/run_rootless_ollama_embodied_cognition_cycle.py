@@ -6196,12 +6196,16 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             and row.get("response") == expected_response
             and row.get("disposition") == expected_disposition
             and row.get("evidence_ids") == [])
-        if validation_status != "validated" or validation_error is not None:
-            response_assessment = "decision_not_validated"
-        elif response_matches:
-            response_assessment = "expected_response_and_disposition"
+        response_assessment = ("expected_response_and_disposition"
+            if response_matches else "response_or_disposition_mismatch")
+        if validation_status is None:
+            validation_assessment = "decision_validation_status_missing"
+        elif validation_status != "validated":
+            validation_assessment = "decision_not_validated"
+        elif validation_error is not None:
+            validation_assessment = "decision_validation_error_present"
         else:
-            response_assessment = "response_or_disposition_mismatch"
+            validation_assessment = "decision_validated"
         if should_retrieve:
             selection_assessment = ("expected_record_selected"
                 if selection_verified else "expected_record_selection_mismatch")
@@ -6213,7 +6217,8 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             citation_assessment = ("no_citation_as_expected"
                 if citation_verified else "unexpected_history_citation")
         condition_criteria_met = (selection_verified and citation_verified
-            and response_assessment == "expected_response_and_disposition")
+            and response_assessment == "expected_response_and_disposition"
+            and validation_assessment == "decision_validated")
         criterion_assessment = ("expected_condition_criteria_met"
             if condition_criteria_met else "expected_condition_criteria_not_met")
         measured_conditions.append({
@@ -6234,6 +6239,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             "citation_verified": citation_verified,
             "citation_assessment": citation_assessment,
             "response_assessment": response_assessment,
+            "decision_validation_assessment": validation_assessment,
             "condition_criterion_assessment": criterion_assessment,
             "response_digest": row.get("response_digest")
                 if isinstance(row, Mapping) else None,
