@@ -1812,6 +1812,9 @@ class DurableLearningConditionWorkerBackend:
         if include_external_references:
             result.update({key: payload[key]
                 for key in external_reference_fields})
+        else:
+            result["recovered_completion"] = completion
+            result["recovered_completion_digest"] = digest_payload(completion)
         return {"status": "completed", "result": result}
 
     def consolidate_branch(self,

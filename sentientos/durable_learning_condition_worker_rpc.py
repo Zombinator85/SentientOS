@@ -795,9 +795,21 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
             "answer_exclusion_audit_verified",
             "answer_example_exclusion_verified", "probe_use_eligible",
             "supervisor_recovery_evidence_eligible", "adoption_performed",
+            "recovered_completion", "recovered_completion_digest",
             "authority"}
         projection = (result.get("strategy_projection")
             if isinstance(result, Mapping) else None)
+        completion = (result.get("recovered_completion")
+            if isinstance(result, Mapping) else None)
+        completion_fields = {"schema_version", "protocol_id", "protocol_digest",
+            "condition", "branch_id", "tick_id", "snapshot_id",
+            "snapshot_digest", "baseline_history_state_digest",
+            "resident_tick_status", "source_fact_ids", "selected_fact_ids",
+            "observation_ids", "post_history_state_snapshot",
+            "new_writeback_ref", "new_writeback_receipt_ref",
+            "developmental_writeback_performed",
+            "withhold_developmental_history", "scorer_outcomes_included",
+            "recovery_inference_performed", "learning_established", "authority"}
         expected_projection_digest = (projection.get("projection_digest")
             if isinstance(projection, Mapping) else None)
         if (type(result) is not dict or set(result) != required
@@ -818,6 +830,23 @@ def verify_condition_worker_rpc_response(value: Any, *, request: Mapping[str, An
                     not isinstance(projection, Mapping)
                     or not _require_digest(expected_projection_digest)))
                 or result.get("projection_digest") != expected_projection_digest
+                or type(completion) is not dict
+                or set(completion) != completion_fields
+                or result.get("recovered_completion_digest") !=
+                    ConditionWorkerRPCDispatcher._result_digest(completion)
+                or completion.get("schema_version") !=
+                    "sentientos.durable_learning_worker_owner_tick_recovery:v1"
+                or completion.get("protocol_id") != checked_request["protocol_id"]
+                or completion.get("protocol_digest") !=
+                    checked_request["protocol_digest"]
+                or completion.get("condition") != checked_request["condition"]
+                or completion.get("branch_id") != result.get("branch_id")
+                or completion.get("resident_tick_status") != "completed"
+                or any(completion.get(key) is not False for key in (
+                    "scorer_outcomes_included", "recovery_inference_performed",
+                    "learning_established", "authority"))
+                or type(completion.get("developmental_writeback_performed"))
+                    is not bool
                 or result.get("owner_tick_reloaded") is not True
                 or any(result.get(key) is not False for key in (
                     "consolidation_receipt_reference_verified",

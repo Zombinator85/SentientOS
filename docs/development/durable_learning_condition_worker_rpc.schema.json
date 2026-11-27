@@ -132,6 +132,10 @@
           }
         },
         {
+          "if": { "properties": { "operation": { "const": "reconstruct_strategy_projection_v2" }, "status": { "const": "completed" } } },
+          "then": { "properties": { "result": { "required": ["recovered_completion", "recovered_completion_digest"], "properties": { "recovered_completion_digest": { "$ref": "#/$defs/digest" }, "recovered_completion": { "type": "object", "required": ["schema_version", "protocol_id", "protocol_digest", "condition", "branch_id", "tick_id", "snapshot_id", "snapshot_digest", "resident_tick_status", "observation_ids", "post_history_state_snapshot", "developmental_writeback_performed", "scorer_outcomes_included", "recovery_inference_performed", "learning_established", "authority"], "properties": { "schema_version": { "const": "sentientos.durable_learning_worker_owner_tick_recovery:v1" }, "resident_tick_status": { "const": "completed" }, "developmental_writeback_performed": { "type": "boolean" }, "scorer_outcomes_included": { "const": false }, "recovery_inference_performed": { "const": false }, "learning_established": { "const": false }, "authority": { "const": false } } } } } } }
+        },
+        {
           "if": { "properties": { "operation": { "const": "inventory_profile_registry" } } },
           "then": {
             "if": { "properties": { "status": { "const": "completed" } } },

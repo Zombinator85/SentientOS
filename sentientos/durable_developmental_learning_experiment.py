@@ -14660,6 +14660,10 @@ class DurableDevelopmentalLearningRunner:
         branch = self._condition_branches[condition]
         projection = (result.get("strategy_projection")
             if isinstance(result, Mapping) else None)
+        completion = (result.get("recovered_completion")
+            if isinstance(result, Mapping) else None)
+        from .durable_learning_condition_worker_rpc import (
+            ConditionWorkerRPCDispatcher)
         if (not isinstance(exchange, Mapping)
                 or exchange.get("response_status") != "completed"
                 or not isinstance(result, Mapping)
@@ -14670,6 +14674,19 @@ class DurableDevelopmentalLearningRunner:
                 or result.get("branch_id") != branch.branch_id
                 or result.get("projection_digest") !=
                     projection.get("projection_digest")
+                or not isinstance(completion, Mapping)
+                or result.get("recovered_completion_digest") !=
+                    ConditionWorkerRPCDispatcher._result_digest(completion)
+                or completion.get("protocol_id") != protocol.get("protocol_id")
+                or completion.get("protocol_digest") !=
+                    protocol.get("protocol_digest")
+                or completion.get("condition") != condition
+                or completion.get("branch_id") != branch.branch_id
+                or completion.get("tick_id") != projection.get("tick_id")
+                or completion.get("snapshot_id") != projection.get("snapshot_id")
+                or completion.get("snapshot_digest") !=
+                    projection.get("snapshot_digest")
+                or completion.get("authority") is not False
                 or result.get("strategy_projection_policy_digest") !=
                     protocol["condition_contract"][
                         "strategy_projection_policy_digest"]
@@ -14699,6 +14716,9 @@ class DurableDevelopmentalLearningRunner:
             "worker_process_observation": dict(process_observation),
             "strategy_projection": dict(projection),
             "projection_digest": projection["projection_digest"],
+            "recovered_completion": dict(completion),
+            "recovered_completion_digest": result[
+                "recovered_completion_digest"],
             "answer_example_exclusion_verified": False,
             "probe_use_eligible": False,
             "adoption_performed": False, "authority": False}

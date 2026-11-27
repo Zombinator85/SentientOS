@@ -1688,7 +1688,11 @@ The worker RPC now also has `reconstruct_strategy_projection_v2`. Its request
 contains only the protocol-bound strategy-projection policy digest; it no
 longer accepts caller-supplied consolidation-receipt or audit digests that the
 worker cannot verify. Its result reports the policy digest and reconstructed
-projection, while keeping supervisor-evidence eligibility, audit verification,
+projection plus the reloaded owner-tick completion and its digest. The runner
+checks that the completion is protocol, condition, branch, tick, and snapshot
+bound to the projection before exposing both as recovery evidence. This retains
+the observation and writeback lineage needed for later receipt reconstruction.
+The result keeps supervisor-evidence eligibility, audit verification,
 probe use, adoption, and authority false. The legacy v1 operation remains
 available for compatibility. The v2 supervisor run persists the new result
 without upgrading it to probe-eligible learning evidence.
