@@ -792,6 +792,34 @@ bindings and hash are custody metadata, not independent timestamp attestation. E
 passing single-record v2 probe would show only a protocol-bounded neutral-query
 recall result, not generalization, durable learning, or causal use of history.
 
+### Higher-resolution neutral-query v2 plan
+
+The v11 neutral-query plan above remains preserved and unrun. A replacement
+schema-v14 candidate was prepared with 12 acquisition and 12 transfer probes
+per cycle, keeping the novel-range task family and the same initial history
+boundary. This increases the number of scored observations before the
+baseline-competence gate and leaves the prior v11 plan unchanged.
+
+The private plan is
+`rootless-experimental/owner-feedback-recall-campaign-20261127-neutral-v2-12x12/campaign-plan.json`.
+It binds campaign `rootless-history-campaign-d8f0bc296251426a8da2`, plan digest
+`6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972`, and
+history boundary digest
+`bedca4464283f06e3180850ec144dd65ec79c92fc1a4149b4543a55b34575956`. Its
+cycle IDs are `rootless-cognition-cycle-f693f18b055e42fca02b` and
+`rootless-cognition-cycle-0fbcd3dc1a5e406b9aae`; task-generation seeds are
+1149774101 and 781169057, and backend seeds are 21902234 and 1942124107.
+The model manifest and v2 protocol digest remain bound separately as recorded
+above. CPU-only `verify-plan` matched all 2,558 implementation pins and both
+model identities. The private
+`campaign-run-card-neutral-v2-12x12.json` agrees with the plan and passed all
+16 checks in the offline run-card verifier; its mode-0600 SHA-256 is
+`008a63b9eeef7efb6fbad45c308ba0dd739c19de835280c1d23f8022627d324f`.
+Both cycles remain `prepared_not_started`; no inference was performed, and
+preregistration timing is not independently attested. This is only a stronger
+measurement plan. Even a fully qualified neutral-query result would not show
+durable learning, general transfer, or causal development.
+
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
 owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.
