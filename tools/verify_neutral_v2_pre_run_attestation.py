@@ -68,6 +68,8 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             args.attestation_commit, args.remote_ref],
         cwd=repo, check=False, capture_output=True,
     ).returncode == 0
+    remote_ref_head = git(repo, "rev-parse", args.remote_ref).decode(
+        "utf-8").strip()
 
     checks = {
         "attestation_commit_reachable_from_remote_ref": reachable,
@@ -145,6 +147,8 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "attestation_commit_sha": args.attestation_commit,
         "attestation_commit_timestamp": commit_time,
         "remote_ref": args.remote_ref,
+        "remote_ref_head": remote_ref_head,
+        "verifier_sha256": sha256(Path(__file__).read_bytes()),
         "campaign_plan_digest": campaign_plan_digest,
         "protocol_sha256": protocol_digest,
         "private_run_card_sha256": sha256(card_bytes),
