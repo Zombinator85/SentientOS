@@ -1699,7 +1699,9 @@ class DurableLearningConditionWorkerBackend:
                 "reason_code": "worker_protocol_condition_binding_mismatch",
                 "consolidation_receipt_reference_verified": False,
                 "answer_exclusion_audit_verified": False,
-                "probe_use_eligible": False, "authority": False}}
+                "probe_use_eligible": False,
+                "supervisor_recovery_evidence_eligible": False,
+                "authority": False}}
         payload = request.get("payload")
         contract = self._protocol.get("condition_contract")
         if (not isinstance(payload, Mapping)
@@ -1716,7 +1718,9 @@ class DurableLearningConditionWorkerBackend:
                 "reason_code": "worker_strategy_projection_request_invalid",
                 "consolidation_receipt_reference_verified": False,
                 "answer_exclusion_audit_verified": False,
-                "probe_use_eligible": False, "authority": False}}
+                "probe_use_eligible": False,
+                "supervisor_recovery_evidence_eligible": False,
+                "authority": False}}
         try:
             from .durable_developmental_learning_experiment import (
                 build_durable_learning_strategy_projection,
@@ -1761,7 +1765,9 @@ class DurableLearningConditionWorkerBackend:
                     "answer_exclusion_audit_digest"],
                 "consolidation_receipt_reference_verified": False,
                 "answer_exclusion_audit_verified": False,
-                "probe_use_eligible": False, "authority": False}}
+                "probe_use_eligible": False,
+                "supervisor_recovery_evidence_eligible": False,
+                "authority": False}}
         result = {
             "schema_version":
                 "sentientos.durable_learning_worker_strategy_projection:v1",
@@ -1781,6 +1787,7 @@ class DurableLearningConditionWorkerBackend:
             "answer_exclusion_audit_verified": False,
             "answer_example_exclusion_verified": False,
             "probe_use_eligible": False,
+            "supervisor_recovery_evidence_eligible": False,
             "adoption_performed": False,
             "authority": False}
         return {"status": "completed", "result": result}

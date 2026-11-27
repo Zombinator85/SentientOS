@@ -1670,6 +1670,18 @@ and answer-exclusion audit as unverified, and fixes
 does not enable first-time writeback, delayed probes, or retention eligibility;
 the independent auditor must still verify the reconstructed projection before
 any prompt can receive it.
+
+This fifth RPC is currently a worker capability, not part of the persisted
+supervisor recovery sequence. Recovery intent and run artifact v1 still pin and
+validate exactly four operations, ending with `consolidate_branch`; their
+schemas do not retain a projection-reconstruction response. Therefore a direct
+`reconstruct_strategy_projection` exchange cannot be reported as a completed
+supervised recovery run or used as accepted recovery evidence. Integrating it
+requires a versioned recovery intent/run contract that captures the fifth
+request and response, verifies the reconstructed projection against the
+completed owner tick and persisted consolidation receipt, and binds the
+independent answer-exclusion attestation. Until then the worker result remains
+diagnostic and non-consumable.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.
