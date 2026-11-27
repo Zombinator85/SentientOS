@@ -133,13 +133,14 @@
     "low_range_source_acquisition_protocol": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "task_family_id", "require_empty_initial_history", "minimum_score_bound_correct_source_runs", "minimum_distinct_correct_source_inputs", "require_independent_oracle_scoring", "require_invocation_and_writeback_receipt_binding", "score_bound_source_audit_schema_version", "correct_input_values_in_audit", "learning_established", "authority"],
+      "required": ["schema_version", "task_family_id", "require_empty_initial_history", "minimum_score_bound_correct_source_runs", "minimum_distinct_correct_source_inputs", "cross_cycle_probe_reuse_allowed", "require_independent_oracle_scoring", "require_invocation_and_writeback_receipt_binding", "score_bound_source_audit_schema_version", "correct_input_values_in_audit", "learning_established", "authority"],
       "properties": {
         "schema_version": {"const": "sentientos.low_range_source_acquisition_protocol:v2"},
         "task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"},
         "require_empty_initial_history": {"const": true},
         "minimum_score_bound_correct_source_runs": {"const": 2},
         "minimum_distinct_correct_source_inputs": {"const": 3},
+        "cross_cycle_probe_reuse_allowed": {"const": true},
         "require_independent_oracle_scoring": {"const": true},
         "require_invocation_and_writeback_receipt_binding": {"const": true},
         "score_bound_source_audit_schema_version": {"const": "sentientos.rootless_history_projection_compaction_audit:v2"},

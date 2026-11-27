@@ -14,7 +14,8 @@ offline invocation receipt verifier and independent objective scorer, and
 checks that the score-bound examples were retained in the exact history
 writeback record. It reports eligibility counts without serializing probe
 values or per-input hashes. Acquisition and transfer probes must be disjoint
-within and across planned cycles. Meeting the threshold only establishes
+within each cycle; repeated inputs across cycles are deduplicated in the
+eligibility count. Meeting the threshold only establishes
 eligible source evidence for the later experiment; it is not a learning or
 authority claim. Preparing or verifying a v13 plan performs no inference.
 

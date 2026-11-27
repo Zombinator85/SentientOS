@@ -55,6 +55,7 @@ _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL = {
     "require_empty_initial_history": True,
     "minimum_score_bound_correct_source_runs": 2,
     "minimum_distinct_correct_source_inputs": 3,
+    "cross_cycle_probe_reuse_allowed": True,
     "require_independent_oracle_scoring": True,
     "require_invocation_and_writeback_receipt_binding": True,
     "score_bound_source_audit_schema_version":
@@ -723,12 +724,10 @@ def _validate_disjoint_planned_probe_sets(*, task_family_id: str,
                 "history_campaign_source_task_probe_sets_overlap")
             raise ValueError(code)
         planned_probe_sets.append(acquisition_inputs | transfer_inputs)
-    for index, probe_set in enumerate(planned_probe_sets):
-        if any(probe_set & prior for prior in planned_probe_sets[:index]):
-            code = ("history_campaign_novel_cycle_probe_reuse"
-                if task_family_id == _NOVEL_TASK_FAMILY else
-                "history_campaign_source_cycle_probe_reuse")
-            raise ValueError(code)
+    if task_family_id == _NOVEL_TASK_FAMILY:
+        for index, probe_set in enumerate(planned_probe_sets):
+            if any(probe_set & prior for prior in planned_probe_sets[:index]):
+                raise ValueError("history_campaign_novel_cycle_probe_reuse")
 
 
 def create_plan(*, history_root: Path, campaign_id: str,
