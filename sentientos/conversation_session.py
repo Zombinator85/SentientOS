@@ -1802,11 +1802,16 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
         "omitted_memory_count": omitted_count if type(omitted_count) is int
             and omitted_count >= 0 else None,
     }
+    semantic_retrieval_posture = memory_snapshot.get("semantic_retrieval_posture")
+    if isinstance(semantic_retrieval_posture, str):
+        status["semantic_retrieval_posture"] = semantic_retrieval_posture
     if compact_history or compact_screen_context:
         status = {"complete": memory_selection_complete,
             "omitted": status["omitted_memory_count"],
             "retrieval": status["retrieval_posture"],
             "selection": status["selection_posture"]}
+        if "semantic_retrieval_posture" in memory_snapshot:
+            status["semantic"] = semantic_retrieval_posture
         lines.append("[UNTRUSTED_MEMORY_SELECTION]")
     else:
         status.update({"selected_memory_count": len(memories)

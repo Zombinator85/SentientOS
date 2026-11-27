@@ -2757,9 +2757,14 @@ def test_ordinary_chat_semantic_retrieval_applies_only_verified_paraphrased_memo
     assert response.response == "The retained note described overheating."
     assert target_text in invoker.last_prompt
     assert decoy_text not in invoker.last_prompt
-    raw_status = invoker.last_prompt.split(
-        "[MEMORY_RETRIEVAL_STATUS]\n", 1)[1].splitlines()[0]
-    assert json.loads(raw_status)["semantic_retrieval_posture"] == "matched"
+    status_label = ("[MEMORY_RETRIEVAL_STATUS]\n"
+        if "[MEMORY_RETRIEVAL_STATUS]\n" in invoker.last_prompt
+        else "[UNTRUSTED_MEMORY_SELECTION]\n")
+    raw_status = invoker.last_prompt.split(status_label, 1)[1].splitlines()[0]
+    prompt_status = json.loads(raw_status)
+    assert prompt_status.get("semantic_retrieval_posture",
+        prompt_status.get("retrieval")) == "matched", prompt_status
+    assert prompt_status.get("semantic") == "matched"
 
     # If the pinned encoder cannot run, ordinary chat keeps the existing
     # verified lexical fallback rather than failing or treating semantic scores
