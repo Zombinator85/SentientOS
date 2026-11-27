@@ -869,12 +869,24 @@ history use, or developmental improvement.
 A read-only [cycle-recovery inspector](../../tools/inspect_developmental_cycle_recovery.py)
 was added to make these integrity states auditable without inference. It
 prints identifiers and digests, never model output, and writes no cycle data.
-Running it against the retained artifacts above confirms the first failure's
-specific mismatch: in each of the two companion runs, decision index 1's
-response digest differs from the receipt-bound response digest, while the
-receipt output digest and byte count validate and decision indices 0 and 2
-match. The owner must keep rejecting these artifacts; accepting or rewriting
-the conflicting decision digest would weaken receipt custody.
+The inspector verified both companion-run digests, each decision-to-receipt
+ID/digest link, and each receipt output digest and byte count. It separates
+three response-digest cases: direct receipt matches, the expected
+`INVALID_EXPERIMENTAL_RESPONSE` marker for rejected output, and a validated
+response changed by a governed normalization.
+
+In the first incomplete cycle, decision index 1 of
+`devexp-run-393f986dc50435aacac575e2` was marked validated and normalized as
+`present_condition_requires_fresh_cited_current_evidence`. Its response
+digest does not match the raw receipt response, so the normalized response
+cannot be reconstructed from the receipt alone. Source revision
+`dc349b9a2` applied the present-condition rewrite during controlled history
+trials, including the withheld condition. Commit `ba099ceda` later made that
+rewrite conditional on not being in a controlled intervention, preserving
+direct response-to-receipt binding. The old run remains incomplete and
+unqualified; the fix belongs in the source pins of any new frozen plan. A
+separate companion run's rejected condition correctly binds its digest to the
+`INVALID_EXPERIMENTAL_RESPONSE` marker rather than to raw model output.
 
 For the second failure, the inspector found that the prior-cycle owner-feedback
 record shares the recorded tick and exact snapshot identity with an already
@@ -884,14 +896,15 @@ exactly this case: it attaches the feedback record and receipt only when the
 checkpoint is empty and both snapshot identifiers match. A checkpoint bound
 to another record, a nonempty receipt slot, or a different snapshot still
 fails closed. Thus the saved error belongs to the older source revision
-`825048e...`; the repair is present in source revision
-`dc349b9...` and should be carried into any new frozen plan. The inspector is
-supplemental custody tooling outside the pinned experiment implementation.
-Its SHA-256 is
-`c3fecc86a362d761fc8df0baea160f1d634812bf73b4fbed4b6366452c98a89c`. Invoke it as
-`python tools/inspect_developmental_cycle_recovery.py <cycle-root>`; status 3
-flags a receipt-response mismatch or incompatible checkpoint, while 0 means
-no such conflict was found in the inspected artifacts.
+`825048e...`; the repair is present in source revision `dc349b9...`. The
+inspector is supplemental custody tooling outside the pinned experiment
+implementation. Its SHA-256 is
+`1a637b75945d0fee12674ff165e39d3f84ec31da65777e64a8ef2f4674f1d3a9`.
+Invoke it as `python tools/inspect_developmental_cycle_recovery.py <cycle-root>`;
+status 3 flags an unreconstructible normalized response digest, another
+response-integrity mismatch, or an incompatible checkpoint. Status 0 means
+none of those conditions was found in the inspected artifacts.
+
 
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
