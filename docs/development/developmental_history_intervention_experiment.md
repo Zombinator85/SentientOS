@@ -752,6 +752,17 @@ checks the feedback protocol digest against the frozen JSON before it enables
 the follow-up probe. The campaign plan separately binds the source and model
 implementation hashes.
 
+Protocol v2 is a forward-only neutral-query variant. It asks for the recorded
+qualification status without supplying the target response labels; those stay
+in the frozen scoring rubric. The runner chooses v1 or v2 only when
+SENTIENTOS_HERMES_OWNER_FEEDBACK_PROTOCOL_DIGEST matches that protocol file.
+The v1 file and completed v1 result are unchanged. The v2 protocol digest is
+79159cb734438661be85d58a1260359470bd98bd02cdf83527655b899934bc3d.
+It has not been run. A new campaign plan must bind this digest plus the source
+and model implementation before inference. Even a passing single-record v2
+probe would show only a protocol-bounded neutral-query recall result, not
+generalization, durable learning, or causal use of history.
+
 The preregistered two-cycle response-digest campaign completed its follow-up
 probe in cycle `rootless-cognition-cycle-7e59c1f038f941dcbfbc`, using the
 owner-feedback record from cycle `rootless-cognition-cycle-dbd9364284c7462dbe4f`.

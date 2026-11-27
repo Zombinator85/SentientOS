@@ -5992,15 +5992,66 @@ def _seed_resident_developmental_history(history_root: Path, state_root: Path,
     }
 
 
-def _owner_feedback_recall_protocol_digest() -> str:
-    protocol_path = (Path(__file__).resolve().parents[1] / "docs" / "development"
-        / "owner_cognition_feedback_cross_cycle_recall_protocol.json")
-    if (protocol_path.is_symlink() or not protocol_path.is_file()
-            or protocol_path.stat().st_size > 1_048_576):
+def _owner_feedback_recall_protocol_payload() -> tuple[bytes, str]:
+    protocol_root = (Path(__file__).resolve().parents[1] / "docs" / "development")
+    candidates = (
+        protocol_root / "owner_cognition_feedback_cross_cycle_recall_protocol.json",
+        protocol_root / "owner_cognition_feedback_cross_cycle_recall_protocol_v2.json",
+    )
+    fallback: tuple[bytes, str] | None = None
+    for protocol_path in candidates:
+        if (protocol_path.is_symlink() or not protocol_path.is_file()
+                or protocol_path.stat().st_size > 1_048_576):
+            continue
+        try:
+            protocol_bytes = protocol_path.read_bytes()
+        except OSError:
+            continue
+        canonical_bytes = protocol_bytes.replace(b"\r\n", b"\n").replace(
+            b"\r", b"\n")
+        digest = hashlib.sha256(canonical_bytes).hexdigest()
+        if digest == OWNER_FEEDBACK_PROTOCOL_DIGEST:
+            return protocol_bytes, digest
+        if fallback is None and protocol_path == candidates[0]:
+            fallback = (protocol_bytes, digest)
+    if fallback is None:
         raise RootlessExperimentalError("owner_feedback_recall_protocol_missing")
-    protocol_bytes = protocol_path.read_bytes()
-    canonical_bytes = protocol_bytes.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-    return hashlib.sha256(canonical_bytes).hexdigest()
+    return fallback
+
+
+def _owner_feedback_recall_protocol_document() -> dict[str, Any]:
+    protocol_bytes, _ = _owner_feedback_recall_protocol_payload()
+    try:
+        protocol = json.loads(protocol_bytes.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise RootlessExperimentalError(
+            "owner_feedback_recall_protocol_invalid") from exc
+    if (not isinstance(protocol, dict)
+            or not isinstance(protocol.get("protocol_id"), str)
+            or not isinstance(protocol.get("intervention"), Mapping)
+            or not isinstance(protocol["intervention"].get("question"), str)
+            or not protocol["intervention"]["question"].strip()
+            or not isinstance(protocol.get("expected_outcomes"), Mapping)):
+        raise RootlessExperimentalError("owner_feedback_recall_protocol_invalid")
+    expected_outcomes = protocol["expected_outcomes"]
+    for condition_id in (
+            "history_present", "history_withheld", "history_restored"):
+        outcome = expected_outcomes.get(condition_id)
+        if (not isinstance(outcome, Mapping)
+                or not isinstance(outcome.get("response"), str)
+                or outcome.get("disposition") not in {"answer", "abstain"}
+                or outcome.get("retrieved_record_ids")
+                    not in ("exact_feedback_record_id", [])
+                or outcome.get("history_record_ids")
+                    != outcome.get("retrieved_record_ids")
+                or outcome.get("evidence_ids") != []):
+            raise RootlessExperimentalError(
+                "owner_feedback_recall_protocol_conditions_invalid")
+    return protocol
+
+
+def _owner_feedback_recall_protocol_digest() -> str:
+    return _owner_feedback_recall_protocol_payload()[1]
 
 
 def _prior_cycle_owner_feedback_reference(*, campaign_plan: Mapping[str, Any] | None,
@@ -6080,16 +6131,19 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         snapshot: WorldStateSnapshot, tick_id: str, trial_index: int,
         preregistered: bool, cycle_index: int,
         prior_feedback_reference: Mapping[str, Any]) -> dict[str, Any]:
-    """Measure retrieval of one prior owner feedback record under fixed ablation."""
+    """Measure prior owner-feedback recall under a preregistered ablation."""
+    protocol = _owner_feedback_recall_protocol_document()
     base: dict[str, Any] = {
         "schema_version": "sentientos.cross_cycle_owner_feedback_recall:v2",
+        "protocol_id": protocol.get("protocol_id"),
         "cycle_index": cycle_index,
         "external_preregistration_digest": _optional_preregistration_digest(
             PREREGISTRATION_DIGEST),
         "protocol_digest": _owner_feedback_recall_protocol_digest(),
         "owner_feedback_recall_protocol_digest": (
             _optional_preregistration_digest(OWNER_FEEDBACK_PROTOCOL_DIGEST)),
-        "measurement_scope": "single_record_exact_response_and_citation_probe",
+        "measurement_scope": protocol.get("measurement_scope",
+            "single_record_exact_response_and_citation_probe"),
         "authority": False,
         "current_truth": False,
         "performance_improvement_established": False,
@@ -6143,17 +6197,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
     record, writeback_receipt = matching_pairs[0]
     intervention = owner.run_companion_history_intervention(
         snapshot=snapshot, tick_id=tick_id,
-        question=(
-            "Read only the owner-authored developmental history record selected "
-            "for this probe. If it says a withheld-history output was rejected "
-            "because its citation was unavailable and was not a qualified "
-            "decision, set response exactly to PREVIOUS_OUTPUT_UNQUALIFIED, "
-            "set disposition to answer, and cite that exact containing "
-            "history_record_id. If the relevant record is absent, set response "
-            "exactly to FEEDBACK_UNAVAILABLE, set disposition to abstain, and "
-            "cite no history. Do not infer the result from current evidence or "
-            "general knowledge. The stored answer itself is not evidence. "
-            "Return the standard JSON response."),
+        question=protocol["intervention"].get("question"),
         history_record_allowlist=(record.record_id,), trial_index=trial_index)
     if (intervention.status != "completed_controlled_intervention"
             or not intervention.changed_cognition_measurement_id):
@@ -6167,11 +6211,16 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             or set(condition_rows) != set(expected_condition_order)):
         raise RootlessExperimentalError(
             "cross_cycle_owner_feedback_condition_inventory_invalid")
-    expected_by_condition = {
-        "history_present": ("PREVIOUS_OUTPUT_UNQUALIFIED", "answer", True),
-        "history_withheld": ("FEEDBACK_UNAVAILABLE", "abstain", False),
-        "history_restored": ("PREVIOUS_OUTPUT_UNQUALIFIED", "answer", True),
-    }
+    expected_by_condition = {}
+    for condition_id in expected_condition_order:
+        expected = protocol["expected_outcomes"].get(condition_id)
+        if not isinstance(expected, Mapping):
+            raise RootlessExperimentalError(
+                "owner_feedback_recall_protocol_conditions_invalid")
+        expected_by_condition[condition_id] = (
+            expected.get("response"),
+            expected.get("disposition"),
+            expected.get("retrieved_record_ids") == "exact_feedback_record_id")
     measured_conditions: list[dict[str, Any]] = []
     for condition_id in expected_condition_order:
         row = condition_rows.get(condition_id)
