@@ -6212,10 +6212,10 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
                 if selection_verified else "unexpected_record_selected")
             citation_assessment = ("no_citation_as_expected"
                 if citation_verified else "unexpected_history_citation")
-        response_correct = (selection_verified and citation_verified
+        condition_criteria_met = (selection_verified and citation_verified
             and response_assessment == "expected_response_and_disposition")
         criterion_assessment = ("expected_condition_criteria_met"
-            if response_correct else "expected_condition_criteria_not_met")
+            if condition_criteria_met else "expected_condition_criteria_not_met")
         measured_conditions.append({
             "condition_id": condition_id,
             "expected_response": expected_response,
@@ -6246,7 +6246,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             "decision_validation_status": validation_status,
             "observed_disposition": row.get("disposition")
                 if isinstance(row, Mapping) else None,
-            "response_correct": response_correct,
+            "condition_criteria_met": condition_criteria_met,
         })
     controls = [row.get("matched_control_inputs")
         for row in intervention.conditions if isinstance(row, Mapping)]
@@ -6254,8 +6254,8 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         and all(isinstance(value, Mapping) for value in controls)
         and controls[0] == controls[1] == controls[2])
     restoration_prompt_matches = intervention.restored_prompt_matches
-    all_correct = (len(measured_conditions) == 3
-        and all(row["response_correct"] for row in measured_conditions))
+    all_conditions_met = (len(measured_conditions) == 3
+        and all(row["condition_criteria_met"] for row in measured_conditions))
     return {
         **base,
         **dict(prior_feedback_reference),
@@ -6271,7 +6271,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         "restored_prompt_matches_present": restoration_prompt_matches,
         "conditions": measured_conditions,
         "history_conditioned_feedback_recall_qualified": (
-            all_correct and matched_controls and restoration_prompt_matches),
+            all_conditions_met and matched_controls and restoration_prompt_matches),
         "performance_improvement_established": False,
         "learning_established": False,
         "causal_claim_made": False,

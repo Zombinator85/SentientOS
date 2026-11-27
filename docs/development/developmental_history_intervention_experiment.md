@@ -769,7 +769,9 @@ That completed result uses the v1 score serialization, whose
 `delivery_verified` field only compared history citations with the expected
 record IDs; it did not establish that content was delivered to or used by the
 model. The current v2 score serialization reports selection, citation,
-response, and condition-criterion assessments separately. A criterion match
+response, and condition-criterion assessments separately.
+The condition_criteria_met flag reports whether all per-condition
+checks pass together; it is not a response-only score. A criterion match
 records only that the observed response, citation, and selection match the
 protocol. The scorer requires an explicit decision_validation_status value of
 validated; a missing status fails the criterion.
