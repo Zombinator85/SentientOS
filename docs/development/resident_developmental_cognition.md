@@ -7379,3 +7379,21 @@ same probe, the analyzer also reports their paired Brier-score difference on
 that shared subset, with its scored-probe count. This avoids comparing arm
 averages over different confidence-reporting subsets; it remains descriptive
 and does not establish calibration.
+
+### Score-aligned invocation receipt binding for low-range sources (2026-11-27)
+
+The low-range source eligibility audit now binds each condition's score row to
+its invocation receipt request. It requires the receipt request to carry the
+same condition ID, objective task digest, objective plan digest, task family,
+and probe count as the independently scored row. It also binds the request's
+rootless session and active model identity to the planned cycle and model
+manifest, while checking that the session grants no production authority.
+
+This closes a receipt-substitution gap: matching an output digest alone did not
+prove that the receipt came from the condition and task whose score it
+accompanied. A read-only metadata audit of the 42 score/receipt pairs in the 14
+existing completed cycles found all these bindings present and consistent. Those
+historical cycles comprise 11 novel-range and 3 wide-range runs; none exercises
+the low-range path. The updated source pin requires a freshly generated
+low-range campaign plan before execution. This strengthens evidence custody; it
+does not establish learning or independently attest preregistration timing.

@@ -1846,15 +1846,17 @@ def _history_transfer_precondition_snapshot_binding(*, root: Path,
 
 def _low_range_source_correct_inputs(*, cycle_root: Path,
         manifest: Mapping[str, Any], source_run: Mapping[str, Any],
-        acquisition: Mapping[str, Any], expected_probe_inputs: list[int]
-        ) -> set[int]:
+        acquisition: Mapping[str, Any], expected_probe_inputs: list[int],
+        expected_cycle_id: str, expected_model_identity_digest: str,
+        expected_model_manifest_digest: str) -> set[int]:
     """Reconcile score-bound source inputs across run, terminal, and writeback."""
     protocol = source_run.get("protocol")
     descriptor = (protocol.get("objective_task_descriptor")
         if isinstance(protocol, Mapping) else None)
     if (not isinstance(descriptor, Mapping)
             or descriptor.get("task_family_id") != _TASK_FAMILY
-            or descriptor.get("probe_inputs") != expected_probe_inputs):
+            or descriptor.get("probe_inputs") != expected_probe_inputs
+            or protocol.get("objective_task_digest") != descriptor.get("task_digest")):
         raise ValueError("history_campaign_low_range_source_task_binding_invalid")
     binding = acquisition.get("history_score_binding")
     if (not isinstance(binding, Mapping)
@@ -1920,6 +1922,41 @@ def _low_range_source_correct_inputs(*, cycle_root: Path,
                 or receipt.get("status") != "admitted_completed"
                 or not isinstance(request, Mapping)):
             raise ValueError("history_campaign_low_range_source_receipt_unbound")
+        request_linkage = request.get("linkage")
+        task_evidence = request.get("upstream_evidence")
+        session = (request_linkage.get("rootless_experimental_session")
+            if isinstance(request_linkage, Mapping) else None)
+        if (not isinstance(request_linkage, Mapping)
+                or request_linkage.get("condition_id") != row["condition_id"]
+                or not isinstance(task_evidence, Mapping)
+                or task_evidence.get("objective_task_digest")
+                    != descriptor.get("task_digest")
+                or task_evidence.get("objective_task_plan_digest")
+                    != evaluation.get("plan_digest")
+                or task_evidence.get("task_family_id")
+                    != descriptor.get("task_family_id")
+                or task_evidence.get("objective_task_probe_count")
+                    != score.get("probe_count")):
+            raise ValueError(
+                "history_campaign_low_range_source_receipt_task_condition_mismatch")
+        request_identity = request.get("active_model_identity")
+        if (not isinstance(session, Mapping)
+                or session.get("run_id") != expected_cycle_id
+                or session.get("active_model_identity_digest")
+                    != expected_model_identity_digest
+                or session.get("model_manifest_digest")
+                    != expected_model_manifest_digest
+                or session.get("purpose")
+                    != "rootless_experimental_developmental_cognition_cycle"
+                or session.get("production_authority") is not False
+                or session.get("eligible_as_production_serving_evidence") is not False
+                or not isinstance(request_identity, Mapping)
+                or digest_payload({"identity": dict(request_identity)})
+                    != expected_model_identity_digest
+                or request.get("model_artifact_digest")
+                    != expected_model_manifest_digest):
+            raise ValueError(
+                "history_campaign_low_range_source_receipt_model_binding_mismatch")
         score_by_condition[row["condition_id"]] = score
     present = score_by_condition.get("history_present")
     if not isinstance(present, Mapping):
@@ -2210,7 +2247,12 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
                     *acquisition_task.additional_probe_inputs]
                 correct_inputs = _low_range_source_correct_inputs(
                     cycle_root=resolved, manifest=manifest, source_run=source_run,
-                    acquisition=acquisition, expected_probe_inputs=expected_inputs)
+                    acquisition=acquisition, expected_probe_inputs=expected_inputs,
+                    expected_cycle_id=cycle_id,
+                    expected_model_identity_digest=(
+                        _plan_model_identity_digests(plan)[index]),
+                    expected_model_manifest_digest=terminal.get(
+                        "model_manifest_digest"))
                 low_range_source_run_ids.add(observed_source_run_id)
                 if correct_inputs - low_range_correct_inputs:
                     low_range_contributing_source_runs.add(observed_source_run_id)
