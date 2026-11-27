@@ -250,6 +250,30 @@ provided in the prompt; it does not demonstrate retained learning after that
 candidate is removed, durable development, or model-independent continuity.
 The refreshed report records `learning_established: false`.
 
+### Candidate-free baseline and the next durability gate
+
+The earlier [novel-range history-only run](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/)
+also scored 0/12 exact answers; only one of its four responses met the strict
+JSON contract. Its [independent score](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/independent-score.json)
+and [history diagnostic](../../artifacts/experiments/ordinary-chat-retention-20261125/hermes-novel-transfer-run-v1/evidence-diagnostic.json)
+show an important design limit: parent and left exposed the same three
+correct low-range examples, while right exposed one incorrect example and two
+abstentions. It is a useful candidate-free floor, not a balanced replication
+or evidence that history cannot support transfer. In v10, the matched raw
+history and empty arms also scored 0/9 on their fresh probes.
+
+The v10 runner is explicitly read-only: after all trials it verifies that the
+developmental-history snapshots are unchanged. Its candidate-assisted outputs
+therefore have not passed through an admitted developmental writeback and
+cannot establish retention. The next durability experiment must first create
+an experience through an existing score-bound task and writeback path, verify
+the exact record, score, and receipt after reload, then test fresh probes in a
+new session with the candidate itself absent from every prompt. It needs
+matched derived, sham, raw-history, and empty-history arms, and a later
+replication under a different active model identity using the same admitted
+history. Until those gates are exercised, v10 establishes immediate
+evidence-conditioned behavior only.
+
 Recreate the independent score from the repository root with:
 
 ```powershell
