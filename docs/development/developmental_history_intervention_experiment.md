@@ -839,6 +839,24 @@ preregistration timing is not independently attested. This is only a stronger
 measurement plan. Even a fully qualified neutral-query result would not show
 durable learning, general transfer, or causal development.
 
+The launch custody audit was repeated on 2026-11-27. The ordinary cognition
+development checkout rejects this frozen run card because its confidence
+auditor has changed since the plan freeze; that is the only implementation pin
+that differs. To preserve the experiment rather than re-freeze it, a dedicated
+source checkout was prepared at
+/home/zombinator/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/source-neutral-v2-frozen-audit-snapshot,
+branch codex/neutral-v2-frozen-launch-20261127, commit
+6061c7d6ce77ac75ce1d4ba7b2d737dd434cb816. It retains the current 2,557
+other implementation pins and restores the auditor file to the exact
+plan-pinned SHA-256 7f4d5a7c4499e32450a1977cd627ab894bbe34da7318085e668418194e841e9f.
+The unchanged run card then passed all 18 offline custody checks, including
+source pins and cycle history lineage. Its answer-free result is
+[neutral-v2-12x12-run-card-verification.json](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/neutral-v2-12x12-run-card-verification.json),
+digest 8ef3492e3e68847b264c7f43b69a2da871be6f923b47a174a249c25092447003.
+The campaign plan, history boundary, protocol, and run card were not changed.
+This only restores launch custody for the frozen experiment; both cycles
+remain prepared_not_started, and no inference or learning result exists.
+
 ### Earlier exploratory 12-probe recovery attempts
 
 Two earlier schema-v14 recovery campaigns used the same initial history
