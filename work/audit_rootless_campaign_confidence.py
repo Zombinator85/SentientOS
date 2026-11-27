@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v4"
+REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v5"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 
@@ -64,12 +64,18 @@ def _score_diagnostic(score: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(result, Mapping):
             raise ValueError("confidence_audit_probe_result_invalid")
         correct = result.get("correct")
+        abstained = result.get("abstained")
         if (confidence_value != result.get("confidence_basis_points")
                 or (confidence_value is not None and (
                     type(confidence_value) is not int
                     or not 0 <= confidence_value <= 10_000))):
             raise ValueError("confidence_audit_confidence_binding_invalid")
         if type(correct) is bool:
+            if (set(result) != {"probe_input", "observed_answer", "correct",
+                    "confidence_basis_points"}
+                    or type(result.get("probe_input")) is not int
+                    or type(result.get("observed_answer")) is not int):
+                raise ValueError("confidence_audit_abstention_binding_invalid")
             answered_count += 1
             correct_count += int(correct)
             if type(confidence_value) is not int:
@@ -80,6 +86,12 @@ def _score_diagnostic(score: Mapping[str, Any]) -> dict[str, Any]:
                 max_confidence_count += 1
                 max_confidence_errors += int(not correct)
         elif correct is None and confidence_value is None:
+            if (set(result) != {"probe_input", "observed_answer", "correct",
+                    "confidence_basis_points", "abstained"}
+                    or type(result.get("probe_input")) is not int
+                    or abstained is not True
+                    or result.get("observed_answer") is not None):
+                raise ValueError("confidence_audit_abstention_binding_invalid")
             abstained_count += 1
         else:
             raise ValueError("confidence_audit_outcome_shape_invalid")
@@ -462,6 +474,12 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
                 campaign_audit.get(
                     "history_transfer_precondition_snapshot_chain_verified"),
             "scope": "acquisition_scores_only; transfer precondition is reported separately",
+        },
+        "score_result_contract": {
+            "schema": "sentientos.objective_task_score:v6",
+            "abstention_representation_verified": True,
+            "answered_rows_omit_abstained_marker": True,
+            "abstained_rows_require_true_marker_and_null_answer_and_confidence": True,
         },
         "cycle_count": len(cycle_rows),
         "cycles": cycle_rows,
