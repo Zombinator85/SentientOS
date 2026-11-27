@@ -4711,3 +4711,19 @@ two-thirds competence threshold with `ceil(2n/3)`, so a 12-probe suite still
 requires 8 correct withheld-history probes. Older plans retain their existing
 three-probe interpretation. This increases measurement resolution without
 lowering the competence gate and does not itself establish learning.
+
+Replacement campaign plan v19 uses plan schema v14 and the v8 novel-range
+task family, with 12 acquisition and 12 transfer probes per cycle. It starts
+from the six-file v18 cycle 0 history boundary
+`ec656ce5e7f62a42e363bcb73d7fec8a149a4ef1f1bdc31b7f5afad5650f4d11` and
+requires 8/12 correct to satisfy the two-thirds acquisition threshold. Plan
+digest `86903ba14a0b19d98961fba4919604aa9838405e010f0af92775ae5505e41937`;
+campaign `rootless-history-campaign-cee6d10445c93caea855`; cycle IDs
+`rootless-cognition-cycle-7255fbedc36e47ac0a9b` and
+`rootless-cognition-cycle-52fe908fce5a7300b0d8`; task seeds `3477386676` and
+`3341106989`; backend seeds `2089432452` and `1855163201`. It pins the exact
+Hermes manifest and 2,557 implementation hashes for source commit
+`df09e2537`. Model-free verification passed in both the workspace and clean
+WSL source worktree; no v19 inference had been performed at plan freeze.
+Artifact:
+[`campaign-plan-wsl-v19.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v19.json).
