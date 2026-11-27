@@ -9,7 +9,7 @@ def main() -> int:
     result = run_condition_worker_recovery_from_environment()
     return 0 if (result.get("schema_version") ==
         "sentientos.durable_learning_condition_recovery_worker_once:v1"
-        and result.get("requests_processed") == 4) else 1
+        and result.get("requests_processed") in {4, 5}) else 1
 
 
 if __name__ == "__main__":

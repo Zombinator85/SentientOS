@@ -1380,8 +1380,9 @@ class DevelopmentalExperimentStore:
         score_digest = score.get("score_digest")
         receipt_bindings = score.get("invocation_receipt_bindings")
         arms = {"strategy_included", "strategy_omitted"}
-        if (score.get("schema_version") !=
-                "sentientos.strategy_inclusion_intervention_score:v1"
+        if (score.get("schema_version") not in {
+                "sentientos.strategy_inclusion_intervention_score:v1",
+                "sentientos.strategy_inclusion_intervention_score:v2"}
                 or score.get("protocol_digest") != protocol_digest
                 or not _valid_sha256_digest(score_digest)
                 or _strategy_intervention_digest(semantic) != score_digest
@@ -1425,8 +1426,9 @@ class DevelopmentalExperimentStore:
         semantic = {key: item for key, item in value.items()
             if key != "score_digest"}
         receipt_bindings = value.get("invocation_receipt_bindings")
-        if (value.get("schema_version") !=
-                "sentientos.strategy_inclusion_intervention_score:v1"
+        if (value.get("schema_version") not in {
+                "sentientos.strategy_inclusion_intervention_score:v1",
+                "sentientos.strategy_inclusion_intervention_score:v2"}
                 or value.get("protocol_digest") != protocol_digest
                 or value.get("score_digest") != score_digest
                 or _strategy_intervention_digest(semantic) != score_digest

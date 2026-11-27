@@ -245,8 +245,9 @@ def _load_and_verify_task(*, task: Mapping[str, Any], analysis: Mapping[str, Any
     score, _ = _read_json(store_root / "runs" / score_name)
     score_semantic = {key: value for key, value in score.items()
         if key != "score_digest"}
-    if (score.get("schema_version") !=
-            "sentientos.strategy_inclusion_intervention_score:v1"
+    if (score.get("schema_version") not in {
+            "sentientos.strategy_inclusion_intervention_score:v1",
+            "sentientos.strategy_inclusion_intervention_score:v2"}
             or score.get("protocol_digest") != runtime_protocol_digest
             or score.get("score_digest") != score_digest
             or _digest(score_semantic) != score_digest
@@ -314,6 +315,15 @@ def _load_and_verify_task(*, task: Mapping[str, Any], analysis: Mapping[str, Any
             raise SeriesAnalysisError("score_outcome_rows_invalid")
         if [row.get("probe_binding_digest") for row in rows] != expected_probes:
             raise SeriesAnalysisError("score_probe_binding_mismatch")
+        if any("brier_squared_error_basis_points_squared" in row
+                and (row.get("outcome") == "abstained"
+                    or type(row.get(
+                        "brier_squared_error_basis_points_squared")) is not int
+                    or not 0 <= row[
+                        "brier_squared_error_basis_points_squared"]
+                        <= 10000 ** 2)
+                for row in rows):
+            raise SeriesAnalysisError("score_probe_confidence_brier_invalid")
         by_arm[arm] = {row["probe_binding_digest"]: row["outcome"]
             for row in rows}
         counts[arm] = {outcome: sum(row["outcome"] == outcome for row in rows)
@@ -341,6 +351,51 @@ def _load_and_verify_task(*, task: Mapping[str, Any], analysis: Mapping[str, Any
                     + counts[arm]["incorrect"]) * 10000)
                     // len(expected_probes) for arm in _ARMS)):
         raise SeriesAnalysisError("score_summary_count_mismatch")
+    selective_accuracy = {arm: (counts[arm]["correct"] * 10000 //
+        (counts[arm]["correct"] + counts[arm]["incorrect"])
+        if counts[arm]["correct"] + counts[arm]["incorrect"] else None)
+        for arm in _ARMS}
+    abstained_counts = {arm: counts[arm]["abstained"] for arm in _ARMS}
+    confidence_brier_sums = {arm: sum(
+        row.get("brier_squared_error_basis_points_squared", 0)
+        for row in outcomes[arm]) for arm in _ARMS}
+    confidence_scored_counts = {arm: sum(
+        "brier_squared_error_basis_points_squared" in row
+        for row in outcomes[arm]) for arm in _ARMS}
+    confidence_brier_scores = {arm: (
+        confidence_brier_sums[arm] /
+            (confidence_scored_counts[arm] * 10000 ** 2)
+        if confidence_scored_counts[arm] else None) for arm in _ARMS}
+    paired_confidence_brier_differences = [
+        outcomes["strategy_included"][index][
+            "brier_squared_error_basis_points_squared"]
+        - outcomes["strategy_omitted"][index][
+            "brier_squared_error_basis_points_squared"]
+        for index in range(len(expected_probes))
+        if ("brier_squared_error_basis_points_squared" in
+                outcomes["strategy_included"][index]
+            and "brier_squared_error_basis_points_squared" in
+                outcomes["strategy_omitted"][index])]
+    paired_confidence_brier_difference_sum = sum(
+        paired_confidence_brier_differences)
+    paired_confidence_brier_pair_count = len(
+        paired_confidence_brier_differences)
+    paired_confidence_brier_delta = (
+        paired_confidence_brier_difference_sum /
+            (paired_confidence_brier_pair_count * 10000 ** 2)
+        if paired_confidence_brier_pair_count else None)
+    if (score.get("confidence_brier_squared_error_sums")
+            != confidence_brier_sums
+            or score.get("confidence_scored_counts")
+                != confidence_scored_counts):
+        raise SeriesAnalysisError("score_confidence_summary_mismatch")
+    # V2 binds these summaries in the score digest. V1 outcomes remain
+    # sufficient to derive the supplemental descriptive values below.
+    if score.get("schema_version") == (
+            "sentientos.strategy_inclusion_intervention_score:v2") and (
+            score.get("selective_accuracy_basis_points") != selective_accuracy
+            or score.get("abstained_counts") != abstained_counts):
+        raise SeriesAnalysisError("score_selective_summary_mismatch")
 
     transitions = {f"{left}_to_{right}": 0
         for left in sorted(_OUTCOMES) for right in sorted(_OUTCOMES)}
@@ -365,6 +420,21 @@ def _load_and_verify_task(*, task: Mapping[str, Any], analysis: Mapping[str, Any
         "coverage_basis_points_by_arm": {
             arm: ((counts[arm]["correct"] + counts[arm]["incorrect"])
                 * 10000) // len(expected_probes) for arm in _ARMS},
+        "supplemental_selective_accuracy_basis_points_by_arm":
+            selective_accuracy,
+        "supplemental_abstained_counts_by_arm": abstained_counts,
+        "supplemental_confidence_brier_score_by_arm":
+            confidence_brier_scores,
+        "supplemental_confidence_brier_squared_error_sums_by_arm":
+            confidence_brier_sums,
+        "supplemental_confidence_scored_counts_by_arm":
+            confidence_scored_counts,
+        "supplemental_paired_confidence_brier_delta_included_minus_omitted":
+            paired_confidence_brier_delta,
+        "supplemental_paired_confidence_brier_difference_sum_basis_points_squared":
+            paired_confidence_brier_difference_sum,
+        "supplemental_paired_confidence_brier_scored_probe_count":
+            paired_confidence_brier_pair_count,
         "included_minus_omitted_correct_count": (
             included_correct - omitted_correct),
         "paired_probe_transitions_included_to_omitted": transitions,
@@ -434,6 +504,7 @@ def analyze_series(*, series_path: Path, analysis_path: Path,
     complete_series = (len(completed) == len(tasks)
         and pairwise_overlap_count == 0)
     aggregate = None
+    supplemental_aggregate = None
     if complete_series:
         included_correct = sum(item["outcomes_by_arm"][
             "strategy_included"]["correct"] for item in completed)
@@ -457,9 +528,58 @@ def analyze_series(*, series_path: Path, analysis_path: Path,
             "task_pairs_with_negative_difference": sum(value < 0
                 for value in deltas),
         }
+        supplemental_aggregate = {
+            "status": "descriptive_not_preregistered_primary_endpoints",
+            "abstained_counts": {
+                arm: sum(item["supplemental_abstained_counts_by_arm"][arm]
+                    for item in completed) for arm in _ARMS},
+            "selective_accuracy_basis_points": {
+                arm: (sum(item["outcomes_by_arm"][arm]["correct"]
+                        for item in completed) * 10000 //
+                    sum(item["outcomes_by_arm"][arm]["correct"]
+                        + item["outcomes_by_arm"][arm]["incorrect"]
+                        for item in completed)
+                    if sum(item["outcomes_by_arm"][arm]["correct"]
+                        + item["outcomes_by_arm"][arm]["incorrect"]
+                        for item in completed) else None)
+                for arm in _ARMS},
+            "confidence_metric_status":
+                "proper_score_on_confidence_scored_answers_not_a_calibration_diagnostic",
+            "confidence_scored_counts": {
+                arm: sum(item[
+                    "supplemental_confidence_scored_counts_by_arm"][arm]
+                    for item in completed) for arm in _ARMS},
+            "confidence_brier_scores": {
+                arm: (sum(item[
+                        "supplemental_confidence_brier_squared_error_sums_by_arm"][arm]
+                        for item in completed)
+                    / (sum(item[
+                        "supplemental_confidence_scored_counts_by_arm"][arm]
+                        for item in completed) * 10000 ** 2)
+                    if sum(item[
+                        "supplemental_confidence_scored_counts_by_arm"][arm]
+                        for item in completed) else None)
+                for arm in _ARMS},
+            "paired_confidence_brier_metric_status":
+                "included_minus_omitted_on_identical_confidence_scored_probes",
+            "paired_confidence_brier_scored_probe_count": sum(item[
+                "supplemental_paired_confidence_brier_scored_probe_count"]
+                for item in completed),
+            "paired_confidence_brier_delta_included_minus_omitted": (
+                sum(item[
+                    "supplemental_paired_confidence_brier_difference_sum_basis_points_squared"]
+                    for item in completed)
+                / (sum(item[
+                    "supplemental_paired_confidence_brier_scored_probe_count"]
+                    for item in completed) * 10000 ** 2)
+                if sum(item[
+                    "supplemental_paired_confidence_brier_scored_probe_count"]
+                    for item in completed)
+                else None),
+        }
     semantic = {
         "schema_version":
-            "sentientos.strategy_inclusion_matched_task_series_analysis:v1",
+            "sentientos.strategy_inclusion_matched_task_series_analysis:v2",
         "series_digest": _file_digest(series_raw),
         "analysis_protocol_digest": _file_digest(analysis_raw),
         "runtime_inputs_digest": _file_digest(runtime_inputs_raw),
@@ -474,6 +594,7 @@ def analyze_series(*, series_path: Path, analysis_path: Path,
             if len(completed) == len(tasks) else None),
         "task_outcomes": outcomes,
         "primary_aggregate": aggregate,
+        "supplemental_aggregate": supplemental_aggregate,
         "primary_aggregate_available": complete_series,
         "inference_performed": (True if completed or any(
             item.get("reported_inference_performed") is True for item in outcomes)

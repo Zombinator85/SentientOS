@@ -7349,3 +7349,33 @@ follow-up is still immediate, read-only recall. The next cognition experiment
 should test whether an experience changes later behavior after a delay on a
 new task family, with acquisition evidence and held-out scoring frozen before
 inference. Citation accuracy alone cannot establish that developmental link.
+
+### Selective accuracy in accumulated-strategy scoring
+
+The accumulated-strategy paired scorer now emits score schema v2 with both
+coverage and selective accuracy (correct answers divided by non-abstained
+answers), plus explicit abstention counts. Selective accuracy is `null` when an
+arm abstains on every probe; coverage remains the companion measure so a high
+selective score cannot hide low answer rate. Older v1 scores remain readable
+and retain their original fields. The scorer already accepts optional
+confidence basis points and reports Brier error for answered probes, but
+historical strategy-inclusion responses without confidence values cannot be
+used to assess calibration. This is a scoring and reporting improvement only:
+it does not change any frozen analysis plan, create new evidence, or establish
+learning. A future confidence-scored run should freeze selective accuracy,
+coverage, and the confidence metric before inference.
+
+The three-task series analyzer also carries those outcome-derived quantities
+into its version 2 report and checks them against v2 score digests when
+available. They are labeled supplemental descriptive metrics because the
+series analysis plan preregistered correct-count difference as its primary
+endpoint; the new fields do not retroactively become preregistered outcomes.
+When confidence was supplied, the report also carries its Brier score and
+scored count as a supplemental proper score over those answered probes. This
+does not establish calibration; the series plan did not preregister a
+calibration analysis, and confidence-scored coverage must be interpreted with
+the answer and abstention counts. Where both arms supplied confidence on the
+same probe, the analyzer also reports their paired Brier-score difference on
+that shared subset, with its scored-probe count. This avoids comparing arm
+averages over different confidence-reporting subsets; it remains descriptive
+and does not establish calibration.

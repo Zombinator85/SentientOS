@@ -1662,6 +1662,14 @@ reference accepted boundary evidence, persistence must reopen each source and
 match the protocol digest, worker pair, host build, and branch pair; the
 separate protocol-gate integration and independent target-host review remain
 required.
+The recovery worker now also supports `reconstruct_strategy_projection` after
+it reloads a previously completed owner tick. The returned projection remains
+non-consumable: the worker marks its supplied consolidation-receipt reference
+and answer-exclusion audit as unverified, and fixes
+`answer_example_exclusion_verified` and `probe_use_eligible` to false. This
+does not enable first-time writeback, delayed probes, or retention eligibility;
+the independent auditor must still verify the reconstructed projection before
+any prompt can receive it.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.

@@ -24,7 +24,7 @@ SESSION_ONLY_REQUEST_DIGEST_BINDING_POSTURE = (
     "request_semantics_with_rootless_session_custody_elided:v1")
 REQUEST_DIGEST_BINDING_POSTURE = (
     "request_semantics_with_rootless_session_custody_and_volatile_authority_map_digest_elided:v2")
-SCORE_SCHEMA_VERSION = "sentientos.strategy_inclusion_intervention_score:v1"
+SCORE_SCHEMA_VERSION = "sentientos.strategy_inclusion_intervention_score:v2"
 _DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 _ARMS = ("strategy_included", "strategy_omitted")
 _OWNER_PREVIEW_V2 = "sentientos.objective_strategy_inclusion_prompt_pair_preview:v2"
@@ -698,6 +698,13 @@ def score_strategy_inclusion_pair(*, protocol: Mapping[str, Any],
         "correct_counts": correct_counts,
         "answered_counts": {arm: sum(row["outcome"] != "abstained"
             for row in rows) for arm, rows in outcome_rows.items()},
+        "abstained_counts": {arm: sum(row["outcome"] == "abstained"
+            for row in rows) for arm, rows in outcome_rows.items()},
+        "selective_accuracy_basis_points": {arm: (
+            correct_counts[arm] * 10000 // sum(row["outcome"] != "abstained"
+                for row in rows) if any(row["outcome"] != "abstained"
+                    for row in rows) else None)
+            for arm, rows in outcome_rows.items()},
         "coverage_basis_points": {arm: (sum(row["outcome"] != "abstained"
             for row in rows) * 10000) // len(probes) for arm, rows in outcome_rows.items()},
         "confidence_brier_squared_error_sums": confidence_sums,

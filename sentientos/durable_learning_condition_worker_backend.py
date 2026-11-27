@@ -3,9 +3,11 @@
 This backend implements no-inference baseline and access preflight, score-free
 receipt-index recovery, and read-only consolidation-snapshot preparation. A
 pending consolidation intent can be reconciled only against an already
-completed resident tick. It does not reauthenticate original invocation
-receipts or open peer stores. First-time tick execution, strategy
-reconstruction, and delayed probes remain disabled.
+completed resident tick. It can rebuild that tick's bounded strategy
+projection, but marks the consolidation reference and answer-exclusion audit
+unverified and the projection ineligible for probe use. It does not
+reauthenticate original invocation receipts or open peer stores. First-time
+tick execution and delayed probes remain disabled.
 """
 from __future__ import annotations
 
@@ -652,9 +654,10 @@ def run_condition_worker_recovery_from_environment(*,
             backend=backend,
             allowed_operations=frozenset({"inspect_baseline",
                 "recover_acquisition_receipts",
-                "prepare_consolidation_snapshot", "consolidate_branch"}))
+                "prepare_consolidation_snapshot", "consolidate_branch",
+                "reconstruct_strategy_projection"}))
         served = serve_condition_worker_rpc(connection, dispatcher,
-            max_requests=4, timeout_ms=timeout_ms)
+            max_requests=5, timeout_ms=timeout_ms)
         return {"schema_version":
                 "sentientos.durable_learning_condition_recovery_worker_once:v1",
             "requests_processed": served["requests_processed"],
@@ -1688,6 +1691,100 @@ class DurableLearningConditionWorkerBackend:
         return {"status": "rejected", "result": {
             "reason_code": "worker_owned_operation_runtime_not_enabled"}}
 
+    def reconstruct_strategy_projection(self,
+            request: Mapping[str, Any]) -> dict[str, Any]:
+        """Rebuild a non-consumable projection from a completed owner tick."""
+        if not self._bound(request, "reconstruct_strategy_projection"):
+            return {"status": "rejected", "result": {
+                "reason_code": "worker_protocol_condition_binding_mismatch",
+                "consolidation_receipt_reference_verified": False,
+                "answer_exclusion_audit_verified": False,
+                "probe_use_eligible": False, "authority": False}}
+        payload = request.get("payload")
+        contract = self._protocol.get("condition_contract")
+        if (not isinstance(payload, Mapping)
+                or not isinstance(contract, Mapping)
+                or any(not isinstance(payload.get(key), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        payload.get(key, "")) is None
+                    for key in ("consolidation_receipt_digest",
+                        "answer_exclusion_audit_digest",
+                        "strategy_projection_policy_digest"))
+                or payload.get("strategy_projection_policy_digest") !=
+                    contract.get("strategy_projection_policy_digest")):
+            return {"status": "rejected", "result": {
+                "reason_code": "worker_strategy_projection_request_invalid",
+                "consolidation_receipt_reference_verified": False,
+                "answer_exclusion_audit_verified": False,
+                "probe_use_eligible": False, "authority": False}}
+        try:
+            from .durable_developmental_learning_experiment import (
+                build_durable_learning_strategy_projection,
+                verify_durable_learning_strategy_projection,
+            )
+            snapshot, snapshot_evidence = self._build_consolidation_snapshot()
+            recovery_payload = {
+                "snapshot_digest": snapshot.digest,
+                "baseline_history_state_digest": self._protocol[
+                    "baseline_history_state_digest"],
+                "source_fact_ids": list(snapshot_evidence[
+                    "source_fact_ids"]),
+                "baseline_record_refs": list(snapshot_evidence[
+                    "baseline_record_refs"]),
+                "withhold_developmental_history": (
+                    self._condition == "relevant_experience_withheld"),
+            }
+            completion = self._reconcile_completed_owner_tick(
+                payload=recovery_payload,
+                snapshot_evidence=snapshot_evidence)
+            projection = build_durable_learning_strategy_projection(
+                protocol=self._protocol, condition=self._condition,
+                branch=self._branch, tick_id=completion["tick_id"],
+                snapshot_id=completion["snapshot_id"],
+                snapshot_digest=completion["snapshot_digest"],
+                source_fact_ids=completion["source_fact_ids"],
+                writeback_record_ref=completion["new_writeback_ref"],
+                writeback_receipt_ref=completion[
+                    "new_writeback_receipt_ref"])
+            if projection is not None:
+                verify_durable_learning_strategy_projection(
+                    self._protocol, condition=self._condition,
+                    branch_id=self._branch.branch_id, branch=self._branch,
+                    projection=projection)
+        except Exception as exc:
+            return {"status": "rejected", "result": {
+                "reason_code": _safe_worker_reason(exc,
+                    "worker_strategy_projection_reconstruction_failed"),
+                "consolidation_receipt_digest": payload[
+                    "consolidation_receipt_digest"],
+                "answer_exclusion_audit_digest": payload[
+                    "answer_exclusion_audit_digest"],
+                "consolidation_receipt_reference_verified": False,
+                "answer_exclusion_audit_verified": False,
+                "probe_use_eligible": False, "authority": False}}
+        result = {
+            "schema_version":
+                "sentientos.durable_learning_worker_strategy_projection:v1",
+            "protocol_id": self._protocol["protocol_id"],
+            "protocol_digest": self._protocol["protocol_digest"],
+            "condition": self._condition,
+            "branch_id": self._branch.branch_id,
+            "consolidation_receipt_digest": payload[
+                "consolidation_receipt_digest"],
+            "answer_exclusion_audit_digest": payload[
+                "answer_exclusion_audit_digest"],
+            "strategy_projection": projection,
+            "projection_digest": (projection.get("projection_digest")
+                if isinstance(projection, Mapping) else None),
+            "owner_tick_reloaded": True,
+            "consolidation_receipt_reference_verified": False,
+            "answer_exclusion_audit_verified": False,
+            "answer_example_exclusion_verified": False,
+            "probe_use_eligible": False,
+            "adoption_performed": False,
+            "authority": False}
+        return {"status": "completed", "result": result}
+
     def consolidate_branch(self,
             request: Mapping[str, Any]) -> dict[str, Any]:
         """Recover a completed tick; refuse ambiguous or new mutations."""
@@ -2156,5 +2253,4 @@ class DurableLearningConditionWorkerBackend:
             "learning_established": False,
             "authority": False}
 
-    reconstruct_strategy_projection = _operation_not_enabled
     inspect_delayed_probe_gate = _operation_not_enabled

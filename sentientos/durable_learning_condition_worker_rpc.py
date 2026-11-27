@@ -172,7 +172,10 @@ class ConditionWorkerRPCDispatcher:
                             and status == "completed")
                     or (request["operation"] ==
                             "recover_acquisition_receipts"
-                            and status == "completed")):
+                            and status == "completed")
+                    or (request["operation"] ==
+                            "reconstruct_strategy_projection"
+                            and status in {"completed", "rejected"})):
                     result_payload = dict(outcome["result"])
             except Exception:
                 # The operation may have durably started before the error.
