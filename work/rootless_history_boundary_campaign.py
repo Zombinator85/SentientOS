@@ -1733,8 +1733,30 @@ def _history_transfer_precondition_snapshot_binding(*, root: Path,
     if not isinstance(precondition, Mapping):
         return {"status": "precondition_not_present",
             "record_id": None, "record_digest": None, "verified": False}
-    if precondition.get("schema_version") != \
-            "sentientos.history_transfer_evidence_precondition:v3":
+    schema_version = precondition.get("schema_version")
+    if schema_version != "sentientos.history_transfer_evidence_precondition:v3":
+        # A skipped qualification can still persist a compact precondition
+        # summary without a version or record snapshot. Do not mislabel that
+        # state as a legacy schema: it means no action-consequence record was
+        # available to bind, not that an older binding was attempted.
+        if (schema_version is None
+                and precondition.get("classification")
+                    == "not_run_no_action_consequence_record"
+                and precondition.get("reason_code")
+                    == "no_new_action_consequence_record"
+                and precondition.get("record_id") is None):
+            return {"status": "precondition_not_run_no_action_consequence_record",
+                "record_id": None, "record_digest": None, "verified": False}
+        if schema_version is None:
+            return {"status": "precondition_schema_unavailable",
+                "record_id": precondition.get("record_id"),
+                "record_digest": None, "verified": False}
+        if schema_version not in {
+                "sentientos.history_transfer_evidence_precondition:v1",
+                "sentientos.history_transfer_evidence_precondition:v2"}:
+            return {"status": "precondition_schema_unsupported",
+                "record_id": precondition.get("record_id"),
+                "record_digest": None, "verified": False}
         return {"status": "unbound_legacy_precondition",
             "record_id": precondition.get("record_id"),
             "record_digest": None, "verified": False}

@@ -661,13 +661,20 @@ change was delivered but did not change this model's output in these trials;
 it is not evidence that the system learned to abstain.
 
 The campaign audit also reports
-`history_transfer_precondition_snapshot_chain_verified=false`; both cycle
-boundaries label the transfer precondition `unbound_legacy_precondition` and
-`history_transfer_precondition_snapshot_verified=false`. This limits the
-strength of claims about transfer setup and must be repaired or explicitly
-resolved before treating a future transfer result as fully auditable. The audit
-still verifies the source runs and append-only history chain, but that does not
-substitute for a verified transfer precondition snapshot.
+`history_transfer_precondition_snapshot_chain_verified=false`. Inspection of
+the bound cycle results shows the separate companion action-consequence
+qualification did not run: both persisted a compact summary with
+`classification=not_run_no_action_consequence_record` and
+`reason_code=no_new_action_consequence_record`, without a schema version or
+record ID. The v25 verifier reported this as `unbound_legacy_precondition`,
+which conflates a no-run state with an older versioned precondition. The audit
+still verifies the source runs and append-only history chain, but no action
+consequence record existed to snapshot-bind. A verifier improvement now
+classifies this exact state as
+`precondition_not_run_no_action_consequence_record` and reserves the legacy
+label for versioned older schemas. This makes the reason for the false chain
+status explicit; it does not turn the skipped qualification into verified
+evidence or alter the immutable v25 audit.
 
 The prompt-only approach has therefore reached a useful stopping point. The
 next experiment should isolate output qualification itself while preserving the
