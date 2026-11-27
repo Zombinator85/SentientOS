@@ -1,7 +1,8 @@
 {
   "interpretation_posture": "prepared_launch_custody_only; no inference, model result, or learning claim",
-  "report_digest": "9573e8b9fb618f8c1acd7a853799832a8b77fff915c5b1a02c9aacb616ed00c1",
+  "report_digest": "f0632f65c51e49c95a7a9d2c3d50e043c8b40a0864a3fcfa3bc666d85ca8bdef",
   "repository_backup_equivalence": {
+    "comparison_timing_posture": "The listed local and remote commits had identical Git trees when compared, before this verification artifact and its documentation were appended to those branches.",
     "development_checkout": {
       "local_branch": "codex/cognition-feedback-digest-binding-20261127",
       "local_commit": "adb70557e85c78a687548cea8ab10f2bbfde4d63",
