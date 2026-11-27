@@ -27,25 +27,25 @@
     "history_record_allowlist": "exact_previous_cycle_owner_feedback_record_id",
     "condition_protocol": "existing_present_withheld_restored_protocol",
     "same_cycle_writeback_boundary": "after_all_three_conditions",
-    "question": "Using only owner-authored developmental-history information available in this condition, determine whether the prior companion decision was qualified. Return the qualification status in the standard JSON response, citing the history record that supports it. If the needed history is unavailable, abstain and cite no history. Do not infer the prior outcome from current facts or general knowledge. The stored answer itself is not evidence."
+    "question": "Using only owner-authored developmental-history information available in this condition, determine whether the prior companion decision was qualified. Set response to QUALIFIED, UNQUALIFIED, or UNKNOWN according to the record. Use disposition answer for QUALIFIED or UNQUALIFIED and abstain for UNKNOWN. Cite the history record that supports a known status; cite no history when status is UNKNOWN. If the needed history is unavailable, use UNKNOWN. Do not infer the prior outcome from current facts or general knowledge. The stored answer itself is not evidence. Return the standard JSON response."
   },
   "expected_outcomes": {
     "history_present": {
-      "response": "PREVIOUS_OUTPUT_UNQUALIFIED",
+      "response": "UNQUALIFIED",
       "disposition": "answer",
       "retrieved_record_ids": "exact_feedback_record_id",
       "history_record_ids": "exact_feedback_record_id",
       "evidence_ids": []
     },
     "history_withheld": {
-      "response": "FEEDBACK_UNAVAILABLE",
+      "response": "UNKNOWN",
       "disposition": "abstain",
       "retrieved_record_ids": [],
       "history_record_ids": [],
       "evidence_ids": []
     },
     "history_restored": {
-      "response": "PREVIOUS_OUTPUT_UNQUALIFIED",
+      "response": "UNQUALIFIED",
       "disposition": "answer",
       "retrieved_record_ids": "exact_feedback_record_id",
       "history_record_ids": "exact_feedback_record_id",
