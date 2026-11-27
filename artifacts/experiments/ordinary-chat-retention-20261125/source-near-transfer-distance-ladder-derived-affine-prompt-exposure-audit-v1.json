@@ -1,0 +1,48 @@
+{
+  "candidate_character_delta_constant_across_tiers": true,
+  "candidate_character_delta_values": [
+    92
+  ],
+  "inference_performed": false,
+  "interpretation": "Raw and derived history share guidance; the derived arm adds its candidate payload. Character counts quantify the added prompt text but do not equal tokenizer token counts or control for prompt-length effects.",
+  "learning_established": false,
+  "preflight_path": "artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v8.json",
+  "preflight_sha256": "fe5449589f8c1730de8f6d197c962fdab29aa984995ede8ab084040c3246fe65",
+  "remaining_control_gap": "No length-matched sham-candidate arm is present. The raw-versus-derived contrast therefore estimates the effect of adding the candidate payload, including its additional prompt length.",
+  "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v1",
+  "tiers": {
+    "far": {
+      "derived_minus_empty_chars": 3611,
+      "derived_minus_raw_history_chars": 92,
+      "history_guidance_equal": true,
+      "history_minus_empty_chars": 3519,
+      "prompt_chars": {
+        "derived_history": 7715,
+        "empty": 4104,
+        "history": 7623
+      }
+    },
+    "middle": {
+      "derived_minus_empty_chars": 3611,
+      "derived_minus_raw_history_chars": 92,
+      "history_guidance_equal": true,
+      "history_minus_empty_chars": 3519,
+      "prompt_chars": {
+        "derived_history": 7715,
+        "empty": 4104,
+        "history": 7623
+      }
+    },
+    "near": {
+      "derived_minus_empty_chars": 3611,
+      "derived_minus_raw_history_chars": 92,
+      "history_guidance_equal": true,
+      "history_minus_empty_chars": 3519,
+      "prompt_chars": {
+        "derived_history": 7715,
+        "empty": 4104,
+        "history": 7623
+      }
+    }
+  }
+}
