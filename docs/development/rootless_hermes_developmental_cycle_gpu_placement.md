@@ -4475,3 +4475,31 @@ matched-task reconstruction is in
 [`verify_matched_task_commitment_pair.py`](../../analysis/verify_matched_task_commitment_pair.py),
 and the verified score artifacts are in
 [`identity-neutral-journal-recovery-20261125-wide-power-v1`](../../artifacts/experiments/identity-neutral-journal-recovery-20261125-wide-power-v1/).
+
+### Empty-history acquisition bootstrap failure (2026-11-27)
+
+The two-cycle Hermès campaign frozen as WSL plan v3
+(`a8b03c296ff5c9ce5318699c0d3b08775877ece350c1d95f056857a10325a59c`)
+used cycle IDs `rootless-cognition-cycle-7c2d379c06ba40baad85` and
+`rootless-cognition-cycle-dd37c4649cd14b238b33`. Both cycles terminated at
+`objective_task_family_acquisition`. The resident owner recorded
+`blocked_no_eligible_history` for the acquisition request; no objective
+measurement or score-bound acquisition record was created. These slots are
+spent and must not be replayed.
+
+This is an initialization deadlock in the current path: objective acquisition
+requires eligible prior history, while a fresh history store has none. The
+preceding companion-interaction observations are experiment measurements, not
+developmental writebacks, and the non-actuating path creates no consequence
+record. Consequently the acquisition stage cannot produce the first task-family
+record needed by later history-enabled transfer. A model call cannot fix this
+condition; a new campaign must wait until there is a separately governed,
+score-bound bootstrap route. The cycle runner now records the owner's bounded
+status, prior-record count, and measurement-presence flag in `failure_diagnostic`
+when acquisition does not start, while excluding model output. This makes
+future terminal evidence distinguish the bootstrap block from an inference or
+scoring failure.
+
+No developmental learning or transfer claim follows from these failed cycles.
+Their private WSL evidence roots remain preserved under
+`~/.local/state/sentientos-cognition-followup-20261122-wsl/cognition-goal-20261127-v2/`.

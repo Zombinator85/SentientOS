@@ -6590,6 +6590,21 @@ def run() -> dict[str, Any]:
             request_digest=acquisition_request["request_digest"])
         if (acquisition_result.status != "objective_intervention_completed"
                 or not acquisition_result.changed_cognition_measurement_id):
+            # Preserve the owner's bounded terminal status in the failure
+            # artifact. In particular, an empty developmental store blocks
+            # this history-required acquisition before inference; a generic
+            # runner error otherwise hides that bootstrap deadlock.
+            RUN_FAILURE_DIAGNOSTIC = {
+                "stage": "objective_task_family_acquisition",
+                "owner_status": acquisition_result.status,
+                "prior_record_count": len(
+                    acquisition_result.prior_record_ids),
+                "measurement_created": bool(
+                    acquisition_result.changed_cognition_measurement_id),
+                "raw_model_output_included": False,
+                "learning_established": False,
+                "authority": False,
+            }
             raise RootlessExperimentalError("objective_family_acquisition_incomplete")
         acquisition_run = owner.experiments.load_run(
             acquisition_result.changed_cognition_measurement_id)
