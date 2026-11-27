@@ -191,6 +191,7 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
     start = prompt.find("[DEVELOPMENTAL_HISTORY_GUIDANCE]\n")
     matched_base, examples, example_renderings = prompt, [], []
     history_instruction = None
+    candidate_hypotheses = []
     if start >= 0:
         end = prompt.index("\n[SESSION_HISTORY_DATA]", start)
         data = prompt.index("[DEVELOPMENTAL_HISTORY_DATA]\n", start) + len("[DEVELOPMENTAL_HISTORY_DATA]\n")
@@ -218,7 +219,18 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
                     raise ValueError("service rows differ from the archived score")
                 examples.append({"record_id": stored.record_id,
                     **{key: value for key, value in item.items()
-                        if key != "human_readable_examples"}})
+                        if key not in {"human_readable_examples",
+                            "derived_integer_affine_hypothesis"}}})
+                hypothesis = item.get("derived_integer_affine_hypothesis")
+                if isinstance(hypothesis, dict):
+                    candidate_hypotheses.append({
+                        "record_id": stored.record_id,
+                        "task_family_id": item.get("task_family_id"),
+                        "source_run_id": item.get("source_run_id"),
+                        "source_score_digest": item.get("source_score_digest"),
+                        "source_fact_id": item.get("source_fact_id"),
+                        "hypothesis": hypothesis,
+                    })
                 rendering = item.get("human_readable_examples")
                 if isinstance(rendering, str):
                     example_renderings.append({
@@ -238,6 +250,8 @@ def _service_request(owner, root, identity, question=QUESTION, *, bind_invocatio
             "ordinary_developmental_history_context_posture"),
         "prompt_score_evidence": examples,
         "prompt_example_renderings": example_renderings,
+        **({"derived_rule_hypotheses": candidate_hypotheses}
+            if candidate_hypotheses else {}),
         **({"history_instruction": history_instruction} if capture_history_instruction else {}),
     }
 

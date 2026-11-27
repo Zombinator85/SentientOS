@@ -21,6 +21,7 @@ from typing import IO, Any, Iterator, Mapping, Sequence
 
 from .cognition_retrieval import (
     COMPACT_CHAT_SELECTION, cognition_negation_terms, cognition_tokens,
+    derive_ordinary_chat_integer_affine_hypothesis,
     ordinary_chat_history_partition, render_ordinary_chat_integer_examples,
 )
 from .local_model_authority import digest_payload
@@ -1713,15 +1714,23 @@ def assemble_local_chat_context(*, history: ContextSnapshot, memory_snapshot: Ma
             if not isinstance(experiences, (list, tuple)):
                 continue
             for experience in experiences:
-                if (not isinstance(experience, Mapping)
-                        or "human_readable_examples" not in experience):
+                if not isinstance(experience, Mapping):
                     continue
-                expected_rendering = render_ordinary_chat_integer_examples(
-                    experience.get("task_family_id"), experience.get("examples"))
-                if (expected_rendering is None
-                        or experience.get("human_readable_examples") != expected_rendering):
-                    raise ValueError(
-                        "ordinary_chat_history_example_rendering_invalid")
+                if "human_readable_examples" in experience:
+                    expected_rendering = render_ordinary_chat_integer_examples(
+                        experience.get("task_family_id"), experience.get("examples"))
+                    if (expected_rendering is None
+                            or experience.get("human_readable_examples") != expected_rendering):
+                        raise ValueError(
+                            "ordinary_chat_history_example_rendering_invalid")
+                if "derived_integer_affine_hypothesis" in experience:
+                    expected_hypothesis = derive_ordinary_chat_integer_affine_hypothesis(
+                        experience.get("task_family_id"), experience.get("examples"))
+                    if (expected_hypothesis is None
+                            or experience.get("derived_integer_affine_hypothesis")
+                                != expected_hypothesis):
+                        raise ValueError(
+                            "ordinary_chat_history_affine_hypothesis_invalid")
         if selection["schema_version"] == COMPACT_CHAT_SELECTION:
             _validate_ordinary_chat_history_context(developmental_history_context)
         insert_at = lines.index("[SESSION_HISTORY_DATA]")

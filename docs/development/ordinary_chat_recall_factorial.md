@@ -149,3 +149,30 @@ matched the fixed mapping. Rule derivation produced fenced JSON plus explanatory
 text in all three history trials, which failed the strict JSON score. These
 post-hoc output patterns suggest prompt presentation affected response
 behavior, while none of the tested presentations yielded exact transfer.
+
+## Next experiment: evidence-derived rule candidate
+
+The repeated failures point to a narrower question: can a separate,
+model-independent interpretation step make a rule latent in scored history
+usable to later cognition? An opt-in projection fits an integer-affine
+candidate only when at least three distinct inputs have evaluator-correct,
+non-abstaining outputs and every listed row agrees exactly. It does not consult
+the task-family answer-key registry. The packet records the fitted
+coefficients and support range alongside the score-bound source rows.
+Prompt assembly recomputes the fit and rejects a supplied candidate that
+differs from those rows. Guidance labels it an unverified candidate and says
+that predictions beyond the support range are extrapolations. The feature is
+off by default and adds no history, authority, or memory mutation.
+
+This creates a new treatment for a future matched run: raw scored rows versus
+raw rows plus the non-authoritative derived candidate, with the same fresh
+held-out probes and empty-history control. It tests the system's evidence
+interpretation scaffold; even a performance gain would not show that the model
+learned the rule or that the candidate is correct outside its support range.
+The model-free [v3 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v3.json)
+verified that the held-out history arm received the candidate `2*x+1` from
+three scored rows, while the empty arm received none. It used structured rows,
+held-out probes, and the saved parent snapshot. The report records
+`inference_performed: false` and `learning_established: false`; it validates
+projection and provenance wiring only. A response run and independent scoring
+remain future work. Hermes inference remains paused while the GPU is in use.

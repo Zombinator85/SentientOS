@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from fractions import Fraction
 from typing import Any, Mapping
 
 
@@ -53,6 +54,50 @@ def render_ordinary_chat_integer_examples(task_family_id: str,
             "correct" if evaluator_correct else "incorrect")
         rendered.append(f"{probe_input} -> {answer} ({outcome})")
     return "; ".join(rendered)
+
+
+def derive_ordinary_chat_integer_affine_hypothesis(task_family_id: str,
+        examples: Any) -> dict[str, Any] | None:
+    """Fit a tentative integer-affine relation from complete, correct scored rows.
+
+    This derives only a candidate within a declared hypothesis class. It does
+    not establish correctness outside the observed support examples.
+    """
+    if (not isinstance(task_family_id, str)
+            or not task_family_id.startswith("rootless_integer_affine_transfer_")
+            or not isinstance(examples, (list, tuple)) or len(examples) < 3):
+        return None
+    support = []
+    for row in examples:
+        if (not isinstance(row, Mapping)
+                or type(row.get("probe_input")) is not int
+                or type(row.get("observed_answer")) is not int
+                or row.get("evaluator_correct") is not True
+                or row.get("abstained") is not False):
+            return None
+        support.append({"probe_input": row["probe_input"],
+            "observed_answer": row["observed_answer"]})
+    inputs = [row["probe_input"] for row in support]
+    if len(set(inputs)) < 3 or len(set((row["probe_input"], row["observed_answer"])
+            for row in support)) != len(support):
+        return None
+    first = support[0]
+    second = next((row for row in support[1:]
+        if row["probe_input"] != first["probe_input"]), None)
+    if second is None:
+        return None
+    slope = Fraction(second["observed_answer"] - first["observed_answer"],
+        second["probe_input"] - first["probe_input"])
+    intercept = Fraction(first["observed_answer"]) - slope * first["probe_input"]
+    if (slope.denominator != 1 or intercept.denominator != 1
+            or any(slope * row["probe_input"] + intercept != row["observed_answer"]
+                for row in support)):
+        return None
+    return {
+        "multiplier": slope.numerator,
+        "offset": intercept.numerator,
+        "support_input_range": [min(inputs), max(inputs)],
+    }
 
 
 _QUERY_NEGATION_WORD_PATTERN = re.compile(r"\b(?:no|nor|not)\b")

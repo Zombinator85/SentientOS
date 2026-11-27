@@ -24,7 +24,7 @@ TRIAL_ORDER = (
 
 def _validate_plan_treatment(plan: dict) -> None:
     schema = plan.get("schema")
-    if schema.endswith((":v2", ":v3", ":v4", ":v5")):
+    if schema.endswith((":v2", ":v3", ":v4", ":v5", ":v6")):
         if (plan.get("format_treatment") != "strict_json_post_retrieval:v1"
                 or plan.get("output_constraint") is None
                 or hashlib.sha256(plan["output_constraint"].encode()).hexdigest()
@@ -66,7 +66,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4",
-                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5",
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v6"}
             or plan.get("source_report_sha256") != preflight_sha
             or run.get("plan_sha256") != plan_sha
             or plan.get("task_family_id") != preflight.get("task_family_id")
@@ -93,15 +94,21 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
         if (not isinstance(binding, dict)
                 or plan.get("example_presentation", "record_linked")
                     != preflight.get("example_presentation", "record_linked")
+                or plan.get("derived_rule_hypothesis_treatment")
+                    != preflight.get("derived_rule_hypothesis_treatment")
                 or plan["tiers"][tier].get("probe_inputs") != frozen.get("probe_inputs")
                 or plan["tiers"][tier].get("answer_key_commitment") != frozen.get("answer_key_commitment")
                 or history_binding.get("prompt_score_evidence") != frozen_history.get("prompt_score_evidence")
                 or history_binding.get("prompt_example_renderings", [])
                     != frozen_history.get("prompt_example_renderings", [])
+                or history_binding.get("derived_rule_hypotheses", [])
+                    != frozen_history.get("derived_rule_hypotheses", [])
                 or not history_binding.get("history_block_digest")
                 or empty_binding.get("prompt_score_evidence") != frozen_empty.get("prompt_score_evidence")
                 or empty_binding.get("prompt_example_renderings", [])
                     != frozen_empty.get("prompt_example_renderings", [])
+                or empty_binding.get("derived_rule_hypotheses", [])
+                    != frozen_empty.get("derived_rule_hypotheses", [])
                 or empty_binding.get("history_block_digest") is not None
                 or not re.fullmatch(r"[0-9a-f]{64}", binding.get("prompt_sha256", ""))
                 or not re.fullmatch(r"[0-9a-f]{64}", binding.get("invocation_prompt_digest", ""))
@@ -133,6 +140,7 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
         "model_identity": plan["model_identity"],
         "format_treatment": plan.get("format_treatment"),
         "semantic_treatment": plan.get("semantic_treatment"),
+        "derived_rule_hypothesis_treatment": plan.get("derived_rule_hypothesis_treatment"),
         "example_presentation": plan.get("example_presentation", "record_linked"),
         "ladder_design": plan.get("ladder_design", preflight.get("ladder_design")),
         "captures": captures,
@@ -144,7 +152,8 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
 def score(preflight: dict, execution: dict) -> dict:
     if (preflight.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"}
             or execution.get("schema") !=
                 "sentientos.ordinary_chat_transfer_execution:v1"
             or execution.get("preflight_sha256") != digest_payload(preflight)
@@ -159,6 +168,10 @@ def score(preflight: dict, execution: dict) -> dict:
     task_family = preflight.get("task_family_id")
     protocol = preflight.get("protocol_checks", preflight)
     if (task_family not in FIXED_OBJECTIVE_TASK_FAMILY_MAPPINGS
+            or preflight.get("derived_rule_hypothesis_treatment") not in {
+                None, "exact_integer_affine_fit_from_scored_rows:v1"}
+            or preflight.get("derived_rule_hypothesis_projection_verified",
+                False) is not (preflight.get("derived_rule_hypothesis_treatment") is not None)
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
             or protocol.get("all_tier_prompts_match_outside_probe_values") is not True
             or protocol.get("fixed_mapping_shared_by_source_and_novel_task_families") is not True
@@ -242,6 +255,7 @@ def score(preflight: dict, execution: dict) -> dict:
         "plan_sha256": execution.get("plan_sha256"),
         "format_treatment": execution.get("format_treatment"),
         "semantic_treatment": execution.get("semantic_treatment"),
+        "derived_rule_hypothesis_treatment": execution.get("derived_rule_hypothesis_treatment"),
         "example_presentation": execution.get("example_presentation"),
         "ladder_design": execution.get("ladder_design"),
         "tiers": results, "inference_performed": True,

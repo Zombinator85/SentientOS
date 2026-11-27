@@ -119,6 +119,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         derive_rule_from_history: bool = False,
         explicit_rule_calibration: bool = False,
         clarify_history_scope: bool = False,
+        derive_affine_hypothesis: bool = False,
         seed: int = 42,
         report_path: Path | None = None,
         parent_snapshot: Path | None = None) -> None:
@@ -130,9 +131,11 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
         raise ValueError("seed must be an integer from 0 through 2**32 - 1")
     if expected_plan_sha256 is not None and not re.fullmatch(r"[0-9a-f]{64}", expected_plan_sha256):
         raise ValueError("expected plan hash must be 64 lowercase hexadecimal characters")
-    if sum((derive_rule_from_history, explicit_rule_calibration, clarify_history_scope)) > 1:
+    if sum((derive_rule_from_history, explicit_rule_calibration, clarify_history_scope,
+            derive_affine_hypothesis)) > 1:
         raise ValueError("history derivation and explicit rule calibration are separate treatments")
-    if (derive_rule_from_history or explicit_rule_calibration or clarify_history_scope) and not strict_json_output:
+    if (derive_rule_from_history or explicit_rule_calibration or clarify_history_scope
+            or derive_affine_hypothesis) and not strict_json_output:
         raise ValueError("cognition treatments require the matched strict JSON constraint")
     if not (os.environ.get("SENTIENTOS_OLLAMA_MODELS") or os.environ.get("SENTIENTOS_OLLAMA_CPU_MODELS")):
         raise ValueError("GPU inference requires an explicitly isolated external Ollama server")
@@ -142,7 +145,8 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
     protocol = read(selected_report)
     if (protocol.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v1",
-                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"}
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"}
             or protocol.get("inference_performed") is not False
             or protocol.get("model_bound_execution_plan_created") is not False
             or protocol.get("probe_inputs_disjoint_from_history_and_prior_probes") is not True
@@ -214,6 +218,15 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("model-free protocol has an unknown example presentation")
         history_owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
+        if protocol.get("schema", "").endswith(":v3"):
+            if (protocol.get("derived_rule_hypothesis_treatment")
+                    != "exact_integer_affine_fit_from_scored_rows:v1"
+                    or protocol.get("derived_rule_hypothesis_projection_verified") is not True
+                    or not derive_affine_hypothesis):
+                raise ValueError("derived affine hypothesis preflight is not qualified")
+            history_owner.include_affine_rule_hypothesis = True
+        elif derive_affine_hypothesis:
+            raise ValueError("derived affine hypothesis requires its frozen v3 preflight")
         expected_boundary = (protocol.get("parent_history_boundary_digest") if parent_snapshot is not None
             else read(ROOT / "artifacts/experiments/ordinary-chat-retention-20261125/later-session-novel-transfer-preflight-v3.json")[
                 "arms"]["parent"]["admitted_boundary_digest"])
@@ -255,7 +268,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             raise ValueError("distance-tier prompt templates differ beyond probe values")
 
         plan = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
+            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v6"
+                if derive_affine_hypothesis else
+                "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v5"
                 if clarify_history_scope else "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v4"
                 if explicit_rule_calibration else (
                     "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v3"
@@ -284,6 +299,9 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
             "semantic_procedure_sha256": (sha(HISTORY_SCOPE_CLARIFICATION.encode()) if clarify_history_scope else
                 sha(EXPLICIT_RULE_CALIBRATION.encode()) if explicit_rule_calibration else
                 sha(HISTORY_RULE_DERIVATION.encode()) if derive_rule_from_history else None),
+            "derived_rule_hypothesis_treatment": (
+                "exact_integer_affine_fit_from_scored_rows:v1"
+                if derive_affine_hypothesis else None),
             "trial_order": [{"tier": tier, "arm": arm} for tier, arm in TRIAL_ORDER],
             "tiers": {tier: {"probe_inputs": entry["probe_inputs"],
                 "answer_key_commitment": entry["answer_key_commitment"],
@@ -294,6 +312,7 @@ def run(cycles: Path, install: Path, models: Path, root: Path, *,
                 "work/run_ordinary_chat_transfer_distance_ladder.py",
                 "work/preflight_ordinary_chat_transfer_distance_ladder.py",
                 "work/preflight_ordinary_chat_retention.py",
+                "sentientos/cognition_retrieval.py",
                 "work/preflight_sibling_chat_histories.py",
                 "work/run_sibling_chat_recall.py", "sentientos/chat_service.py",
                 "sentientos/conversation_session.py", "sentientos/resident_developmental_cognition.py")},
@@ -385,6 +404,8 @@ if __name__ == "__main__":
         help="Supply the mapping equally to both arms as an arithmetic/format calibration")
     parser.add_argument("--clarify-history-scope", action="store_true",
         help="Clarify that selected DEVELOPMENTAL_HISTORY_DATA is historical evidence, not recent-turn transcript")
+    parser.add_argument("--derive-affine-hypothesis", action="store_true",
+        help="Expose a non-authoritative affine candidate fitted from all correct scored history rows")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--report", type=Path,
         help="Use a separately frozen model-free protocol report")
@@ -398,5 +419,6 @@ if __name__ == "__main__":
         derive_rule_from_history=args.derive_rule_from_history,
         explicit_rule_calibration=args.explicit_rule_calibration,
         clarify_history_scope=args.clarify_history_scope,
+        derive_affine_hypothesis=args.derive_affine_hypothesis,
         seed=args.seed,
         report_path=args.report, parent_snapshot=args.parent_snapshot)

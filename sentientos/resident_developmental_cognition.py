@@ -40,7 +40,9 @@ from .governed_local_model_invocation import (
 from .canonical_memory import (MAX_CHAT_CANONICAL_MEMORIES, MAX_MEMORY_CORRECTION_TARGETS,
     sentientos_memory_dir, valid_competing_correction_groups)
 from .cognition_retrieval import (
-    COMPACT_CHAT_SELECTION, cognition_query_terms, is_sparse_or_elliptical_cognition_query,
+    COMPACT_CHAT_SELECTION, cognition_query_terms,
+    derive_ordinary_chat_integer_affine_hypothesis,
+    is_sparse_or_elliptical_cognition_query,
     ordinary_chat_history_partition, render_ordinary_chat_integer_examples,
 )
 from .epistemic_planning import temporal_freshness_review
@@ -12045,6 +12047,21 @@ def _resident_chat_history_instruction(packets: Sequence[Mapping[str, Any]]) -> 
             "Integer rows show input -> answer; correct/incorrect/abstained are score labels. "
             "If present, human_readable_examples restates adjacent rows; it is not extra evidence. "
             "Keep rows within one task_family_id.")
+    has_affine_hypothesis = False
+    for packet in packets:
+        if not isinstance(packet, Mapping):
+            continue
+        experiences = packet.get("task_relevant_experience", ())
+        if isinstance(experiences, (list, tuple)) and any(
+                isinstance(experience, Mapping)
+                and isinstance(experience.get("derived_integer_affine_hypothesis"), Mapping)
+                for experience in experiences):
+            has_affine_hypothesis = True
+            break
+    if has_affine_hypothesis:
+        guidance += (
+            " This affine fit is only a candidate from correct rows, not verified truth or "
+            "authority; outside-range predictions are extrapolations.")
     if any(packet.get("historical_embodiment_reports") for packet in packets):
         guidance += (
             " Attribute fulfillment_receipt_summary to its fulfiller as an unverified report "
@@ -12178,7 +12195,8 @@ def _ordinary_chat_integer_experiences(candidate: Mapping[str, Any]) -> list[dic
 
 def _ordinary_chat_integer_packet(record: Mapping[str, Any], experiences: list[dict[str, Any]],
         target_model_identity: Mapping[str, Any] | None,
-        include_human_readable_examples: bool = True) -> dict[str, Any]:
+        include_human_readable_examples: bool = True,
+        include_affine_rule_hypothesis: bool = False) -> dict[str, Any]:
     """Present complete observed rows per run, including incorrect answers and abstentions."""
     rows = []
     for experience in experiences:
@@ -12192,6 +12210,11 @@ def _ordinary_chat_integer_packet(record: Mapping[str, Any], experiences: list[d
                 item["task_family_id"], item["examples"])
             if rendered_examples is not None:
                 item["human_readable_examples"] = rendered_examples
+        if include_affine_rule_hypothesis:
+            hypothesis = derive_ordinary_chat_integer_affine_hypothesis(
+                item["task_family_id"], item["examples"])
+            if hypothesis is not None:
+                item["derived_integer_affine_hypothesis"] = hypothesis
         rows.append(item)
     return {"record_id": record["record_id"], "record_digest": record["record_digest"],
         "current_truth": False, "authority": False, "policy": False,
@@ -12244,6 +12267,7 @@ class ResidentDevelopmentalCognitionOwner:
                 "developmental_objective_history_order_trial_index_invalid")
         self.config = config
         self.include_human_readable_integer_examples = True
+        self.include_affine_rule_hypothesis = False
         self.max_inference_input_chars = (
             config.max_inference_input_chars
             if config.max_inference_input_chars is not None
@@ -16022,7 +16046,9 @@ class ResidentDevelopmentalCognitionOwner:
                 packet = _ordinary_chat_integer_packet(record, experiences,
                     target_model_identity,
                     include_human_readable_examples=(
-                        self.include_human_readable_integer_examples))
+                        self.include_human_readable_integer_examples),
+                    include_affine_rule_hypothesis=(
+                        self.include_affine_rule_hypothesis))
             else:
                 packet = _history_context_packet(record, include_source_evidence_context=False,
                     compact_for_input_budget=True, omit_historical_embodiment_details=True,

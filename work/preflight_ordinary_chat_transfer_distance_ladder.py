@@ -16,7 +16,10 @@ from sentientos.developmental_model_replacement_experiment import (
     ROOTLESS_INTEGER_AFFINE_SOURCE_NEAR_TRANSFER_TASK_FAMILY,
 )
 from sentientos.local_model_authority import digest_payload
-from sentientos.cognition_retrieval import render_ordinary_chat_integer_examples
+from sentientos.cognition_retrieval import (
+    derive_ordinary_chat_integer_affine_hypothesis,
+    render_ordinary_chat_integer_examples,
+)
 from sentientos.resident_developmental_cognition import _ordinary_chat_integer_experiences
 from work.preflight_ordinary_chat_retention import (
     PARAPHRASE_PROBES, PILOT, PROBES, _owner, _read_receipt, _service_request,
@@ -91,7 +94,8 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                  task_family: str = ROOTLESS_INTEGER_AFFINE_NOVEL_TRANSFER_TASK_FAMILY,
                  parent_snapshot: Path | None = None,
                  identity_plan: Mapping[str, Any] | None = None,
-                 example_presentation: str = "record_linked") -> dict[str, Any]:
+                 example_presentation: str = "record_linked",
+                 derive_affine_hypothesis: bool = False) -> dict[str, Any]:
     if example_presentation not in {"structured_only", "record_linked"}:
         raise ValueError("unknown integer-example presentation")
     cycles = cycles_root
@@ -153,6 +157,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
         owner = _owner(parent_root, kinds, parent_cycle, request)
         owner.include_human_readable_integer_examples = (
             example_presentation == "record_linked")
+        owner.include_affine_rule_hypothesis = derive_affine_hypothesis
         baseline_arm = prior["arms"]["parent"]
         if admitted_boundary(owner.writeback.inspect_completed_records()) != baseline_arm[
                 "admitted_boundary_digest"]:
@@ -172,6 +177,7 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
         empty_root = root / "empty" / "resident-cognition"
         empty_root.mkdir(parents=True)
         empty_owner = _owner(empty_root, kinds, parent_cycle, request)
+        empty_owner.include_affine_rule_hypothesis = False
         expected_evidence = prior["questions"]["novel_range_transfer"]["captures"]["parent"][
             "prompt_score_evidence"]
         if len(expected_evidence) != 1 or len(expected_evidence[0]["examples"]) != 3:
@@ -224,6 +230,25 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
                 if example_presentation == "record_linked" else [])
             if captures["history"].get("prompt_example_renderings") != expected_renderings:
                 raise ValueError(f"{tier} rendered rows differ from the bound structured score evidence")
+            candidate_hypotheses = captures["history"].get("derived_rule_hypotheses", [])
+            expected_candidates = []
+            if derive_affine_hypothesis:
+                for evidence in expected_evidence:
+                    hypothesis = derive_ordinary_chat_integer_affine_hypothesis(
+                        evidence["task_family_id"], evidence["examples"])
+                    if hypothesis is None:
+                        raise ValueError("scored history did not support an affine candidate fit")
+                    expected_candidates.append({
+                        "record_id": evidence["record_id"],
+                        "task_family_id": evidence["task_family_id"],
+                        "source_run_id": evidence["source_run_id"],
+                        "source_score_digest": evidence["source_score_digest"],
+                        "source_fact_id": evidence["source_fact_id"],
+                        "hypothesis": hypothesis,
+                    })
+            if (candidate_hypotheses != expected_candidates
+                    or captures["empty"].get("derived_rule_hypotheses", [])):
+                raise ValueError(f"{tier} derived rule candidate differs from the scored history")
             normalized = bases["history"].replace(", ".join(map(str, probes)), "[PROBES]")
             normalized_bases.append(normalized)
             tier_min_distances[tier] = min(probes) - largest_support_input
@@ -247,15 +272,22 @@ def build_report(cycles_root: Path | None, tiers_by_name: dict[str, tuple[int, .
             "work/preflight_ordinary_chat_transfer_distance_ladder.py",
             "work/preflight_ordinary_chat_retention.py",
             "work/preflight_sibling_chat_histories.py",
+            "sentientos/cognition_retrieval.py",
             "sentientos/chat_service.py",
             "sentientos/conversation_session.py",
             "sentientos/resident_developmental_cognition.py",
             "sentientos/developmental_model_replacement_experiment.py",
         )
         report = {
-            "schema": "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2",
+            "schema": ("sentientos.ordinary_chat_transfer_distance_ladder_preflight:v3"
+                if derive_affine_hypothesis else
+                "sentientos.ordinary_chat_transfer_distance_ladder_preflight:v2"),
             "ladder_design": ladder_design,
             "example_presentation": example_presentation,
+            "derived_rule_hypothesis_treatment": (
+                "exact_integer_affine_fit_from_scored_rows:v1"
+                if derive_affine_hypothesis else None),
+            "derived_rule_hypothesis_projection_verified": derive_affine_hypothesis,
             "source_report_sha256": _sha(SOURCE_REPORT.read_bytes()),
             "task_family_id": task_family,
             "source_task_family_ids": [
@@ -311,6 +343,8 @@ def main() -> None:
         default="balanced")
     parser.add_argument("--example-presentation", choices=("structured_only", "record_linked"),
         default="record_linked")
+    parser.add_argument("--derive-affine-hypothesis", action="store_true",
+        help="Project a non-authoritative exact affine candidate fitted from all scored history rows")
     parser.add_argument("--parent-snapshot", type=Path,
         help="Verified resident-cognition plus inference-custody snapshot directory")
     parser.add_argument("--identity-plan", type=Path,
@@ -339,7 +373,8 @@ def main() -> None:
     report = build_report(args.cycles_root, tiers, design, family,
                           parent_snapshot=args.parent_snapshot,
                           identity_plan=identity_plan,
-                          example_presentation=args.example_presentation)
+                          example_presentation=args.example_presentation,
+                          derive_affine_hypothesis=args.derive_affine_hypothesis)
     encoded = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.verify_report is not None:
         if json.loads(args.verify_report.read_text(encoding="utf-8")) != report:
