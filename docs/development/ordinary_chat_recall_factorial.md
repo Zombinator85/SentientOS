@@ -181,6 +181,29 @@ serialized hypothesis objects are the same length. This controls prompt
 character length for the primary contrast, but not tokenizer length or every
 semantic effect of the provenance label.
 
+There is a more specific label confound: the model-facing data identifies the
+correct candidate as `task_derived` and the false candidate as `sham_control`,
+and the shared guidance explains both labels. The derived-versus-sham result
+therefore combines sensitivity to candidate content with sensitivity to the
+experimenter's provenance labels. It cannot by itself show that the model
+checked either candidate against the historical rows. Preserve v9 as the
+label-informed baseline; do not reinterpret its contrast as blinded evidence
+evaluation.
+
+The next protocol revision should add a blinded candidate-content comparison.
+Keep the true/sham assignment and exact source linkage in the frozen report,
+but present both arms with the same neutral candidate label and identical
+instruction that candidates are unverified and must be checked against the
+listed score rows. The prompt-bound validator must still independently
+recompute each candidate and retain the true/sham assignment outside the
+model-visible prompt. Freeze prompt digests, answer-free probes, trial order,
+and arm mapping before any response run. The primary contrast then asks
+whether the model responds differently to a score-consistent candidate than
+to a same-width false candidate when provenance labels cannot reveal the
+answer. This would test evidence checking in the immediate task; it still
+would not establish durable learning. A later-session test with the candidate
+removed, fresh probes, and independent replication remains necessary.
+
 The v9 report records the selected history record and state digest for each
 arm, freezes a counterbalanced fixed trial order, and reconstructs exactly from
 the same parent snapshot. It records `inference_performed: false` and
