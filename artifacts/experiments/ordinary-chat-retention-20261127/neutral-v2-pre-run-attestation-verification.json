@@ -31,5 +31,7 @@
   "private_run_card_sha256": "67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960",
   "protocol_sha256": "eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac",
   "remote_ref": "refs/remotes/origin/codex/cognition-feedback-digest-binding-20261127-local-snapshot",
-  "schema_version": "sentientos.neutral_v2_prerun_attestation_verification:v1"
+  "remote_ref_head": "b7ecd41f8c3f8f90cb5f5b9ac3b5f06a02d1380f",
+  "schema_version": "sentientos.neutral_v2_prerun_attestation_verification:v1",
+  "verifier_sha256": "275dee6370d31e8d3f8ce48e391301cbcdc3b90be3d3288d7b199a737b3f6bb7"
 }
