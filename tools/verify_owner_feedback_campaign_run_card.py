@@ -57,6 +57,29 @@ def verify(card_path: Path) -> dict[str, Any]:
     plan = _load_plan(plan_path)
     checks["campaign_id_matches"] = (
         card.get("campaign_id") == plan.get("campaign_id"))
+    supersedes_path_value = card.get("supersedes_run_card_path")
+    supersedes_digest = card.get("supersedes_run_card_sha256")
+    if not isinstance(supersedes_path_value, str) or not isinstance(
+            supersedes_digest, str):
+        raise ValueError("superseded_run_card_binding_missing")
+    superseded_path = Path(supersedes_path_value).resolve(strict=True)
+    superseded_card = read_object(superseded_path)
+    superseded_cycles = superseded_card.get("cycles")
+    current_cycles = card.get("cycles")
+    cycle_identity = lambda rows: [
+        (row.get("cycle_id"), row.get("task_generation_seed"),
+            row.get("backend_seed")) for row in rows
+        if isinstance(row, dict)]
+    checks["supersession_chain_matches"] = (
+        hashlib.sha256(superseded_path.read_bytes()).hexdigest()
+            == supersedes_digest
+        and superseded_card.get("campaign_id") == card.get("campaign_id")
+        and superseded_card.get("campaign_plan_digest")
+            == card.get("campaign_plan_digest")
+        and isinstance(superseded_cycles, list)
+        and isinstance(current_cycles, list)
+        and cycle_identity(superseded_cycles) == cycle_identity(current_cycles)
+        and len(cycle_identity(current_cycles)) == len(current_cycles))
     checks["campaign_plan_path_matches"] = (
         str(plan_path) == str(Path(str(required_common.get(
             "SENTIENTOS_HERMES_CAMPAIGN_PLAN_PATH", ""))).resolve()))
