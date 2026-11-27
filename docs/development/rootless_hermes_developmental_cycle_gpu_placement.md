@@ -4628,3 +4628,17 @@ the schema-free control digest and records the output-contract digest
 separately. This preserves exact receipt lineage while allowing task schemas to
 vary without making otherwise identical controls incomparable. A fresh plan is
 required to evaluate this correction.
+
+Replacement plan v17 binds that comparator correction. It passed model-free
+verification with all 2,557 implementation pins and both model identities
+matching. The two acquisition/transfer pairs are disjoint internally and the
+two complete cycle suites have no overlapping probe inputs. It uses the same
+empty-history boundary and model identity recipe as v16, but fresh task/backend
+seeds and cycle IDs. Campaign `rootless-history-campaign-c8f5e2049b7a461da032`,
+plan digest `a973cb8ac9db301fa3a18c1e7bc12b9bda5f1bfdd525fc1c0c0f034cb7b59e4f`;
+cycle IDs `rootless-cognition-cycle-9d3a7b5c1f8042e6a90b` and
+`rootless-cognition-cycle-5f82c0d6a4e31b978a16`; task seeds `1941347950` and
+`2097168281`; backend seeds `1375309943` and `224680087`. It binds source commit
+`de46fcbd0b8a8c1c94037a03d7d206491dd7dad8`. Artifact:
+[`campaign-plan-wsl-v17.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v17.json).
+At plan freeze, no v17 inference had been performed.
