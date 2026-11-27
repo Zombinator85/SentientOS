@@ -517,3 +517,14 @@ artifact's own canonical size limit; it does not relax receipt validation,
 score binding, or the evidence needed to establish learning. A fresh plan and
 new cycle identities are required before another inference attempt, and the
 failed v20 cycle is retired.
+
+The follow-up plan v21 is frozen at
+`eacc76f88c9ad38eb6741f00e8d948f4e3974db759e314edbc49558c0cb4553d` and is
+stored with the campaign artifacts. Its initial history boundary is
+`2576659078c4a4764ef97c3640eae2b2bf599449b5ba191c06f2cfca48905b7c`, taken
+from the completed v20 cycle's retained history. It preregisters two fresh
+cycle IDs, 12 acquisition probes, and 12 transfer probes per cycle under the
+same two-thirds baseline-competence gate. Model-free verification matched all
+2,557 implementation pins and both seed-specific model identities; no
+inference occurred during plan creation or verification. This new plan is
+separate from the retired v20 campaign.
