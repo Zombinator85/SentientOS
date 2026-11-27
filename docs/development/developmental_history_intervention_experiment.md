@@ -903,7 +903,7 @@ fails closed. Thus the saved error belongs to the older source revision
 `825048e...`; the repair is present in source revision `dc349b9...`. The
 inspector is supplemental custody tooling outside the pinned experiment
 implementation. Its SHA-256 is
-`1a637b75945d0fee12674ff165e39d3f84ec31da65777e64a8ef2f4674f1d3a9`.
+`20ecec270fc153b98866a73491b597e2775ecfd788fdf874ab328441f9df556f`.
 Invoke it as `python tools/inspect_developmental_cycle_recovery.py <cycle-root>`;
 status 3 flags an unreconstructible normalized response digest, another
 response-integrity mismatch, or an incompatible checkpoint. Status 0 means
