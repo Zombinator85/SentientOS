@@ -4580,7 +4580,7 @@ Plan v14 binds the normalized-generation comparison fix and the new progression-
 
 Before launch, a model-free replay of v14's frozen task-generation seeds found three exact probe values shared across its two cycles. v14 is retired and neither cycle may be run. The planner now rejects wide-range plans that reuse a probe within an acquisition/transfer pair or across campaign cycles. This prevents previously scored examples from silently reappearing in later history conditions; a fresh plan must pass this guard before any inference.
 
-Replacement plan v15 passes the new disjoint-probe planner guard: each cycle's 3 acquisition and 12 transfer inputs are disjoint, and the two 15-input cycle suites have no exact overlap. The model-free verifier matched all 2,557 implementation pins and both model identities. Campaign `rootless-history-campaign-fa8a5a732f884f5b9df7`, plan digest `3ec48f1a9f9cd3e71c89baef057f5329d13099f3fc5f4d1677f1e559dd804192`; cycle IDs `rootless-cognition-cycle-e9288c632e9942f4acb5` and `rootless-cognition-cycle-45fbb925f7db426c8a06`; task seeds `130304764` and `4094112148`; backend seeds `527158896` and `841446896`. It binds source commit `e4f3ecd1b6fecd2141195bf43bc4161703f3320b`. Artifact: [`campaign-plan-wsl-v15.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v15.json). No v15 inference has been performed.
+Replacement plan v15 passed the new disjoint-probe planner guard: each cycle's 3 acquisition and 12 transfer inputs were disjoint, and the two 15-input cycle suites had no exact overlap. The model-free verifier matched all 2,557 implementation pins and both model identities. Campaign `rootless-history-campaign-fa8a5a732f884f5b9df7`, plan digest `3ec48f1a9f9cd3e71c89baef057f5329d13099f3fc5f4d1677f1e559dd804192`; cycle IDs `rootless-cognition-cycle-e9288c632e9942f4acb5` and `rootless-cognition-cycle-45fbb925f7db426c8a06`; task seeds `130304764` and `4094112148`; backend seeds `527158896` and `841446896`. It bound source commit `e4f3ecd1b6fecd2141195bf43bc4161703f3320b`. Artifact: [`campaign-plan-wsl-v15.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v15.json). At plan freeze, no v15 inference had been performed.
 
 The v15 first cycle reached transfer-history writeback and stopped with
 `developmental_history_task_family_binding_invalid`. The terminal artifact had
@@ -4593,3 +4593,17 @@ failure actionable. The cycle is incomplete, made no learning claim, and is
 spent; no retry or cycle-1 inference has been run. The model is unloaded and
 GPU utilization returned near idle. A fresh implementation-bound plan is
 required before another inference campaign.
+
+Replacement plan v16 incorporates the failure diagnostic and uses two fresh
+cycle IDs and task/backend seeds. It passed model-free verification with all
+2,557 implementation pins and both model identities matching; the acquisition
+and transfer suites are disjoint within each cycle and across cycles. It binds
+the same empty-history boundary and Hermes Q4_K_M model with 24 requested GPU
+layers. Campaign `rootless-history-campaign-57a2f18c60394b8da026`, plan digest
+`e49c85a698304f6c211ee58374438c1a859ec11c437db53380ce968234366993`; cycle IDs
+`rootless-cognition-cycle-b2c937e80a5146f69a13` and
+`rootless-cognition-cycle-6d83f04a75ea4f08b921`; task seeds `1981278084` and
+`1312427128`; backend seeds `389109745` and `991403726`. It binds source commit
+`662c0cfb990f74e2623ee16b770e0d4449634d62`. Artifact:
+[`campaign-plan-wsl-v16.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v16.json).
+No v16 inference has been performed.
