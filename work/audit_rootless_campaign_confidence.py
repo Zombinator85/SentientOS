@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v6"
+REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v2"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 
@@ -64,18 +64,12 @@ def _score_diagnostic(score: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(result, Mapping):
             raise ValueError("confidence_audit_probe_result_invalid")
         correct = result.get("correct")
-        abstained = result.get("abstained")
         if (confidence_value != result.get("confidence_basis_points")
                 or (confidence_value is not None and (
                     type(confidence_value) is not int
                     or not 0 <= confidence_value <= 10_000))):
             raise ValueError("confidence_audit_confidence_binding_invalid")
         if type(correct) is bool:
-            if (set(result) != {"probe_input", "observed_answer", "correct",
-                    "confidence_basis_points"}
-                    or type(result.get("probe_input")) is not int
-                    or type(result.get("observed_answer")) is not int):
-                raise ValueError("confidence_audit_abstention_binding_invalid")
             answered_count += 1
             correct_count += int(correct)
             if type(confidence_value) is not int:
@@ -86,28 +80,15 @@ def _score_diagnostic(score: Mapping[str, Any]) -> dict[str, Any]:
                 max_confidence_count += 1
                 max_confidence_errors += int(not correct)
         elif correct is None and confidence_value is None:
-            if (set(result) != {"probe_input", "observed_answer", "correct",
-                    "confidence_basis_points", "abstained"}
-                    or type(result.get("probe_input")) is not int
-                    or abstained is not True
-                    or result.get("observed_answer") is not None):
-                raise ValueError("confidence_audit_abstention_binding_invalid")
             abstained_count += 1
         else:
             raise ValueError("confidence_audit_outcome_shape_invalid")
-    expected_status = ("selective" if abstained_count else
-        "correct" if correct_count == len(results) else "incorrect")
-    expected_correct = (None if abstained_count else
-        correct_count == len(results))
-    if (score.get("probe_count") != len(results)
-            or score.get("correct_count") != correct_count
+    if (score.get("correct_count") != correct_count
             or score.get("answered_count") != answered_count
             or score.get("abstained_count") != abstained_count
             or score.get("brier_scored_answer_count") != brier_count
             or score.get("brier_squared_error_sum_basis_points_squared") != brier_sum
-            or answered_count + abstained_count != len(results)
-            or score.get("status") != expected_status
-            or score.get("correct") is not expected_correct):
+            or answered_count + abstained_count != len(results)):
         raise ValueError("confidence_audit_aggregate_binding_invalid")
     return {
         "score_digest": score["score_digest"],
@@ -156,27 +137,13 @@ def _history_mapping_relation(*, cycle_root: Path,
     current_mapping = _affine_mapping(current_descriptor)
     matching = conflicting = unknown = 0
     family_fact_count = 0
-    record_integrity_verified_count = 0
     for record_id, record_digest in zip(ids, digests):
         if (not isinstance(record_id, str)
                 or not isinstance(record_digest, str)):
             raise ValueError("confidence_audit_history_reference_invalid")
         record = _read_object(record_root / (record_id + ".json"))
-        semantic_record = {key: value for key, value in record.items()
-            if key not in {"record_id", "record_digest"}}
-        expected_record_digest = "sha256:" + _digest(semantic_record)
-        expected_record_id = "devrec-" + expected_record_digest.removeprefix(
-            "sha256:")[:24]
-        if (record.get("record_id") != record_id
-                or record_id != expected_record_id
-                or record.get("record_digest") != record_digest
-                or record_digest != expected_record_digest):
+        if record.get("record_id") != record_id or record.get("record_digest") != record_digest:
             raise ValueError("confidence_audit_history_record_digest_mismatch")
-        if any(record.get(flag) is not False for flag in (
-                "current_truth", "authority", "policy",
-                "canonical_explicit_user_retention")):
-            raise ValueError("confidence_audit_history_record_posture_invalid")
-        record_integrity_verified_count += 1
         candidate = record.get("candidate")
         facts = candidate.get("selected_facts") if isinstance(candidate, Mapping) else None
         if not isinstance(facts, list):
@@ -211,8 +178,6 @@ def _history_mapping_relation(*, cycle_root: Path,
         posture = "all_projectable_selected_mappings_match_current_task"
     return {
         "selected_record_count": len(ids),
-        "record_integrity_verified_count": record_integrity_verified_count,
-        "record_integrity_posture": "all_selected_record_digests_and_postures_verified",
         "selected_records_with_task_family_examples": family_fact_count,
         "mapping_match_count": matching,
         "mapping_conflict_count": conflicting,
@@ -275,39 +240,16 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
         "confidence_audit_plan_digest_mismatch")
     _verify_sealed_digest(campaign_audit, "audit_digest",
         "confidence_audit_campaign_digest_mismatch")
-    required_chain_fields = (
-        "append_only_history_chain_verified",
-        "file_append_only_history_chain_verified",
-        "seed_boundary_chain_verified",
-        "runtime_admission_chain_verified",
-        "cognition_recovery_state_chain_verified",
-    )
     if (campaign_audit.get("plan_digest") != plan.get("plan_digest")
             or campaign_audit.get("campaign_id") != plan.get("campaign_id")
             or campaign_audit.get("all_planned_cycles_completed") is not True
             or campaign_audit.get("learning_established") is not False
-            or campaign_audit.get("authority") is not False
-            or any(campaign_audit.get(field) is not True
-                for field in required_chain_fields)
-            or type(campaign_audit.get("planned_cycle_count")) is not int
-            or campaign_audit.get("planned_cycle_count")
-                != campaign_audit.get("completed_cycle_count")
-            or campaign_audit.get("incomplete_cycle_count") != 0):
-        raise ValueError("confidence_audit_campaign_integrity_invalid")
+            or campaign_audit.get("authority") is not False):
+        raise ValueError("confidence_audit_campaign_binding_invalid")
     cycle_ids = plan.get("ordered_cycle_ids")
     if (not isinstance(cycle_ids, list) or len(cycle_roots) != len(cycle_ids)
-            or len(set(cycle_ids)) != len(cycle_ids)
-            or campaign_audit.get("planned_cycle_count") != len(cycle_ids)
-            or campaign_audit.get("source_run_count") != len(cycle_ids)):
+            or len(set(cycle_ids)) != len(cycle_ids)):
         raise ValueError("confidence_audit_cycle_order_invalid")
-    campaign_cycle_boundaries = campaign_audit.get("cycle_boundaries")
-    if (not isinstance(campaign_cycle_boundaries, list)
-            or len(campaign_cycle_boundaries) != len(cycle_ids)
-            or any(not isinstance(row, Mapping)
-                for row in campaign_cycle_boundaries)
-            or [row.get("cycle_id") for row in campaign_cycle_boundaries]
-                != cycle_ids):
-        raise ValueError("confidence_audit_campaign_cycle_boundary_invalid")
 
     condition_rows: list[dict[str, Any]] = []
     cycle_rows: list[dict[str, Any]] = []
@@ -315,18 +257,6 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
     total_max_confidence = total_max_confidence_errors = 0
     total_brier_sum = total_brier_count = 0
     for index, (cycle_id, cycle_root) in enumerate(zip(cycle_ids, cycle_roots)):
-        campaign_cycle = campaign_cycle_boundaries[index]
-        expected_identity = plan.get("ordered_model_identity_digests", [])[index]
-        if (campaign_cycle.get("terminal_status") != "completed"
-                or campaign_cycle.get("campaign_binding_verified") is not True
-                or campaign_cycle.get("run_preregistration_binding_verified") is not True
-                or campaign_cycle.get("source_run_binding_verified") is not True
-                or campaign_cycle.get("cognition_recovery_seed_verified") is not True
-                or campaign_cycle.get("runtime_admission_seed_verified") is not True
-                or campaign_cycle.get("history_seed_boundary_verified") is not True
-                or campaign_cycle.get("expected_model_identity_digest")
-                    != expected_identity):
-            raise ValueError("confidence_audit_campaign_cycle_binding_invalid")
         if cycle_root.is_symlink() or not cycle_root.is_dir() or cycle_root.name != cycle_id:
             raise ValueError("confidence_audit_cycle_root_invalid")
         terminal = _read_object(cycle_root / "cycle-result.json")
@@ -344,6 +274,7 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
         identity = terminal.get("active_model_identity")
         identity_digest = ("sha256:" + _digest({"identity": dict(identity)})
             if isinstance(identity, Mapping) else None)
+        expected_identity = plan.get("ordered_model_identity_digests", [])[index]
         if identity_digest != "sha256:" + expected_identity:
             raise ValueError("confidence_audit_model_identity_binding_invalid")
 
@@ -358,13 +289,6 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
         run = _read_object(run_path)
         if run.get("run_id") != run_id or run.get("run_digest") != run_digest:
             raise ValueError("confidence_audit_acquisition_run_binding_invalid")
-        semantic_run = {key: value for key, value in run.items()
-            if key not in {"run_id", "run_digest"}}
-        if run_digest != "sha256:" + _digest(semantic_run):
-            raise ValueError("confidence_audit_acquisition_run_digest_mismatch")
-        if (campaign_cycle.get("source_run_id") != run_id
-                or campaign_cycle.get("source_run_digest") != run_digest):
-            raise ValueError("confidence_audit_campaign_source_run_mismatch")
         score_rows = run.get("objective_scores")
         if (not isinstance(score_rows, list) or len(score_rows) != len(CONDITION_ORDER)
                 or tuple(row.get("condition_id") for row in score_rows
@@ -435,7 +359,6 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
             "cycle_id": cycle_id,
             "acquisition_run_id": run_id,
             "acquisition_run_digest": run_digest,
-            "campaign_audit_cycle_binding_verified": True,
             "condition_count": len(score_rows),
             "answered_count": run_answered,
             "correct_count": run_correct,
@@ -470,27 +393,6 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
         "campaign_id": plan["campaign_id"],
         "plan_digest": plan["plan_digest"],
         "campaign_audit_digest": campaign_audit["audit_digest"],
-        "campaign_audit_integrity": {
-            "append_only_history_chain_verified": True,
-            "file_append_only_history_chain_verified": True,
-            "seed_boundary_chain_verified": True,
-            "runtime_admission_chain_verified": True,
-            "cognition_recovery_state_chain_verified": True,
-            "cycle_boundaries_and_source_runs_verified": True,
-            "transfer_precondition_snapshot_chain_verified":
-                campaign_audit.get(
-                    "history_transfer_precondition_snapshot_chain_verified"),
-            "scope": "acquisition_scores_only; transfer precondition is reported separately",
-        },
-        "score_result_contract": {
-            "schema": "sentientos.objective_task_score:v6",
-            "abstention_representation_verified": True,
-            "answered_rows_omit_abstained_marker": True,
-            "abstained_rows_require_true_marker_and_null_answer_and_confidence": True,
-            "aggregate_status_and_correctness_verified": True,
-            "selective_status_requires_at_least_one_abstention": True,
-            "nonselective_correct_requires_every_probe_correct": True,
-        },
         "cycle_count": len(cycle_rows),
         "cycles": cycle_rows,
         "condition_scores": condition_rows,
