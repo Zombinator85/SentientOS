@@ -6188,7 +6188,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         selection_verified = (retrieved_ids == expected_ids
             and retrieved_digests == expected_digests)
         citation_verified = citations == expected_ids
-        validation_status = (row.get("decision_validation_status", "validated")
+        validation_status = (row.get("decision_validation_status")
             if isinstance(row, Mapping) else None)
         validation_error = (row.get("decision_validation_error_code")
             if isinstance(row, Mapping) else None)

@@ -767,7 +767,9 @@ record IDs; it did not establish that content was delivered to or used by the
 model. The current v2 score serialization reports selection, citation,
 response, and condition-criterion assessments separately. A criterion match
 records only that the observed response, citation, and selection match the
-protocol. It does not establish that the model cognitively used the record or
+protocol. The scorer requires an explicit decision_validation_status value of
+validated; a missing status fails the criterion.
+It does not establish that the model cognitively used the record or
 that the record caused the response. These labels are diagnostic
 decompositions of the same frozen protocol criteria and do not retroactively
 change the preregistered result.
