@@ -676,11 +676,34 @@ label for versioned older schemas. This makes the reason for the false chain
 status explicit; it does not turn the skipped qualification into verified
 evidence or alter the immutable v25 audit.
 
-The prompt-only approach has therefore reached a useful stopping point. The
-next experiment should isolate output qualification itself while preserving the
-shared decoding-control invariant across conditions. Before another model run,
-inspect the precondition-snapshot binding path and design a preregistered,
-model-free validation that can demonstrate the unchanged citation validator
-continues to reject unavailable IDs and accepts the explicit abstention
-sentinel. Do not claim efficacy from validator fixtures alone; any later
-behavioral claim requires fresh held-out inference.
+## Next cognition gap: rejected decisions do not become feedback
+
+The cycle result binds each companion condition to its validation outcome, but
+that outcome does not enter developmental history. In cycle 1, the withheld
+condition again failed with
+`companion_interaction_history_id_not_allowed`; its answer-free diagnostic
+binds the same raw-response digest as the earlier trial and marks the cited
+history incompatible and the decision unqualified. A full-tree search of
+cycle 1's retained artifacts found neither that failure code nor that prior
+raw-response digest in its inherited cognition history. The prior cycle's
+rejection therefore was not available as an explicit retained experience in
+the next cycle. The controlled intervention intentionally avoids writing
+history during its present/withheld/restored conditions, so this feedback must
+be appended only after all three conditions have completed.
+
+The next improvement should add a separate, owner-authored performance record
+for a completed controlled intervention. It should bind the source observation
+and invocation receipt, validation code, retrieved-history allowlist digest,
+and qualification result; it should omit rejected answer text and keep
+`decision_qualified=false`, `current_truth=false`, `authority=false`, and
+`canonical_explicit_user_retention=false`. The record is historical evidence
+about system performance, not a belief about the world or an instruction about
+what the intelligence should want. A fresh preregistered follow-up should then
+compare later held-out decisions with and without that record actually
+retrieved, while preserving same-cycle condition isolation. Only a durable,
+held-out change in qualification or correctness can support a learning claim.
+
+The v25 prompt-only trial remains useful evidence that the instruction digest
+changed while the model output did not. It does not test whether retained
+owner-verified failure feedback changes future reasoning, because that feedback
+was not carried forward as a developmental-history input.
