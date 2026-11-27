@@ -625,3 +625,55 @@ retains the v23 cycle 1 history boundary and preregisters two fresh cycles with
 bound to source commit `cdb285601`. Model-free verification matched all 2,557
 implementation pins and both seed-specific model identities, with inference
 false at freeze.
+
+## v25 outcome: prompt delivery did not change qualification
+
+Both v25 cycles completed and were independently audited. The campaign audit is
+`campaign-audit-v25.json` (digest
+`9f15ee7e605432eb2e36063b15d42cd03e2bec3f5cf31d30ca2780c086326838`). It
+verified both planned source runs, append-only history, seed-boundary,
+runtime-admission, and cognition-recovery chains. It records
+`learning_established=false` and `authority=false`.
+
+Cycle 0 (`rootless-cognition-cycle-602f64167f4c03a65092`) completed all stages.
+Acquisition reached the preregistered baseline competence threshold with 9/12
+withheld probes correct (present 12/12, restored 12/12), so held-out transfer
+ran. Transfer scored 0/12 in every condition. The history-associated answer
+vector differed, but its correctness effect was zero; the withheld companion
+decision remained invalid because it cited an unavailable history ID. No
+learning or action consequence was established. Its answer-free evidence
+manifest is `cycle-0-v25-evidence-manifest.json` (digest
+`4e4d1d697fa89efaecf1ba547bf7705c281396fd726765edbf474bc1191d1b9b`).
+
+Cycle 1 (`rootless-cognition-cycle-a63ca03a3d2f753db69d`) completed, but scored
+0/12 in each acquisition condition, below the threshold, so transfer was
+skipped. Its withheld companion decision was rejected with the same
+`companion_interaction_history_id_not_allowed` code. Its answer-free evidence
+manifest is `cycle-1-v25-evidence-manifest.json` (digest
+`7759bdcbe59eb428a0314b140b712a005ed6efb11f57769b8d9c639bb7500538`).
+
+A receipt-bound comparison against v23 shows the revised instruction was sent:
+the withheld request's instruction digest changed from
+`sha256:1ed69...` to `sha256:0e91...`, while its schema, budget, and question
+digests stayed fixed. Yet both v25 cycles emitted the same raw response digest
+as v23 (`4d6cf0...`) and the owner rejected it. This is evidence that the prompt
+change was delivered but did not change this model's output in these trials;
+it is not evidence that the system learned to abstain.
+
+The campaign audit also reports
+`history_transfer_precondition_snapshot_chain_verified=false`; both cycle
+boundaries label the transfer precondition `unbound_legacy_precondition` and
+`history_transfer_precondition_snapshot_verified=false`. This limits the
+strength of claims about transfer setup and must be repaired or explicitly
+resolved before treating a future transfer result as fully auditable. The audit
+still verifies the source runs and append-only history chain, but that does not
+substitute for a verified transfer precondition snapshot.
+
+The prompt-only approach has therefore reached a useful stopping point. The
+next experiment should isolate output qualification itself while preserving the
+shared decoding-control invariant across conditions. Before another model run,
+inspect the precondition-snapshot binding path and design a preregistered,
+model-free validation that can demonstrate the unchanged citation validator
+continues to reject unavailable IDs and accepts the explicit abstention
+sentinel. Do not claim efficacy from validator fixtures alone; any later
+behavioral claim requires fresh held-out inference.
