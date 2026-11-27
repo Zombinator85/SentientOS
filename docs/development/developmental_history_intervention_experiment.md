@@ -580,3 +580,23 @@ re-verified against the completed cycle root. The independent campaign audit
 verified both planned cycles, the append-only history chain, seed boundary
 chain, runtime-admission chain, and cognition-recovery chain. It records two
 source runs and leaves `learning_established=false` and `authority=false`.
+
+## Withheld-history citation failure and prompt revision
+
+Both v23 cycles rejected the withheld-condition companion response with
+`companion_interaction_history_id_not_allowed`. Receipt-bound diagnostics show
+the model emitted one history ID even though the withheld observation retrieved
+no history records: cycle 0 cited a prior record that was not delivered, while
+cycle 1 emitted a placeholder ID. The owner correctly rejected both outputs;
+neither response was promoted into a valid history decision. The shared prompt
+already required an empty citation list but did not explicitly require an
+abstention sentinel when a historical question had no eligible records.
+
+The shared history-intervention instruction now says that, when the history
+allowlist is empty and no independent fact or retained memory supports the
+answer, the model must abstain with `HISTORY_UNAVAILABLE`, leave citation arrays
+empty, and not reconstruct an answer from parametric recall or another
+condition. This applies uniformly across the intervention conditions. The
+receipt and citation validator remains fail-closed; invalid citations are not
+normalized into valid decisions. A fresh plan is required to measure whether
+the stronger instruction improves response qualification.
