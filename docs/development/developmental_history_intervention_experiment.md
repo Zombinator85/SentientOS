@@ -609,3 +609,11 @@ preregisters two fresh cycles with 12 acquisition and 12 transfer probes each.
 Model-free verification matched all 2,557 implementation pins and both model
 identities, with inference false at plan freeze. The plan is bound to source
 commit `9508ca268` containing the shared prompt revision.
+
+The first v24 cycle then failed before companion delivery with
+`cognition_input_budget_exceeded`: the zero-history prompt was 24,646
+characters against the fixed 24,576-character limit. The failure artifact
+records zero hosted companion deliveries, and governed release found Hermes
+not resident. The v24 cycle ID is retired. The abstention guidance has been
+shortened without raising the input limit; a new plan must bind this revised
+prompt before another inference attempt.
