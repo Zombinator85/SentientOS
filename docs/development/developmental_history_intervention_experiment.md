@@ -539,3 +539,15 @@ campaign and cycle IDs, the same explicit v20 history boundary, and corrected
 runtime seed binding. Its model-free verifier again matched all 2,557
 implementation pins and both seed-specific model identities; inference had
 not occurred at freeze time.
+
+The v22 cycle also stopped at model/runtime preflight: the runner's per-cycle
+GPU availability assertion was absent. It recorded
+`gpu_owner_availability_confirmation_missing_or_mismatched`; no model inference
+occurred, and that cycle ID is retired. Plan v23 is frozen at
+`e72d80f6fc280d7ee1c11a16a2f42f27a2596c2c77abef3fda1d3de64e187ba7` with new
+cycle IDs. Before launch, the runner's
+`SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` must equal the selected cycle ID;
+this is bound to the user's explicit GPU availability authorization and is
+recorded as an operator assertion, not inferred from telemetry. The v23
+model-free verifier matched all 2,557 implementation pins and both model
+identities.
