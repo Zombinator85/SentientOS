@@ -1,0 +1,34 @@
+{
+  "schema_version": "sentientos.pre_run_campaign_digest_attestation:v1",
+  "campaign_id": "rootless-history-campaign-d8f0bc296251426a8da2",
+  "status": "prepared_not_started_at_publication",
+  "digests": {
+    "campaign_plan_sha256": "6575bd8cc9f4d9135c186437d7395e5733b1a2d98c8940cf0e2accdebadca972",
+    "owner_feedback_protocol_sha256": "eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac",
+    "private_run_card_file_sha256": "67fb0e15870e4f4c63bc22bd9c04729c3ac389542a202253549ee29779624960"
+  },
+  "observed_launch_state": {
+    "run_card_status": "prepared_not_started",
+    "inference_performed": false,
+    "authority": false,
+    "planned_cycle_storage_roots_exist": false,
+    "gpu_confirmation_required_per_cycle": true
+  },
+  "preregistration_timing_independently_attested": false,
+  "publication": {
+    "timestamp_source": "GitHub commit metadata for the commit containing this digest record",
+    "timestamp_scope": "The containing commit establishes that these digests were published by its GitHub commit timestamp, before the campaign was run.",
+    "does_not_establish": [
+      "when the campaign plan was first drafted",
+      "independent authorship or review",
+      "that plan contents were published",
+      "model learning, performance improvement, or causal effect"
+    ]
+  },
+  "raw_campaign_plan_included": false,
+  "raw_run_card_included": false,
+  "model_identity_included": false,
+  "task_generation_seeds_included": false,
+  "authority": false,
+  "inference_performed": false
+}
