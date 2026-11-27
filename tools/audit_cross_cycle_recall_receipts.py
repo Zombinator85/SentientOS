@@ -115,6 +115,11 @@ def audit_history_delivery_binding(receipt: dict[str, Any]) -> dict[str, Any]:
             and all(isinstance(value, str) for value in delivered_ids)
             and all(isinstance(value, str) for value in delivered_digests)
             and type(packet_count) is int and packet_count == len(delivered_ids)),
+        "delivered_packet_identities_match_selection": (
+            isinstance(delivered_ids, list)
+            and isinstance(delivered_digests, list)
+            and delivered_ids == selected_ids
+            and delivered_digests == selected_digests),
         "selected_identities_match_receipt_upstream": (
             isinstance(selected_ids, list)
             and selected_ids == upstream.get("record_ids")),
