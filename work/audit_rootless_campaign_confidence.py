@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 
-REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v5"
+REPORT_SCHEMA = "sentientos.rootless_campaign_confidence_diagnostic:v6"
 CONDITION_ORDER = ("history_present", "history_withheld", "history_restored")
 MAX_INPUT_BYTES = 16 * 1024 * 1024
 
@@ -95,12 +95,19 @@ def _score_diagnostic(score: Mapping[str, Any]) -> dict[str, Any]:
             abstained_count += 1
         else:
             raise ValueError("confidence_audit_outcome_shape_invalid")
-    if (score.get("correct_count") != correct_count
+    expected_status = ("selective" if abstained_count else
+        "correct" if correct_count == len(results) else "incorrect")
+    expected_correct = (None if abstained_count else
+        correct_count == len(results))
+    if (score.get("probe_count") != len(results)
+            or score.get("correct_count") != correct_count
             or score.get("answered_count") != answered_count
             or score.get("abstained_count") != abstained_count
             or score.get("brier_scored_answer_count") != brier_count
             or score.get("brier_squared_error_sum_basis_points_squared") != brier_sum
-            or answered_count + abstained_count != len(results)):
+            or answered_count + abstained_count != len(results)
+            or score.get("status") != expected_status
+            or score.get("correct") is not expected_correct):
         raise ValueError("confidence_audit_aggregate_binding_invalid")
     return {
         "score_digest": score["score_digest"],
@@ -480,6 +487,9 @@ def create_report(*, plan_path: Path, campaign_audit_path: Path,
             "abstention_representation_verified": True,
             "answered_rows_omit_abstained_marker": True,
             "abstained_rows_require_true_marker_and_null_answer_and_confidence": True,
+            "aggregate_status_and_correctness_verified": True,
+            "selective_status_requires_at_least_one_abstention": True,
+            "nonselective_correct_requires_every_probe_correct": True,
         },
         "cycle_count": len(cycle_rows),
         "cycles": cycle_rows,
