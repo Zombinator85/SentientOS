@@ -528,3 +528,14 @@ same two-thirds baseline-competence gate. Model-free verification matched all
 2,557 implementation pins and both seed-specific model identities; no
 inference occurred during plan creation or verification. This new plan is
 separate from the retired v20 campaign.
+
+The initial v21 launch was rejected before inference because the backend seed
+was passed using the wrong environment variable name. The runner recorded
+`history_campaign_seed_binding_mismatch` at model/runtime preflight, with no
+failure result or inference receipts. That launched cycle ID is retired; v21 is
+not reused. Plan v22 is frozen at
+`ae52cd133dddd60fb5f461e5f45190b8aa090e52db2d5dffc9bfc495b2a53017` with new
+campaign and cycle IDs, the same explicit v20 history boundary, and corrected
+runtime seed binding. Its model-free verifier again matched all 2,557
+implementation pins and both seed-specific model identities; inference had
+not occurred at freeze time.
