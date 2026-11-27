@@ -36,7 +36,8 @@
         "sentientos.rootless_history_boundary_campaign_audit:v8",
         "sentientos.rootless_history_boundary_campaign_audit:v9",
         "sentientos.rootless_history_boundary_campaign_audit:v10",
-        "sentientos.rootless_history_boundary_campaign_audit:v11"
+        "sentientos.rootless_history_boundary_campaign_audit:v11",
+        "sentientos.rootless_history_boundary_campaign_audit:v12"
       ]
     },
     "campaign_id": {
@@ -85,6 +86,23 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 32
+    },
+    "low_range_source_eligibility": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["schema_version", "verified_score_bound_source_run_count", "source_run_count_with_unique_correct_input_contribution", "distinct_score_bound_correct_input_count", "minimum_source_run_count", "minimum_distinct_correct_input_count", "eligible", "correct_input_values_included", "learning_established", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.low_range_source_acquisition_protocol:v1"},
+        "verified_score_bound_source_run_count": {"type": "integer", "minimum": 0, "maximum": 32},
+        "source_run_count_with_unique_correct_input_contribution": {"type": "integer", "minimum": 0, "maximum": 32},
+        "distinct_score_bound_correct_input_count": {"type": "integer", "minimum": 0, "maximum": 16},
+        "minimum_source_run_count": {"const": 2},
+        "minimum_distinct_correct_input_count": {"const": 3},
+        "eligible": {"type": "boolean"},
+        "correct_input_values_included": {"const": false},
+        "learning_established": {"const": false},
+        "authority": {"const": false}
+      }
     },
     "history_transfer_precondition_snapshot_chain_verified": {
       "type": "boolean"
@@ -693,6 +711,16 @@
               ]
             }
           }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_audit:v12"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["low_range_source_eligibility"],
+        "properties": {
+          "task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"},
+          "low_range_source_eligibility": {"type": "object"}
         }
       }
     }

@@ -28,7 +28,10 @@
         "sentientos.rootless_history_boundary_campaign_plan:v9",
         "sentientos.rootless_history_boundary_campaign_plan:v10",
         "sentientos.rootless_history_boundary_campaign_plan:v11",
-        "sentientos.rootless_history_boundary_campaign_plan:v12"
+        "sentientos.rootless_history_boundary_campaign_plan:v12",
+        "sentientos.rootless_history_boundary_campaign_plan:v13",
+        "sentientos.rootless_history_boundary_campaign_plan:v14",
+        "sentientos.rootless_history_boundary_campaign_plan:v15"
       ]
     },
     "campaign_id": {
@@ -105,6 +108,23 @@
       "propertyNames": {"pattern": "^([A-Za-z_][A-Za-z0-9_]*\\.py|sentientos/.+\\.py|scripts/.+\\.py|work/.+\\.py|[A-Za-z_][A-Za-z0-9_]*/.+\\.py|semantic_embeddings\\.py|docs/development/(?:owner_cognition_feedback_cross_cycle_recall_protocol\\.json|(?:authenticated_observer_ingress_receipt|observation_authentication_receipt_summary|history_transfer_evidence_precondition|history_transfer_precondition_audit|rootless_history_boundary_campaign_plan|rootless_novel_acquisition_transfer_probe_preflight|rootless_history_boundary_campaign_audit|rootless_planned_cycle_strategy_inclusion_ablation|rootless_planned_cycle_historical_examples_ablation|developmental_history_task_score_lineage_failure)\\.schema\\.json))$"}
     },
     "transfer_probe_count": {"type": "integer", "minimum": 4, "maximum": 16},
+    "low_range_source_acquisition_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "task_family_id", "minimum_score_bound_correct_source_runs", "minimum_distinct_correct_source_inputs", "require_unique_correct_input_contribution_per_source_run", "require_independent_oracle_scoring", "require_invocation_and_writeback_receipt_binding", "cross_cycle_probe_reuse_allowed", "learning_established", "authority"],
+      "properties": {
+        "schema_version": {"const": "sentientos.low_range_source_acquisition_protocol:v1"},
+        "task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"},
+        "minimum_score_bound_correct_source_runs": {"const": 2},
+        "minimum_distinct_correct_source_inputs": {"const": 3},
+        "require_unique_correct_input_contribution_per_source_run": {"const": true},
+        "require_independent_oracle_scoring": {"const": true},
+        "require_invocation_and_writeback_receipt_binding": {"const": true},
+        "cross_cycle_probe_reuse_allowed": {"const": true},
+        "learning_established": {"const": false},
+        "authority": {"const": false}
+      }
+    },
     "cross_range_history_enabled_competence": {
       "type": "object",
       "additionalProperties": false,
@@ -341,6 +361,13 @@
       "then": {
         "required": ["model_identity_recipe", "experiment_implementation_sha256", "transfer_probe_count"],
         "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_novel_range_v8"}}
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "sentientos.rootless_history_boundary_campaign_plan:v15"}}, "required": ["schema_version"]},
+      "then": {
+        "required": ["model_identity_recipe", "experiment_implementation_sha256", "low_range_source_acquisition_protocol"],
+        "properties": {"task_family_id": {"const": "rootless_integer_affine_transfer_low_range_v6"}}
       }
     },
     {
