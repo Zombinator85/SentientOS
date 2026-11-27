@@ -171,6 +171,12 @@ effect of exposure to any history at all. Each tier uses fresh sessions and
 held-out probes. Even a gain would not show that the model learned the rule or
 that the candidate is correct outside its support range.
 
+The three distance tiers are strata in one task experiment, not three
+independent replications: they share one support record, task mapping, and
+model. Report tier outcomes descriptively. A favorable one-run contrast would
+motivate replication and longitudinal retention work; it would not establish
+durable developmental learning.
+
 The earlier [v3 preflight](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v3.json)
 verified candidate projection but did not include a raw-history comparison,
 so it cannot isolate the candidate's effect. The corrected model-free
