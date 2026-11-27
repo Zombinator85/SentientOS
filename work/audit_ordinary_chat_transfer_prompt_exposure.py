@@ -43,6 +43,18 @@ def _derive_candidate_from_support(task_family_id: Any, rows: Any) -> dict[str, 
                                     max(x for x, _ in examples)]}
 
 
+def _same_width_negative_control(hypothesis: dict[str, Any]) -> dict[str, Any]:
+    offset = hypothesis.get("offset")
+    if type(offset) is not int:
+        raise ValueError("candidate offset is not an integer")
+    sham_offset = next((candidate for candidate in (offset + 1, offset - 1)
+        if len(str(candidate)) == len(str(offset))), None)
+    if sham_offset is None:
+        raise ValueError("could not construct a same-width counterfactual offset")
+    return {"multiplier": hypothesis["multiplier"], "offset": sham_offset,
+            "support_input_range": list(hypothesis["support_input_range"])}
+
+
 def audit(preflight_path: Path) -> dict[str, Any]:
     resolved_preflight = preflight_path.resolve()
     try:
@@ -97,6 +109,19 @@ def audit(preflight_path: Path) -> dict[str, Any]:
         "source_score_digest": support_evidence["source_score_digest"],
         "task_family_id": support_evidence["task_family_id"],
     }
+    sham_hypothesis = _same_width_negative_control(expected_hypothesis)
+    candidate_wire = json.dumps(expected_hypothesis, sort_keys=True, separators=(",", ":"))
+    sham_wire = json.dumps(sham_hypothesis, sort_keys=True, separators=(",", ":"))
+    support_disagreements = [{
+        "probe_input": row["probe_input"],
+        "observed_answer": row["observed_answer"],
+        "sham_prediction": (sham_hypothesis["multiplier"] * row["probe_input"]
+                            + sham_hypothesis["offset"]),
+    } for row in preflight["support_rows"]]
+    if (len(candidate_wire) != len(sham_wire)
+            or any(item["sham_prediction"] == item["observed_answer"]
+                for item in support_disagreements)):
+        raise ValueError("same-width negative control is not length-matched or false on support")
 
     by_tier: dict[str, Any] = {}
     for tier, tier_data in preflight.get("tiers", {}).items():
@@ -137,7 +162,7 @@ def audit(preflight_path: Path) -> dict[str, Any]:
     candidate_deltas = {item["derived_minus_raw_history_chars"]
                         for item in by_tier.values()}
     return {
-        "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v3",
+        "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v4",
         "preflight_path": portable_path,
         "preflight_sha256": hashlib.sha256(raw).hexdigest(),
         "audit_implementation_sha256": hashlib.sha256(
@@ -147,6 +172,21 @@ def audit(preflight_path: Path) -> dict[str, Any]:
         "tiers": by_tier,
         "candidate_character_delta_constant_across_tiers": len(candidate_deltas) == 1,
         "candidate_character_delta_values": sorted(candidate_deltas),
+        "proposed_negative_control": {
+            "status": "design_only_not_in_preflight",
+            "algorithm": "offset_step_same_decimal_width_v1",
+            "hypothesis": sham_hypothesis,
+            "serialized_candidate_chars": len(candidate_wire),
+            "serialized_control_chars": len(sham_wire),
+            "serialized_payload_length_matched": True,
+            "support_disagreements": support_disagreements,
+            "exposed_to_model": False,
+            "added_to_history": False,
+            "limits": (
+                "Equal serialized coefficient-object length does not equalize full prompt or "
+                "tokenizer length. Integration must explicitly label the control as a "
+                "protocol-generated false candidate and preserve source evidence unchanged."),
+        },
         "interpretation": (
             "Raw and derived history share guidance; the derived arm adds its candidate payload. "
             "Character counts quantify the added prompt text but do not equal tokenizer token "

@@ -1,5 +1,5 @@
 {
-  "audit_implementation_sha256": "0601e951cf872a18dbbfaf69a205b044fb9de43e6f26b3f00e3f15d359601d8f",
+  "audit_implementation_sha256": "565127a1492f26ca9cd4b6bca62d51e04c6250499a98652e668585c4b220cf98",
   "candidate_character_delta_constant_across_tiers": true,
   "candidate_character_delta_values": [
     92
@@ -9,8 +9,43 @@
   "learning_established": false,
   "preflight_path": "artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-preflight-v8.json",
   "preflight_sha256": "fe5449589f8c1730de8f6d197c962fdab29aa984995ede8ab084040c3246fe65",
+  "proposed_negative_control": {
+    "added_to_history": false,
+    "algorithm": "offset_step_same_decimal_width_v1",
+    "exposed_to_model": false,
+    "hypothesis": {
+      "multiplier": 2,
+      "offset": 2,
+      "support_input_range": [
+        2,
+        5
+      ]
+    },
+    "limits": "Equal serialized coefficient-object length does not equalize full prompt or tokenizer length. Integration must explicitly label the control as a protocol-generated false candidate and preserve source evidence unchanged.",
+    "serialized_candidate_chars": 55,
+    "serialized_control_chars": 55,
+    "serialized_payload_length_matched": true,
+    "status": "design_only_not_in_preflight",
+    "support_disagreements": [
+      {
+        "observed_answer": 5,
+        "probe_input": 2,
+        "sham_prediction": 6
+      },
+      {
+        "observed_answer": 9,
+        "probe_input": 4,
+        "sham_prediction": 10
+      },
+      {
+        "observed_answer": 11,
+        "probe_input": 5,
+        "sham_prediction": 12
+      }
+    ]
+  },
   "remaining_control_gap": "No length-matched sham-candidate arm is present. The raw-versus-derived contrast therefore estimates the effect of adding the candidate payload, including its additional prompt length.",
-  "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v3",
+  "schema": "sentientos.ordinary_chat_transfer_prompt_exposure_audit:v4",
   "tiers": {
     "far": {
       "derived_minus_empty_chars": 3611,

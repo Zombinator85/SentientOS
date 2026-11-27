@@ -188,7 +188,7 @@ The prompt explicitly says that other rules may fit the same rows. It records
 and independent scoring remain future work. Hermes inference remains paused
 while the GPU is in use.
 
-The model-free [prompt exposure audit](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-prompt-exposure-audit-v3.json)
+The model-free [prompt exposure audit](../../artifacts/experiments/ordinary-chat-retention-20261125/source-near-transfer-distance-ladder-derived-affine-prompt-exposure-audit-v4.json)
 checks that history guidance matches exactly, independently refits the
 candidate from frozen scored rows, verifies its source linkage, and confirms
 that raw and empty arms contain no candidate. It reports prompt character
@@ -201,6 +201,14 @@ report with `python work/audit_ordinary_chat_transfer_prompt_exposure.py
 <preflight.json> <audit.json>`. It stores a repository-relative input path and
 binds both the frozen preflight and audit implementation by SHA-256, so the
 report is reproducible from another working directory.
+
+The audit also proposes a same-width negative-control hypothesis by changing
+only the fitted offset by one, preserving the coefficient object's serialized
+length while making it disagree with every support row. For this support, the
+proposed offset is 2 instead of 1. This proposal is not included in a prompt
+or history. Before using it, the experiment runner must label it as a
+protocol-generated false candidate and retain the original scored evidence
+unchanged; equal object length does not prove equal full-prompt token length.
 
 The retained v4 draft had the same arms but labeled history-versus-empty as
 the primary outcome; v5 corrected that metadata. The v6 preflight added the
