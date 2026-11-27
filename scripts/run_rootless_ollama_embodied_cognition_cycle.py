@@ -6604,7 +6604,6 @@ def run() -> dict[str, Any]:
             "learning_established": False,
             "authority": False,
         }
-        acquisition_history_record_allowlist: tuple[str, ...] | None = None
         if not existing_history:
             # A clean history store otherwise cannot enter the exact-scored
             # acquisition path: its generic objective guard requires at least
@@ -6666,8 +6665,6 @@ def run() -> dict[str, Any]:
                 raise RootlessExperimentalError(
                     "initial_history_bootstrap_not_verified")
             bootstrap_record, bootstrap_writeback_receipt = bootstrap_record_pair
-            acquisition_history_record_allowlist = (
-                bootstrap_record.record_id,)
             INITIAL_HISTORY_BOOTSTRAP_EVIDENCE.update({
                 "status": "created_verified_history_free_seed",
                 "observed_record_count": len(bootstrap_records),
@@ -6702,8 +6699,7 @@ def run() -> dict[str, Any]:
             tick_id=RUN_ID + ":objective-family-acquisition",
             objective_task=acquisition_task,
             request_id=acquisition_request_id,
-            request_digest=acquisition_request["request_digest"],
-            history_record_allowlist=acquisition_history_record_allowlist)
+            request_digest=acquisition_request["request_digest"])
         if (acquisition_result.status != "objective_intervention_completed"
                 or not acquisition_result.changed_cognition_measurement_id):
             # Preserve the owner's bounded terminal status in the failure
