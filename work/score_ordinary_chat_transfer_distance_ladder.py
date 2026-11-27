@@ -67,6 +67,10 @@ def execution_from_run(preflight: dict, preflight_bytes: bytes, run_directory: P
     run = json.loads(result_path.read_text(encoding="utf-8"))
     plan_sha = hashlib.sha256(plan_path.read_bytes()).hexdigest()
     preflight_sha = hashlib.sha256(preflight_bytes).hexdigest()
+    preflight_is_blinded_v10 = preflight.get("schema", "").endswith(":v10")
+    plan_is_blinded_v13 = plan.get("schema", "").endswith(":v13")
+    if preflight_is_blinded_v10 != plan_is_blinded_v13:
+        raise ValueError("blinded v10 preflight requires the matching v13 execution plan")
     if (plan.get("schema") not in {
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v1",
                 "sentientos.ordinary_chat_transfer_distance_ladder_execution_plan:v2",

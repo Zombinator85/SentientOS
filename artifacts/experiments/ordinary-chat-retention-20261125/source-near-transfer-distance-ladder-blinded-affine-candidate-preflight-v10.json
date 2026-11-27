@@ -46,7 +46,7 @@
     "work/preflight_ordinary_chat_transfer_distance_ladder.py": "2a82e9631bcef286710774075aad6ab9b0d0ac11523147fcdfbef140463bf229",
     "work/preflight_sibling_chat_histories.py": "227002dfd558ea5cabc7a45fa54c077209074e1e5ebec10c3f5b2ceffaf6b2e1",
     "work/run_ordinary_chat_transfer_distance_ladder.py": "98b09c3fefa4aecb025e14fe38708999e56fe053eddbb19a49e594524ff59762",
-    "work/score_ordinary_chat_transfer_distance_ladder.py": "5eef6f1e33411a66ad249406ebf5800ade01d8374f3e493e57f0f60088fc39db"
+    "work/score_ordinary_chat_transfer_distance_ladder.py": "a31794e9ddd2b981ba9c3d6e41708018fa01edcec14b39b8c4aa3820e0eac83b"
   },
   "inference_performed": false,
   "ladder_design": "held_out_source_near_progression_v1",
