@@ -196,7 +196,7 @@ class RootlessExperimentalOllamaEpistemicSession(
             if developmental_cycle else MAX_PROMPT_CHARS)
         self._max_output_chars = 4000 if developmental_cycle else MAX_OUTPUT_CHARS
         self._max_new_tokens = 512 if developmental_cycle else MAX_NEW_TOKENS
-        self._max_timeout_seconds = 120 if developmental_cycle else MAX_CALL_TIMEOUT_SECONDS
+        self._max_timeout_seconds = MAX_CALL_TIMEOUT_SECONDS
         self._max_calls = (ROOTLESS_DEVELOPMENTAL_MAX_CALLS
             if developmental_cycle else 4)
         record = next((self.authority_map.eligible_record(item)
@@ -385,7 +385,7 @@ class RootlessExperimentalOllamaEpistemicSession(
         self._max_input_chars = ROOTLESS_DEVELOPMENTAL_MAX_INPUT_CHARS
         self._max_output_chars = 4000
         self._max_new_tokens = 512
-        self._max_timeout_seconds = 120
+        self._max_timeout_seconds = MAX_CALL_TIMEOUT_SECONDS
         self._max_calls = ROOTLESS_DEVELOPMENTAL_MAX_CALLS
         self._correlations = set()
         self._closed = False
