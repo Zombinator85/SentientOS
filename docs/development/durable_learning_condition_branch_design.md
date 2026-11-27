@@ -1692,6 +1692,14 @@ projection, while keeping supervisor-evidence eligibility, audit verification,
 probe use, adoption, and authority false. The legacy v1 operation remains
 available for compatibility. The v2 supervisor run persists the new result
 without upgrading it to probe-eligible learning evidence.
+The runner's `load_recovered_strategy_projection(...)` handoff reloads that
+v2 run and verifies the projection against the current condition branch before
+returning its run, response, and worker-process references. For protocols that
+preregister an independent exclusion auditor, the runner can bind the supplied
+auditor attestation to that recovered projection and persist it through the
+existing signed-attestation verifier. The returned audit record still fixes
+probe use, adoption, and authority to false; normal delayed-probe gates retain
+their separate consolidation and evidence requirements.
 The persisted gate-evidence response uses schema v6 for the new boundary
 acceptance collection, leaving historical v4/v5 schemas unchanged. The
 collection reports reviewed artifacts and fixed-false eligibility claims only.

@@ -14615,6 +14615,143 @@ class DurableDevelopmentalLearningRunner:
                 raise
             return artifact
 
+    def load_recovered_strategy_projection(self, *,
+            protocol: Mapping[str, Any], condition: str
+            ) -> dict[str, Any]:
+        """Reload a supervisor-recorded projection and bind it to the live branch.
+
+        This is a read-only handoff for downstream evidence verification. It does
+        not make the projection probe-eligible or persist it as adopted memory.
+        """
+        if (not isinstance(protocol, Mapping)
+                or condition not in _CONDITIONS
+                or protocol.get("schema_version") not in _POLICY_PROTOCOL_SCHEMAS):
+            raise ValueError(
+                "durable_learning_recovered_projection_protocol_invalid")
+        self._verify_protocol_is_persisted(protocol)
+        self._verify_condition_branch_bindings(protocol, baseline=False)
+        intent = self._store.load_condition_worker_recovery_intent(
+            protocol=protocol)
+        run = self._store.load_condition_worker_recovery_run(protocol=protocol)
+        if (not isinstance(intent, Mapping)
+                or intent.get("schema_version") !=
+                    "sentientos.durable_learning_condition_recovery_intent:v2"
+                or "reconstruct_strategy_projection_v2" not in
+                    intent.get("operation_sequence", ())
+                or not isinstance(run, Mapping)
+                or run.get("schema_version") !=
+                    "sentientos.durable_learning_condition_recovery_run:v2"
+                or run.get("status") not in {
+                    "completed", "reconciliation_not_available"}):
+            raise ValueError(
+                "durable_learning_recovered_projection_run_unavailable")
+        exchanges = run.get("condition_exchanges")
+        rows = (exchanges.get(condition)
+            if isinstance(exchanges, Mapping) else None)
+        if (not isinstance(rows, list)
+                or len(rows) != len(intent["operation_sequence"])
+                or rows[-1].get("request", {}).get("operation") !=
+                    "reconstruct_strategy_projection_v2"):
+            raise ValueError(
+                "durable_learning_recovered_projection_exchange_missing")
+        exchange = rows[-1].get("exchange")
+        result = (exchange.get("response_result")
+            if isinstance(exchange, Mapping) else None)
+        branch = self._condition_branches[condition]
+        projection = (result.get("strategy_projection")
+            if isinstance(result, Mapping) else None)
+        if (not isinstance(exchange, Mapping)
+                or exchange.get("response_status") != "completed"
+                or not isinstance(result, Mapping)
+                or not isinstance(projection, Mapping)
+                or result.get("protocol_id") != protocol.get("protocol_id")
+                or result.get("protocol_digest") != protocol.get("protocol_digest")
+                or result.get("condition") != condition
+                or result.get("branch_id") != branch.branch_id
+                or result.get("projection_digest") !=
+                    projection.get("projection_digest")
+                or result.get("strategy_projection_policy_digest") !=
+                    protocol["condition_contract"][
+                        "strategy_projection_policy_digest"]
+                or result.get("answer_example_exclusion_verified") is not False
+                or result.get("probe_use_eligible") is not False
+                or result.get("supervisor_recovery_evidence_eligible") is not False
+                or result.get("adoption_performed") is not False
+                or result.get("authority") is not False):
+            raise ValueError(
+                "durable_learning_recovered_projection_binding_invalid")
+        verify_durable_learning_strategy_projection(protocol,
+            condition=condition, branch_id=branch.branch_id,
+            branch=branch, projection=projection)
+        process_observation = run.get(
+            "worker_process_observations", {}).get(condition)
+        return {"schema_version":
+                "sentientos.durable_learning_recovered_strategy_projection:v1",
+            "protocol_id": protocol["protocol_id"],
+            "protocol_digest": protocol["protocol_digest"],
+            "condition": condition, "branch_id": branch.branch_id,
+            "recovery_run_artifact": {
+                "artifact_id": run["artifact_id"],
+                "artifact_digest": run["artifact_digest"]},
+            "request_id": rows[-1]["request"]["request_id"],
+            "response_result_digest": exchange[
+                "response_result_digest"],
+            "worker_process_observation": dict(process_observation),
+            "strategy_projection": dict(projection),
+            "projection_digest": projection["projection_digest"],
+            "answer_example_exclusion_verified": False,
+            "probe_use_eligible": False,
+            "adoption_performed": False, "authority": False}
+
+    def persist_recovered_answer_exclusion_attestation(self, *,
+            protocol: Mapping[str, Any],
+            attestation: Mapping[str, Any]) -> dict[str, Any]:
+        """Bind an independent auditor pass to a supervisor-reconstructed projection."""
+        if (not isinstance(protocol, Mapping)
+                or protocol.get("schema_version") not in
+                    _STRATEGY_PROBE_PROTOCOL_SCHEMAS):
+            raise ValueError(
+                "durable_learning_recovered_projection_auditor_not_preregistered")
+        condition = _CONDITIONS[0]
+        recovered = self.load_recovered_strategy_projection(
+            protocol=protocol, condition=condition)
+        branch = self._condition_branches[condition]
+        projection = recovered["strategy_projection"]
+        audit_request = build_durable_learning_answer_exclusion_audit_request(
+            protocol=protocol, condition=condition, branch=branch,
+            projection=projection)
+        artifact_id = self._store.persist_answer_exclusion_attestation(
+            protocol=protocol, condition=condition, branch=branch,
+            projection=projection, audit_request=audit_request,
+            attestation=attestation)
+        attestation_digest = digest_payload(dict(attestation))
+        reloaded_attestation = self._store.load_answer_exclusion_attestation(
+            protocol=protocol, condition=condition, branch=branch,
+            projection=projection, audit_request=audit_request,
+            attestation_digest=attestation_digest)
+        verification = verify_durable_learning_answer_exclusion_attestation(
+            protocol=protocol, condition=condition, branch=branch,
+            projection=projection, audit_request=audit_request,
+            attestation=reloaded_attestation)
+        if verification.get("answer_example_exclusion_verified") is not True:
+            raise ValueError(
+                "durable_learning_recovered_projection_exclusion_not_verified")
+        return {"schema_version":
+                "sentientos.durable_learning_recovered_projection_audit:v1",
+            "protocol_id": protocol["protocol_id"],
+            "protocol_digest": protocol["protocol_digest"],
+            "condition": condition,
+            "recovery_run_artifact": recovered["recovery_run_artifact"],
+            "recovery_response_result_digest": recovered[
+                "response_result_digest"],
+            "projection_digest": recovered["projection_digest"],
+            "audit_artifact_id": artifact_id,
+            "attestation_digest": attestation_digest,
+            "audit_request_digest": audit_request["audit_request_digest"],
+            "answer_example_exclusion_verified": True,
+            "probe_use_eligible": False,
+            "adoption_performed": False, "authority": False}
+
     def _verify_condition_branch_bindings(self,
             protocol: Mapping[str, Any], *, baseline: bool
             ) -> dict[str, Any]:
