@@ -4487,18 +4487,27 @@ used cycle IDs `rootless-cognition-cycle-7c2d379c06ba40baad85` and
 measurement or score-bound acquisition record was created. These slots are
 spent and must not be replayed.
 
-This is an initialization deadlock in the current path: objective acquisition
-requires eligible prior history, while a fresh history store has none. The
-preceding companion-interaction observations are experiment measurements, not
-developmental writebacks, and the non-actuating path creates no consequence
-record. Consequently the acquisition stage cannot produce the first task-family
-record needed by later history-enabled transfer. A model call cannot fix this
-condition; a new campaign must wait until there is a separately governed,
-score-bound bootstrap route. The cycle runner now records the owner's bounded
-status, prior-record count, and measurement-presence flag in `failure_diagnostic`
-when acquisition does not start, while excluding model output. This makes
-future terminal evidence distinguish the bootstrap block from an inference or
-scoring failure.
+This exposed an initialization deadlock: objective acquisition requires an
+eligible prior record even though its task does not require task-family history.
+The preceding companion-interaction observations are experiment measurements,
+not developmental writebacks, and the non-actuating path creates no consequence
+record. Consequently acquisition could not create the first task-family record
+needed by later history-enabled transfer. The cycle runner now records the
+owner's bounded status, prior-record count, and measurement-presence flag in
+`failure_diagnostic` when acquisition does not start, while excluding model
+output. This makes terminal evidence distinguish the bootstrap block from an
+inference or scoring failure.
+
+The next runner revision adds a first-record bootstrap only when the verified
+resident writeback inventory is empty. It performs one explicitly history-
+withheld developmental observation on the same synthetic body-state snapshot,
+then verifies the observation, governed invocation receipt, newly written
+record, and writeback receipt before beginning the separate exact-scored
+task-family acquisition. Existing history skips this bootstrap. The seed record
+is not itself score-bound task-family evidence, and successful bootstrap alone
+does not establish learning. A fresh source-bound campaign plan is required
+before using this new path; the two v3 slots remain spent and must not be
+replayed.
 
 No developmental learning or transfer claim follows from these failed cycles.
 Their private WSL evidence roots remain preserved under

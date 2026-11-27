@@ -3544,6 +3544,7 @@ RUN_STAGE = "startup"
 RUN_STAGE_SEQUENCE = 0
 PRE_ACTION_DECISION_EVIDENCE: dict[str, Any] | None = None
 RUN_FAILURE_DIAGNOSTIC: dict[str, Any] | None = None
+INITIAL_HISTORY_BOOTSTRAP_EVIDENCE: dict[str, Any] | None = None
 RESOURCE_PREFLIGHT_EVIDENCE: list[dict[str, Any]] = []
 RUN_SOURCE_PROVENANCE_AT_END: dict[str, Any] | None = None
 # Retained experiment artifacts can make a development worktree large. Keep
@@ -4994,6 +4995,9 @@ def _persist_incomplete_run(exc: Exception) -> Path | None:
         "pre_action_decision_evidence": (
             dict(PRE_ACTION_DECISION_EVIDENCE)
             if PRE_ACTION_DECISION_EVIDENCE is not None else None),
+        "initial_history_bootstrap": (
+            dict(INITIAL_HISTORY_BOOTSTRAP_EVIDENCE)
+            if INITIAL_HISTORY_BOOTSTRAP_EVIDENCE is not None else None),
         "governed_unload": _verify_model_released(MODEL_NAME),
         "gpu_after": _gpu_snapshot(),
         "raw_frames_or_user_conversation_copied": False,
@@ -5947,11 +5951,13 @@ def _seed_resident_developmental_history(history_root: Path, state_root: Path,
 
 def run() -> dict[str, Any]:
     global RUN_STAGE, PRE_ACTION_DECISION_EVIDENCE, RUN_FAILURE_DIAGNOSTIC
+    global INITIAL_HISTORY_BOOTSTRAP_EVIDENCE
     global RUN_PREREGISTRATION_DIGEST
     global RUN_SOURCE_PROVENANCE_AT_END, HISTORY_SEED_EVIDENCE
     global ACTIVE_HISTORY_CAMPAIGN_BINDING
     PRE_ACTION_DECISION_EVIDENCE = None
     RUN_FAILURE_DIAGNOSTIC = None
+    INITIAL_HISTORY_BOOTSTRAP_EVIDENCE = None
     RUN_PREREGISTRATION_DIGEST = None
     RUN_SOURCE_PROVENANCE_AT_END = None
     ACTIVE_HISTORY_CAMPAIGN_BINDING = None
@@ -6574,6 +6580,108 @@ def run() -> dict[str, Any]:
         # evidence of improved performance.
         _set_run_stage("objective_task_family_acquisition")
         later_pre_action_snapshot = _objective_task_source()
+        existing_history = owner.writeback.store.inspect_completed_records()
+        INITIAL_HISTORY_BOOTSTRAP_EVIDENCE = {
+            "schema_version": "sentientos.initial_history_bootstrap_evidence:v1",
+            "status": "skipped_existing_history" if existing_history else "pending",
+            "existing_record_count": len(existing_history),
+            "created_record_id": None,
+            "created_record_digest": None,
+            "snapshot_digest": later_pre_action_snapshot.digest,
+            "writeback_receipt_id": None,
+            "writeback_receipt_digest": None,
+            "cognition_observation_id": None,
+            "cognition_observation_digest": None,
+            "prior_history_withheld": None,
+            "score_bound": False,
+            "learning_established": False,
+            "authority": False,
+        }
+        acquisition_history_record_allowlist: tuple[str, ...] | None = None
+        if not existing_history:
+            # A clean history store otherwise cannot enter the exact-scored
+            # acquisition path: its generic objective guard requires at least
+            # one eligible record. Seed only from an explicitly history-free
+            # developmental observation, then let the separate scored task
+            # produce the first task-family record.
+            _set_run_stage("initial_history_bootstrap")
+            bootstrap = owner.run_tick(
+                snapshot=later_pre_action_snapshot,
+                tick_id=RUN_ID + ":initial-history-bootstrap",
+                withhold_developmental_history=True,
+                durable_learning_no_history_observation=True)
+            bootstrap_records = owner.writeback.store.inspect_completed_records()
+            bootstrap_record_pair = next((pair for pair in bootstrap_records
+                if pair[0].record_id == bootstrap.written_record_id), None)
+            bootstrap_observation = (
+                owner.verified_cognition_observation(
+                    bootstrap.cognition_observation_ids[0])
+                if len(bootstrap.cognition_observation_ids) == 1 else None)
+            bootstrap_receipt = (
+                owner.verified_cognition_invocation_receipt(
+                    bootstrap.cognition_observation_ids[0],
+                    bootstrap_observation.get("observation_digest"))
+                if isinstance(bootstrap_observation, Mapping) else None)
+            if (bootstrap.status != "completed"
+                    or not isinstance(bootstrap.written_record_id, str)
+                    or not isinstance(bootstrap.writeback_receipt_id, str)
+                    or len(bootstrap.cognition_observation_ids) != 1
+                    or bootstrap_record_pair is None
+                    or bootstrap_record_pair[1].receipt_id
+                        != bootstrap.writeback_receipt_id
+                    or not isinstance(bootstrap_observation, Mapping)
+                    or bootstrap_observation.get("condition_id")
+                        != "durable-learning-history-withheld"
+                    or bootstrap_observation.get("retrieved_record_ids") != []
+                    or bootstrap_observation.get("current_snapshot_digest")
+                        != later_pre_action_snapshot.digest
+                    or bootstrap_observation.get(
+                        "developmental_projection_present") is not False
+                    or not isinstance(bootstrap_receipt, Mapping)
+                    or bootstrap_receipt.get("receipt_id")
+                        != bootstrap_observation.get("inference_receipt_id")
+                    or len(bootstrap_records) != 1):
+                INITIAL_HISTORY_BOOTSTRAP_EVIDENCE.update({
+                    "status": "failed_verification",
+                    "observed_record_count": len(bootstrap_records),
+                    "prior_history_withheld": True,
+                })
+                RUN_FAILURE_DIAGNOSTIC = {
+                    "stage": "initial_history_bootstrap",
+                    "bootstrap_status": bootstrap.status,
+                    "observed_record_count": len(bootstrap_records),
+                    "cognition_observation_count": len(
+                        bootstrap.cognition_observation_ids),
+                    "raw_model_output_included": False,
+                    "learning_established": False,
+                    "authority": False,
+                }
+                raise RootlessExperimentalError(
+                    "initial_history_bootstrap_not_verified")
+            bootstrap_record, bootstrap_writeback_receipt = bootstrap_record_pair
+            acquisition_history_record_allowlist = (
+                bootstrap_record.record_id,)
+            INITIAL_HISTORY_BOOTSTRAP_EVIDENCE.update({
+                "status": "created_verified_history_free_seed",
+                "observed_record_count": len(bootstrap_records),
+                "created_record_id": bootstrap_record.record_id,
+                "created_record_digest": bootstrap_record.record_digest,
+                "selected_fact_count": len(bootstrap.selected_fact_ids),
+                "retrieved_prior_record_count": len(
+                    bootstrap_observation.get("retrieved_record_ids", ())),
+                "writeback_receipt_id": bootstrap_writeback_receipt.receipt_id,
+                "writeback_receipt_digest": (
+                    bootstrap_writeback_receipt.receipt_digest),
+                "cognition_observation_id": bootstrap_observation.get(
+                    "observation_id"),
+                "cognition_observation_digest": bootstrap_observation.get(
+                    "observation_digest"),
+                "inference_receipt_id": bootstrap_receipt.get("receipt_id"),
+                "inference_receipt_digest": bootstrap_receipt.get(
+                    "receipt_digest"),
+                "prior_history_withheld": True,
+            })
+        _set_run_stage("objective_task_family_acquisition")
         objective_family = _ACTIVE_OBJECTIVE_TRANSFER_TASK_FAMILY
         acquisition_task, transfer_task = _objective_task_pair(EXPERIMENT_SEED)
         acquisition_request_id = RUN_ID + ":objective-family-acquisition"
@@ -6587,7 +6695,8 @@ def run() -> dict[str, Any]:
             tick_id=RUN_ID + ":objective-family-acquisition",
             objective_task=acquisition_task,
             request_id=acquisition_request_id,
-            request_digest=acquisition_request["request_digest"])
+            request_digest=acquisition_request["request_digest"],
+            history_record_allowlist=acquisition_history_record_allowlist)
         if (acquisition_result.status != "objective_intervention_completed"
                 or not acquisition_result.changed_cognition_measurement_id):
             # Preserve the owner's bounded terminal status in the failure
@@ -7881,6 +7990,9 @@ def run() -> dict[str, Any]:
                     "record_epistemic_posture": "no_consequence_record_created",
                     "selected_source_ids": [],
                 }),
+            "initial_history_bootstrap": (
+                dict(INITIAL_HISTORY_BOOTSTRAP_EVIDENCE)
+                if INITIAL_HISTORY_BOOTSTRAP_EVIDENCE is not None else None),
             "later_tick": {"status": companion_intervention.status,
                 "prior_record_ids": list(present.get("retrieved_record_ids", ()))
                     if present is not None else [],
