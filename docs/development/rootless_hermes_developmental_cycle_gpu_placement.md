@@ -4642,3 +4642,15 @@ cycle IDs `rootless-cognition-cycle-9d3a7b5c1f8042e6a90b` and
 `de46fcbd0b8a8c1c94037a03d7d206491dd7dad8`. Artifact:
 [`campaign-plan-wsl-v17.json`](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-plan-wsl-v17.json).
 At plan freeze, no v17 inference had been performed.
+
+V17 cycle 0 completed transfer scoring but stopped before transfer writeback.
+Its history-present and restored outputs were scored `invalid_answer` (0/12
+correct, with no per-probe score rows); history-withheld was `selective` with
+one answered probe and 0/12 correct. The score-bound acquisition record was
+written, but no transfer developmental record was appended. The bounded
+writeback diagnostic identified task/probe count mismatches, and the cycle
+unloaded Hermes successfully. This run provides no learning or causal evidence;
+the corrected progression comparator was not reached. V17 cycle 0 and its
+dependent cycle 1 are retired. The diagnostic now also reports the three
+bounded list counts, without exposing probe answers or model text, so a future
+writeback failure can distinguish missing examples from incomplete score rows.

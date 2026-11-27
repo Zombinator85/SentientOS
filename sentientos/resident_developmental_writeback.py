@@ -2679,6 +2679,16 @@ def _developmental_history_interpretation_projection(
                     "schema_version": (
                         "sentientos.developmental_history_task_family_binding_failure:v1"),
                     "failed_checks": binding_failures,
+                    "binding_counts": {
+                        "task_probe_input_count": (
+                            len(probes) if isinstance(probes, (list, tuple)) else None),
+                        "acquisition_example_count": (
+                            len(acquisition_examples)
+                            if isinstance(acquisition_examples, list) else None),
+                        "history_score_probe_result_count": (
+                            len(probe_results)
+                            if isinstance(probe_results, (list, tuple)) else None),
+                    },
                 })
         if not isinstance(history_score, Mapping) or not isinstance(history_condition, Mapping):
             raise DevelopmentalWritebackError("developmental_history_task_family_binding_invalid")
