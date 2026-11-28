@@ -1134,3 +1134,20 @@ experiment source binding.
 Run it with the plan, successful preview, and low-limit counterfactual paths
 listed above. The verifier's SHA-256 is
 `f67ba60c08dcf80bd8823bab6563f1e14e151d1cbcf27aa3546baf43a25ef7ee`.
+
+### Pinned-source replay after later code changes
+
+On 2026-11-27, rerunning the counterfactual verifier from the active checkout
+rejected the saved pair because its implementation closure had advanced. The
+Cycle23 plan pins 2,558 exact source files. An isolated detached overlay was
+reconstructed from the retained checkout, replacing only
+`sentientos/developmental_model_replacement_experiment.py`
+with the plan-pinned version (SHA-256
+`340a94ecc8c2fc2c69da8327fd0937628320f7f5257252d400fe3a588d373919`).
+The complete implementation verifier then matched all 2,558 files and returned
+digest
+`2812c55f26c1ae5e4e9b23e8108b3c4ab2ff79276742266157210b1a6068995c`.
+The counterfactual verifier returned `status=verified` with the saved audit
+digest above. This verifies the frozen CPU preview pair against its preregistered
+source closure; it does not verify the later v3 code, authenticate report
+origin, or establish model learning. The plan and seeds were not rewritten.
