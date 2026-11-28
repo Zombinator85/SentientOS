@@ -1041,7 +1041,21 @@ identical present/restored prompt digests and a distinct withheld prompt.
 The returned summary includes request and prompt digests, record bindings,
 and explicit `inference_performed: false`, `learning_established: false`, and
 `authority: false` fields; it omits prompt text. The preview tick is removed
-from incomplete state before returning. This gives the next campaign a
-model-free check of the real withheld-arm prompt construction before any
-scored inference. The owner API has been syntax-checked; a campaign preflight
-has not yet been run with it.
+from incomplete state before returning. A CPU-only preflight was then run
+against a temporary copy of cycle rootless-cognition-cycle-28df232144e93508a41a's
+owner state and its persisted receipt set, using the existing historical
+receipt verifier and an invoker stub that raises if inference is attempted.
+The call completed with zero invocations.
+
+Present and restored selected the same three records:
+devrec-9d2e0bfda6d696f91a768ebd,
+devrec-73f22a76029ad2ef70bd4dfc, and
+devrec-9b35b427109a1a7efa0c403d. Their 26,766-character prompt digests
+matched (sha256:1677e753654fdff1fb013c94b09b1e2333cc6c7c7d605741c70fa8622caf470c).
+Withheld selected no records and produced a distinct 21,364-character prompt
+(sha256:806e24c9c9c7cc7f68261eea5dd6d7e48c65fc7029e07602c08aeee2db642762).
+The returned summary set learning_established and authority to false. This
+verifies prompt construction and condition binding for this saved state; it
+does not establish model behavior, learning, transfer, or durable development.
+The next step is a small scored diagnostic with an independently validated
+withheld response and owner-feedback reference bound before inference.
