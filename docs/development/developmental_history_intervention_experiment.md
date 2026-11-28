@@ -1314,21 +1314,25 @@ The card remains prepared_not_started and both planned cycle roots are absent. N
 
 ## 2026-11-28 current-source wide-range replan
 
-The stale wide-range campaign has an offline replacement plan at
+The stale wide-range campaign now has an offline replacement plan at
 `wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-plan.json`
 under the private experiment custody root. It retains the v7 wide-range task
-family and the preregistered cross-range history-enabled competence comparison,
-uses two fresh cycle identities and seeds with disjoint generated probe sets,
-and reuses the unchanged cycle-20 history boundary. The plan is bound to the
-current 2,558-file experiment implementation and its model identity recipe was
-recomputed from the custody-held manifest without loading the model.
+family and the cross-range history-enabled competence comparison, uses two
+fresh cycle identities and seeds with disjoint generated probe sets, and reuses
+the unchanged cycle-20 history boundary. Its model identity recipe is derived
+from the custody-held manifest without loading the model.
 
-`verify-plan` reports `experiment_implementation_matches_current=true`,
-`identity_digests_verified=true`, and `inference_performed=false`. The plan digest
-is `36b5a76cec78a33f21a8c19b870611b7379a2641b21bcc3b65179664d1dce4fe`.
-The independent preregistration-timing flag is false, no replacement cycle
-preflight or launch card has been built, and both planned cycle roots remain
-absent. This plan is therefore not launch-ready; it does not establish learning
-or performance. Its private answer-free verification report is
-`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-plan-current-source-revalidation.json`
-(mode 0600, SHA-256 `30112ad2983c59045d9c5b6c936403d6cf7267265378bc3435ae872d19ef0932`).
+Current-source `verify-plan` confirms all 2,558 implementation pins and both
+model identities. The history seed bundle is bound to the replacement plan,
+and the cycle-0 CPU owner/binder preflight passes its dedicated verifier. The
+private launch card and its verifier also pass. These checks establish artifact
+and prompt-construction consistency only; inference has not occurred.
+
+The card launch gates correctly remain closed: sampled GPU utilization was
+54%, above the 25% pre-inference limit, and no operator confirmation was
+set. Cycle 1 is sequentially blocked pending a completed and verified cycle 0,
+then a fresh cycle-1 preflight. Independent preregistration timing remains
+unestablished. No learning, authority, or performance claim is made. The
+private answer-free offline readiness report is
+`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-offline-readiness-20261128.json`
+(mode 0600, SHA-256 `1766395c74cb28df09e0a8ffd4fa60fd7570673b3a37656bd08ddeebc99d2daf`).
