@@ -1095,3 +1095,26 @@ and `cycle23-runtime-owner-preview.json` (SHA-256
 `f309307935cb2d88b7c6e4a161380e77da7070e04d1c16b3d6cac4421d702d8d`).
 The plan's Hermes identity recipe was derived from its existing manifest only;
 no Hermes model was loaded and no GPU inference was performed.
+### Same-source prompt-budget counterfactual
+
+A paired CPU-only preview isolated the prompt limit while holding the current
+plan, source, history boundary, task, and model identity fixed. At 28,672
+characters, present/restored retained the acquisition record and both source
+records at 26,651 characters. Changing only the preview limit to the historical
+24,576 characters caused the owner/binder to retain the two source records and
+drop `devrec-5b094c92d60f2f81b21a71f5`; the exact required-history binding
+then failed before inference. This reproduces the cycle-21 failure mechanism
+under current source and confirms that the wider bound is sufficient for this
+specific transfer preview. The historical failure artifact records the same
+omitted record and old bound. The later bound increase is in commit
+`52bb52118`. The paired preview strengthens the prompt-budget explanation,
+but does not establish that no other historical source or runtime difference
+contributed.
+
+The sanitized counterfactual is
+`cycle23-runtime-owner-preview-limit24576.json`, SHA-256
+`0ec47adcb6d5940053a4f2c766164e1335ee597d14bd27e4ebca5e4203322573`,
+with audit digest
+`sha256:186e94f0e113461680665df05a3088df21c556fe82ebba04f8b4fc7fe444c787`.
+It contains record identities and digests only. Both sides are CPU-only,
+state-isolated previews; inference, learning, and authority remain false.
