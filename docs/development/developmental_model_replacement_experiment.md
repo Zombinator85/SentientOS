@@ -310,3 +310,22 @@ fact, task, source identity, and record bindings are checked against the
 source-cycle records. This resolves the earlier input-parity gap for this
 preflight protocol only; no model was invoked, and there is still no behavioral,
 transfer, A→B→A, or durable-learning result.
+
+The exercise is now reproducible from the repository tool
+[exercise_model_replacement_context_v3_artifact.py](../../tools/exercise_model_replacement_context_v3_artifact.py).
+Run it from the repository root with:
+
+```sh
+python3 tools/exercise_model_replacement_context_v3_artifact.py --output /private/path/context-v3-artifact-exercise-reproducible.json
+```
+
+A single CPU-only run on 2026-11-28 verified round-trip reload, ordered bindings,
+absence of raw projection payload, all five tamper outcomes, and pristine reload
+after each mutation. The report is
+[context-v3-artifact-exercise-reproducible.json](../../../sentientos-data/rootless-experimental/model-replacement-v3-context-verification-20261128/context-v3-artifact-exercise-reproducible.json)
+(mode 0600, SHA-256
+`cc1ebef127f2ccf18bf7a0c5e1d858cb807e595fd1a45fd3f152e43b54c78948`). The tool
+SHA-256 is `b0321cfa7588d5d8c761f5c4d9d8943ac7a4cb5e088fca4c2ec4d9b70ee0e886`.
+It uses synthetic data, a temporary artifact store, and no model or GPU. As with
+the original exercise, this verifies artifact reload integrity only; it is not
+evidence of learning or semantic continuity.
