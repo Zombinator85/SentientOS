@@ -1317,26 +1317,36 @@ The card remains prepared_not_started and both planned cycle roots are absent. N
 The stale wide-range campaign now has an offline replacement plan at
 `wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-plan.json`
 under the private experiment custody root. It retains the v7 wide-range task
-family and the cross-range history-enabled competence comparison, uses two
-fresh cycle identities and seeds with disjoint generated probe sets, and reuses
-the unchanged cycle-20 history boundary. Its model identity recipe is derived
-from the custody-held manifest without loading the model.
+family and cross-range history-enabled competence comparison, uses two fresh
+cycle identities and seeds with disjoint generated probes, and reuses the
+cycle-20 history boundary. Current-source verification confirms all 2,558
+implementation pins and both model identities. The seed bundle, cycle-0 CPU
+owner/binder preflight, and specialized held-out-input audit all verify. The
+source audit reopened six records and found nine low-range-v6 examples, zero
+wide-range-v7 examples, and no planned-probe overlaps.
 
-Current-source `verify-plan` confirms all 2,558 implementation pins and both
-model identities. The history seed bundle is bound to the replacement plan,
-and the cycle-0 CPU owner/binder preflight passes its dedicated verifier. A
-separate source audit reopened the initial history, confirmed its boundary
-before and after inspection, and independently recomputed that the planned
-transfer probes overlap neither the nine low-range-v6 examples nor any
-wide-range-v7 examples across the six persisted records. This verifies held-out
-input separation, not model performance or learning. The private launch card
-and its verifier also pass.
+A follow-up audit of the source campaign exposed a provenance gap. The
+cycle-19-to-20 history and runtime-admission chains verify, but the cognition
+recovery-state chain does not: the completed cycle-19 tick
+`rootless-cognition-cycle-20261127000100000019:later-companion-decision`
+gained `record_id` and `receipt_id` fields in cycle 20, changing a completed
+tick binding. The current history projection has three score-bound correct
+source runs and six distinct correct inputs, meeting the preregistered
+source-count criteria. Cycle 19 alone has one score-bound correct source run
+and one distinct correct input, below the minimum of two runs and three
+inputs, so it cannot replace cycle 20 without weakening the protocol.
 
-Launch gates remain closed: sampled GPU utilization was 55%, above the
-25% pre-inference limit, and no operator confirmation was set. Cycle 1 is
-sequentially blocked pending a completed and verified cycle 0, then a fresh
-cycle-1 preflight. Independent preregistration timing remains unestablished.
-No inference, learning, authority, or performance claim is made. The private
-answer-free offline readiness report is
-`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-offline-readiness-20261128-v2.json`
-(mode 0600, SHA-256 `edc8a2786771e1cea7bc6943e94b163807795921fe20a37b5bc84c067688b7a1`).
+To prevent a false launch-ready result, the launch-card verifier now recomputes
+the upstream source campaign chain for cross-range plans and requires its
+recovery-state, seed, runtime-admission, append-only, and boundary checks to
+pass. The superseding private launch card binds the source plan, roots, and
+audit. Its verifier reports the source recovery chain false and both cycles
+ineligible even before considering the GPU gate. The source chain must be
+repaired through new score-bound low-range acquisition with append-only
+recovery state before this wide-range campaign can proceed.
+
+GPU telemetry was 39% at verification, above the 25% pre-inference limit;
+no operator confirmation was set. No inference was run and no learning or
+authority claim is made. The private answer-free provenance report is
+`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-source-provenance-block-20261128.json`
+(mode 0600, SHA-256 `5ceb39dc6152be5ee4dd2a72624adffc81a48499d6522631bb21d880b648ec7a`).

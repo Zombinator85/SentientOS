@@ -38,6 +38,80 @@ def _safe_under(path: Path, root: Path) -> Path:
     return resolved
 
 
+def _verify_initial_history_source_chain(*, card: Mapping[str, Any],
+        plan: Mapping[str, Any], workspace: Path) -> dict[str, Any]:
+    protocol = plan.get("cross_range_history_enabled_competence")
+    if not isinstance(protocol, Mapping):
+        return {"required": False, "verified": True, "reason": None}
+    binding = card.get("initial_history_source_chain")
+    if not isinstance(binding, Mapping):
+        return {"required": True, "verified": False,
+            "reason": "initial_history_source_chain_binding_missing"}
+    from work.rootless_history_boundary_campaign import _load_plan, verify_chain
+    try:
+        source_plan_path = _safe_under(Path(binding.get("source_plan_path", "")),
+            workspace)
+        audit_path = _safe_under(Path(binding.get("audit_path", "")), workspace)
+        source_plan = _load_plan(source_plan_path)
+        cycle_ids = source_plan.get("ordered_cycle_ids")
+        if (not isinstance(cycle_ids, list) or not cycle_ids
+                or source_plan.get("plan_digest") != binding.get("source_plan_digest")
+                or source_plan.get("task_family_id") !=
+                    protocol.get("source_task_family_id")):
+            return {"required": True, "verified": False,
+                "reason": "initial_history_source_plan_binding_invalid"}
+        roots_raw = binding.get("cycle_root_paths")
+        if not isinstance(roots_raw, list) or len(roots_raw) != len(cycle_ids):
+            return {"required": True, "verified": False,
+                "reason": "initial_history_source_cycle_roots_invalid"}
+        cycle_roots = [_safe_under(Path(value), workspace) for value in roots_raw]
+        expected_roots = [(workspace / "sentientos-data" / "rootless-experimental"
+            / "developmental-cognition-cycles" / cycle_id).resolve(strict=True)
+            for cycle_id in cycle_ids]
+        if cycle_roots != expected_roots:
+            return {"required": True, "verified": False,
+                "reason": "initial_history_source_cycle_order_invalid"}
+        audit = _read_object(audit_path)
+        audit_sha256 = _sha256(audit_path)
+        if audit_sha256 != binding.get("audit_file_sha256"):
+            return {"required": True, "verified": False,
+                "reason": "initial_history_source_audit_digest_mismatch"}
+        chain = verify_chain(plan_path=source_plan_path, cycle_roots=cycle_roots)
+        rows = chain.get("cycle_boundaries", [])
+        target_boundary = plan.get("initial_history_boundary", {}).get(
+            "boundary_digest")
+        source_boundary = rows[-1].get("history_boundary_digest") if rows else None
+        audit_matches = audit.get("audit_digest") == chain.get("audit_digest")
+        verified = (
+            audit_matches
+            and chain.get("all_planned_cycles_completed") is True
+            and chain.get("append_only_history_chain_verified") is True
+            and chain.get("seed_boundary_chain_verified") is True
+            and chain.get("runtime_admission_chain_verified") is True
+            and chain.get("cognition_recovery_state_chain_verified") is True
+            and source_boundary == target_boundary)
+        return {"required": True, "verified": verified,
+            "source_plan_digest": source_plan["plan_digest"],
+            "source_cycle_ids": cycle_ids,
+            "source_history_boundary_digest": source_boundary,
+            "target_history_boundary_digest": target_boundary,
+            "source_audit_digest": chain.get("audit_digest"),
+            "source_audit_file_sha256": audit_sha256,
+            "audit_matches_recomputed_chain": audit_matches,
+            "append_only_history_chain_verified": chain.get(
+                "append_only_history_chain_verified"),
+            "seed_boundary_chain_verified": chain.get(
+                "seed_boundary_chain_verified"),
+            "runtime_admission_chain_verified": chain.get(
+                "runtime_admission_chain_verified"),
+            "cognition_recovery_state_chain_verified": chain.get(
+                "cognition_recovery_state_chain_verified"),
+            "reason": None if verified else "initial_history_source_chain_not_verified"}
+    except (OSError, ValueError, KeyError, TypeError, IndexError):
+        return {"required": True, "verified": False,
+            "reason": "initial_history_source_chain_recomputation_failed"}
+
+
 def _gpu_sample() -> dict[str, Any]:
     try:
         result = subprocess.run(
@@ -103,6 +177,8 @@ def verify_launch_card(*, card_path: Path,
         raise ValueError("launch_card_plan_path_missing")
     plan_path = _safe_under(Path(plan_path_raw), workspace)
     plan = _read_object(plan_path)
+    source_history_chain = _verify_initial_history_source_chain(
+        card=card, plan=plan, workspace=workspace)
     from work.rootless_history_boundary_campaign import (
         verify_chain, verify_experiment_implementation, verify_model_identity_recipe)
     identity = verify_model_identity_recipe(plan)
@@ -304,6 +380,7 @@ def verify_launch_card(*, card_path: Path,
             "cycle_root_absent": cycle_results[i]["cycle_root_absent"],
             "cycle_preflight_verified": preflight_results[i]["verified"],
             "prior_history_chain_verified": prior_chain_results[i]["verified"],
+            "initial_history_source_chain_verified": source_history_chain["verified"],
             "gpu_telemetry_available": gpu["available"],
             "gpu_utilization_within_limit": (
                 gpu["available"] and gpu["utilization_percent"] <= max_util),
@@ -314,7 +391,7 @@ def verify_launch_card(*, card_path: Path,
         for i, cycle in enumerate(cycles)
     }
     return {
-        "schema_version": "sentientos.rootless_cognition_cycle_launch_card_verification:v2",
+        "schema_version": "sentientos.rootless_cognition_cycle_launch_card_verification:v3",
         "status": "verified",
         "observed_at_utc": datetime.now(timezone.utc).isoformat(),
         "campaign_id": plan["campaign_id"],
@@ -333,6 +410,7 @@ def verify_launch_card(*, card_path: Path,
         "cycle_state": cycle_results,
         "cycle_preflight": preflight_results,
         "prior_history_chain": prior_chain_results,
+        "initial_history_source_chain": source_history_chain,
         "cycle_preflight_artifacts": preflight_artifacts,
         "custody_receipt_digest_bound": receipt_bound if receipt_path else None,
         "gpu_telemetry": gpu,
