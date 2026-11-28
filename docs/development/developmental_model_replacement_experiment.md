@@ -17,6 +17,13 @@ The raw fact rows remain omitted. These digests preserve the sealed mapping;
 they do not authenticate the source projection or prove that an external source
 served those rows.
 
+The v3 persistence path has not yet been exercised with a generated context
+artifact and a tampered binding. The implementation has received static syntax
+and diff checks only; the Cycle23 prompt-budget replay uses its frozen earlier
+source closure and is not evidence for v3. Until a direct v3 round-trip and
+altered-binding rejection are observed, the reload contract above is a code
+design claim rather than a runtime-verified result.
+
 Context binding v2 addresses a separate reload-integrity gap: its context ID is
 derived from the compact persisted manifest fields, including the original
 full-context digest. The preregistered protocol pins that ID, so changing
