@@ -7451,3 +7451,26 @@ it does not establish learning, causal attribution, or generalization beyond
 the frozen probes. The seed roster is committed before source inference, but
 its timing is not independently attested. No target model run or inference has
 occurred.
+
+### Cross-cycle feedback recall result (2026-11-28)
+
+Campaign plan v16 binds the owner-feedback recall protocol digest before either
+cycle runs. The two-cycle low-range campaign completed under that plan, and the
+offline campaign verifier confirmed both cycles completed and the append-only
+history boundary was preserved (campaign-audit.json, digest
+4c966329418a9b46233f0b91afeeacfbfb8f482d63a45ac94c8e2a305161502f). In
+cycle 1, the exact preregistered feedback record was selected in the
+history-present and history-restored conditions; the withheld condition
+selected no history record. This confirms the cross-cycle reference and
+selection boundary operated as intended.
+
+The model did not demonstrate recall: it abstained with the same response
+digest in all three conditions, did not cite the selected record, and failed
+the preregistered expected response in the present and restored conditions.
+The outcome assessment therefore reports no history-associated decision
+difference, no performance improvement, and no learning. Both cycles also
+reported the controlled intervention's repeated withheld-response relation as
+invalid. The result validates protocol wiring and durable record selection; it
+is negative evidence for this model/probe configuration, not evidence that
+cross-cycle feedback changed cognition. The run was synthetic and rootless,
+with no real action consequence or operator observation.
