@@ -1,0 +1,84 @@
+{
+  "authority": false,
+  "claim_boundary": {
+    "authority": false,
+    "causal_attribution_established": false,
+    "claim_scope": "history-conditioned capability pattern only",
+    "generalization_beyond_preregistered_probes_established": false,
+    "learning_established": false
+  },
+  "execution_gate": "materialize_target_campaign_plan_only_after_source_campaign_audit_reports_eligible_true_and_cycle_2_history_is_retained",
+  "inference_performed": false,
+  "preregistration_timing_independently_attested": false,
+  "probe_separation": {
+    "raw_probe_values_included": false,
+    "source_family_input_range": [
+      2,
+      9
+    ],
+    "target_combined_probe_sets_disjoint_across_cycles": true,
+    "target_transfer_range": [
+      10,
+      1000
+    ]
+  },
+  "roster_digest": "8290c7c0a16b679fada2c2cd732f75af9fb01e3a999fbc6633d3157b023106bc",
+  "schema_version": "sentientos.rootless_cross_range_followup_seed_roster:v1",
+  "source_campaign": {
+    "campaign_id": "rootless-history-campaign-20261127000100000006",
+    "eligibility_required": true,
+    "minimum_distinct_correct_source_inputs": 3,
+    "minimum_score_bound_correct_source_runs": 2,
+    "ordered_cycle_ids": [
+      "rootless-cognition-cycle-20261127000100000007",
+      "rootless-cognition-cycle-20261127000100000008"
+    ],
+    "plan_digest": "934cb5814015a9de7498c626212350297c45b57ee4b89bdc05f425127c7bf56e",
+    "task_family_id": "rootless_integer_affine_transfer_low_range_v6"
+  },
+  "target_campaign": {
+    "acquisition_probe_count": 3,
+    "campaign_id": "rootless-history-campaign-20261127000100000007",
+    "cross_range_history_enabled_competence": {
+      "answer_values_in_summary": false,
+      "baseline_competence_required": false,
+      "claim_scope": "history_conditioned_capability_pattern_only",
+      "conditions": [
+        "history_present",
+        "history_withheld",
+        "history_restored"
+      ],
+      "cross_cycle_history_posture": "append_only_campaign_history",
+      "minimum_distinct_correct_source_inputs": 3,
+      "minimum_planned_cycles": 2,
+      "minimum_score_bound_correct_source_runs": 2,
+      "per_probe_outcomes_required": true,
+      "probe_outcome_schema_version": "sentientos.objective_probe_transition_summary:v1",
+      "require_exact_source_record_receipts_present_restored": true,
+      "require_unique_correct_input_contribution_per_source_run": true,
+      "require_zero_overlap_with_all_declared_history_families": true,
+      "schema_version": "sentientos.cross_range_history_enabled_competence_protocol:v2",
+      "score_digest_binding_required": true,
+      "source_task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+      "target_task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+    },
+    "gpu_layers": 32,
+    "model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "model_name": "sentientos-hermes4:14b-q4km",
+    "ordered_backend_seeds": [
+      419005,
+      419006
+    ],
+    "ordered_cycle_ids": [
+      "rootless-cognition-cycle-20261127000100000009",
+      "rootless-cognition-cycle-20261127000100000010"
+    ],
+    "ordered_task_generation_seeds": [
+      70271103,
+      70271106
+    ],
+    "prior_history_source_cycle_id": "rootless-cognition-cycle-20261127000100000008",
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+    "transfer_probe_count": 3
+  }
+}

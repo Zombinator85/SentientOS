@@ -7412,3 +7412,29 @@ learning is impossible. The newly prepared two-run low-range campaign is aimed
 at obtaining independently scored source evidence. Its eligibility audit will
 still not demonstrate transfer; that requires a later held-out target
 measurement against an appropriate comparison condition.
+
+
+### Frozen v6-to-v7 transfer follow-up seed roster (2026-11-27)
+
+Before the low-range source campaign runs, its prospective v7 follow-up now has
+a committed seed roster in
+[`seed-roster-v1.json`](../../artifacts/experiments/rootless-cross-range-followup-20261127/seed-roster-v1.json).
+It binds the follow-up to source plan
+`934cb5814015a9de7498c626212350297c45b57ee4b89bdc05f425127c7bf56e` and
+preselects two wide-range v7 target cycles with task seeds `70271103` and
+`70271106`, backend seeds `419005` and `419006`, and three acquisition plus
+three transfer probes per cycle. Their combined planned probe sets are
+pairwise disjoint. The v7 transfer range (10–1000) is also disjoint from the
+v6 source family's full input range (2–9).
+
+The follow-up plan must not be materialized or run unless the source campaign
+audit reports low-range eligibility and its second cycle retains the history
+boundary. The eventual v7 plan will bind that actual boundary, use the existing
+history-present, history-withheld, and history-restored conditions, and require
+the cross-range protocol's source-run and score gates. Its two cycles share an
+append-only history chain, so they are not independent replications. The
+preregistered claim scope remains a history-conditioned capability pattern;
+it does not establish learning, causal attribution, or generalization beyond
+the frozen probes. The seed roster is committed before source inference, but
+its timing is not independently attested. No target model run or inference has
+occurred.
