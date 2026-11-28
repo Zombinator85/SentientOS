@@ -197,8 +197,8 @@ def verify_launch_card(*, card_path: Path,
     source_history_chain = _verify_initial_history_source_chain(
         card=card, plan=plan, workspace=workspace)
     from work.rootless_history_boundary_campaign import (
-        _history_boundary, verify_chain, verify_experiment_implementation,
-        verify_model_identity_recipe)
+        _RANGE_TASK_FAMILIES, _history_boundary, verify_chain,
+        verify_experiment_implementation, verify_model_identity_recipe)
     identity = verify_model_identity_recipe(plan)
     implementation = verify_experiment_implementation(plan)
     if plan.get("campaign_id") != card.get("campaign_id"):
@@ -360,9 +360,12 @@ def verify_launch_card(*, card_path: Path,
                 "reason": "predecessor_cycle_incomplete_or_absent"})
             continue
         try:
+            chain_options = {}
+            if plan.get("task_family_id") in _RANGE_TASK_FAMILIES:
+                chain_options["initial_history_bundle_path"] = bundle_path
             prefix = verify_chain(plan_path=plan_path,
-                cycle_roots=predecessor_roots, initial_history_bundle_path=bundle_path,
-                allow_prefix=True)
+                cycle_roots=predecessor_roots, allow_prefix=True,
+                **chain_options)
             rows = prefix.get("cycle_boundaries", [])
             chain_verified = (
                 prefix.get("append_only_history_chain_verified") is True
