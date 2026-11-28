@@ -15,8 +15,14 @@ was preregistered.
 | Private initial-history bundle (digest only; contents remain local) | `sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/initial-history-bundle.json` | `0f322512ea6983efae10ef416a8e07e6b1a7346e51b410c61aadff4cee8b52ac` |
 | Cycle 27 answer-free owner/binder preflight | `sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle27-owner-preflight.json` | `4927e9f7ca35e979c6ee5f20ba8c2fa783f5d789b88039589216ef9922f3bf09` |
 | Cycle 27 current-source reconstruction verification | `sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle27-owner-preflight-verification.json` | `e7e83e35aa1e9989dbb4a8891ad8bacfc79eb8f2a4a70dff62028ddbd3ccef57` |
+| Private per-cycle launch card (mode 0600; contents remain local) | `sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle-launch-card-v1.json` | `ef1518489daec979e3ea82d70479f1a679ccf90b40c49ba84534372efad0d6f9` |
 
 The plan digest is `e515d86db444ed271712fde6c305f4815b0029a3c943ba5726907dd00894550c`.
+
+Updated 2026-11-28 to bind a private mode-0600 launch card. Its two GPU
+confirmation values remain unset. Cycle 28 is blocked until cycle 27 completes,
+the append-only history chain verifies, and the cycle-28 CPU preflight passes.
+The launch card is not an independent preregistration attestation.
 Offline verification confirmed all 2,558 implementation pins and both model
 identity recipes against current source. Both planned cycle directories were
 absent at capture. The plan records `preregistration_timing_independently_attested=false`.

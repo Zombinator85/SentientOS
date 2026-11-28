@@ -1211,6 +1211,11 @@ identity recipes (implementation digest
 The identity recipe was derived from the existing manifest; no model was
 loaded. Independent preregistration timing remains false.
 A repository-hosted [pre-run digest receipt](evidence/cognition_goal_20261127_v6_pre_run_digest_receipt.md) binds the plan, private history bundle, and CPU preflight artifacts by SHA-256 without publishing the private bundle. It provides hosted custody only; independent preregistration timing remains unestablished.
+A private [cycle launch card](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle-launch-card-v1.json)
+(mode 0600, SHA-256 `ef1518489daec979e3ea82d70479f1a679ccf90b40c49ba84534372efad0d6f9`) binds per-cycle IDs, seeds, prior-history roots, model identity, and
+launch environment. Both GPU confirmation values are unset. Cycle 28 remains
+blocked until cycle 27 completes and its history chain and new CPU preflight
+verify.
 
 The plan-bound [private history bundle](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/initial-history-bundle.json)
 contains 12 files and has bundle digest
