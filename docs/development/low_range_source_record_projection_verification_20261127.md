@@ -19,4 +19,11 @@ This confirms the persisted evidence bridge for those six artifacts. It does not
 
 ## Preregistration lineage
 
-The unexecuted v15 condition-bound source plan was marked superseded_before_execution. Source plan v16 binds the updated implementation, keeps the empty-history boundary and model artifact fixed, and reserves new source cycle IDs and seeds. Its offline verify-plan check passed with inference disabled. Seed roster v3 now points to source plan v16 and leaves the held-out wide-range target behind the existing eligibility gate. No target plan was materialized and no model was invoked.
+The unexecuted v15 condition-bound source plan was marked superseded_before_execution. Source plan v16 was superseded after Ollama rejected its friendly model alias before inference. Source plan v17 uses the exact registered Ollama name for the same pinned artifact, binds the updated implementation, keeps the empty-history boundary, and reserves fresh source cycle IDs and seeds. Its offline verify-plan check passed with inference disabled. Seed roster v4 points to source plan v17 and keeps the held-out wide-range target behind the existing eligibility gate. The v16 failure artifact records no model inference.
+
+
+## Held-out transfer prompt budget diagnosis
+
+The v4 held-out wide-range cycle stopped before transfer inference because its owner preview selected the two low-range anchor records but omitted the current wide-range acquisition record. The exact failure prompt used 22,748 characters under a 24,576-character cap. CPU-only reconstruction measured compact score-bound packets at 3,360 characters for the acquisition record and 3,549 and 3,390 for the two source anchors. The corresponding three-record prompt is estimated at about 26,108 characters before identity-binding variation, so the prior cap could not retain all three.
+
+The runner cap is now 28,672 characters, leaving about 2,564 characters beyond that estimate while keeping inference bounded by its configured 8,192-token model context. This is a measured budget adjustment, not evidence that the preview fits: before any target inference, a CPU-only owner preview must verify all three exact record IDs and digests appear in present and restored conditions. The failed cycle made no transfer inference and established no learning.
