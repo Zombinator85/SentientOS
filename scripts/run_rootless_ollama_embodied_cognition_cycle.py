@@ -8104,6 +8104,13 @@ def run() -> dict[str, Any]:
             "answers_with_exact_past_idle_token": _reports_exact_past_idle(item),
             "abstains_for_unavailable_history": _reports_history_unavailable(item),
             "history_citation_bound": _history_citation_bound(item),
+            "model_response_digest": (
+                item.get("rejected_output_diagnostic", {}).get(
+                    "raw_response_digest")
+                if isinstance(item.get("rejected_output_diagnostic"), Mapping)
+                    and isinstance(item.get("rejected_output_diagnostic", {}).get(
+                        "raw_response_digest"), str)
+                else item.get("response_digest")),
             "rejected_raw_response_digest": (
                 item.get("rejected_output_diagnostic", {}).get(
                     "raw_response_digest")

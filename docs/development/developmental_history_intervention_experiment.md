@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 29426)
-Total output lines: 1580
-
 # Developmental-history intervention experiment
 
 This is the first preregistered resident developmental-history intervention. It
@@ -1021,7 +1018,10 @@ than counting the nominal abstention disposition as a valid withheld response.
 This localizes the immediate protocol failure to the model reusing
 history-conditioned content in the withheld condition; the audit does not
 establish whether the cause was model behavior or an inference-context issue.
-The next preflight should fail closed if any withheld-arm output contains a
-non-permitted history citation, and capture enough request/response binding to
-distinguish context leakage from model noncompliance before running the full
-campaign.
+The qualification output now binds each arm’s response digest and identifies
+when a rejected withheld response exactly matches both the valid present and
+restored responses. It continues to reject the condition and grants it no
+learning weight; the added classification makes this failure mode explicit
+for later audits without attributing its cause. Before the next full campaign,
+run a no-inference prompt-binding diagnostic for the three arms and then a
+small scored diagnostic. Bind the owner-feedback reference before inference.

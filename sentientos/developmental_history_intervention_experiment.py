@@ -4317,7 +4317,7 @@ def qualify_semantic_history_decision(
 ) -> dict[str, Any]:
     """Measure a matched history-dependent decision; never infer improvement."""
     result = {
-        "schema_version": "sentientos.semantic_history_decision_qualification:v1",
+        "schema_version": "sentientos.semantic_history_decision_qualification:v2",
         "measurement_scope": "structured_historical_recall_decision_and_citation",
         "classification": "not_qualified",
         "history_associated_decision_difference_observed": False,
@@ -4340,6 +4340,7 @@ def qualify_semantic_history_decision(
     validation_invalid = False
     for row in rows:
         if not isinstance(row, Mapping):
+            validation_invalid = True
             continue
         validation_status = row.get("decision_validation_status", "validated")
         validation_error = row.get("decision_validation_error_code")
@@ -4352,13 +4353,48 @@ def qualify_semantic_history_decision(
     if validation_invalid:
         result["classification"] = "semantic_decisions_invalid"
         return result
-    invalid_condition_ids = [str(row.get("condition_id")) for row in semantic_decisions
+    invalid_condition_ids = [str(row.get("condition_id")) for row in rows
         if isinstance(row, Mapping)
         and row.get("decision_validation_status") == "rejected_invalid_output"]
     if invalid_condition_ids:
+        rows_by_condition = {row.get("condition_id"): row for row in rows
+            if isinstance(row, Mapping)}
+        present_digest = rows_by_condition.get("history_present", {}).get(
+            "model_response_digest")
+        restored_digest = rows_by_condition.get("history_restored", {}).get(
+            "model_response_digest")
+        invalid_response_relations = []
+        for row in rows:
+            if (not isinstance(row, Mapping)
+                    or row.get("decision_validation_status") !=
+                        "rejected_invalid_output"):
+                continue
+            response_digest = row.get("model_response_digest")
+            if (not isinstance(response_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", response_digest) is None):
+                continue
+            matching_history_conditions = [
+                condition_id for condition_id, digest in (
+                    ("history_present", present_digest),
+                    ("history_restored", restored_digest))
+                if isinstance(digest, str)
+                    and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+                    and response_digest == digest]
+            invalid_response_relations.append({
+                "condition_id": row.get("condition_id"),
+                "matches_history_conditions": matching_history_conditions,
+            })
+        withheld_reused = any(
+            item.get("condition_id") == "history_withheld"
+            and item.get("matches_history_conditions")
+                == ["history_present", "history_restored"]
+            for item in invalid_response_relations)
         result.update({
-            "classification": "invalid_condition_response_rejected",
+            "classification": (
+                "withheld_response_reused_history_condition_output_rejected"
+                if withheld_reused else "invalid_condition_response_rejected"),
             "invalid_condition_ids": invalid_condition_ids,
+            "invalid_condition_response_relations": invalid_response_relations,
         })
         return result
     fields = ("disposition", "answers_with_exact_past_idle_token",
