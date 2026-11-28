@@ -576,6 +576,7 @@ COGNITION_OBSERVATION_SCHEMA_V12 = "sentientos.resident_cognition_observation:v1
 COGNITION_OBSERVATION_SCHEMA_V13 = "sentientos.resident_cognition_observation:v13"
 COGNITION_OBSERVATION_SCHEMA_V14 = "sentientos.resident_cognition_observation:v14"
 COGNITION_OBSERVATION_SCHEMA_V15 = "sentientos.resident_cognition_observation:v15"
+COGNITION_OBSERVATION_SCHEMA_V16 = "sentientos.resident_cognition_observation:v16"
 STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v2"
 LEGACY_STATE_SCHEMA = "sentientos.resident_developmental_cognition_state:v1"
 COGNITION_PURPOSE = "resident_developmental_retrieval_cognition"
@@ -1922,6 +1923,45 @@ def _history_neutral_prompt_digest(prompt: str) -> str:
         "schema_version": "sentientos.history_neutral_prompt:v1",
         "prompt": normalized,
     })
+
+
+def _validate_developmental_history_prompt_delivery_binding(
+        observation: Mapping[str, Any], request: Mapping[str, Any],
+        upstream: Mapping[str, Any]) -> None:
+    delivery = upstream.get("developmental_history_prompt_delivery_binding")
+    selection = observation.get("developmental_history_selection")
+    selected_records = (selection.get("selected_records")
+        if isinstance(selection, Mapping) else None)
+    expected_ids = list(observation.get("retrieved_record_ids", ()))
+    expected_digests = list(observation.get("retrieved_record_digests", ()))
+    prompt_digest = observation.get("epistemic_prompt_digest")
+    digest_payload_value = (delivery.get("history_payload_digest")
+        if isinstance(delivery, Mapping) else None)
+    selected_pairs = ([{"record_id": record_id,
+        "record_digest": record_digest}
+        for record_id, record_digest in zip(expected_ids, expected_digests)]
+        if len(expected_ids) == len(expected_digests) else None)
+    if (not isinstance(delivery, Mapping)
+            or delivery.get("schema_version") !=
+                "sentientos.developmental_history_prompt_delivery_binding:v1"
+            or delivery.get("prompt_digest") != prompt_digest
+            or not isinstance(prompt_digest, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", prompt_digest) is None
+            or request.get("prompt_digest") != prompt_digest[7:]
+            or not isinstance(digest_payload_value, str)
+            or re.fullmatch(r"sha256:[0-9a-f]{64}", digest_payload_value) is None
+            or type(delivery.get("developmental_history_packet_count")) is not int
+            or delivery.get("developmental_history_packet_count") != len(expected_ids)
+            or delivery.get("delivered_packet_record_ids") != expected_ids
+            or delivery.get("delivered_packet_record_digests") != expected_digests
+            or delivery.get("selected_record_ids") != expected_ids
+            or delivery.get("selected_record_digests") != expected_digests
+            or selected_records != selected_pairs
+            or delivery.get("raw_prompt_or_history_retained") is not False
+            or delivery.get("authority") is not False
+            or delivery.get("learning_established") is not False):
+        raise ResidentDevelopmentalCognitionError(
+            "cognition_history_prompt_delivery_binding_mismatch")
 
 
 def _valid_optional_lower_sha256(value: Any) -> bool:
@@ -12914,12 +12954,12 @@ class ResidentDevelopmentalCognitionOwner:
                     if observation_value.schema_version not in {
                             COGNITION_OBSERVATION_SCHEMA_V10,
                             COGNITION_OBSERVATION_SCHEMA_V11,
-                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                         payload.pop("developmental_history_context_budget_attempts", None)
                         payload.pop("prior_self_model_prompt_selection", None)
                     if observation_value.schema_version not in {
                             COGNITION_OBSERVATION_SCHEMA_V11,
-                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                         payload.pop("companion_self_model_citation_ids", None)
                     if observation_value.schema_version not in {
                             COGNITION_OBSERVATION_SCHEMA_V6, COGNITION_OBSERVATION_SCHEMA_V7,
@@ -12927,7 +12967,7 @@ class ResidentDevelopmentalCognitionOwner:
                             COGNITION_OBSERVATION_SCHEMA_V9,
                             COGNITION_OBSERVATION_SCHEMA_V10,
                             COGNITION_OBSERVATION_SCHEMA_V11,
-                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                         # Preserve the historical run digest/shape when
                         # rebuilding interrupted pre-v6 experiments.
                         payload.pop("developmental_history_selection", None)
@@ -12936,7 +12976,7 @@ class ResidentDevelopmentalCognitionOwner:
                             COGNITION_OBSERVATION_SCHEMA_V9,
                             COGNITION_OBSERVATION_SCHEMA_V10,
                             COGNITION_OBSERVATION_SCHEMA_V11,
-                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                         for field in ("resource_allocation_digest", "resource_attempt_id",
                                 "resource_consumption_receipt_digests", "resource_linkage_digest"):
                             payload.pop(field, None)
@@ -13723,7 +13763,7 @@ class ResidentDevelopmentalCognitionOwner:
                 if observation.get("schema_version") in {
                         COGNITION_OBSERVATION_SCHEMA_V10,
                         COGNITION_OBSERVATION_SCHEMA_V11,
-                        COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                        COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                     upstream = request.get("upstream_evidence")
                     if (not isinstance(upstream, Mapping)
                             or upstream.get("self_model_prompt_selection")
@@ -13735,7 +13775,7 @@ class ResidentDevelopmentalCognitionOwner:
                     COGNITION_OBSERVATION_SCHEMA_V8, COGNITION_OBSERVATION_SCHEMA_V9,
                     COGNITION_OBSERVATION_SCHEMA_V10,
                     COGNITION_OBSERVATION_SCHEMA_V11,
-                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}
+                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}
                     and observation.get("resource_linkage_digest") is not None):
                 raise ResidentDevelopmentalCognitionError(
                     "cognition_resource_linked_invocation_session_unbound")
@@ -13794,7 +13834,7 @@ class ResidentDevelopmentalCognitionOwner:
                         COGNITION_OBSERVATION_SCHEMA_V9,
                         COGNITION_OBSERVATION_SCHEMA_V10,
                         COGNITION_OBSERVATION_SCHEMA_V11,
-                        COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}
+                        COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}
                     and receipt.get("observed_at") != observation.get("observed_at"))
                 or not isinstance(serving, Mapping) or dict(serving) != expected_serving):
             raise ResidentDevelopmentalCognitionError("cognition_invocation_receipt_binding_mismatch")
@@ -13802,7 +13842,7 @@ class ResidentDevelopmentalCognitionOwner:
                 COGNITION_OBSERVATION_SCHEMA_V8, COGNITION_OBSERVATION_SCHEMA_V9,
                 COGNITION_OBSERVATION_SCHEMA_V10,
                 COGNITION_OBSERVATION_SCHEMA_V11,
-                COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
             observed_consumption = observation.get("resource_consumption_receipt_digests", ())
             receipt_consumption = receipt.get("resource_consumption_receipt_digests", ())
             if (observation.get("resource_allocation_digest")
@@ -13819,7 +13859,7 @@ class ResidentDevelopmentalCognitionOwner:
                             COGNITION_OBSERVATION_SCHEMA_V9,
                             COGNITION_OBSERVATION_SCHEMA_V10,
                             COGNITION_OBSERVATION_SCHEMA_V11,
-                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                            COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
             upstream = request.get("upstream_evidence") if isinstance(request, Mapping) else None
             if not isinstance(upstream, Mapping):
                 raise ResidentDevelopmentalCognitionError(
@@ -13834,7 +13874,7 @@ class ResidentDevelopmentalCognitionOwner:
             if observation.get("schema_version") in {
                     COGNITION_OBSERVATION_SCHEMA_V9, COGNITION_OBSERVATION_SCHEMA_V10,
                     COGNITION_OBSERVATION_SCHEMA_V11,
-                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                 expected_memory_context = ({
                     "schema_version": "sentientos.canonical_user_memory_cognition_context:v1",
                     "source_snapshot_digest": observation.get(
@@ -13850,15 +13890,18 @@ class ResidentDevelopmentalCognitionOwner:
                 if upstream.get("canonical_user_memory_context") != expected_memory_context:
                     raise ResidentDevelopmentalCognitionError(
                         "cognition_history_selection_invocation_binding_mismatch")
+            if observation.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V16:
+                _validate_developmental_history_prompt_delivery_binding(
+                    observation, request, upstream)
             if (observation.get("schema_version") in {
                     COGNITION_OBSERVATION_SCHEMA_V10,
                     COGNITION_OBSERVATION_SCHEMA_V11,
-                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}
+                    COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}
                     and upstream.get("self_model_prompt_selection")
                         != observation.get("prior_self_model_prompt_selection")):
                 raise ResidentDevelopmentalCognitionError(
                     "cognition_self_model_selection_invocation_binding_mismatch")
-            if observation.get("schema_version") in {COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+            if observation.get("schema_version") in {COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                 context = upstream.get("session_conversation_context")
                 expected_context = (None if observation.get(
                     "companion_conversation_context_snapshot_digest") is None else {
@@ -13876,7 +13919,7 @@ class ResidentDevelopmentalCognitionOwner:
                 if context != expected_context:
                     raise ResidentDevelopmentalCognitionError(
                         "cognition_conversation_context_invocation_binding_mismatch")
-                if observation.get("schema_version") in {COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                if observation.get("schema_version") in {COGNITION_OBSERVATION_SCHEMA_V13, COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
                     historical = upstream.get("historical_cited_conversation_context")
                     expected_historical = (None if observation.get(
                         "companion_historical_citation_context_digest") is None else {
@@ -14068,7 +14111,7 @@ class ResidentDevelopmentalCognitionOwner:
                 and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V14)
             versioned_v15_observation = (isinstance(value, dict)
                 and set(value) == expected_fields
-                and value.get("schema_version") == COGNITION_OBSERVATION_SCHEMA_V15)
+                and value.get("schema_version") in {COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16})
             versioned_observation = (versioned_v2_observation or versioned_v3_observation
                 or versioned_v4_observation or versioned_v5_observation
                 or versioned_v6_observation or versioned_v7_observation
@@ -18935,7 +18978,10 @@ class ResidentDevelopmentalCognitionOwner:
             **{key: value for key, value in epistemic_metadata.items()
                 if key in ResidentCognitionObservation.__dataclass_fields__},
             **_resource_linkage_fields(receipt),
-            "schema_version": COGNITION_OBSERVATION_SCHEMA_V15,
+            "schema_version": (COGNITION_OBSERVATION_SCHEMA_V16
+                if isinstance(epistemic_metadata.get(
+                    "developmental_history_prompt_delivery_binding"), Mapping)
+                else COGNITION_OBSERVATION_SCHEMA_V15),
             "serving_session_id": serving_session_id,
             "serving_session_binding": serving_session_binding,
             "serving_session_receipt_id": serving_session_receipt_id,
@@ -18956,7 +19002,7 @@ class ResidentDevelopmentalCognitionOwner:
             observation_digest=digest)
         if observation.schema_version in {COGNITION_OBSERVATION_SCHEMA_V11,
                 COGNITION_OBSERVATION_SCHEMA_V12, COGNITION_OBSERVATION_SCHEMA_V13,
-                COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15}:
+                COGNITION_OBSERVATION_SCHEMA_V14, COGNITION_OBSERVATION_SCHEMA_V15, COGNITION_OBSERVATION_SCHEMA_V16}:
             self._verify_observation_invocation(asdict(observation))
         if interaction_capture is not None:
             matched_control_inputs = {
