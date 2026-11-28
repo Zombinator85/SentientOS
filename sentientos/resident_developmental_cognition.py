@@ -12495,7 +12495,8 @@ class ResidentDevelopmentalCognitionOwner:
 
     @staticmethod
     def _recovered_record_order(record: Any, *, completed_order: Mapping[str, int],
-                                recovery_intent_order: Mapping[str, int]) -> tuple[int, int, str]:
+                                recovery_intent_order: Mapping[str, int],
+                                observations: Mapping[str, Mapping[str, Any]]) -> tuple[int, int, int, str]:
         """Order recovery by durable tick intent, retaining time as validation only."""
         try:
             created = datetime.fromisoformat(record.created_at.replace("Z", "+00:00"))
@@ -12508,13 +12509,36 @@ class ResidentDevelopmentalCognitionOwner:
         if not isinstance(correlation, str) or not correlation.endswith(suffix):
             raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
         recovered_tick = correlation[:-len(suffix)]
+        candidate = record.candidate
+        provenance = candidate.get("transformation_provenance")
+        if (isinstance(provenance, Mapping)
+                and provenance.get("kind") == OWNER_COGNITION_FEEDBACK_PROVENANCE_KIND):
+            feedback = provenance.get("feedback")
+            source_observation = (feedback.get("source_observation")
+                if isinstance(feedback, Mapping) else None)
+            observation_id = (source_observation.get("observation_id")
+                if isinstance(source_observation, Mapping) else None)
+            observation = (observations.get(observation_id)
+                if isinstance(observation_id, str) else None)
+            parent_tick = (observation.get("tick_id")
+                if isinstance(observation, Mapping) else None)
+            if not isinstance(parent_tick, str) or not parent_tick:
+                raise ResidentDevelopmentalCognitionError(
+                    "recovered_owner_feedback_parent_tick_missing")
+            if parent_tick in completed_order:
+                # The feedback writeback is a durable child of its source tick.
+                return (0, completed_order[parent_tick], 1, record.record_id)
+            if parent_tick in recovery_intent_order:
+                return (1, recovery_intent_order[parent_tick], 1, record.record_id)
+            raise ResidentDevelopmentalCognitionError(
+                "recovered_owner_feedback_parent_tick_missing")
         if recovered_tick in completed_order:
-            return (0, completed_order[recovered_tick], record.record_id)
+            return (0, completed_order[recovered_tick], 0, record.record_id)
         if recovered_tick not in recovery_intent_order:
             raise ResidentDevelopmentalCognitionError("recovered_tick_intent_missing")
         # Wall-clock creation timestamps and content-addressed filenames cannot
         # establish transaction order after interrupted checkpoint publication.
-        return (1, recovery_intent_order[recovered_tick], record.record_id)
+        return (1, recovery_intent_order[recovered_tick], 0, record.record_id)
 
     def _verify_recovered_cognition_candidate(
         self, record: Any, observations: Mapping[str, Mapping[str, Any]]
@@ -12700,10 +12724,11 @@ class ResidentDevelopmentalCognitionOwner:
             incomplete[saved_tick] = incomplete_row
         completed_order = {tick: index for index, tick in enumerate(ticks)}
 
+        recovered_observations = self._recover_observation_ticks(include_records=True)
         recovered = tuple(sorted(recovered, key=lambda item:
             self._recovered_record_order(item[0], completed_order=completed_order,
-                recovery_intent_order=recovery_intent_order)))
-        recovered_observations = self._recover_observation_ticks(include_records=True)
+                recovery_intent_order=recovery_intent_order,
+                observations=recovered_observations)))
         if self._recover_interrupted_objective_runs(state, recovered_observations):
             changed = True
         for record, receipt in recovered:

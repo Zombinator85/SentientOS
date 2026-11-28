@@ -1385,9 +1385,10 @@ calendar attestations. The private
 [timestamp receipt](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/preregistration-timestamp-receipt.json)
 (mode 0600) records those responses. Until a proof is upgraded and verified
 against a Bitcoin block, independent preregistration timing remains
-unestablished and the frozen plan's timing flag remains false. No inference
-has run. See the [OpenTimestamps client documentation](https://github.com/opentimestamps/opentimestamps-client)
-for its timestamp and confirmation workflow.
+unestablished and the frozen plan's timing flag remains false. The proof was
+submitted before the first model invocation. See the [OpenTimestamps client
+documentation](https://github.com/opentimestamps/opentimestamps-client) for its
+timestamp and confirmation workflow.
 
 Preparing the cycle-0 owner/binder preflight exposed that the preflight helper
 required a persisted composition checkpoint even though the cognition owner
@@ -1408,9 +1409,10 @@ opportunities against the three-correct-input minimum; each cycle contributes
 one input not present in the other cycle, and within-cycle acquisition and
 held-out transfer probes are disjoint. Its audit digest is
 `1190326ecc685d770c586f8e64c11e8fcb939242f90d69ad3ab2d83901d78e59`, and the
-independent reconstruction report returned `status=verified`. No source run
-has executed, so none of these opportunities is evidence of correctness or
-source eligibility. Both private artifacts are in the campaign directory as
+independent reconstruction report returned `status=verified`. The seed audit
+contains only planned input opportunities, not correctness observations. Cycle
+0 later stopped incomplete and was not admitted to source eligibility. Both
+private artifacts are in the campaign directory as
 `source-seed-design-audit.json` and
 `source-seed-design-audit-verification.json` (mode 0600).
 
@@ -1449,9 +1451,32 @@ MiB); the 25% limit failed, operator confirmation remained unset, and both
 cycles were launch-ineligible. The verifier did not load a model or perform
 inference. GPU telemetry does not identify which process owns that utilization.
 
-The replacement remains prepared and unrun. It has no model correctness
-outcome and has not met source eligibility. No inference was performed,
-independent preregistration timing remains unestablished, and no learning,
-causal, or authority claim follows. Run cycle 0 only after GPU access is
-available and the runner's per-cycle availability and utilization gates pass;
-cycle 1 must wait for a verified cycle-0 history and recovery prefix.
+At 2026-11-28 08:01 UTC, launch verification v4 reported cycle 0 eligible
+(0% utilization, exact model identity and implementation pins verified, and
+the cycle-0 preflight verified); it did not load a model. The private report
+([cycle-launch-card-verification-v4.json](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/cycle-launch-card-verification-v4.json),
+mode 0600) has SHA-256
+`2c32b16dd50695f7f3a520d248ed635d28e74b4b282b3e91dd4400206e4b7aa4`. An
+initial runner attempt stopped before model invocation because its Python
+environment lacked `psutil`. After `psutil 5.9.8` and `pydantic 2.13.4` were
+installed in the local experiment venv, the authorized cycle-0 run proceeded
+through the controlled history-intervention stage and created 21 governed
+invocation receipts. It then stopped incomplete with
+`ResidentDevelopmentalCognitionError: recovered_tick_intent_missing`. The
+unmatched recovered record was an owner-feedback child writeback correlated to
+a verified observation of the completed `later-companion-decision` tick. The
+recovery sorter handled ordinary tick records but rejected this separately
+identified feedback child before reaching its existing feedback-specific
+recovery logic. The private [failure artifact](../../../sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-1fb0d83097d130e01c45/cycle-failure.json)
+(mode 0600) has SHA-256
+`e0d9448f25d8e52caf053e12c61f1b6ae7eaca596514fb1cc97e5c945462f928`. The
+incomplete cycle root and receipt set are retained for diagnosis; the campaign
+does not admit this cycle to source eligibility or a learning claim.
+
+A candidate recovery fix orders owner-feedback child records after their
+verified parent observation tick. This changes the pinned implementation, so
+the v21 plan must not be resumed under the changed source. It remains an
+incomplete, zero-eligibility experiment. A fresh empty-boundary plan with new
+seeds is required to evaluate the fix. Cycle 1 remains blocked on a completed,
+verified cycle 0 and recovery prefix. No independent preregistration timing,
+learning, causal, or authority claim is established.
