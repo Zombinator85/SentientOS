@@ -1373,6 +1373,22 @@ zero files. Offline plan verification matched both model identities and all
 The empty initial-history bundle digest is
 `d6e9af61e03b6bd2105e0d12bf9d15e0d26ccad984173e5547cc7ceadfce3a4f`.
 
+Before any cycle launch, the exact `campaign-plan.json` bytes were submitted to
+four OpenTimestamps calendars using client v0.8.0. The local proof is
+[campaign-plan.json.ots](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/campaign-plan.json.ots)
+(mode 0600, SHA-256
+`3ae83e0966f3c045b54fc5ba95f34cb9200f8402cd16cfdf6335e4d9cc2cd7d0`); it
+binds the plan file SHA-256
+`5ba34f5e787fc9d6b3e74d32fc226cb8cc448812d22dd5a5e7e12b55834aed67`.
+Immediate verification reports pending Bitcoin confirmation for all four
+calendar attestations. The private
+[timestamp receipt](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/preregistration-timestamp-receipt.json)
+(mode 0600) records those responses. Until a proof is upgraded and verified
+against a Bitcoin block, independent preregistration timing remains
+unestablished and the frozen plan's timing flag remains false. No inference
+has run. See the [OpenTimestamps client documentation](https://github.com/opentimestamps/opentimestamps-client)
+for its timestamp and confirmation workflow.
+
 Preparing the cycle-0 owner/binder preflight exposed that the preflight helper
 required a persisted composition checkpoint even though the cognition owner
 treats a missing checkpoint as its canonical empty state. It also assumed a
