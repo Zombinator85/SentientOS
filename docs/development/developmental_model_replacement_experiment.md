@@ -4,12 +4,17 @@ This explicitly invoked instrument asks what digest-level observations change wh
 
 ## Frozen causal context and operational identity
 
-Context v1 binds the exact snapshot and current-projection IDs/digests, fact IDs, projected fact/source/conflict content digest, developmental record IDs/digests and record-set digest, instruction/template digest, inference budget, temperature-zero generation posture, schema, and optional repository generation identity. Context v2 keeps those frozen content fields and changes how its compact binding manifest is content-addressed. The semantic prompt is constructed from that object once: matching A/B conditions are byte-equivalent except that withheld conditions contain no history projection. Neither model labels nor lineage evidence enter the prompt.
+Context v1 binds the exact snapshot and current-projection IDs/digests, fact IDs, projected fact/source/conflict content digest, developmental record IDs/digests and record-set digest, instruction/template digest, inference budget, temperature-zero generation posture, schema, and optional repository generation identity. Context v2 keeps those frozen content fields and changes how its compact binding manifest is content-addressed. Context v3 adds digest-only bindings from each selected current fact ID to the canonical digest of its exact projected row. The semantic prompt is constructed from that object once: matching A/B conditions are byte-equivalent except that withheld conditions contain no history projection. Neither model labels nor lineage evidence enter the prompt.
 
 At context creation and in-memory verification, the selected current fact-ID
-set is bound to fact rows inside the frozen current-projection payload. The
-persisted compact manifest omits that payload; reload verifies its stored
-manifest and references but cannot independently rederive the row-to-ID match.
+set is bound to fact rows inside the frozen current-projection payload. V1 and
+v2 compact manifests omit that payload, so reload cannot independently rederive
+the row-to-ID match. V3 stores an ordered pair of each selected fact ID and the
+SHA-256 digest of its canonical row. Reload checks pair order, uniqueness via
+the bound fact-ID list, digest shape, and the content-addressed context identity.
+The raw fact rows remain omitted. These digests preserve the sealed mapping;
+they do not authenticate the source projection or prove that an external source
+served those rows.
 
 Context binding v2 addresses a separate reload-integrity gap: its context ID is
 derived from the compact persisted manifest fields, including the original
@@ -17,10 +22,10 @@ full-context digest. The preregistered protocol pins that ID, so changing
 manifest references and merely recomputing the manifest digest is rejected on
 reload. V1 contexts retain their original digest-derived IDs and verification
 behavior. V2 still cannot independently rederive the source payload's
-row-to-reference relation after that payload has been omitted; it binds the
-manifest contents to protocol identity without retaining raw current or
-historical content.
-New World-State projections label record-set continuity as bound only for v2
+row-to-reference relation after that payload has been omitted. V3 binds the
+current fact-ID-to-row-digest pairs to protocol identity without retaining raw
+current or historical content.
+New World-State projections label record-set continuity as bound only for v2 and v3
 context manifests. Runs using v1 manifests remain historically readable, but
 their history continuity is projected as unavailable rather than promoting
 the weaker manifest binding. Existing persisted projection shapes are not

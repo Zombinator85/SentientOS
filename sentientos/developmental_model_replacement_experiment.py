@@ -27,8 +27,10 @@ from .windows_handle_custody import WindowsHandleCustodyError, read_regular_file
 PURPOSE = "resident_developmental_model_replacement_experiment"
 CONTEXT_SCHEMA = "sentientos.developmental_model_replacement_context:v1"
 CONTEXT_SCHEMA_V2 = "sentientos.developmental_model_replacement_context:v2"
+CONTEXT_SCHEMA_V3 = "sentientos.developmental_model_replacement_context:v3"
 CONTEXT_BINDING_SCHEMA = "sentientos.developmental_model_replacement_context_binding:v1"
 CONTEXT_BINDING_SCHEMA_V2 = "sentientos.developmental_model_replacement_context_binding:v2"
+CONTEXT_BINDING_SCHEMA_V3 = "sentientos.developmental_model_replacement_context_binding:v3"
 PROVENANCE_SCHEMA = "sentientos.model_development_provenance:v1"
 PROTOCOL_SCHEMA = "sentientos.developmental_model_replacement_protocol:v1"
 RUN_SCHEMA = "sentientos.developmental_model_replacement_run:v2"
@@ -404,6 +406,27 @@ def _current_projection_refs_match(fact_ids: Any, projection: Any) -> bool:
         and set(projected_ids) == set(fact_ids))
 
 
+def _current_fact_bindings(
+        fact_ids: Sequence[str], projection: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Return ordered ID-to-row digest bindings without retaining row content."""
+    facts = projection.get("facts")
+    if not isinstance(facts, (list, tuple)):
+        raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
+    by_id: dict[str, str] = {}
+    for fact in facts:
+        if not isinstance(fact, Mapping):
+            raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
+        fact_id = fact.get("fact_id")
+        if fact_id is None:
+            fact_id = fact.get("id")
+        if not isinstance(fact_id, str) or not fact_id or fact_id in by_id:
+            raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
+        by_id[fact_id] = _digest(dict(fact))
+    if set(by_id) != set(fact_ids):
+        raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
+    return [{"fact_id": fact_id, "fact_digest": by_id[fact_id]} for fact_id in fact_ids]
+
+
 def _identity_payload(identity: "CognitiveModelIdentity") -> dict[str, Any]:
     value = asdict(identity)
     value.pop("identity_digest", None)
@@ -562,7 +585,7 @@ class FrozenCausalContext:
     inference_budget: Mapping[str, Any]
     generation_posture: Mapping[str, Any]
     repository_generation_identity: str | None
-    schema_version: str = CONTEXT_SCHEMA_V2
+    schema_version: str = CONTEXT_SCHEMA_V3
 
     @classmethod
     def create(cls, **kwargs: Any) -> "FrozenCausalContext":
@@ -572,7 +595,7 @@ class FrozenCausalContext:
         context = replace(raw, context_digest=digest)
         if context.schema_version == CONTEXT_SCHEMA:
             context_id_digest = digest
-        elif context.schema_version == CONTEXT_SCHEMA_V2:
+        elif context.schema_version in {CONTEXT_SCHEMA_V2, CONTEXT_SCHEMA_V3}:
             context_id_digest = _digest(context._binding_semantic())
         else:
             raise DevelopmentalModelReplacementError("causal_context_schema_invalid")
@@ -641,7 +664,7 @@ class FrozenCausalContext:
         digest = _digest(payload)
         context_id_digest = (digest if self.schema_version == CONTEXT_SCHEMA else
             _digest(self._binding_semantic())
-            if self.schema_version == CONTEXT_SCHEMA_V2 else None)
+            if self.schema_version in {CONTEXT_SCHEMA_V2, CONTEXT_SCHEMA_V3} else None)
         if (self.context_digest != digest or context_id_digest is None
                 or self.context_id != "model-replacement-context-"
                     + context_id_digest[7:31]):
@@ -680,9 +703,10 @@ class FrozenCausalContext:
         _prior_cognition_bindings(self.current_projection_payload)
 
     def _binding_semantic(self) -> dict[str, Any]:
-        return {"schema_version": (CONTEXT_BINDING_SCHEMA_V2
-                if self.schema_version == CONTEXT_SCHEMA_V2 else
-                CONTEXT_BINDING_SCHEMA),
+        schema = (CONTEXT_BINDING_SCHEMA_V3 if self.schema_version == CONTEXT_SCHEMA_V3 else
+            CONTEXT_BINDING_SCHEMA_V2 if self.schema_version == CONTEXT_SCHEMA_V2 else
+            CONTEXT_BINDING_SCHEMA)
+        semantic = {"schema_version": schema,
             "context_digest": self.context_digest,
             "snapshot_id": self.snapshot_id,
             "snapshot_digest": self.snapshot_digest,
@@ -700,6 +724,10 @@ class FrozenCausalContext:
             "prior_cognition_bindings": _prior_cognition_bindings(
                 self.current_projection_payload),
             "authority": False}
+        if self.schema_version == CONTEXT_SCHEMA_V3:
+            semantic["current_fact_bindings"] = _current_fact_bindings(
+                self.current_fact_ids, self.current_projection_payload)
+        return semantic
 
     def identity_manifest(self) -> dict[str, Any]:
         self.verify()
@@ -1055,7 +1083,7 @@ class ModelReplacementArtifactStore:
             prior_bindings = value.get("prior_cognition_bindings")
             binding_schema = value.get("schema_version")
             if (binding_schema not in {CONTEXT_BINDING_SCHEMA,
-                    CONTEXT_BINDING_SCHEMA_V2}
+                    CONTEXT_BINDING_SCHEMA_V2, CONTEXT_BINDING_SCHEMA_V3}
                     or manifest_digest != _digest(semantic)
                     or value.get("context_id") != context_id
                     or value.get("context_digest") != context_digest
@@ -1094,8 +1122,17 @@ class ModelReplacementArtifactStore:
                         "not_bound", "verified_partial_prior_cognitive_context",
                         "verified_prior_self_and_epistemic_projections"}):
                 raise DevelopmentalModelReplacementError("context_artifact_invalid")
+            if binding_schema == CONTEXT_BINDING_SCHEMA_V3:
+                fact_bindings = value.get("current_fact_bindings")
+                if (not isinstance(fact_bindings, list)
+                        or len(fact_bindings) != len(current_fact_ids)
+                        or any(not isinstance(row, Mapping)
+                            or row.get("fact_id") != fact_id
+                            or not _is_sha256_digest(row.get("fact_digest"))
+                            for fact_id, row in zip(current_fact_ids, fact_bindings))):
+                    raise DevelopmentalModelReplacementError("context_fact_binding_invalid")
             _validate_prior_binding_manifest(prior_bindings)
-            if binding_schema == CONTEXT_BINDING_SCHEMA_V2:
+            if binding_schema in {CONTEXT_BINDING_SCHEMA_V2, CONTEXT_BINDING_SCHEMA_V3}:
                 binding_semantic = {key: item for key, item in value.items()
                     if key not in {"context_id", "context_manifest_digest"}}
                 if context_id != "model-replacement-context-" + _digest(
@@ -1912,15 +1949,15 @@ class ModelReplacementArtifactStore:
                 "history_identity": {
                     "posture": ("frozen_context_record_set_bound"
                         if projection_context is not None
-                            and projection_context.get("schema_version") ==
-                                CONTEXT_BINDING_SCHEMA_V2 else
+                            and projection_context.get("schema_version") in {
+                                CONTEXT_BINDING_SCHEMA_V2, CONTEXT_BINDING_SCHEMA_V3} else
                         "legacy_context_manifest_identity_unbound"
                         if projection_context is not None else
                         "historical_context_identity_unavailable"),
                     "record_set_digest": (projection_context.get("history_record_set_digest")
                         if projection_context is not None
-                            and projection_context.get("schema_version") ==
-                                CONTEXT_BINDING_SCHEMA_V2 else None),
+                            and projection_context.get("schema_version") in {
+                                CONTEXT_BINDING_SCHEMA_V2, CONTEXT_BINDING_SCHEMA_V3} else None),
                     "cross_process_continuity": "not_established_by_this_run_artifact",
                 },
                 "input_delivery": {
