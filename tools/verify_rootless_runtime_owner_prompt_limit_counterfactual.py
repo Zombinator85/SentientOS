@@ -52,8 +52,14 @@ def verify(*, plan_path: Path, wide_preview_path: Path,
         "counterfactual_plan_implementation_not_current")
     implementation_digest = wide.get("implementation_digest")
     _require(isinstance(implementation_digest, str)
-        and implementation_digest == low.get("current_implementation_digest"),
+        and implementation_digest == low.get("current_implementation_digest")
+        and implementation_digest
+            == implementation.get("experiment_implementation_digest"),
         "counterfactual_implementation_binding_mismatch")
+    _require(plan.get("task_family_id")
+        == "rootless_integer_affine_transfer_wide_range_v7"
+        and isinstance(plan.get("cross_range_history_enabled_competence"), dict),
+        "counterfactual_transfer_protocol_not_bound")
     _require(plan_digest == wide.get("plan_digest")
         and plan_digest == low.get("plan_digest"),
         "counterfactual_plan_binding_mismatch")
@@ -71,9 +77,13 @@ def verify(*, plan_path: Path, wide_preview_path: Path,
     _require(type(old_limit) is int and old_limit < wide_limit
         and baseline.get("limit_chars") == wide_limit,
         "counterfactual_limits_invalid")
-    _require(baseline.get("present_chars", wide_limit) < wide_limit
-        and baseline.get("restored_chars", wide_limit) < wide_limit,
-        "counterfactual_wide_prompt_over_limit")
+    _require(type(baseline.get("present_chars")) is int
+        and type(baseline.get("restored_chars")) is int
+        and baseline["present_chars"] < wide_limit
+        and baseline["restored_chars"] < wide_limit
+        and baseline["present_chars"] > old_limit
+        and baseline["restored_chars"] > old_limit,
+        "counterfactual_prompt_bounds_not_discriminating")
 
     condition_ids = wide.get("condition_selected_record_ids")
     prompt_sizes = wide.get("condition_prompt_sizes")
@@ -104,11 +114,28 @@ def verify(*, plan_path: Path, wide_preview_path: Path,
         and all(record_id in expected_ids for record_id in actual_ids)
         and old.get("status") == "required_history_binding_mismatch",
         "counterfactual_low_failure_not_reproduced")
-    _require(old.get("expected_record_digests")
-        and len(old["expected_record_digests"]) == len(expected_ids)
-        and old.get("selected_record_digests")
-        and len(old["selected_record_digests"]) == len(actual_ids),
+    expected_digests = old.get("expected_record_digests")
+    selected_digests = old.get("selected_record_digests")
+    valid_digest_list = lambda values: (type(values) is list
+        and all(isinstance(value, str) and len(value) == 71
+            and value.startswith("sha256:")
+            and all(character in "0123456789abcdef" for character in value[7:])
+            for value in values))
+    _require(valid_digest_list(expected_digests)
+        and len(expected_digests) == len(expected_ids)
+        and valid_digest_list(selected_digests)
+        and len(selected_digests) == len(actual_ids)
+        and all(isinstance(record_id, str) and len(record_id) == 31
+            and record_id.startswith("devrec-")
+            for record_id in expected_ids)
+        and len(set(expected_ids)) == len(expected_ids)
+        and actual_ids == [record_id for record_id in expected_ids
+            if record_id in set(actual_ids)],
         "counterfactual_record_digest_bindings_invalid")
+    expected_digest_by_id = dict(zip(expected_ids, expected_digests))
+    _require(selected_digests == [expected_digest_by_id[record_id]
+        for record_id in actual_ids],
+        "counterfactual_selected_record_digest_mismatch")
 
     _require(low.get("only_changed_variable")
         == "runtime owner preview maximum input characters",

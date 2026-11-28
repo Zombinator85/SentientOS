@@ -1133,4 +1133,4 @@ experiment source binding.
 
 Run it with the plan, successful preview, and low-limit counterfactual paths
 listed above. The verifier's SHA-256 is
-`9b13295a6553e060e34e2c76d98814b1b66de723edf2b9b3fd6a52afc5d3e96a`.
+`f67ba60c08dcf80bd8823bab6563f1e14e151d1cbcf27aa3546baf43a25ef7ee`.
