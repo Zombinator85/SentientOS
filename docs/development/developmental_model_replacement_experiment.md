@@ -24,6 +24,23 @@ source closure and is not evidence for v3. Until a direct v3 round-trip and
 altered-binding rejection are observed, the reload contract above is a code
 design claim rather than a runtime-verified result.
 
+The next verification is a model-free artifact exercise; it does not require
+either endpoint, inference, or GPU access. Construct a minimal v3 context with
+two selected fact rows, persist it through the context store, and reload it
+using the original protocol-bound context ID and digest. The valid round-trip
+must preserve the ordered `current_fact_bindings` while the persisted manifest
+contains no raw current-projection payload. Then alter one fact digest, recompute
+the outer manifest digest, and attempt reload with the original pinned context
+identity. It must fail closed with `context_manifest_identity_mismatch`; this
+specifically checks that recomputing the outer digest cannot bless a changed
+fact-to-row binding. Separate malformed variants that omit, reorder, duplicate,
+or add a binding must fail the v3 field/order contract. The record should
+capture exact artifact digests and error codes, with inference and GPU use
+explicitly false. Only after this artifact exercise passes should the
+experiment describe v3 reload integrity as runtime-verified. This check covers
+sealed-manifest integrity only; it does not authenticate the source projection
+or prove that a model used the mapped facts.
+
 Context binding v2 addresses a separate reload-integrity gap: its context ID is
 derived from the compact persisted manifest fields, including the original
 full-context digest. The preregistered protocol pins that ID, so changing
