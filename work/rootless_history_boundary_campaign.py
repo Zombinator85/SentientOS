@@ -1926,8 +1926,16 @@ def _low_range_source_correct_inputs(*, cycle_root: Path,
         task_evidence = request.get("upstream_evidence")
         session = (request_linkage.get("rootless_experimental_session")
             if isinstance(request_linkage, Mapping) else None)
+        expected_history_present = {
+            "history_present": True,
+            "history_withheld": False,
+            "history_restored": True,
+        }.get(row["condition_id"])
         if (not isinstance(request_linkage, Mapping)
                 or request_linkage.get("condition_id") != row["condition_id"]
+                or expected_history_present is None
+                or type(request_linkage.get("history_present")) is not bool
+                or request_linkage.get("history_present") is not expected_history_present
                 or not isinstance(task_evidence, Mapping)
                 or task_evidence.get("objective_task_digest")
                     != descriptor.get("task_digest")

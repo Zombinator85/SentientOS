@@ -7384,10 +7384,12 @@ and does not establish calibration.
 
 The low-range source eligibility audit now binds each condition's score row to
 its invocation receipt request. It requires the receipt request to carry the
-same condition ID, objective task digest, objective plan digest, task family,
-and probe count as the independently scored row. It also binds the request's
-rootless session and active model identity to the planned cycle and model
-manifest, while checking that the session grants no production authority.
+same condition ID and history-presence flag, objective task digest, objective
+plan digest, task family, and probe count as the independently scored row. The
+history flag must agree with the present, withheld, or restored condition. It
+also binds the request's rootless session and active model identity to the
+planned cycle and model manifest, while checking that the session grants no
+production authority.
 
 This closes a receipt-substitution gap: matching an output digest alone did not
 prove that the receipt came from the condition and task whose score it
@@ -7416,16 +7418,27 @@ measurement against an appropriate comparison condition.
 
 ### Frozen v6-to-v7 transfer follow-up seed roster (2026-11-27)
 
-Before the low-range source campaign runs, its prospective v7 follow-up now has
-a committed seed roster in
-[`seed-roster-v1.json`](../../artifacts/experiments/rootless-cross-range-followup-20261127/seed-roster-v1.json).
-It binds the follow-up to source plan
-`934cb5814015a9de7498c626212350297c45b57ee4b89bdc05f425127c7bf56e` and
-preselects two wide-range v7 target cycles with task seeds `70271103` and
+Before the low-range source campaign runs, its prospective v7 follow-up has a
+committed seed roster in
+[`seed-roster-v2.json`](../../artifacts/experiments/rootless-cross-range-followup-20261127/seed-roster-v2.json).
+Roster v2 supersedes v1 before inference because the source audit was tightened
+to require each receipt's history-presence flag to match its scored condition;
+all target task seeds and backend seeds are preserved. The old source campaign
+plan (`934cb5814015a9de7498c626212350297c45b57ee4b89bdc05f425127c7bf56e`)
+was also superseded before execution. The active source plan is
+`d03570b90ed13df3a40f84ee4b292c84ea5b7913115f91e552c1cbc400a8634f`, with
+cycles `rootless-cognition-cycle-20261127000100000011` and
+`rootless-cognition-cycle-20261127000100000012`.
+
+The follow-up roster preselects wide-range v7 target task seeds `70271103` and
 `70271106`, backend seeds `419005` and `419006`, and three acquisition plus
-three transfer probes per cycle. Their combined planned probe sets are
-pairwise disjoint. The v7 transfer range (10–1000) is also disjoint from the
-v6 source family's full input range (2–9).
+three transfer probes per cycle. It commits the task-generator source hash and
+a digest of each seed's acquisition/transfer probe sets without publishing the
+probe values. The two combined target probe sets are pairwise disjoint, and the
+v7 transfer range (10–1000) is disjoint from the v6 source family's full input
+range (2–9). Target campaign `rootless-history-campaign-20261127000100000009`
+uses cycles `rootless-cognition-cycle-20261127000100000013` and
+`rootless-cognition-cycle-20261127000100000014`.
 
 The follow-up plan must not be materialized or run unless the source campaign
 audit reports low-range eligibility and its second cycle retains the history
