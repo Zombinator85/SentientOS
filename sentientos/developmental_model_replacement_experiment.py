@@ -410,16 +410,26 @@ def _current_fact_bindings(
         fact_ids: Sequence[str], projection: Mapping[str, Any]) -> list[dict[str, str]]:
     """Return ordered ID-to-row digest bindings without retaining row content."""
     facts = projection.get("facts")
-    if not isinstance(facts, (list, tuple)):
+    if (not isinstance(fact_ids, (list, tuple)) or len(fact_ids) > 64
+            or any(not isinstance(item, str) or not item or len(item) > 256
+                for item in fact_ids)
+            or len(set(fact_ids)) != len(fact_ids)
+            or not isinstance(facts, (list, tuple))
+            or len(facts) != len(fact_ids)):
         raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
     by_id: dict[str, str] = {}
     for fact in facts:
         if not isinstance(fact, Mapping):
             raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
         fact_id = fact.get("fact_id")
+        alternate_id = fact.get("id")
+        if (fact_id is not None and alternate_id is not None
+                and fact_id != alternate_id):
+            raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
         if fact_id is None:
-            fact_id = fact.get("id")
-        if not isinstance(fact_id, str) or not fact_id or fact_id in by_id:
+            fact_id = alternate_id
+        if (not isinstance(fact_id, str) or not fact_id or len(fact_id) > 256
+                or fact_id in by_id):
             raise DevelopmentalModelReplacementError("current_projection_fact_bindings_invalid")
         by_id[fact_id] = _digest(dict(fact))
     if set(by_id) != set(fact_ids):
@@ -1127,6 +1137,7 @@ class ModelReplacementArtifactStore:
                 if (not isinstance(fact_bindings, list)
                         or len(fact_bindings) != len(current_fact_ids)
                         or any(not isinstance(row, Mapping)
+                            or set(row) != {"fact_id", "fact_digest"}
                             or row.get("fact_id") != fact_id
                             or not _is_sha256_digest(row.get("fact_digest"))
                             for fact_id, row in zip(current_fact_ids, fact_bindings))):
