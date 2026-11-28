@@ -1162,3 +1162,15 @@ The counterfactual verifier returned `status=verified` with the saved audit
 digest above. This verifies the frozen CPU preview pair against its preregistered
 source closure; it does not verify the later v3 code, authenticate report
 origin, or establish model learning. The plan and seeds were not rewritten.
+
+## Schema-bound absent-evidence precondition
+
+New cycles with no action-consequence record now persist the declared v3
+history-transfer precondition schema: the result is ineligible, has reason
+`no_new_action_consequence_record`, null record identity and digest, unavailable
+snapshot posture, and empty evidence and provenance lists. The campaign
+verifier maps that exact packet to
+`precondition_not_run_no_action_consequence_record`; it does not claim a
+snapshot was verified. Older compact no-schema cycle results remain recognized
+for historical replay. This makes absence machine-readable without treating it
+as either malformed evidence or a legacy versioned precondition.

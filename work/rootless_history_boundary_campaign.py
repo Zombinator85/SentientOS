@@ -1784,6 +1784,24 @@ def _history_transfer_precondition_snapshot_binding(*, root: Path,
         return {"status": "precondition_not_present",
             "record_id": None, "record_digest": None, "verified": False}
     schema_version = precondition.get("schema_version")
+    if (schema_version == "sentientos.history_transfer_evidence_precondition:v3"
+            and set(precondition) == {
+                "schema_version", "eligible", "reason_code", "record_id",
+                "retained_record_digest", "retained_record_snapshot_binding_posture",
+                "evidence_fact_ids", "pattern_match_fact_ids",
+                "provenance_failure_codes"}
+            and precondition.get("eligible") is False
+            and precondition.get("reason_code")
+                == "no_new_action_consequence_record"
+            and precondition.get("record_id") is None
+            and precondition.get("retained_record_digest") is None
+            and precondition.get("retained_record_snapshot_binding_posture")
+                == "unavailable"
+            and precondition.get("evidence_fact_ids") == []
+            and precondition.get("pattern_match_fact_ids") == []
+            and precondition.get("provenance_failure_codes") == []):
+        return {"status": "precondition_not_run_no_action_consequence_record",
+            "record_id": None, "record_digest": None, "verified": False}
     if schema_version != "sentientos.history_transfer_evidence_precondition:v3":
         # A skipped qualification can still persist a compact precondition
         # summary without a version or record snapshot. Do not mislabel that

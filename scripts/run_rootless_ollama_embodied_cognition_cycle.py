@@ -8215,9 +8215,15 @@ def run() -> dict[str, Any]:
         transfer_readiness = (
             _history_transfer_probe_readiness(asdict(durable))
             if durable is not None else {
+                "schema_version": "sentientos.history_transfer_evidence_precondition:v3",
                 "eligible": False,
                 "reason_code": "no_new_action_consequence_record",
-                "classification": "not_run_no_action_consequence_record",
+                "record_id": None,
+                "retained_record_digest": None,
+                "retained_record_snapshot_binding_posture": "unavailable",
+                "evidence_fact_ids": [],
+                "pattern_match_fact_ids": [],
+                "provenance_failure_codes": [],
             })
         transfer_conditions: list[Mapping[str, Any]] = []
         if transfer_readiness["eligible"]:
