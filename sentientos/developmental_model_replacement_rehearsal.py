@@ -14,8 +14,9 @@ from .developmental_model_replacement_campaign import DevelopmentalModelReplacem
 from .developmental_model_replacement_experiment import (CognitiveModelIdentity,
     DevelopmentalModelReplacementExperiment, FrozenCausalContext, ModelDevelopmentProvenance,
     ModelReplacementArtifactStore, ObjectivePredictionTask, _digest)
-from .developmental_model_replacement_experimental_serving import (APPROVAL_SCHEMA,
-    ExperimentalModelServingController, approval_bindings)
+from .developmental_model_replacement_experimental_serving import (
+    APPROVAL_SCHEMA, ExperimentalModelServingController,
+    ExperimentalModelServingError, approval_bindings)
 from .developmental_model_replacement_production_trial import (
     DevelopmentalModelReplacementProductionTrialRunner, verify_production_trial_receipt)
 from .installation_state import InstallationIdentity, InstallationStateRegistry
@@ -180,13 +181,17 @@ def _context(objective_task: ObjectivePredictionTask | None = None) -> FrozenCau
             separators=(",", ":")).encode("utf-8"))
     else:
         generation_tokens = 8
-    history = ({"id": "rehearsal-history", "value": "synthetic"},)
+    history_record = {"id": "rehearsal-history", "value": "synthetic"}
+    history_digest = _digest(history_record)
+    history = ({"record_id": "rehearsal-history", "record_digest": history_digest,
+        "value": "synthetic", "historical_only": True,
+        "epistemic_posture": "historical_interpretation_not_current_truth"},)
     return FrozenCausalContext.create(snapshot_id="rehearsal-snapshot", snapshot_digest=_digest({"snapshot": 1}),
         current_projection_id="rehearsal-current-projection", current_projection_digest=_digest(current),
         current_fact_ids=("rehearsal-current",), projected_content_digest=_digest(current),
         current_projection_payload=current, history_record_ids=("rehearsal-history",),
-        history_record_digests=(_digest(history[0]),),
-        history_record_set_digest=_digest({"record_ids": ["rehearsal-history"], "record_digests": [_digest(history[0])]}),
+        history_record_digests=(history_digest,),
+        history_record_set_digest=_digest({"record_ids": ["rehearsal-history"], "record_digests": [history_digest]}),
         history_projection_payload=history, instruction_template="Context: {context}\nHistory: {history}\nAnswer deterministically.",
         instruction_template_digest=_digest({"instruction": "Context: {context}\nHistory: {history}\nAnswer deterministically."}),
         inference_budget={"max_input_chars": 4096, "max_output_chars": 128,
@@ -408,6 +413,67 @@ def verify(root: Path) -> Mapping[str, Any]:
     target = bundle / "verification" / ("final.json" if len(completed) == 2 else f"after-{len(completed)}-trials.json")
     target.parent.mkdir(exist_ok=True); atomic_write_json(target, body)
     return body
+
+
+
+def verify_serving_custody(root: Path, *, tamper_reference: bool = False) -> Mapping[str, Any]:
+    """Reconcile rehearsal-produced receipts without loading or invoking a model."""
+    bundle, handle, scenario, _, _, _ = _load(root)
+    artifact_store = ModelReplacementArtifactStore(bundle)
+    protocol = artifact_store.load_verified_protocol(
+        scenario["protocol_id"], scenario["protocol_digest"])
+
+    def forbidden_factory(*_: Any, **__: Any) -> Any:
+        raise AssertionError("custody_verification_must_not_load_a_worker")
+    controller = ExperimentalModelServingController(handle,
+        ControlPlaneKernel(decisions_path=bundle / "custody-verification-decisions.jsonl"),
+        artifact_root=bundle, model_factory=forbidden_factory, allow_synthetic_evidence_for_tests=True)
+    observations: list[Mapping[str, Any]] = []
+    trial_paths = sorted((bundle / "trial_receipts").glob("*.json")) if (bundle / "trial_receipts").exists() else []
+    for path in trial_paths:
+        trial = _read(path)
+        verify_production_trial_receipt(trial)
+        run = artifact_store.load_verified_run(str(trial["run_id"]), str(trial["run_digest"]))
+        if not isinstance(run.get("observations"), list):
+            raise ValueError("rehearsal_serving_custody_observations_missing")
+        observations.extend(row for row in run["observations"] if isinstance(row, Mapping))
+    if not observations:
+        raise ValueError("rehearsal_serving_custody_observations_missing")
+    for observation in observations:
+        role = "model_a" if str(observation.get("condition_id", "")).startswith("model_a") else "model_b"
+        expected = protocol.model_a_identity if role == "model_a" else protocol.model_b_identity
+        controller.verify_persisted_observation_receipts(
+            observation, protocol=protocol, model_role=role, expected=expected)
+    rejected = 0
+    if tamper_reference:
+        if not observations:
+            raise ValueError("rehearsal_serving_custody_observations_missing")
+        original = observations[0]
+        for key in ("model_serving_receipt_id", "model_serving_receipt_digest", "model_serving_lifetime_id",
+                    "inference_receipt_id", "inference_receipt_digest"):
+            altered = dict(original)
+            value = str(altered[key])
+            altered[key] = value[:-1] + ("0" if value[-1] != "0" else "1")
+            try:
+                role = "model_a" if str(altered.get("condition_id", "")).startswith("model_a") else "model_b"
+                expected = protocol.model_a_identity if role == "model_a" else protocol.model_b_identity
+                controller.verify_persisted_observation_receipts(
+                    altered, protocol=protocol, model_role=role, expected=expected)
+            except ExperimentalModelServingError:
+                rejected += 1
+            else:
+                raise ValueError("rehearsal_tampered_serving_reference_accepted")
+    return {
+        "status": "verified",
+        "verified_observation_count": len(observations),
+        "tampered_reference_rejections": rejected,
+        "custody_posture": "synthetic_owner_produced_local_receipts",
+        "model_load_performed": False,
+        "inference_performed": False,
+        "learning_established": False,
+        "canonical_activation_mutated": False,
+        "canonical_production_serving_mutated": False,
+    }
 
 
 def summarize(root: Path) -> Mapping[str, Any]:

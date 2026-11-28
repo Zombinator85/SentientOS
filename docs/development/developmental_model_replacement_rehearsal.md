@@ -12,6 +12,8 @@ Run each bounded action as a separate process against an empty, caller-selected 
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py prepare --root /tmp/model-replacement-rehearsal --summary
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify --root /tmp/model-replacement-rehearsal --summary
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py run-next --root /tmp/model-replacement-rehearsal --summary
+PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify-serving-custody --root /tmp/model-replacement-rehearsal --summary
+PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify-serving-custody --root /tmp/model-replacement-rehearsal --summary --tamper-reference
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify --root /tmp/model-replacement-rehearsal --summary
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py run-next --root /tmp/model-replacement-rehearsal --summary
 PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py summarize --root /tmp/model-replacement-rehearsal --summary
@@ -19,8 +21,12 @@ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py ver
 ```
 
 `prepare` performs zero trials. Each `run-next` reconstructs disk state and performs
-exactly one preregistered trial. `verify` and `summarize` perform no serving load or
-inference. There is deliberately no repeat, all, watch, or daemon option.
+exactly one preregistered trial. The `verify`, `summarize`, and
+`verify-serving-custody` commands perform no serving load or inference. The custody command reconstructs
+the run from persisted owner-produced local receipts in a fresh process, reconciles each
+observation through the serving owner, and can check altered in-memory references with
+`--tamper-reference`. It reports synthetic custody only and does not establish learning.
+There is deliberately no repeat, all, watch, or daemon option.
 
 The bundle's scenario uses
 `sentientos.developmental_model_replacement_rehearsal:v1`; digest-bound verification

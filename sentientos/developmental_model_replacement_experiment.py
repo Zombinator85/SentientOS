@@ -10,6 +10,7 @@ import hashlib
 import hmac
 import os
 import random
+import re
 import secrets
 import stat
 from dataclasses import asdict, dataclass, field, replace

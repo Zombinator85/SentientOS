@@ -35,6 +35,26 @@ def test_separate_cli_processes_reconstruct_and_complete_exact_campaign(tmp_path
     assert final["synthetic_only_posture"] and final["activation_preserved"]
     assert final["production_serving_preserved"] and final["developmental_history_preserved"]
 
+def test_owner_produced_receipts_reconcile_after_restart_and_reject_tampered_references(tmp_path: Path) -> None:
+    root = tmp_path / "receipt-custody"
+    cli(root, "prepare")
+    cli(root, "run-next")
+    verified = cli(root, "verify-serving-custody")
+    assert verified["status"] == "verified"
+    assert verified["verified_observation_count"] == 5
+    assert verified["tampered_reference_rejections"] == 0
+    assert verified["custody_posture"] == "synthetic_owner_produced_local_receipts"
+    assert verified["model_load_performed"] is False
+    assert verified["inference_performed"] is False
+    assert verified["learning_established"] is False
+    tampered = cli(root, "verify-serving-custody", "--tamper-reference")
+    assert tampered["tampered_reference_rejections"] == 5
+    assert tampered["model_load_performed"] is False
+    assert tampered["inference_performed"] is False
+    assert tampered["canonical_activation_mutated"] is False
+    assert tampered["canonical_production_serving_mutated"] is False
+
+
 def test_model_b_load_failure_closes_a_without_trial_success(tmp_path: Path) -> None:
     root = tmp_path / "load-failure"; prepare(root, fault="model_b_load_failure")
     with pytest.raises(Exception, match="experimental_model_load_failed"): run_next(root)
