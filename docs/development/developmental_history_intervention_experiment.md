@@ -728,9 +728,10 @@ checkpointed, it receives its own deterministic child tick derived from the
 parent tick and candidate ID. Recovery appends that child checkpoint from the
 record/receipt commit point; it never fills or revises the parent checkpoint.
 Legacy feedback records that correlate to the parent are mapped to the same
-child tick during recovery, so retained histories remain readable and repeated
-recovery is stable. A conflicting record or receipt for any existing tick
-remains an error. Candidate provenance binds the feedback to the parent
+child tick during recovery unless a historical checkpoint already contains the
+exact feedback pair; that already-mutated row is preserved without creating a
+duplicate. Repeated recovery is stable, and conflicting record or receipt
+bindings remain errors. Candidate provenance binds the feedback to the parent
 intervention observation. The controlled history trials retain the direct model
 response so
 its digest remains bound to the invocation receipt. Serving-time freshness

@@ -12736,10 +12736,13 @@ class ResidentDevelopmentalCognitionOwner:
             expected_operation = (operation_prefix + correlation_tick + ":"
                 + candidate_id)
             recovered_tick = correlation_tick
+            legacy_feedback_parent_tick = (
+                is_owner_feedback
+                and not correlation_tick.startswith("owner-feedback:"))
             # Historical feedback commits used the already completed parent
             # tick as their correlation. Preserve those records by projecting
             # them to the same deterministic child-tick scheme as new commits.
-            if is_owner_feedback and not correlation_tick.startswith("owner-feedback:"):
+            if legacy_feedback_parent_tick:
                 recovered_tick = "owner-feedback:" + _digest({
                     "parent_tick_id": correlation_tick,
                     "candidate_id": candidate_id,
@@ -12747,6 +12750,20 @@ class ResidentDevelopmentalCognitionOwner:
             if record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
             existing = ticks.get(recovered_tick)
+            if existing is None and legacy_feedback_parent_tick:
+                # Some historical state snapshots already contain the old
+                # in-place parent mutation. Keep that immutable historical row
+                # as-is rather than duplicating its record on a child tick.
+                legacy_parent = ticks.get(correlation_tick)
+                if legacy_parent is not None:
+                    parent_record_id = legacy_parent.get("record_id")
+                    parent_receipt_id = legacy_parent.get("receipt_id")
+                    if (parent_record_id, parent_receipt_id) == (
+                            record.record_id, receipt.receipt_id):
+                        existing = legacy_parent
+                    elif parent_record_id is not None or parent_receipt_id is not None:
+                        raise ResidentDevelopmentalCognitionError(
+                            "recovered_tick_record_conflict")
             checkpoint = {"tick_id": recovered_tick, "snapshot_id": candidate.get("snapshot_id"),
                 "snapshot_digest": candidate.get("snapshot_digest"), "record_id": record.record_id,
                 "receipt_id": receipt.receipt_id}
