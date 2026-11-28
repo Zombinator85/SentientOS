@@ -1062,3 +1062,36 @@ The retained cycle-21 failure artifact
 The later [wide-range owner preview](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-owner-prompt-budget-cpu-replay-v2/runtime-owner-preview.json), SHA-256 `11d14b84f64ab888e61a4eba681a6186561b35f480ae66622edcf24cb6844790`, uses the same three record IDs. Both history-present and history-restored selected all three with matching digests at 26,618 characters under a 28,672-character limit; withheld selected none. Its owner-to-binder path was exercised, with inference, learning, and authority false. The read-only verifier confirmed the owner payload and flattened report digest (`520e17193ac73c3285bb37ca53fb9d52d99342861cc047bb33a9535b631e7ecd`); it also reports that the frozen plan's implementation pins no longer match current source and that report origin is unattested. This is a separate wide-range task preview, not a rerun of cycle 21, so it supports retrieval feasibility with the larger bound but does not isolate the bound change as the cause of the earlier miss or establish transfer or learning.
 
 The failure writer now includes `missing_required_history_record_digests` alongside the union of missing IDs. The verifier accepts historical v2 diagnostics that omitted this redundant list by deriving the expected digests from the required ID/digest bindings; when the list is present it checks it exactly. The repaired verifier returned `status=verified` for cycle 21 and explicitly reported that the union digests were derived from those required bindings.
+### Source-current cycle-23 owner preview (2026-11-27)
+
+To replace the stale source pins in the earlier CPU preview, a new two-cycle
+wide-range-v7 campaign plan was prepared from the retained cycle-21 history
+boundary. The plan binds to the current 2,558-file experiment implementation
+and verifies against current source. Its plan digest is
+`033be132d29fbfb41bf20bb2e1c641772d38e276d489855e67763ad789db48d9`;
+the initial history boundary digest is
+`9c0adb1a1e8c82ff5f3c4e85a3e178f939248ab5404b854498e9cbd8c92a7f0d`.
+The plan's independent preregistration-timing attestation remains false.
+
+The cycle-23 CPU owner preflight selected and bound
+`devrec-5b094c92d60f2f81b21a71f5`,
+`devrec-f7ec4f22d15a8170e1579aaa`, and
+`devrec-34400ec9c2d6771162a8e291`; its prompt measured 26,450 characters
+under the current 28,672-character bound. A separate runtime-owner preview
+then exercised the owner-to-binder path from a disposable copy of the retained
+cycle state. Present and restored selected the same three records, each at
+26,651 characters; withheld selected none at 13,931 characters. The preview
+did not mutate owner state, invoke a model, establish learning, or grant
+authority. It demonstrates current-source retrieval and prompt feasibility
+for this planned transfer condition. Because the source and plan differ from
+the historical failed run, it does not isolate the cause of cycle 21's omission
+or establish that a larger prompt bound alone fixes it.
+
+Evidence is retained under
+`sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-source-current-v1/`:
+the plan, `cycle23-owner-preflight.json` (SHA-256
+`2d3b6ef3850d9f278d8d4f11ea855dc4974e91e2dcfe913e0d8fb8463d556e9e`),
+and `cycle23-runtime-owner-preview.json` (SHA-256
+`f309307935cb2d88b7c6e4a161380e77da7070e04d1c16b3d6cac4421d702d8d`).
+The plan's Hermes identity recipe was derived from its existing manifest only;
+no Hermes model was loaded and no GPU inference was performed.
