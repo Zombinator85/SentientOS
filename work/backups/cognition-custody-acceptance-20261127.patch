@@ -1,0 +1,269 @@
+diff --git a/docs/development/developmental_model_replacement_experimental_serving.md b/docs/development/developmental_model_replacement_experimental_serving.md
+index 9aa10f3d3..004749407 100644
+--- a/docs/development/developmental_model_replacement_experimental_serving.md
++++ b/docs/development/developmental_model_replacement_experimental_serving.md
+@@ -56,7 +56,13 @@ unload a changed lifetime. Close is idempotent and produces one bounded-unload r
+ 
+ Canonical activation: **unchanged**. Canonical production serving: **unchanged**.
+ Resident default model: **unchanged**. Developmental history: **unchanged by serving
+-itself**. All experimental custody is physically separate beneath
++itself**. Historical receipt reconciliation validates each serving, lifetime, and inference
++reference as an exact prefix plus 24 lowercase hexadecimal characters before it
++opens the corresponding bounded receipt file. Receipt digests remain independently
++verified against their canonical bodies. This validates custody linkage only; it
++does not establish that learning occurred.
++
++All experimental custody is physically separate beneath
+ `local-model/developmental-model-replacement/experimental-serving/`.
+ 
+ An experiment result is evidence, not an identity conclusion. This implementation does
+diff --git a/docs/development/developmental_model_replacement_rehearsal.md b/docs/development/developmental_model_replacement_rehearsal.md
+index 857bd4cd0..de73364e6 100644
+--- a/docs/development/developmental_model_replacement_rehearsal.md
++++ b/docs/development/developmental_model_replacement_rehearsal.md
+@@ -12,6 +12,8 @@ Run each bounded action as a separate process against an empty, caller-selected
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py prepare --root /tmp/model-replacement-rehearsal --summary
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify --root /tmp/model-replacement-rehearsal --summary
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py run-next --root /tmp/model-replacement-rehearsal --summary
++PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify-serving-custody --root /tmp/model-replacement-rehearsal --summary
++PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify-serving-custody --root /tmp/model-replacement-rehearsal --summary --tamper-reference
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py verify --root /tmp/model-replacement-rehearsal --summary
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py run-next --root /tmp/model-replacement-rehearsal --summary
+ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py summarize --root /tmp/model-replacement-rehearsal --summary
+@@ -19,8 +21,12 @@ PYTHONPATH=. python scripts/run_developmental_model_replacement_rehearsal.py ver
+ ```
+ 
+ `prepare` performs zero trials. Each `run-next` reconstructs disk state and performs
+-exactly one preregistered trial. `verify` and `summarize` perform no serving load or
+-inference. There is deliberately no repeat, all, watch, or daemon option.
++exactly one preregistered trial. The `verify`, `summarize`, and
++`verify-serving-custody` commands perform no serving load or inference. The custody command reconstructs
++the run from persisted owner-produced local receipts in a fresh process, reconciles each
++observation through the serving owner, and can check altered in-memory references with
++`--tamper-reference`. It reports synthetic custody only and does not establish learning.
++There is deliberately no repeat, all, watch, or daemon option.
+ 
+ The bundle's scenario uses
+ `sentientos.developmental_model_replacement_rehearsal:v1`; digest-bound verification
+diff --git a/scripts/run_developmental_model_replacement_rehearsal.py b/scripts/run_developmental_model_replacement_rehearsal.py
+index f34a593bc..0a5c2e6e2 100644
+--- a/scripts/run_developmental_model_replacement_rehearsal.py
++++ b/scripts/run_developmental_model_replacement_rehearsal.py
+@@ -1,22 +1,29 @@
+ from __future__ import annotations
+ import argparse, json
+ from pathlib import Path
+-from sentientos.developmental_model_replacement_rehearsal import prepare, run_next, summarize, verify
++from sentientos.developmental_model_replacement_rehearsal import (
++    prepare, run_next, summarize, verify, verify_serving_custody)
+ 
+ def main() -> int:
+     parser = argparse.ArgumentParser(description="Run one bounded synthetic model-replacement rehearsal action")
+-    parser.add_argument("command", choices=("prepare", "run-next", "verify", "summarize"))
++    parser.add_argument("command", choices=("prepare", "run-next", "verify", "summarize", "verify-serving-custody"))
+     parser.add_argument("--root", type=Path, required=True)
+     parser.add_argument("--fault", choices=("model_b_load_failure", "loaded_identity_drift",
+         "inference_currentness_failure", "truncated_objective_output"))
+     parser.add_argument("--objective-scored", action="store_true",
+         help="preregister the deterministic fixture objective before campaign identity; synthetic test evidence only")
++    parser.add_argument("--tamper-reference", action="store_true",
++        help="verify rejection of altered receipt references in memory")
+     parser.add_argument("--summary", action="store_true")
+     args = parser.parse_args()
+     if args.fault and args.command != "prepare": parser.error("--fault is prepare-only")
+     if args.objective_scored and args.command != "prepare": parser.error("--objective-scored is prepare-only")
++    if (args.tamper_reference
++            and args.command != "verify-serving-custody"):
++        parser.error("--tamper-reference requires verify-serving-custody")
+     result = {"prepare": lambda: prepare(args.root, fault=args.fault, objective_scored=args.objective_scored), "run-next": lambda: run_next(args.root),
+-              "verify": lambda: verify(args.root), "summarize": lambda: summarize(args.root)}[args.command]()
++              "verify": lambda: verify(args.root), "summarize": lambda: summarize(args.root),
++              "verify-serving-custody": lambda: verify_serving_custody(args.root, tamper_reference=args.tamper_reference)}[args.command]()
+     if args.summary: print(json.dumps(dict(result), sort_keys=True))
+     return 0
+ if __name__ == "__main__": raise SystemExit(main())
+diff --git a/sentientos/developmental_model_replacement_experiment.py b/sentientos/developmental_model_replacement_experiment.py
+index 818bbb452..c221532be 100644
+--- a/sentientos/developmental_model_replacement_experiment.py
++++ b/sentientos/developmental_model_replacement_experiment.py
+@@ -10,6 +10,7 @@ import hashlib
+ import hmac
+ import os
+ import random
++import re
+ import secrets
+ import stat
+ from dataclasses import asdict, dataclass, field, replace
+diff --git a/sentientos/developmental_model_replacement_experimental_serving.py b/sentientos/developmental_model_replacement_experimental_serving.py
+index 5a7fdb535..0303fb061 100644
+--- a/sentientos/developmental_model_replacement_experimental_serving.py
++++ b/sentientos/developmental_model_replacement_experimental_serving.py
+@@ -193,11 +193,15 @@ class ExperimentalModelServingController:
+         inference_digest = observation.get("inference_receipt_digest")
+         if (not isinstance(serving_id, str) or not serving_id.startswith("experimental-serving-receipt-")
+                 or len(serving_id) != len("experimental-serving-receipt-") + 24
++                or any(character not in "0123456789abcdef" for character in serving_id[-24:])
+                 or not isinstance(serving_digest, str) or len(serving_digest) != 64
+                 or any(character not in "0123456789abcdef" for character in serving_digest)
+                 or not isinstance(lifetime_id, str) or not lifetime_id.startswith("experimental-serving-lifetime-")
++                or len(lifetime_id) != len("experimental-serving-lifetime-") + 24
++                or any(character not in "0123456789abcdef" for character in lifetime_id[-24:])
+                 or not isinstance(inference_id, str) or len(inference_id) != len("lmrec-") + 24
+                 or not inference_id.startswith("lmrec-")
++                or any(character not in "0123456789abcdef" for character in inference_id[-24:])
+                 or not isinstance(inference_digest, str) or len(inference_digest) != 64
+                 or any(character not in "0123456789abcdef" for character in inference_digest)):
+             raise ExperimentalModelServingError("historical_experiment_receipt_identity_invalid")
+diff --git a/sentientos/developmental_model_replacement_rehearsal.py b/sentientos/developmental_model_replacement_rehearsal.py
+index 924dc5c6d..9d208c6f0 100644
+--- a/sentientos/developmental_model_replacement_rehearsal.py
++++ b/sentientos/developmental_model_replacement_rehearsal.py
+@@ -14,8 +14,9 @@ from .developmental_model_replacement_campaign import DevelopmentalModelReplacem
+ from .developmental_model_replacement_experiment import (CognitiveModelIdentity,
+     DevelopmentalModelReplacementExperiment, FrozenCausalContext, ModelDevelopmentProvenance,
+     ModelReplacementArtifactStore, ObjectivePredictionTask, _digest)
+-from .developmental_model_replacement_experimental_serving import (APPROVAL_SCHEMA,
+-    ExperimentalModelServingController, approval_bindings)
++from .developmental_model_replacement_experimental_serving import (
++    APPROVAL_SCHEMA, ExperimentalModelServingController,
++    ExperimentalModelServingError, approval_bindings)
+ from .developmental_model_replacement_production_trial import (
+     DevelopmentalModelReplacementProductionTrialRunner, verify_production_trial_receipt)
+ from .installation_state import InstallationIdentity, InstallationStateRegistry
+@@ -180,13 +181,17 @@ def _context(objective_task: ObjectivePredictionTask | None = None) -> FrozenCau
+             separators=(",", ":")).encode("utf-8"))
+     else:
+         generation_tokens = 8
+-    history = ({"id": "rehearsal-history", "value": "synthetic"},)
++    history_record = {"id": "rehearsal-history", "value": "synthetic"}
++    history_digest = _digest(history_record)
++    history = ({"record_id": "rehearsal-history", "record_digest": history_digest,
++        "value": "synthetic", "historical_only": True,
++        "epistemic_posture": "historical_interpretation_not_current_truth"},)
+     return FrozenCausalContext.create(snapshot_id="rehearsal-snapshot", snapshot_digest=_digest({"snapshot": 1}),
+         current_projection_id="rehearsal-current-projection", current_projection_digest=_digest(current),
+         current_fact_ids=("rehearsal-current",), projected_content_digest=_digest(current),
+         current_projection_payload=current, history_record_ids=("rehearsal-history",),
+-        history_record_digests=(_digest(history[0]),),
+-        history_record_set_digest=_digest({"record_ids": ["rehearsal-history"], "record_digests": [_digest(history[0])]}),
++        history_record_digests=(history_digest,),
++        history_record_set_digest=_digest({"record_ids": ["rehearsal-history"], "record_digests": [history_digest]}),
+         history_projection_payload=history, instruction_template="Context: {context}\nHistory: {history}\nAnswer deterministically.",
+         instruction_template_digest=_digest({"instruction": "Context: {context}\nHistory: {history}\nAnswer deterministically."}),
+         inference_budget={"max_input_chars": 4096, "max_output_chars": 128,
+@@ -410,6 +415,67 @@ def verify(root: Path) -> Mapping[str, Any]:
+     return body
+ 
+ 
++
++def verify_serving_custody(root: Path, *, tamper_reference: bool = False) -> Mapping[str, Any]:
++    """Reconcile rehearsal-produced receipts without loading or invoking a model."""
++    bundle, handle, scenario, _, _, _ = _load(root)
++    artifact_store = ModelReplacementArtifactStore(bundle)
++    protocol = artifact_store.load_verified_protocol(
++        scenario["protocol_id"], scenario["protocol_digest"])
++
++    def forbidden_factory(*_: Any, **__: Any) -> Any:
++        raise AssertionError("custody_verification_must_not_load_a_worker")
++    controller = ExperimentalModelServingController(handle,
++        ControlPlaneKernel(decisions_path=bundle / "custody-verification-decisions.jsonl"),
++        artifact_root=bundle, model_factory=forbidden_factory, allow_synthetic_evidence_for_tests=True)
++    observations: list[Mapping[str, Any]] = []
++    trial_paths = sorted((bundle / "trial_receipts").glob("*.json")) if (bundle / "trial_receipts").exists() else []
++    for path in trial_paths:
++        trial = _read(path)
++        verify_production_trial_receipt(trial)
++        run = artifact_store.load_verified_run(str(trial["run_id"]), str(trial["run_digest"]))
++        if not isinstance(run.get("observations"), list):
++            raise ValueError("rehearsal_serving_custody_observations_missing")
++        observations.extend(row for row in run["observations"] if isinstance(row, Mapping))
++    if not observations:
++        raise ValueError("rehearsal_serving_custody_observations_missing")
++    for observation in observations:
++        role = "model_a" if str(observation.get("condition_id", "")).startswith("model_a") else "model_b"
++        expected = protocol.model_a_identity if role == "model_a" else protocol.model_b_identity
++        controller.verify_persisted_observation_receipts(
++            observation, protocol=protocol, model_role=role, expected=expected)
++    rejected = 0
++    if tamper_reference:
++        if not observations:
++            raise ValueError("rehearsal_serving_custody_observations_missing")
++        original = observations[0]
++        for key in ("model_serving_receipt_id", "model_serving_receipt_digest", "model_serving_lifetime_id",
++                    "inference_receipt_id", "inference_receipt_digest"):
++            altered = dict(original)
++            value = str(altered[key])
++            altered[key] = value[:-1] + ("0" if value[-1] != "0" else "1")
++            try:
++                role = "model_a" if str(altered.get("condition_id", "")).startswith("model_a") else "model_b"
++                expected = protocol.model_a_identity if role == "model_a" else protocol.model_b_identity
++                controller.verify_persisted_observation_receipts(
++                    altered, protocol=protocol, model_role=role, expected=expected)
++            except ExperimentalModelServingError:
++                rejected += 1
++            else:
++                raise ValueError("rehearsal_tampered_serving_reference_accepted")
++    return {
++        "status": "verified",
++        "verified_observation_count": len(observations),
++        "tampered_reference_rejections": rejected,
++        "custody_posture": "synthetic_owner_produced_local_receipts",
++        "model_load_performed": False,
++        "inference_performed": False,
++        "learning_established": False,
++        "canonical_activation_mutated": False,
++        "canonical_production_serving_mutated": False,
++    }
++
++
+ def summarize(root: Path) -> Mapping[str, Any]:
+     bundle, _, scenario, context, pa, pb = _load(root)
+     protocol = ModelReplacementArtifactStore(bundle).load_verified_protocol(scenario["protocol_id"], scenario["protocol_digest"])
+diff --git a/tests/e2e/test_developmental_model_replacement_rehearsal.py b/tests/e2e/test_developmental_model_replacement_rehearsal.py
+index 46e386016..c840acf78 100644
+--- a/tests/e2e/test_developmental_model_replacement_rehearsal.py
++++ b/tests/e2e/test_developmental_model_replacement_rehearsal.py
+@@ -35,6 +35,26 @@ def test_separate_cli_processes_reconstruct_and_complete_exact_campaign(tmp_path
+     assert final["synthetic_only_posture"] and final["activation_preserved"]
+     assert final["production_serving_preserved"] and final["developmental_history_preserved"]
+ 
++def test_owner_produced_receipts_reconcile_after_restart_and_reject_tampered_references(tmp_path: Path) -> None:
++    root = tmp_path / "receipt-custody"
++    cli(root, "prepare")
++    cli(root, "run-next")
++    verified = cli(root, "verify-serving-custody")
++    assert verified["status"] == "verified"
++    assert verified["verified_observation_count"] == 5
++    assert verified["tampered_reference_rejections"] == 0
++    assert verified["custody_posture"] == "synthetic_owner_produced_local_receipts"
++    assert verified["model_load_performed"] is False
++    assert verified["inference_performed"] is False
++    assert verified["learning_established"] is False
++    tampered = cli(root, "verify-serving-custody", "--tamper-reference")
++    assert tampered["tampered_reference_rejections"] == 5
++    assert tampered["model_load_performed"] is False
++    assert tampered["inference_performed"] is False
++    assert tampered["canonical_activation_mutated"] is False
++    assert tampered["canonical_production_serving_mutated"] is False
++
++
+ def test_model_b_load_failure_closes_a_without_trial_success(tmp_path: Path) -> None:
+     root = tmp_path / "load-failure"; prepare(root, fault="model_b_load_failure")
+     with pytest.raises(Exception, match="experimental_model_load_failed"): run_next(root)
+diff --git a/work/sentientos_night_watch_continuation.md b/work/sentientos_night_watch_continuation.md
+index 512702552..1021f401d 100644
+--- a/work/sentientos_night_watch_continuation.md
++++ b/work/sentientos_night_watch_continuation.md
+@@ -3492,3 +3492,12 @@ Review after the root-descriptor refactor caught that the shared directory opene
+ - Added an actual owner-composition case with malformed quarantine and malformed pressure feed: the real controller's distinct failures enter World-State, are selected into tick-N cognition, are admitted into the existing developmental-history store, and are retrieved at tick N+1. Both failures remain distinguishable; unknown pressure is never serialized as a numeric observation. The retained packet remains historical, non-authoritative, and does not establish attack.
+ - Full resident developmental cognition module: **52 passed**. Changed Python compiled and `git diff --check` passed. Acceptance: `work/integrity_controller_compounded_failure_later_cognition_acceptance.json`. The configured test invoker is deterministic and does not demonstrate real-model learning or defensive improvement.
+ - Next: continue with a separate owner-backed defensive observation or recovery dependency; do not treat this custody anomaly as an attack or infer an independently observed defense.
++
++
++## 2026-11-27 checkpoint — verify experimental-serving custody after restart
++
++- Added a bounded verify-serving-custody action to the synthetic model-replacement rehearsal. It reopens owner-produced trial and observation artifacts in a new process, then calls the experimental-serving controller read-only persisted-receipt verifier for every observation. The worker factory deliberately raises if called, so successful acceptance proves the verifier does not reconstruct a worker.
++- The acceptance fixture replays five valid observations and checks tampering of serving receipt ID/digest, lifetime ID, and inference receipt ID/digest. All five altered references are rejected. Output explicitly marks synthetic custody only, no model load, no inference in the verifier, no learning established, and no canonical activation/serving mutation.
++- This exposed two fixture integration defects after context v3 landed: rehearsal history rows lacked the record ID/digest projection required by the current frozen-context contract, and the observation verifier path used re.fullmatch without importing re. Both were repaired.
++- Focused owner-custody acceptance: 1 passed. Full rehearsal E2E module: 8 passed. Python compilation and git diff --check passed. GPU/model inference was not used. This is custody reconciliation only, not evidence of developmental learning.
++- Next dependency remains a genuine inference model/runner plus an independent prospective consequence source; those are needed before acquisition/transfer or performance claims can be executed.
