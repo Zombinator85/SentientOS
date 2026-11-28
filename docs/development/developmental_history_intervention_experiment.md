@@ -1210,6 +1210,7 @@ identity recipes (implementation digest
 `e6e190ccc1d0a7a5c8933d854df967ff26714e9f61fc419bce3cab9d4b1686ef`).
 The identity recipe was derived from the existing manifest; no model was
 loaded. Independent preregistration timing remains false.
+A repository-hosted [pre-run digest receipt](evidence/cognition_goal_20261127_v6_pre_run_digest_receipt.md) binds the plan, private history bundle, and CPU preflight artifacts by SHA-256 without publishing the private bundle. It provides hosted custody only; independent preregistration timing remains unestablished.
 
 The plan-bound [private history bundle](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/initial-history-bundle.json)
 contains 12 files and has bundle digest
