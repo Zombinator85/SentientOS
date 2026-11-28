@@ -1,0 +1,36 @@
+{
+  "authority": false,
+  "campaign_id": "rootless-history-campaign-80267c0fbd908e310860",
+  "digests": {
+    "campaign_plan_digest": "5f5a9a621320a30e40a68746dfe6555861bc28894b96651eca5b7c286424fc41",
+    "campaign_plan_file_sha256": "bd711baefa64d5b3fb7c165a9197a9486816de146db665526343c2482cb09fdc",
+    "owner_feedback_protocol_sha256": "eadf7e24dea6c21b7017464b6ccc46ed672fd2d99c65db7e158c26623cea27ac",
+    "private_run_card_file_sha256": "a303ad4db17bb3a8cd3e2f0f4f30cd0f11ba9ae4b7fcb494f70a9175c3041837"
+  },
+  "inference_performed": false,
+  "model_identity_included": false,
+  "observed_launch_state": {
+    "authority": false,
+    "gpu_confirmation_required_per_cycle": true,
+    "inference_performed": false,
+    "planned_cycle_storage_roots_exist": false,
+    "run_card_status": "prepared_not_started"
+  },
+  "preregistration_timing_independently_attested": false,
+  "publication": {
+    "does_not_establish": [
+      "when the campaign plan was first drafted",
+      "independent authorship or review",
+      "that plan contents or private seeds were published",
+      "actual remote push time",
+      "model learning, performance improvement, or causal effect"
+    ],
+    "timestamp_scope": "The digest-only record will be included in a commit made while this campaign remains unstarted. The remote ref will be checked for reachability before any model invocation.",
+    "timestamp_source": "Git commit metadata and reachability from the verified remote ref"
+  },
+  "raw_campaign_plan_included": false,
+  "raw_run_card_included": false,
+  "schema_version": "sentientos.pre_run_campaign_digest_attestation:v2",
+  "status": "prepared_not_started_at_publication",
+  "task_generation_seeds_included": false
+}

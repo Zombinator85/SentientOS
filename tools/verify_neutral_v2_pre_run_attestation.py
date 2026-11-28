@@ -38,6 +38,11 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
     card_bytes = args.run_card.read_bytes()
     card = json.loads(card_bytes)
     attestation = read_json(attestation_path)
+    attestation_schema = attestation.get("schema_version")
+    is_v1 = attestation_schema == "sentientos.pre_run_campaign_digest_attestation:v1"
+    is_v2 = attestation_schema == "sentientos.pre_run_campaign_digest_attestation:v2"
+    attested_plan_digest = attestation.get("digests", {}).get(
+        "campaign_plan_sha256" if is_v1 else "campaign_plan_digest")
     campaign_plan_digest = plan.get("plan_digest")
     campaign_id = plan.get("campaign_id")
     cycles = plan.get("ordered_cycle_ids", [])
@@ -72,6 +77,9 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         "utf-8").strip()
 
     checks = {
+        "attestation_schema_supported": is_v1 or is_v2,
+        "attestation_status_prepared_not_started": (
+            attestation.get("status") == "prepared_not_started_at_publication"),
         "attestation_commit_reachable_from_remote_ref": reachable,
         "attestation_commit_contains_exact_file_bytes": (
             commit_blob == attestation_path.read_bytes()
@@ -90,9 +98,13 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "cycle_inventory_matches_plan": cycle_inventory_matches,
         "plan_digest_matches_attestation_and_card": (
-            attestation.get("digests", {}).get("campaign_plan_sha256")
-                == campaign_plan_digest
+            attested_plan_digest == campaign_plan_digest
             and card.get("campaign_plan_digest") == campaign_plan_digest
+        ),
+        "campaign_plan_file_digest_matches_attestation": (
+            (not is_v2 or attestation.get("digests", {}).get(
+                "campaign_plan_file_sha256") == sha256(args.plan.read_bytes()))
+            and (is_v1 or is_v2)
         ),
         "protocol_digest_matches_attestation_and_card": (
             attestation.get("digests", {}).get("owner_feedback_protocol_sha256")
@@ -111,6 +123,10 @@ def verify(args: argparse.Namespace) -> dict[str, Any]:
             and card.get("preregistration_timing_independently_attested") is False
             and attestation.get("preregistration_timing_independently_attested")
                 is False
+            and (is_v1 or (is_v2 and isinstance(
+                attestation.get("publication", {}).get("does_not_establish"), list)
+                and "actual remote push time" in attestation.get(
+                    "publication", {}).get("does_not_establish")))
         ),
         "campaign_still_prepared_without_inference_or_authority": (
             card.get("status") == "prepared_not_started"
