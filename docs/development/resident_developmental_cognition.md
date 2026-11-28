@@ -7474,3 +7474,25 @@ invalid. The result validates protocol wiring and durable record selection; it
 is negative evidence for this model/probe configuration, not evidence that
 cross-cycle feedback changed cognition. The run was synthetic and rootless,
 with no real action consequence or operator observation.
+
+
+### Durable history-prompt delivery binding (2026-11-28)
+
+The cross-cycle feedback recall receipts showed that retrieval selected the
+expected record and the governed inference request carried a digest of the
+model-visible history payload, while the answer remained the generic
+HISTORY_UNAVAILABLE sentinel in all three conditions. The receipt bound the
+selected record IDs and digests, prompt digest, and a digest of the rendered
+history fields without retaining the raw prompt or history text. The v15
+observation verifier did not reconcile that delivery binding against its
+selected-record lineage.
+
+New v16 cognition observations require the governed receipt's delivery binding
+to match the observation prompt digest, selected record IDs and digests, and
+history-selection packet list. The verifier checks the payload digest shape,
+packet count, and the no-raw-prompt, no-authority, and no-learning postures.
+This proves that the durable invocation receipt reports the exact selected
+history packet identities as delivered in that prompt. It does not prove model
+attention or learning. The change is documented with the invocation and
+observation validation in resident_developmental_cognition.py and its
+versioned consumers.
