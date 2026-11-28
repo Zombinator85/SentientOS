@@ -1227,7 +1227,10 @@ returned `status=verified`, matched current source and model identity pins,
 and records no inference; its file SHA-256 is
 `e7e83e35aa1e9989dbb4a8891ad8bacfc79eb8f2a4a70dff62028ddbd3ccef57`.
 It cannot reconstruct the exact future cycle prompt until the new acquisition
-output and observation timestamp exist. The plan remains unrun. GPU utilization
-was 40% at the last live check, so no Hermes inference was started. This
-preparation establishes neither model attention, learning, causal attribution,
-nor authority.
+output and observation timestamp exist. The plan remains unrun. The cycle
+runner requires `SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to equal the
+specific cycle ID and rechecks effective utilization before every inference.
+Its pre-inference limit is 25%; the latest host-wide sample was 40%, so the
+runner would fail closed. No per-cycle confirmation was used. Telemetry does
+not attribute GPU use to a particular application. This preparation establishes
+neither model attention, learning, causal attribution, nor authority.
