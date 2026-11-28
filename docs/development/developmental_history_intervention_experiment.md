@@ -1386,6 +1386,18 @@ The cycle-0 preflight passed independent reconstruction with status
 It selected no historical records; planned acquisition inputs are `[3, 4, 5]`
 and held-out transfer inputs are `[6, 7, 8]`.
 
+A separate CPU-only seed-design audit recomputed both planned task pairs from
+the frozen seeds. Together they cover four distinct acquisition input
+opportunities against the three-correct-input minimum; each cycle contributes
+one input not present in the other cycle, and within-cycle acquisition and
+held-out transfer probes are disjoint. Its audit digest is
+`1190326ecc685d770c586f8e64c11e8fcb939242f90d69ad3ab2d83901d78e59`, and the
+independent reconstruction report returned `status=verified`. No source run
+has executed, so none of these opportunities is evidence of correctness or
+source eligibility. Both private artifacts are in the campaign directory as
+`source-seed-design-audit.json` and
+`source-seed-design-audit-verification.json` (mode 0600).
+
 A private [launch card](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/cycle-launch-card-v1.json)
 (mode 0600, SHA-256
 `ae684f95d9e99a4f5e96511aceeeb308e6f03d6a4650da6ba3c2a5c8d491a889`) now
