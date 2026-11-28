@@ -22,6 +22,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.run_rootless_ollama_embodied_cognition_cycle import (  # noqa: E402
+    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT,
+)
 from sentientos.local_model import (  # noqa: E402
     ActiveModelIdentity,
     GenerationConfig,
@@ -1056,7 +1059,7 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
                 records=records, projection=None,
                 history_present=True, compact_history_for_input=True,
                 expected_history_record_ids=expected_history_record_ids,
-                max_input_chars=24_576))
+                max_input_chars=ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT))
         prompt_digest = _digest({"prompt": prompt})
         family_projection = _task_family_history_prompt_projection(bound,
             condition_id="history_present", task_family_id=family,
@@ -1317,7 +1320,8 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
                 "historical_probe_overlap_measurement_complete") is True
             and seeded_acquisition_family_projection.get(
                 "historical_probe_overlap_input_count") == 0
-            and len(seeded_acquisition_result["prompt"]) <= 24_576)
+            and len(seeded_acquisition_result["prompt"]) <=
+                ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)
         seed_sensitivity_rows.append({
             "task_generation_seed": seed,
             "acquisition_probe_inputs": list(seeded_acquisition_inputs),
@@ -1340,7 +1344,8 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
                 seeded_acquisition_family_projection.get(
                     "historical_probe_overlap_measurement_complete")),
             "acquisition_prompt_within_bound": (
-                len(seeded_acquisition_result["prompt"]) <= 24_576),
+                len(seeded_acquisition_result["prompt"]) <=
+                    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT),
             "acquisition_no_exact_history_probe_overlap": (
                 seeded_acquisition_no_overlap),
             "transfer_probe_inputs": list(seeded_transfer_inputs),
@@ -1377,7 +1382,8 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
                 seeded_strategy_source_audit),
             "accumulated_strategy_model_identity_audit": seeded_identity_audit,
             "prompt_chars": len(seeded_result["prompt"]),
-            "prompt_within_bound": len(seeded_result["prompt"]) <= 24_576,
+            "prompt_within_bound": (len(seeded_result["prompt"]) <=
+                ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT),
             "task_family_prompt_projection_verified": True,
             "task_family_prompt_projection_digest": (
                 seeded_result["family_projection"]["projection_digest"]),
@@ -1508,7 +1514,8 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
                 serialized_evidence_chars - baseline_evidence_chars),
             "binding_status": "bound",
             "prompt_chars": len(sensitivity["prompt"]),
-            "prompt_margin_chars": 24_576 - len(sensitivity["prompt"]),
+            "prompt_margin_chars": (ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT
+                - len(sensitivity["prompt"])),
             "selected_record_count": len(sensitivity["selected_ids"]),
             "selected_record_ids": list(sensitivity["selected_ids"]),
             "strategy_run_count": (sensitivity_strategy.get(
@@ -1658,8 +1665,9 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
         "negative_example_ablation": negative_example_ablation,
         "prompt_chars": len(prompt),
         "prompt_digest": prompt_digest,
-        "prompt_limit_chars": 24_576,
-        "prompt_within_bound": len(prompt) <= 24_576,
+        "prompt_limit_chars": ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT,
+        "prompt_within_bound": (len(prompt)
+            <= ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT),
         "task_family_prompt_projection_verified": True,
         "task_family_prompt_projection_schema": family_projection["schema_version"],
         "task_family_prompt_projection_digest": family_projection["projection_digest"],
