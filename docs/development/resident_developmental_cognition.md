@@ -7397,3 +7397,18 @@ historical cycles comprise 11 novel-range and 3 wide-range runs; none exercises
 the low-range path. The updated source pin requires a freshly generated
 low-range campaign plan before execution. This strengthens evidence custody; it
 does not establish learning or independently attest preregistration timing.
+
+
+### Current rootless cycle outcome audit (2026-11-27)
+
+A read-only review of the 14 completed cycle results in the current private
+rootless experimental store found 11 novel-range v8 runs and 3 wide-range v7
+runs; there are no low-range v6 results. None of the 14 acquisition records
+establishes learning or performance improvement, and every acquisition
+projection audit reports `fewer_than_two_score_bound_correct_source_runs`.
+
+This is a gap in the available accumulated-source evidence, not evidence that
+learning is impossible. The newly prepared two-run low-range campaign is aimed
+at obtaining independently scored source evidence. Its eligibility audit will
+still not demonstrate transfer; that requires a later held-out target
+measurement against an appropriate comparison condition.
