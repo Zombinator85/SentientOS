@@ -739,6 +739,17 @@ normalization continues to apply to ordinary companion decisions; trial
 outcomes are measured without that post-inference rewrite. The general
 historical cue also matches both the forms previous and previously.
 
+A CPU-only recovery replay of disposable copies of the retained cycle-19 and
+cycle-20 stores is recorded in the [recovery report](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/owner-feedback-recovery-replay-v4/recovery-report.json),
+SHA-256 `cb1ec49e3e3e17d307a211cb8fc7b7f4bb23efe3ef1ee513ce4229e56ce46c2d`.
+Production owner recovery preserved each parent row, bound recovered child
+ticks to their exact feedback record and receipt, avoided duplicating the
+already-mutated cycle-19 parent in the cycle-20 snapshot, and produced
+byte-identical persisted state on the second recovery. The replay loaded no
+model and performed no inference; it validates recovery mechanics only and
+establishes neither learning nor authority. The original campaign audit remains
+a historical record with its cognition-state chain marked false.
+
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to
 the exact feedback record and writeback receipt, verifies that pair in the
