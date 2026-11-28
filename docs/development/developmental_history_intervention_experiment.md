@@ -676,6 +676,17 @@ label for versioned older schemas. This makes the reason for the false chain
 status explicit; it does not turn the skipped qualification into verified
 evidence or alter the immutable v25 audit.
 
+A fresh model-free replay of the same two cycle roots with the current verifier
+produced the answer-free
+[campaign-audit-v25-current-verifier.json](../../artifacts/experiments/ordinary-chat-retention-20261127/hermes-score-bound-acquisition-v1/campaign-audit-v25-current-verifier.json),
+digest cdef6ab18eeabb5db486ad24b8b60bb0302588d1eeaf8492aa74eacd303cd76b.
+Both rows now report precondition_not_run_no_action_consequence_record; the
+precondition chain correctly remains false because neither cycle produced an
+action-consequence record. The audit retains verified source-run, append-only
+history, seed, runtime-admission, and cognition-recovery chains. It still records
+no learning, authority, or independent preregistration attestation. The original
+v25 audit and both immutable cycle manifests remain unchanged.
+
 ## Confidence-saturation reanalysis of v23 and v25 acquisition scores
 
 The v6 confidence auditor reprocessed the acquisition scores for these two completed campaigns. It verifies each acquisition-run digest, selected-history record digest and posture, campaign audit chain, per-cycle source-run binding, and score-level abstention representation and agreement between each score's status/correct fields and recomputed probe outcomes. For schema-v6 scores, answered probes must omit the abstained marker; abstentions must carry abstained=true with no observed answer or confidence value. Aggregate status must be selective when any probe abstains, otherwise correct only when every probe is correct. These reports cover objective task-family acquisition conditions; they do not re-score the separate companion-history citation outcome or transfer probes. Both campaign audits report the transfer-precondition snapshot chain as false, which v6 preserves explicitly while limiting its result to acquisition scores.

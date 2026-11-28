@@ -3501,3 +3501,11 @@ Review after the root-descriptor refactor caught that the shared directory opene
 - This exposed two fixture integration defects after context v3 landed: rehearsal history rows lacked the record ID/digest projection required by the current frozen-context contract, and the observation verifier path used re.fullmatch without importing re. Both were repaired.
 - Focused owner-custody acceptance: 1 passed. Full rehearsal E2E module: 8 passed. Python compilation and git diff --check passed. GPU/model inference was not used. This is custody reconciliation only, not evidence of developmental learning.
 - Next dependency remains a genuine inference model/runner plus an independent prospective consequence source; those are needed before acquisition/transfer or performance claims can be executed.
+
+
+## 2026-11-27 checkpoint — replay v25 under the corrected verifier
+
+- Replayed the actual v25 cycle roots using the current CPU-only campaign verifier and wrote answer-free audit artifact campaign-audit-v25-current-verifier.json (digest cdef6ab18eeabb5db486ad24b8b60bb0302588d1eeaf8492aa74eacd303cd76b).
+- Both completed cycle rows now report precondition_not_run_no_action_consequence_record. The transfer-precondition chain correctly stays false because no action-consequence record existed. Source-run, append-only history, seed, runtime-admission, and cognition-recovery chains verify; learning, authority, and independent preregistration timing remain false.
+- The prior v25 audit and cycle manifests were not changed. This was a read-only evidence replay; no model was loaded and no inference was performed. GPU was already at 40% utilization and remained untouched.
+- Next: keep the campaign's negative result explicit and inspect the preregistered post-v25 experiment path for a source-defined prospective consequence owner; do not infer improvement from the 9/12 acquisition outcome because cycle-0 transfer scored 0/12 and cycle 1 did not meet its acquisition gate.
