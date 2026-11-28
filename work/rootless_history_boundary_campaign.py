@@ -37,6 +37,7 @@ from sentientos.developmental_model_replacement_experiment import (  # noqa: E40
 from sentientos.resident_developmental_cognition import (  # noqa: E402
     _task_family_history_examples,
     _task_family_history_probe_overlap,
+    audit_task_family_history_projection,
 )
 from work.export_rootless_cycle_evidence_manifest import (  # noqa: E402
     _cycle_identity,
@@ -1969,6 +1970,58 @@ def _low_range_source_correct_inputs(*, cycle_root: Path,
     present = score_by_condition.get("history_present")
     if not isinstance(present, Mapping):
         raise ValueError("history_campaign_low_range_source_present_score_missing")
+
+    # Rebuild the source score projection from the exact retained history
+    # record. A terminal writeback summary is not independent evidence that the
+    # retained examples still bind to this source run and score.
+    record_id = acquisition.get("history_record_id")
+    if (not isinstance(record_id, str)
+            or re.fullmatch(r"devrec-[0-9a-f]{24}", record_id) is None):
+        raise ValueError("history_campaign_low_range_source_record_identity_invalid")
+    record_path = f"resident-cognition/history/records/{record_id}.json"
+    try:
+        record_raw = _read_manifest_bound_file(root=cycle_root,
+            manifest=manifest, relative_path=record_path)
+        record_data = json.loads(record_raw.decode("utf-8"))
+        from sentientos.resident_developmental_writeback import (
+            DevelopmentalHistoryStore, DevelopmentalRecord)
+        retained_record = DevelopmentalRecord(**record_data)
+        DevelopmentalHistoryStore._verify_record(retained_record)
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise ValueError(
+            "history_campaign_low_range_source_record_unavailable_or_invalid") from exc
+    if (json.dumps(record_data, sort_keys=True, indent=2).encode("utf-8")
+            + b"\n" != record_raw
+            or record_data.get("record_id") != record_id
+            or not isinstance(record_data.get("candidate"), Mapping)):
+        raise ValueError("history_campaign_low_range_source_record_noncanonical")
+    active_identity = protocol.get("active_model_identity")
+    projection_audit = audit_task_family_history_projection(
+        record_data["candidate"], task_family_id=_TASK_FAMILY,
+        target_model_identity=(active_identity if isinstance(active_identity, Mapping)
+            else None), source_run_id=source_run.get("run_id"))
+    source_projection = projection_audit.get("source_run_score_projection")
+    expected_incorrect_count = (present.get("probe_count")
+        - present.get("correct_count") - present.get("abstained_count", 0)
+        if type(present.get("probe_count")) is int
+            and type(present.get("correct_count")) is int
+            and type(present.get("abstained_count", 0)) is int else None)
+    if (projection_audit.get("projectable_experience_count") != 1
+            or not isinstance(source_projection, Mapping)
+            or source_projection.get("source_run_id") != source_run.get("run_id")
+            or source_projection.get("source_score_digests")
+                != [present.get("score_digest")]
+            or source_projection.get("example_count") != present.get("probe_count")
+            or source_projection.get("correct_example_count")
+                != present.get("correct_count")
+            or source_projection.get("incorrect_example_count")
+                != expected_incorrect_count
+            or source_projection.get("abstained_example_count")
+                != present.get("abstained_count", 0)
+            or source_projection.get("outcome_unknown_count") != 0):
+        raise ValueError(
+            "history_campaign_low_range_source_record_projection_mismatch")
+
     receipt_binding = acquisition.get("history_score_binding")
     if (receipt_binding.get("expected_score_digest") != present.get("score_digest")
             or receipt_binding.get("observed_score_digests") !=

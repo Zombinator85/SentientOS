@@ -1,0 +1,102 @@
+{
+  "authority": false,
+  "claim_boundary": {
+    "authority": false,
+    "causal_attribution_established": false,
+    "claim_scope": "history-conditioned capability pattern only",
+    "generalization_beyond_preregistered_probes_established": false,
+    "learning_established": false
+  },
+  "execution_gate": "materialize_target_campaign_plan_only_after_source_campaign_audit_reports_eligible_true_and_cycle_2_history_is_retained",
+  "inference_performed": false,
+  "preregistration_timing_independently_attested": false,
+  "probe_separation": {
+    "raw_probe_values_included": false,
+    "source_family_input_range": [
+      2,
+      9
+    ],
+    "target_combined_probe_sets_disjoint_across_cycles": true,
+    "target_transfer_range": [
+      10,
+      1000
+    ]
+  },
+  "roster_digest": "6c39f6829942bcbcdc2679f2573fbf09b475a4a878c54b6be4c20a4b3686e824",
+  "schema_version": "sentientos.rootless_cross_range_followup_seed_roster:v3",
+  "source_campaign": {
+    "campaign_id": "rootless-history-campaign-20261127000100000010",
+    "eligibility_required": true,
+    "experiment_implementation_digest": "1477f917f2b0cd20d8e9d8f1e38841ec4d4d3c8e6fafa7761bf06e654a4376a2",
+    "minimum_distinct_correct_source_inputs": 3,
+    "minimum_score_bound_correct_source_runs": 2,
+    "ordered_cycle_ids": [
+      "rootless-cognition-cycle-20261127000100000015",
+      "rootless-cognition-cycle-20261127000100000016"
+    ],
+    "plan_digest": "7c6b8628c6b0be0c9cdd9b96d7b26e22cccbc1eb68866d1d02a994a86b76a180",
+    "task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+    "task_generator_sha256": "340a94ecc8c2fc2c69da8327fd0937628320f7f5257252d400fe3a588d373919"
+  },
+  "supersedes_roster_digest": "8b3af58358460d643ba13c4b917171fe051e09c987240bc2c23ab89924c1ee12",
+  "supersession_reason": "source_campaign_now_independently_reconstructs_score_bound_projection_from_retained_record",
+  "target_campaign": {
+    "acquisition_probe_count": 3,
+    "campaign_id": "rootless-history-campaign-20261127000100000011",
+    "cross_range_history_enabled_competence": {
+      "answer_values_in_summary": false,
+      "baseline_competence_required": false,
+      "claim_scope": "history_conditioned_capability_pattern_only",
+      "conditions": [
+        "history_present",
+        "history_withheld",
+        "history_restored"
+      ],
+      "cross_cycle_history_posture": "append_only_campaign_history",
+      "minimum_distinct_correct_source_inputs": 3,
+      "minimum_planned_cycles": 2,
+      "minimum_score_bound_correct_source_runs": 2,
+      "per_probe_outcomes_required": true,
+      "probe_outcome_schema_version": "sentientos.objective_probe_transition_summary:v1",
+      "require_exact_source_record_receipts_present_restored": true,
+      "require_unique_correct_input_contribution_per_source_run": true,
+      "require_zero_overlap_with_all_declared_history_families": true,
+      "schema_version": "sentientos.cross_range_history_enabled_competence_protocol:v2",
+      "score_digest_binding_required": true,
+      "source_task_family_id": "rootless_integer_affine_transfer_low_range_v6",
+      "target_task_family_id": "rootless_integer_affine_transfer_wide_range_v7"
+    },
+    "gpu_layers": 32,
+    "model_manifest_digest": "ebb2efeea46036ca7f276589e710729aff06c3a4b7b7b970c09da1712daf0989",
+    "model_name": "sentientos-hermes4:14b-q4km",
+    "ordered_backend_seeds": [
+      419009,
+      419010
+    ],
+    "ordered_cycle_ids": [
+      "rootless-cognition-cycle-20261127000100000017",
+      "rootless-cognition-cycle-20261127000100000018"
+    ],
+    "ordered_task_generation_seeds": [
+      70271103,
+      70271106
+    ],
+    "prior_history_source_cycle_id": "rootless-cognition-cycle-20261127000100000016",
+    "target_task_probe_commitments": [
+      {
+        "acquisition_probe_count": 3,
+        "probe_commitment": "4b5642d4ed1d9085fc2dc858995837cb55032d5fb3b357378a1bd976db93c229",
+        "seed": 70271103,
+        "transfer_probe_count": 3
+      },
+      {
+        "acquisition_probe_count": 3,
+        "probe_commitment": "6e21d122bc2eebd680d0335c1a6f2623ca6f74938d93d3db152051868626ed23",
+        "seed": 70271106,
+        "transfer_probe_count": 3
+      }
+    ],
+    "task_family_id": "rootless_integer_affine_transfer_wide_range_v7",
+    "transfer_probe_count": 3
+  }
+}
