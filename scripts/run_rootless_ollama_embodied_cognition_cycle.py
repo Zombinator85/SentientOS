@@ -7374,6 +7374,9 @@ def run() -> dict[str, Any]:
                         restored_history_digests),
                     "missing_required_history_record_ids": (
                         missing_required_history_ids),
+                    "missing_required_history_record_digests": [
+                        required_digest_by_id[record_id]
+                        for record_id in missing_required_history_ids],
                     "missing_present_history_record_ids": (
                         missing_present_history_ids),
                     "missing_present_history_record_digests": [
@@ -7416,6 +7419,9 @@ def run() -> dict[str, Any]:
                             restored_history_digests),
                         "missing_required_history_record_ids": list(
                             missing_required_history_ids),
+                        "missing_required_history_record_digests": [
+                            required_digest_by_id[record_id]
+                            for record_id in missing_required_history_ids],
                         "missing_present_history_record_ids": list(
                             missing_present_history_ids),
                         "missing_present_history_record_digests": [

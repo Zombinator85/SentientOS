@@ -111,7 +111,14 @@ def verify_failure(*, failure_path: Path) -> dict[str, Any]:
         ids = diagnostic.get(label + "_history_record_ids")
         digests = diagnostic.get(label + "_history_record_digests")
         expected_digests = [required_digest_by_id[item] for item in expected]
-        if ids != expected or digests != expected_digests:
+        # Historical v2 diagnostics omitted the digest companion only for the
+        # union field. Its exact digests remain derivable from the required
+        # record bindings; validate the companion whenever present.
+        legacy_union_without_digests = (
+            label == "missing_required" and digests is None)
+        if (ids != expected
+                or (not legacy_union_without_digests
+                    and digests != expected_digests)):
             raise ValueError("transfer_preflight_failure_missing_set_mismatch")
 
     prompt_limit = diagnostic.get("prompt_limit_chars")
@@ -150,6 +157,8 @@ def verify_failure(*, failure_path: Path) -> dict[str, Any]:
         "missing_present_count": len(expected_missing_present),
         "missing_restored_count": len(expected_missing_restored),
         "missing_either_count": len(expected_missing_union),
+        "missing_required_digests_derived_from_required_bindings": (
+            diagnostic.get("missing_required_history_record_digests") is None),
         "prompt_limit_chars": prompt_limit,
         "present_prompt_chars": prompt_sizes["present"],
         "restored_prompt_chars": prompt_sizes["restored"],
