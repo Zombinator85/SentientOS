@@ -47,3 +47,9 @@ Private offline verification report SHA-256: `fea07c072b918e3dfe881e0a180393b1e6
 The verifier passed all 18 checks, including exact attestation bytes in the commit, reachability from the fetched remote ref, the private plan-file SHA-256, the semantic plan digest, the protocol and run-card digests, absence of both cycle output roots, and required per-cycle GPU confirmation. The report remains in the private experiment workspace. No model was loaded or invoked.
 
 The commit date and remote reachability are recorded as repository evidence only. The attestation continues to set independent preregistration timing to false.
+
+## Seed-bundle semantic preflight
+
+The offline run-card verifier now calls the campaign runtime's _load_initial_history_bundle before accepting the current replan. This independently recomputes the canonical bundle digest, validates the campaign and plan binding, decodes every private Base64 file entry, checks each file size and SHA-256, and recomputes the source history boundary. Previously the card verifier checked the outer file digest and declared bundle fields but did not itself reconstruct those internal invariants. The experiment runner already enforced them at cycle launch; this moves the same semantic check into CPU-only pre-run review.
+
+Current private run-card verification passed all 24 checks, including initial_history_bundle_semantics_verified. Its private report SHA-256 is 31bfa722ab7331f3673879f67167c8058025472d53bf510fcc4ef684fab97827 and it remains mode 0600. The campaign remains prepared and unstarted; the campaign implementation pins, bundle contents, and private report are not published.

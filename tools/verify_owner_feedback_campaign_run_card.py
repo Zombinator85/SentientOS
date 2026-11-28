@@ -53,6 +53,7 @@ def verify(card_path: Path) -> dict[str, Any]:
     from work.rootless_history_boundary_campaign import (
         _experiment_implementation_hashes,
         _history_boundary,
+        _load_initial_history_bundle,
         _load_plan,
         verify_experiment_implementation,
         verify_model_identity_recipe,
@@ -249,6 +250,10 @@ def verify(card_path: Path) -> dict[str, Any]:
         bundle_path = Path(str(card.get(
             "initial_history_bundle_path", ""))).resolve(strict=True)
         bundle = read_object(bundle_path)
+        _, recomputed_bundle_digest = _load_initial_history_bundle(
+            bundle_path, plan=plan)
+        checks["initial_history_bundle_semantics_verified"] = (
+            recomputed_bundle_digest == bundle.get("bundle_digest"))
         checks["initial_history_bundle_matches_plan"] = (
             hashlib.sha256(bundle_path.read_bytes()).hexdigest()
                 == card.get("initial_history_bundle_sha256")
