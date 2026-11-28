@@ -12746,7 +12746,7 @@ class ResidentDevelopmentalCognitionOwner:
                 recovered_tick = "owner-feedback:" + _digest({
                     "parent_tick_id": correlation_tick,
                     "candidate_id": candidate_id,
-                })[:32]
+                })[7:39]
             if record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
             existing = ticks.get(recovered_tick)
@@ -19757,7 +19757,7 @@ class ResidentDevelopmentalCognitionOwner:
             feedback_tick_id = "owner-feedback:" + _digest({
                 "parent_tick_id": tick_id,
                 "candidate_id": candidate.candidate_id,
-            })[:32]
+            })[7:39]
             operation_id = (
                 f"resident-developmental-companion-feedback:{feedback_tick_id}:"
                 f"{candidate.candidate_id}")
