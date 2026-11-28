@@ -6235,17 +6235,34 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
             expected.get("response"),
             expected.get("disposition"),
             expected.get("retrieved_record_ids") == "exact_feedback_record_id")
+    def _protocol_string_sequence(value: Any, *, maximum: int) -> list[str] | None:
+        # Resident interaction captures expose citation and evidence ID tuples,
+        # while the preregistered protocol uses JSON arrays. Normalize both
+        # representations before exact comparison; None and malformed values
+        # remain distinguishable from a valid empty array.
+        if (not isinstance(value, (list, tuple)) or len(value) > maximum
+                or any(not isinstance(item, str) or not item for item in value)
+                or len(set(value)) != len(value)):
+            return None
+        return list(value)
+
     measured_conditions: list[dict[str, Any]] = []
     for condition_id in expected_condition_order:
         row = condition_rows.get(condition_id)
         expected_response, expected_disposition, should_retrieve = (
             expected_by_condition[condition_id])
-        retrieved_ids = (row.get("retrieved_record_ids")
-            if isinstance(row, Mapping) else None)
-        retrieved_digests = (row.get("retrieved_record_digests")
-            if isinstance(row, Mapping) else None)
-        citations = (row.get("history_record_ids")
-            if isinstance(row, Mapping) else None)
+        retrieved_ids = _protocol_string_sequence(
+            row.get("retrieved_record_ids") if isinstance(row, Mapping) else None,
+            maximum=16)
+        retrieved_digests = _protocol_string_sequence(
+            row.get("retrieved_record_digests") if isinstance(row, Mapping) else None,
+            maximum=16)
+        citations = _protocol_string_sequence(
+            row.get("history_record_ids") if isinstance(row, Mapping) else None,
+            maximum=16)
+        evidence_ids = _protocol_string_sequence(
+            row.get("evidence_ids") if isinstance(row, Mapping) else None,
+            maximum=32)
         expected_ids = [record.record_id] if should_retrieve else []
         expected_digests = [record.record_digest] if should_retrieve else []
         selection_verified = (retrieved_ids == expected_ids
@@ -6258,7 +6275,7 @@ def _run_cross_cycle_owner_feedback_recall(*, owner: ResidentDevelopmentalCognit
         response_matches = (isinstance(row, Mapping)
             and row.get("response") == expected_response
             and row.get("disposition") == expected_disposition
-            and row.get("evidence_ids") == [])
+            and evidence_ids == [])
         response_assessment = ("expected_response_and_disposition"
             if response_matches else "response_or_disposition_mismatch")
         if validation_status is None:
