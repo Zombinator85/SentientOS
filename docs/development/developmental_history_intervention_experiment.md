@@ -1324,15 +1324,19 @@ from the custody-held manifest without loading the model.
 
 Current-source `verify-plan` confirms all 2,558 implementation pins and both
 model identities. The history seed bundle is bound to the replacement plan,
-and the cycle-0 CPU owner/binder preflight passes its dedicated verifier. The
-private launch card and its verifier also pass. These checks establish artifact
-and prompt-construction consistency only; inference has not occurred.
+and the cycle-0 CPU owner/binder preflight passes its dedicated verifier. A
+separate source audit reopened the initial history, confirmed its boundary
+before and after inspection, and independently recomputed that the planned
+transfer probes overlap neither the nine low-range-v6 examples nor any
+wide-range-v7 examples across the six persisted records. This verifies held-out
+input separation, not model performance or learning. The private launch card
+and its verifier also pass.
 
-The card launch gates correctly remain closed: sampled GPU utilization was
-54%, above the 25% pre-inference limit, and no operator confirmation was
-set. Cycle 1 is sequentially blocked pending a completed and verified cycle 0,
-then a fresh cycle-1 preflight. Independent preregistration timing remains
-unestablished. No learning, authority, or performance claim is made. The
-private answer-free offline readiness report is
-`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-offline-readiness-20261128.json`
-(mode 0600, SHA-256 `1766395c74cb28df09e0a8ffd4fa60fd7570673b3a37656bd08ddeebc99d2daf`).
+Launch gates remain closed: sampled GPU utilization was 55%, above the
+25% pre-inference limit, and no operator confirmation was set. Cycle 1 is
+sequentially blocked pending a completed and verified cycle 0, then a fresh
+cycle-1 preflight. Independent preregistration timing remains unestablished.
+No inference, learning, authority, or performance claim is made. The private
+answer-free offline readiness report is
+`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-offline-readiness-20261128-v2.json`
+(mode 0600, SHA-256 `edc8a2786771e1cea7bc6943e94b163807795921fe20a37b5bc84c067688b7a1`).
