@@ -870,3 +870,48 @@ At verification, cycle 1 alone was launch-eligible; no cycle-1 inference had
 yet occurred. The v22 OpenTimestamps submissions still lacked independently
 verified Bitcoin confirmation, so preregistration timing remained
 unattested.
+
+
+### v22 cycle-1 result and complete two-cycle chain (2026-11-28)
+
+Cycle 1, `rootless-cognition-cycle-7252a5a251c37a0a7c40`, completed from the
+same frozen plan and source revision `cc50cb1c4c38cb69b5d7acd2f9107017e72f9774`.
+Its private [cycle result](../../../sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-7252a5a251c37a0a7c40/cycle-result.json)
+(mode 0600, SHA-256
+`e83a3ccffb0a2e042afcb296b58ef534811df3ff33e294c5538eba7c3176670a`)
+records 3/3 correct acquisition probes and 39 admitted, completed inference receipts.
+The model identity matched the preregistered Hermes artifact. Governed release
+completed and the final residency check reported `target_model_not_resident`;
+the host GPU returned to 607 MiB used and 0% utilization.
+
+The exact-scored transfer episode recorded correct counts `[3, 0, 3]` for
+history-present, history-withheld, and history-restored, with the restored
+answer vector matching the present vector. However, the cycle-1 CPU preflight
+found that two of three planned transfer inputs overlap earlier history
+examples. Therefore this is contamination-limited within-campaign evidence,
+not a clean held-out transfer result. The present/withheld/restored association
+is a single-model synthetic observation, not a causal or durable-learning
+claim. The separate controlled-history assessment rejected an invalid
+condition response; no qualified history-associated decision difference was
+established. A later new-action proposal was skipped because no new
+action-consequence record met its evidence precondition. Cross-cycle owner
+feedback recall was also not run because its prior-feedback reference was
+unavailable. No action was executed and no authority was granted.
+
+The private [two-cycle chain audit](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v22-feedback-ordering-20261128/cycle0-1-prefix-chain-audit-v1.json)
+(mode 0600, SHA-256
+`0050177eabd4de772a6efd1ce6ef44475e4541863a5fe646670959af8d95f435`)
+verifies both planned cycles, append-only history, seed boundary, runtime
+admissions, and cognition-recovery chain. Its aggregate low-range source
+eligibility gate is met: two score-bound correct source runs contributed four
+distinct correct inputs against the minimum of two runs and three inputs.
+This establishes source eligibility for the protocol, not learning or
+improvement. The action-history transfer precondition snapshot chain remains
+unverified because no qualifying new action-consequence evidence exists.
+
+The v22 OpenTimestamps submission still has no independently verified Bitcoin
+confirmation, so preregistration timing remains unattested. Taken together,
+this campaign demonstrates governed repeated acquisition and a history-linked
+score contrast under this synthetic task, while leaving generalization,
+durable development, causal attribution, and model-independent continuity
+unestablished.
