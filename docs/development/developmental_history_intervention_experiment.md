@@ -1305,3 +1305,8 @@ first cycle's history and governance chains verify. The
 private artifact digests and the limited claim scope. The plan remains
 unlaunched, independent preregistration timing remains unestablished, and no
 learning or performance claim is made.
+## 2026-11-28 revalidation: wide-range plan is stale
+
+A fresh offline verify-plan against current source rejected the prepared wide-range campaign rootless-history-campaign-20261127000100000027 (plan digest e515d86db444ed271712fde6c305f4815b0029a3c943ba5726907dd00894550c). Of 2,558 implementation pins, exactly one differs: work/replay_planned_cycle_owner_preflight.py. The plan and launch card bind SHA-256 9cc235043e6b52125edcecb0431b1616dff1ee378cbe1ea0fcb1a38bb2a288b4, matching that file at card-creation commit 3490ec1cbdd412aa039ef41943c753455cd0605d; the current file is 846eba26e908ad641b138ce86b1884cc0205a26f5f461d487a5447ef9d7b23aa. This is the later owner-preflight correction to source-bound GPU-layer verification.
+
+The card remains prepared_not_started and both planned cycle roots are absent. No inference was performed. Preserve this plan as historical preparation and do not launch it against current source. A successor needs a current-source plan with new cycle identities and seeds, plus rebuilt bundle, preflight, and card. The private answer-free revalidation report is [here](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/campaign-plan-current-source-revalidation.json), mode 0600, SHA-256 1c575e157c9435fd596f3eccd170205620286e7bb6b1f1cb5c6367bc54073854. The separate neutral-query v2 current-source campaign remains the actively verified prepared plan.
