@@ -722,16 +722,21 @@ history packet exposes only the short interpretation and its epistemic status,
 not the rejected answer or full receipt. Recovery validates this typed feedback
 record against the dedicated resident-developmental-companion-feedback
 operation prefix, exact recovered tick, and candidate ID. Ordinary lesson
-writebacks retain the resident-developmental-writeback prefix. When that
-companion tick is already checkpointed without a history record, recovery may
-attach this feedback record only if the checkpoint snapshot ID and digest
-match; other record conflicts remain errors. This models the feedback append
-as the durable writeback completing the existing cognition tick. The
-controlled history trials retain the direct model response so its digest remains
-bound to the invocation receipt. Serving-time freshness normalization continues
-to apply to ordinary companion decisions; trial outcomes are measured without
-that post-inference rewrite. The general historical cue also matches both the
-forms previous and previously.
+writebacks retain the resident-developmental-writeback prefix. Because the
+feedback append occurs after the controlled intervention tick is already
+checkpointed, it receives its own deterministic child tick derived from the
+parent tick and candidate ID. Recovery appends that child checkpoint from the
+record/receipt commit point; it never fills or revises the parent checkpoint.
+Legacy feedback records that correlate to the parent are mapped to the same
+child tick during recovery, so retained histories remain readable and repeated
+recovery is stable. A conflicting record or receipt for any existing tick
+remains an error. Candidate provenance binds the feedback to the parent
+intervention observation. The controlled history trials retain the direct model
+response so
+its digest remains bound to the invocation receipt. Serving-time freshness
+normalization continues to apply to ordinary companion decisions; trial
+outcomes are measured without that post-inference rewrite. The general
+historical cue also matches both the forms previous and previously.
 
 The rootless cycle runner now has an explicit cross-cycle recall probe. In a
 later campaign cycle, it follows the immediately preceding cycle's result to

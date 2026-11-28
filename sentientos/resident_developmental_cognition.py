@@ -12721,8 +12721,8 @@ class ResidentDevelopmentalCognitionOwner:
             correlation = record.correlation_id
             if not correlation.endswith(suffix):
                 raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
-            recovered_tick = correlation[:-len(suffix)]
-            if not recovered_tick:
+            correlation_tick = correlation[:-len(suffix)]
+            if not correlation_tick:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_correlation_invalid")
             provenance = candidate.get("transformation_provenance")
             provenance_kind = (provenance.get("kind")
@@ -12732,9 +12732,19 @@ class ResidentDevelopmentalCognitionOwner:
             operation_prefix = (
                 "resident-developmental-companion-feedback:"
                 if is_owner_feedback else "resident-developmental-writeback:")
-            expected_operation = (operation_prefix + recovered_tick + ":"
-                + str(candidate.get("candidate_id")))
-            if not recovered_tick or record.operation_id != expected_operation:
+            candidate_id = str(candidate.get("candidate_id"))
+            expected_operation = (operation_prefix + correlation_tick + ":"
+                + candidate_id)
+            recovered_tick = correlation_tick
+            # Historical feedback commits used the already completed parent
+            # tick as their correlation. Preserve those records by projecting
+            # them to the same deterministic child-tick scheme as new commits.
+            if is_owner_feedback and not correlation_tick.startswith("owner-feedback:"):
+                recovered_tick = "owner-feedback:" + _digest({
+                    "parent_tick_id": correlation_tick,
+                    "candidate_id": candidate_id,
+                })[:32]
+            if record.operation_id != expected_operation:
                 raise ResidentDevelopmentalCognitionError("recovered_tick_operation_binding_invalid")
             existing = ticks.get(recovered_tick)
             checkpoint = {"tick_id": recovered_tick, "snapshot_id": candidate.get("snapshot_id"),
@@ -12746,24 +12756,11 @@ class ResidentDevelopmentalCognitionOwner:
                 changed = True
             elif (existing.get("record_id") != record.record_id
                     or existing.get("receipt_id") != receipt.receipt_id):
-                feedback_can_complete_tick = (
-                    is_owner_feedback
-                    and existing.get("record_id") is None
-                    and existing.get("receipt_id") is None
-                    and existing.get("snapshot_id") == checkpoint["snapshot_id"]
-                    and existing.get("snapshot_digest")
-                        == checkpoint["snapshot_digest"])
-                if not feedback_can_complete_tick:
-                    raise ResidentDevelopmentalCognitionError(
-                        "recovered_tick_record_conflict")
-                updated_checkpoint = {**existing,
-                    "record_id": record.record_id,
-                    "receipt_id": receipt.receipt_id}
-                completed_tick_rows = [updated_checkpoint
-                    if row.get("tick_id") == recovered_tick else row
-                    for row in completed_tick_rows]
-                ticks[recovered_tick] = updated_checkpoint
-                changed = True
+                # A checkpoint describes the event as it was committed. A
+                # later owner-feedback writeback has its own correlation tick
+                # and must never revise an already completed checkpoint.
+                raise ResidentDevelopmentalCognitionError(
+                    "recovered_tick_record_conflict")
             if recovered_tick in incomplete:
                 del incomplete[recovered_tick]
                 incomplete_tick_rows = [saved_row for saved_row in incomplete_tick_rows
@@ -19737,8 +19734,15 @@ class ResidentDevelopmentalCognitionOwner:
             candidate = self.writeback.candidate_from_owner_companion_qualification_feedback(
                 selection, observation=verified_observation,
                 receipt=verified_receipt, diagnostic=diagnostic)
+            # This writeback happens only after the controlled intervention
+            # tick has completed. Give it a deterministic child tick so its
+            # later durable commit cannot rewrite the parent's checkpoint.
+            feedback_tick_id = "owner-feedback:" + _digest({
+                "parent_tick_id": tick_id,
+                "candidate_id": candidate.candidate_id,
+            })[:32]
             operation_id = (
-                f"resident-developmental-companion-feedback:{tick_id}:"
+                f"resident-developmental-companion-feedback:{feedback_tick_id}:"
                 f"{candidate.candidate_id}")
             config_digest = self.writeback.admission_configuration_digest(
                 candidate, operation_id=operation_id)
@@ -19756,7 +19760,20 @@ class ResidentDevelopmentalCognitionOwner:
                     RESIDENT_DEVELOPMENTAL_WRITEBACK_DEFINITION.approval_requirements))
             feedback_record, feedback_receipt = self.writeback.append(
                 candidate, admission=admission, operation_id=operation_id,
-                correlation_id=f"{tick_id}:resident-developmental-writeback")
+                correlation_id=(
+                    f"{feedback_tick_id}:resident-developmental-writeback"))
+            # Reconcile the append-only child checkpoint immediately. Recovery
+            # uses the same record/receipt commit point if the process stops
+            # between append and this state publication.
+            with self._composition_lock():
+                recovered_state = self._state()
+            child_checkpoint = next((row for row in recovered_state["completed_ticks"]
+                if row.get("tick_id") == feedback_tick_id), None)
+            if (not isinstance(child_checkpoint, Mapping)
+                    or child_checkpoint.get("record_id") != feedback_record.record_id
+                    or child_checkpoint.get("receipt_id") != feedback_receipt.receipt_id):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_feedback_checkpoint_binding_invalid")
             feedback_record_id = feedback_record.record_id
             feedback_writeback_receipt_id = feedback_receipt.receipt_id
         return ResidentCompanionHistoryInterventionResult(
