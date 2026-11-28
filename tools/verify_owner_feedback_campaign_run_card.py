@@ -12,7 +12,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-SCHEMA = "sentientos.owner_feedback_recall_campaign_run_card:v2"
+SCHEMA_V2 = "sentientos.owner_feedback_recall_campaign_run_card:v2"
+SCHEMA_V3 = "sentientos.owner_feedback_recall_campaign_run_card:v3"
 EXPECTED_CYCLE_MAPPING = {
     "SENTIENTOS_HERMES_CYCLE_ID": "cycle_id",
     "SENTIENTOS_HERMES_EXPERIMENT_SEED": "task_generation_seed",
@@ -33,8 +34,10 @@ def read_object(path: Path) -> dict[str, Any]:
 def verify(card_path: Path) -> dict[str, Any]:
     card_path = card_path.resolve(strict=True)
     card = read_object(card_path)
-    if card.get("schema_version") != SCHEMA:
+    schema = card.get("schema_version")
+    if schema not in {SCHEMA_V2, SCHEMA_V3}:
         raise ValueError("run_card_schema_mismatch")
+    is_source_replan = schema == SCHEMA_V3
     checks: dict[str, bool] = {}
     checks["private_mode_0600"] = (
         stat.S_IMODE(card_path.stat().st_mode) == 0o600)
@@ -71,16 +74,36 @@ def verify(card_path: Path) -> dict[str, Any]:
         (row.get("cycle_id"), row.get("task_generation_seed"),
             row.get("backend_seed")) for row in rows
         if isinstance(row, dict)]
-    checks["supersession_chain_matches"] = (
+    supersession_base = (
         hashlib.sha256(superseded_path.read_bytes()).hexdigest()
             == supersedes_digest
-        and superseded_card.get("campaign_id") == card.get("campaign_id")
-        and superseded_card.get("campaign_plan_digest")
-            == card.get("campaign_plan_digest")
         and isinstance(superseded_cycles, list)
         and isinstance(current_cycles, list)
-        and cycle_identity(superseded_cycles) == cycle_identity(current_cycles)
+        and len(cycle_identity(superseded_cycles)) == len(superseded_cycles)
         and len(cycle_identity(current_cycles)) == len(current_cycles))
+    if is_source_replan:
+        old_cycle_ids = {row[0] for row in cycle_identity(superseded_cycles or [])}
+        old_task_seeds = {row[1] for row in cycle_identity(superseded_cycles or [])}
+        old_backend_seeds = {row[2] for row in cycle_identity(superseded_cycles or [])}
+        new_rows = cycle_identity(current_cycles or [])
+        checks["supersession_chain_matches"] = (
+            supersession_base
+            and superseded_card.get("status") == "prepared_not_started"
+            and superseded_card.get("inference_performed") is False
+            and superseded_card.get("campaign_id") != card.get("campaign_id")
+            and superseded_card.get("campaign_plan_digest")
+                != card.get("campaign_plan_digest")
+            and card.get("supersession_kind") == "source_pin_replan"
+            and all(row[0] not in old_cycle_ids
+                and row[1] not in old_task_seeds
+                and row[2] not in old_backend_seeds for row in new_rows))
+    else:
+        checks["supersession_chain_matches"] = (
+            supersession_base
+            and superseded_card.get("campaign_id") == card.get("campaign_id")
+            and superseded_card.get("campaign_plan_digest")
+                == card.get("campaign_plan_digest")
+            and cycle_identity(superseded_cycles) == cycle_identity(current_cycles))
     checks["campaign_plan_path_matches"] = (
         str(plan_path) == str(Path(str(required_common.get(
             "SENTIENTOS_HERMES_CAMPAIGN_PLAN_PATH", ""))).resolve()))
@@ -129,6 +152,20 @@ def verify(card_path: Path) -> dict[str, Any]:
     checks["identity_recipe_digest_matches"] = (
         card.get("model_identity_recipe_digest")
         == digest_payload(dict(recipe)))
+    saved_verification = card.get("plan_verification")
+    checks["saved_plan_verification_matches_current"] = (
+        isinstance(saved_verification, dict)
+        and saved_verification.get("experiment_implementation_digest")
+            == implementation.get("experiment_implementation_digest")
+        and saved_verification.get("experiment_implementation_source_count")
+            == implementation.get("experiment_implementation_source_count")
+        and saved_verification.get("source_implementation_matches_current")
+            == implementation.get("experiment_implementation_matches_current")
+        and saved_verification.get("model_identity_digests_verified")
+            == identity.get("identity_digests_verified")
+        and saved_verification.get("model_identity_recipe_digest")
+            == identity.get("model_identity_recipe_digest")
+        and saved_verification.get("inference_performed") is False)
 
     manifest_path = Path(str(card.get("model_manifest_path", ""))).resolve(strict=True)
     manifest_digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
@@ -208,9 +245,60 @@ def verify(card_path: Path) -> dict[str, Any]:
     else:
         checks["initial_history_boundary_matches"] = False
         checks["cycle_history_lineage_matches"] = False
+    if is_source_replan:
+        bundle_path = Path(str(card.get(
+            "initial_history_bundle_path", ""))).resolve(strict=True)
+        bundle = read_object(bundle_path)
+        checks["initial_history_bundle_matches_plan"] = (
+            hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+                == card.get("initial_history_bundle_sha256")
+            and bundle.get("campaign_id") == plan.get("campaign_id")
+            and bundle.get("plan_digest") == plan.get("plan_digest")
+            and bundle.get("bundle_digest")
+                == card.get("initial_history_bundle_digest")
+            and bundle.get("source_history_boundary_digest")
+                == plan.get("initial_history_boundary", {}).get("boundary_digest")
+            and bundle.get("source_history_file_count")
+                == plan.get("initial_history_boundary", {}).get("file_count")
+            and bundle.get("source_history_total_size_bytes")
+                == plan.get("initial_history_boundary", {}).get("total_size_bytes"))
+        preflight_binding = card.get("cycle0_preflight_evidence")
+        if not isinstance(preflight_binding, dict):
+            raise ValueError("cycle0_preflight_binding_missing")
+        preflight_path = Path(str(preflight_binding.get("report_path", ""))).resolve(strict=True)
+        verification_path = Path(str(
+            preflight_binding.get("verification_path", ""))).resolve(strict=True)
+        preflight = read_object(preflight_path)
+        preflight_verification = read_object(verification_path)
+        checks["cycle0_preflight_matches_plan"] = (
+            hashlib.sha256(preflight_path.read_bytes()).hexdigest()
+                == preflight_binding.get("report_sha256")
+            and hashlib.sha256(verification_path.read_bytes()).hexdigest()
+                == preflight_binding.get("verification_sha256")
+            and preflight.get("campaign_id") == plan.get("campaign_id")
+            and preflight.get("plan_digest") == plan.get("plan_digest")
+            and preflight.get("cycle_id") == ids[0]
+            and preflight.get("inference_performed") is False
+            and preflight.get("learning_established") is False
+            and preflight_verification.get("status") == "verified"
+            and preflight_verification.get("implementation_matches_current") is True
+            and preflight_verification.get("source_preflight_reconstructed") is True
+            and preflight_verification.get("inference_performed") is False
+            and preflight_verification.get("plan_digest") == plan.get("plan_digest"))
+        expected_cycles_root = (Path(workspace) / "sentientos-data"
+            / "rootless-experimental" / "developmental-cognition-cycles")
+        checks["planned_cycle_roots_absent"] = all(
+            not (expected_cycles_root / cycle_id).exists()
+            and not (expected_cycles_root / cycle_id).is_symlink()
+            for cycle_id in ids)
+        checks["cycle1_preflight_is_sequential"] = (
+            card.get("cycle1_preflight_status")
+                == "blocked_until_cycle0_completion_and_chain_verification")
     checks["no_inference_or_authority_claimed"] = (
         card.get("inference_performed") is False
-        and card.get("authority") is False)
+        and card.get("authority") is False
+        and card.get("status") == "prepared_not_started"
+        and card.get("preregistration_timing_independently_attested") is False)
     if not all(checks.values()):
         raise ValueError("run_card_binding_mismatch:" + ",".join(
             key for key, passed in checks.items() if not passed))
@@ -219,6 +307,13 @@ def verify(card_path: Path) -> dict[str, Any]:
         "campaign_id": plan["campaign_id"],
         "plan_digest": plan["plan_digest"],
         "protocol_digest": protocol_digest,
+        "supersession_kind": card.get("supersession_kind", "same_plan_card_revision"),
+        "plan_implementation_digest": implementation[
+            "experiment_implementation_digest"],
+        "cycle0_preflight_status": (
+            preflight_verification.get("status") if is_source_replan else None),
+        "cycle1_preflight_status": (
+            card.get("cycle1_preflight_status") if is_source_replan else None),
         "run_card_sha256": hashlib.sha256(card_path.read_bytes()).hexdigest(),
         "verifier_sha256": hashlib.sha256(
             Path(__file__).resolve().read_bytes()).hexdigest(),

@@ -775,7 +775,7 @@ def _verify_owner_ranking_trace(trace: object,
 
 
 def _model_identity(*, manifest_path: Path, model_name: str,
-        backend_seed: int) -> dict[str, Any]:
+        backend_seed: int, gpu_layers: int) -> dict[str, Any]:
     try:
         experiment_root = _no_symlink_path(EXPERIMENT_ROOT).resolve(strict=True)
         manifest_path = _no_symlink_path(manifest_path.expanduser()).resolve(strict=True)
@@ -787,8 +787,10 @@ def _model_identity(*, manifest_path: Path, model_name: str,
     manifest_digest = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
     if manifest_path.stem != manifest_digest:
         raise ValueError("planned_preflight_model_manifest_digest_invalid")
+    if type(gpu_layers) is not int or not 0 <= gpu_layers <= 128:
+        raise ValueError("planned_preflight_gpu_layers_invalid")
     options = _rootless_ollama_model_options(model_name=model_name,
-        manifest_digest=manifest_digest, gpu_layers=32)
+        manifest_digest=manifest_digest, gpu_layers=gpu_layers)
     options["seed"] = backend_seed
     candidate = ModelCandidate(manifest_path, "ollama", model_name, options)
     config = ModelConfig([candidate], default_engine="ollama",
@@ -868,19 +870,14 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
             or not 1 <= alternate_seed_count <= 2048):
         raise ValueError("planned_preflight_alternate_seed_count_invalid")
     plan = _load_plan(plan_path)
+    pinned_plan_schemas = {
+        f"sentientos.rootless_history_boundary_campaign_plan:v{version}"
+        for version in range(8, 16)}
     if (plan.get("task_family_id") ==
             "rootless_integer_affine_transfer_wide_range_v7"
-            and plan.get("schema_version") not in {
-                "sentientos.rootless_history_boundary_campaign_plan:v8",
-                "sentientos.rootless_history_boundary_campaign_plan:v9",
-                "sentientos.rootless_history_boundary_campaign_plan:v10",
-                "sentientos.rootless_history_boundary_campaign_plan:v11"}):
+            and plan.get("schema_version") not in pinned_plan_schemas):
         raise ValueError("planned_preflight_experiment_implementation_unbound")
-    if plan.get("schema_version") in {
-            "sentientos.rootless_history_boundary_campaign_plan:v8",
-            "sentientos.rootless_history_boundary_campaign_plan:v9",
-            "sentientos.rootless_history_boundary_campaign_plan:v10",
-                "sentientos.rootless_history_boundary_campaign_plan:v11"}:
+    if plan.get("schema_version") in pinned_plan_schemas:
         from work.rootless_history_boundary_campaign import (
             verify_experiment_implementation, verify_model_identity_recipe)
         verify_model_identity_recipe(plan)
@@ -903,8 +900,16 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
     backend_seed = backend_seeds[cycle_index]
     family = plan["task_family_id"]
     expected_identity_digest = identity_digests[cycle_index]
+    recipe = plan.get("model_identity_recipe")
+    if (not isinstance(recipe, Mapping)
+            or recipe.get("model_name") != model_name
+            or recipe.get("resolved_manifest_path") !=
+                str(manifest_path.resolve(strict=True))
+            or type(recipe.get("gpu_layers")) is not int):
+        raise ValueError("planned_preflight_model_identity_recipe_mismatch")
     identity = _model_identity(manifest_path=manifest_path,
-        model_name=model_name, backend_seed=backend_seed)
+        model_name=model_name, backend_seed=backend_seed,
+        gpu_layers=recipe["gpu_layers"])
     identity_digest = digest_payload({"identity": identity})
     if identity_digest != expected_identity_digest:
         raise ValueError("planned_preflight_target_identity_plan_mismatch")

@@ -1293,3 +1293,15 @@ no durable-learning or causal claim.
 The later neutral-query v2 run card is stale against current source pins and
 must not be launched. Any successor requires a freshly pinned current-source
 plan, new cycle IDs and seeds, and verified initial history/recovery custody.
+
+## Neutral-query owner-feedback recall v2, current-source replan
+
+The stale v2 card has been superseded with a fresh current-source plan after
+correcting a preflight identity bug: the helper now uses plan-bound GPU-layer
+configuration and verifies newer plan schemas. The cycle-0 CPU owner/binder
+preflight and independent verifier pass; cycle 1 remains blocked until the
+first cycle's history and governance chains verify. The
+[evidence note](evidence/owner_feedback_recall_neutral_v2_replan.md) records
+private artifact digests and the limited claim scope. The plan remains
+unlaunched, independent preregistration timing remains unestablished, and no
+learning or performance claim is made.
