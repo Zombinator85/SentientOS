@@ -1228,10 +1228,15 @@ returned `status=verified`, matched current source and model identity pins,
 and records no inference; its file SHA-256 is
 `e7e83e35aa1e9989dbb4a8891ad8bacfc79eb8f2a4a70dff62028ddbd3ccef57`.
 It cannot reconstruct the exact future cycle prompt until the new acquisition
-output and observation timestamp exist. The plan remains unrun. The cycle
-runner requires `SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to equal the
-specific cycle ID and rechecks effective utilization before every inference.
-Its pre-inference limit is 25%; the latest host-wide sample was 40%, so the
-runner would fail closed. No per-cycle confirmation was used. Telemetry does
+output and observation timestamp exist. The plan remains unrun. A CPU-only attempt to prepare cycle 28 against the
+cycle-20 baseline stopped with
+`planned_preflight_prior_cycle_identity_mismatch`, as cycle 28 requires cycle
+27's verified append-only prefix. It created no cycle output; rerun that preflight only after cycle 27 completes and passes chain
+verification. The cycle runner requires
+`SENTIENTOS_HERMES_GPU_AVAILABLE_FOR_CYCLE` to equal the specific cycle ID,
+and rechecks effective utilization before every inference.
+Its pre-inference limit is 25%; at 2026-11-27 23:40 Indianapolis, host-wide
+utilization was 37% (1,213 of 12,288 MiB in use), so the runner would fail
+closed. No per-cycle confirmation was used. Telemetry does
 not attribute GPU use to a particular application. This preparation establishes
 neither model attention, learning, causal attribution, nor authority.
