@@ -104,7 +104,7 @@ def verify_launch_card(*, card_path: Path,
     plan_path = _safe_under(Path(plan_path_raw), workspace)
     plan = _read_object(plan_path)
     from work.rootless_history_boundary_campaign import (
-        verify_experiment_implementation, verify_model_identity_recipe)
+        verify_chain, verify_experiment_implementation, verify_model_identity_recipe)
     identity = verify_model_identity_recipe(plan)
     implementation = verify_experiment_implementation(plan)
     if plan.get("campaign_id") != card.get("campaign_id"):
@@ -210,25 +210,79 @@ def verify_launch_card(*, card_path: Path,
         else:
             cycle_results.append({"cycle_id": cid, "cycle_root_absent": True})
 
-    preflight_binding = cycles[0].get("preflight_evidence")
-    if not isinstance(preflight_binding, Mapping):
-        raise ValueError("launch_card_cycle27_preflight_missing")
-    preflight_path = _safe_under(Path(preflight_binding["path"]), workspace)
-    verify_path = _safe_under(Path(preflight_binding["verification_path"]), workspace)
-    preflight = _read_object(preflight_path)
-    verification = _read_object(verify_path)
-    if (_sha256(preflight_path) != preflight_binding.get("sha256")
-            or _sha256(verify_path) != preflight_binding.get("verification_sha256")
-            or preflight.get("campaign_id") != plan.get("campaign_id")
-            or preflight.get("plan_digest") != plan.get("plan_digest")
-            or preflight.get("cycle_id") != plan_ids[0]
-            or preflight.get("inference_performed") is not False
-            or preflight.get("learning_established") is not False
-            or verification.get("status") != "verified"
-            or verification.get("implementation_matches_current") is not True
-            or verification.get("inference_performed") is not False
-            or verification.get("plan_digest") != plan.get("plan_digest")):
-        raise ValueError("launch_card_preflight_evidence_mismatch")
+    preflight_results: list[dict[str, Any]] = []
+    preflight_artifacts: dict[str, dict[str, str] | None] = {}
+    for index, cycle in enumerate(cycles):
+        cid = plan_ids[index]
+        binding = cycle.get("preflight_evidence")
+        if binding is None and index > 0:
+            preflight_results.append({"cycle_id": cid, "verified": False,
+                "reason": "sequential_preflight_not_yet_bound"})
+            preflight_artifacts[cid] = None
+            continue
+        if not isinstance(binding, Mapping):
+            raise ValueError("launch_card_required_preflight_missing")
+        preflight_path = _safe_under(Path(binding["path"]), workspace)
+        verify_path = _safe_under(Path(binding["verification_path"]), workspace)
+        preflight = _read_object(preflight_path)
+        verification = _read_object(verify_path)
+        if (_sha256(preflight_path) != binding.get("sha256")
+                or _sha256(verify_path) != binding.get("verification_sha256")
+                or preflight.get("campaign_id") != plan.get("campaign_id")
+                or preflight.get("plan_digest") != plan.get("plan_digest")
+                or preflight.get("cycle_id") != cid
+                or preflight.get("inference_performed") is not False
+                or preflight.get("learning_established") is not False
+                or verification.get("status") != "verified"
+                or verification.get("implementation_matches_current") is not True
+                or verification.get("inference_performed") is not False
+                or verification.get("plan_digest") != plan.get("plan_digest")):
+            raise ValueError("launch_card_preflight_evidence_mismatch")
+        preflight_results.append({"cycle_id": cid, "verified": True,
+            "reason": None})
+        preflight_artifacts[cid] = {
+            "report_sha256": _sha256(preflight_path),
+            "verification_sha256": _sha256(verify_path),
+            "status": verification["status"],
+        }
+
+    prior_chain_results: list[dict[str, Any]] = []
+    for index, cid in enumerate(plan_ids):
+        if index == 0:
+            chain_verified = (bundle.get("source_history_boundary_digest")
+                == plan.get("initial_history_boundary", {}).get("boundary_digest"))
+            prior_chain_results.append({"cycle_id": cid,
+                "verified": chain_verified,
+                "reason": None if chain_verified else "initial_history_boundary_unverified"})
+            continue
+        predecessor_roots = [root / prior_id for prior_id in plan_ids[:index]]
+        if not all(path.is_dir() and not path.is_symlink() for path in predecessor_roots):
+            prior_chain_results.append({"cycle_id": cid, "verified": False,
+                "reason": "predecessor_cycle_incomplete_or_absent"})
+            continue
+        try:
+            prefix = verify_chain(plan_path=plan_path,
+                cycle_roots=predecessor_roots, initial_history_bundle_path=bundle_path,
+                allow_prefix=True)
+            rows = prefix.get("cycle_boundaries", [])
+            chain_verified = (
+                prefix.get("append_only_history_chain_verified") is True
+                and prefix.get("runtime_admission_chain_verified") is True
+                and prefix.get("cognition_recovery_state_chain_verified") is True
+                and len(rows) == index
+                and all(row.get("campaign_binding_verified") is True
+                    and row.get("history_seed_boundary_verified") is True
+                    and row.get("runtime_admission_ledger_append_only") is True
+                    and row.get("cognition_recovery_state_append_only") is True
+                    for row in rows)
+                and rows[-1].get("cycle_id") == plan_ids[index - 1])
+            prior_chain_results.append({"cycle_id": cid,
+                "verified": chain_verified,
+                "reason": None if chain_verified else "predecessor_chain_verification_failed",
+                "audit_digest": prefix.get("audit_digest")})
+        except (OSError, ValueError, KeyError, IndexError):
+            prior_chain_results.append({"cycle_id": cid, "verified": False,
+                "reason": "predecessor_chain_verification_failed"})
 
     receipt_bound = False
     if receipt_path is not None:
@@ -248,6 +302,8 @@ def verify_launch_card(*, card_path: Path,
     launch_gates = {
         cycle["cycle_id"]: {
             "cycle_root_absent": cycle_results[i]["cycle_root_absent"],
+            "cycle_preflight_verified": preflight_results[i]["verified"],
+            "prior_history_chain_verified": prior_chain_results[i]["verified"],
             "gpu_telemetry_available": gpu["available"],
             "gpu_utilization_within_limit": (
                 gpu["available"] and gpu["utilization_percent"] <= max_util),
@@ -258,7 +314,7 @@ def verify_launch_card(*, card_path: Path,
         for i, cycle in enumerate(cycles)
     }
     return {
-        "schema_version": "sentientos.rootless_cognition_cycle_launch_card_verification:v1",
+        "schema_version": "sentientos.rootless_cognition_cycle_launch_card_verification:v2",
         "status": "verified",
         "observed_at_utc": datetime.now(timezone.utc).isoformat(),
         "campaign_id": plan["campaign_id"],
@@ -275,9 +331,9 @@ def verify_launch_card(*, card_path: Path,
         "history_bundle_file_sha256": _sha256(bundle_path),
         "history_bundle_boundary_matches_plan": True,
         "cycle_state": cycle_results,
-        "cycle27_preflight_status": verification["status"],
-        "cycle27_preflight_digest": _sha256(preflight_path),
-        "cycle27_preflight_verification_digest": _sha256(verify_path),
+        "cycle_preflight": preflight_results,
+        "prior_history_chain": prior_chain_results,
+        "cycle_preflight_artifacts": preflight_artifacts,
         "custody_receipt_digest_bound": receipt_bound if receipt_path else None,
         "gpu_telemetry": gpu,
         "launch_gates": launch_gates,

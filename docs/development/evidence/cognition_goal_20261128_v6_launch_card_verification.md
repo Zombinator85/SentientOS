@@ -28,3 +28,23 @@ The plan's independent preregistration-timing attestation remains false.
 Reproduce with the workspace paths for `--card`, `--receipt`, and (optionally)
 a new write-once private `--output` path. The verifier rejects an existing
 output path to prevent silent report replacement.
+
+## Sequential launch gates (verifier v2)
+
+A follow-up review found the first verifier version did not include cycle
+preflight and predecessor-chain readiness in its computed launch eligibility.
+The v1 report is superseded for readiness decisions. The verifier now reports
+each cycle's preflight and prior-history-chain gate separately. For later cycles
+it calls the campaign's append-only chain verifier over every predecessor and
+requires campaign binding, history-seed boundary, runtime-admission, and
+cognition-recovery checks to pass. A missing or incomplete predecessor or
+preflight is a closed gate.
+
+The replacement private mode-0600 report is
+`sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle-launch-card-verification-v3.json`
+SHA-256: `61375fcc340c9e2f4b01337ba9ff626d5c31c6080c30231f99eeb9925099e17a`.
+At capture (2026-11-28 05:19 UTC), cycle 27 had verified preflight and initial
+history-boundary gates; cycle 28 was explicitly held closed because its
+sequential preflight was not bound and cycle 27 was incomplete. GPU utilization
+was 39%, above the 25% threshold, so neither cycle was eligible. No inference
+was performed.
