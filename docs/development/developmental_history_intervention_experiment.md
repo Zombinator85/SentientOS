@@ -962,3 +962,51 @@ its evidence posture. The old v23 plan binds the pre-fix implementation and is
 retained as a failed attempt; it must not be resumed. A fresh successor plan
 needs new cycle identities and seeds, the fixed source pins, and the same
 verified v22 source chain before cycle 0 can run.
+
+
+### v24 wide-range cross-range cycles and outcome (2026-11-28)
+
+The v23 schema correction was exercised under a fresh plan rather than by
+resuming the failed plan. Campaign `rootless-history-campaign-f9df3999f5254a0a0c1a`
+uses the fixed runner at revision `82b404732d5133acd35720b4f7f7f536e28d164d`,
+new cycle IDs and seeds, and the verified final v22 history boundary
+`07ceeb14ff2533791f33f9230d8d3f4a75a7ebbada82f98e64102fec68729fe3`.
+The plan digest is
+`1209ee625e8bdcff1b6e97400139018c61c64ce1c4d6191e5bf83982d762613d`.
+Both planned cycles completed, including the cross-range projection/writeback
+stage that rejected v23. The private [two-cycle chain audit](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-cross-range-v24-strategy-v11-20261128/cycle0-1-prefix-chain-audit-v1.json)
+(mode 0600, SHA-256
+`4bc1bfd422ec6ca0ef5936660f4826894decc2ae3227a540be016b0d173c588d`, audit
+digest `a4586853321d76b0f3bc0461dceda42efd83676d41ece7a7d354ff42f0039b76`)
+verifies both cycles, append-only history, seed boundaries, runtime admissions,
+and the cognition-recovery state chain. The action-history precondition chain
+is false; no action-authority claim is supported. The plan’s OpenTimestamps
+submission still lacks independently verified Bitcoin confirmation, so
+preregistration timing remains unattested.
+
+The two private cycle results are
+`rootless-cognition-cycle-28df232144e93508a41a` and
+`rootless-cognition-cycle-0257555a60152d84fbdf`. The first wide-range
+acquisition scored incorrect; the second scored correct. In both cycles,
+the cross-range history-enabled competence intervention completed, but the
+separate developmental outcome assessment rejected the history-withheld
+condition as invalid. Consequently, the transfer stage was skipped because
+withheld-history baseline competence was not demonstrated. Neither cycle
+established a history-associated decision difference or performance
+improvement. Cross-cycle owner-feedback recall was not run because the prior
+feedback reference was unavailable. No action was executed and no authority
+was granted.
+
+This result resolves the v23 validator incompatibility and demonstrates that
+the registered pipeline can complete its cross-range writeback. It does not
+show that low-range accumulated strategy transfers to the wide-range task:
+the acquisition scores were mixed, the intervention’s required condition
+comparison was invalid, and transfer was gated. The next experiment should
+repair or preflight the condition-response validity check and ensure the
+owner-feedback reference is bound before inference. It should retain
+independent scoring and held-out probes, then require a valid withheld
+baseline and present/withheld/restored comparison before interpreting
+transfer. No learning, causal, durable-development, or model-independent
+continuity claim follows from v24. Governed unload completed after both
+cycles; each final residency check reported the target model not resident,
+and host GPU use returned to 607 MiB and 0% utilization.
