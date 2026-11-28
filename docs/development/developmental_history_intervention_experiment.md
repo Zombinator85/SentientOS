@@ -1402,11 +1402,13 @@ The audit now has a tracked CPU-only replay verifier at
 [`tools/verify_rootless_source_seed_design_audit.py`](../../tools/verify_rootless_source_seed_design_audit.py).
 It loads and validates the frozen campaign plan, regenerates each acquisition
 and held-out task pair from its plan seed, reconstructs the coverage and
-overlap fields, and checks the complete audit payload and digest. The verifier
-does not load a model or perform inference. Replay returned `status=verified`
-with the same audit digest; the private v2 report is
-`source-seed-design-audit-verification-v2.json` (mode 0600, SHA-256
-`95a9cdb926541edd33ebadd640e795a1632a732cc1e4c79bbbb5d736d4ef15c0`).
+overlap fields, checks the complete audit payload and digest, and verifies
+every source implementation pin in the plan. Its report includes the matched
+source count and digest. The verifier does not load a model or perform
+inference. Replay returned `status=verified` with the same audit digest and all
+2,558 source pins matched; the private v3 report is
+`source-seed-design-audit-verification-v3.json` (mode 0600, SHA-256
+`e2d9268e3dca25d54f23a2cda60af984fd47e22d6519a2cda3ef16292344e40d`).
 Reproduce from the repository root with:
 
 ```sh

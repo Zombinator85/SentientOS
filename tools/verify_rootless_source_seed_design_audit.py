@@ -20,6 +20,7 @@ from sentientos.local_model_authority import digest_payload  # noqa: E402
 from work.rootless_history_boundary_campaign import (  # noqa: E402
     _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL,
     _load_plan,
+    verify_experiment_implementation,
 )
 
 
@@ -36,6 +37,7 @@ def _read_private_object(path: Path) -> dict[str, Any]:
 
 def reconstruct(plan_path: Path, audit_path: Path) -> dict[str, Any]:
     plan = _load_plan(plan_path)
+    implementation = verify_experiment_implementation(plan)
     audit = _read_private_object(audit_path)
     protocol = plan.get("low_range_source_acquisition_protocol")
     if (plan.get("schema_version") !=
@@ -125,10 +127,16 @@ def reconstruct(plan_path: Path, audit_path: Path) -> dict[str, Any]:
         "actual_correctness_observed": False,
         "audit_digest": digest,
         "authority": False,
+        "experiment_implementation_bound": implementation[
+            "experiment_implementation_bound"],
+        "experiment_implementation_digest": implementation[
+            "experiment_implementation_digest"],
+        "experiment_implementation_source_count": implementation[
+            "experiment_implementation_source_count"],
         "inference_performed": False,
         "learning_established": False,
         "plan_digest": plan["plan_digest"],
-        "schema_version": "sentientos.low_range_source_seed_design_audit_verification:v2",
+        "schema_version": "sentientos.low_range_source_seed_design_audit_verification:v3",
         "status": "verified",
     }
 
