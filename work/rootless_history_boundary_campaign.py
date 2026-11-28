@@ -208,7 +208,7 @@ def verify_experiment_implementation(plan: Mapping[str, Any]) -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}
             or not isinstance(expected, Mapping)):
         raise ValueError("history_campaign_experiment_implementation_unbound")
     current = _experiment_implementation_hashes()
@@ -719,7 +719,7 @@ def _plan_model_identity_digests(plan: Mapping[str, Any]) -> list[str]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
         values = plan.get("ordered_model_identity_digests")
         return list(values) if isinstance(values, list) else []
     value = plan.get("model_identity_digest")
@@ -735,7 +735,8 @@ def create_plan(*, history_root: Path, campaign_id: str,
         model_identity_recipe: Mapping[str, Any] | None = None,
         cross_range_history_enabled_competence: bool = False,
         acquisition_probe_count: int = 3,
-        transfer_probe_count: int = 3
+        transfer_probe_count: int = 3,
+        owner_feedback_recall_protocol_digest: str | None = None
         ) -> dict[str, Any]:
     if _CAMPAIGN_ID.fullmatch(campaign_id) is None:
         raise ValueError("history_campaign_id_invalid")
@@ -764,6 +765,14 @@ def create_plan(*, history_root: Path, campaign_id: str,
                 or re.fullmatch(r"[0-9a-f]{64}", value) is None
                 for value in model_identity_digests)):
         raise ValueError("history_campaign_model_identity_digest_invalid")
+    if owner_feedback_recall_protocol_digest is not None and (
+            not isinstance(owner_feedback_recall_protocol_digest, str)
+            or re.fullmatch(r"[0-9a-f]{64}",
+                owner_feedback_recall_protocol_digest) is None
+            or task_family_id != _TASK_FAMILY
+            or model_identity_recipe is None
+            or cross_range_history_enabled_competence):
+        raise ValueError("history_campaign_feedback_protocol_binding_invalid")
     boundary = _history_boundary(history_root)
     admission_boundary = _runtime_admission_boundary(history_root, boundary)
     recovery_state_boundary = _cognition_recovery_state_boundary(
@@ -792,6 +801,8 @@ def create_plan(*, history_root: Path, campaign_id: str,
                 or task_family_id == _NOVEL_TASK_FAMILY)):
         raise ValueError("history_campaign_transfer_probe_count_invalid")
     plan_schema = (
+        "sentientos.rootless_history_boundary_campaign_plan:v16"
+        if owner_feedback_recall_protocol_digest is not None else
         "sentientos.rootless_history_boundary_campaign_plan:v15"
         if task_family_id == _TASK_FAMILY and model_identity_recipe is not None else
         "sentientos.rootless_history_boundary_campaign_plan:v14"
@@ -877,6 +888,9 @@ def create_plan(*, history_root: Path, campaign_id: str,
         "preregistration_timing_independently_attested": False,
         "authority": False,
     }
+    if owner_feedback_recall_protocol_digest is not None:
+        semantic["owner_feedback_recall_protocol_digest"] = (
+            owner_feedback_recall_protocol_digest)
     if model_identity_recipe is not None:
         semantic["model_identity_recipe"] = dict(model_identity_recipe)
         semantic["experiment_implementation_sha256"] = (
@@ -884,12 +898,14 @@ def create_plan(*, history_root: Path, campaign_id: str,
     if cross_range_history_enabled_competence:
         semantic["cross_range_history_enabled_competence"] = dict(
             _CROSS_RANGE_HISTORY_ENABLED_COMPETENCE_PROTOCOL)
-    if plan_schema == "sentientos.rootless_history_boundary_campaign_plan:v15":
+    if plan_schema in {
+            "sentientos.rootless_history_boundary_campaign_plan:v15",
+            "sentientos.rootless_history_boundary_campaign_plan:v16"}:
         semantic["low_range_source_acquisition_protocol"] = dict(
             _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL)
     if (plan_schema in {
             "sentientos.rootless_history_boundary_campaign_plan:v13",
-            "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}
+            "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}
             and task_family_id == _WIDE_TASK_FAMILY
             and cross_range_history_enabled_competence):
         semantic["initial_history_bootstrap"] = dict(
@@ -926,7 +942,7 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}
             or plan.get("plan_digest") != digest_payload(semantic)
             or plan.get("authority") is not False
             or plan.get("preregistration_timing_independently_attested") is not False):
@@ -973,19 +989,33 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
                 and plan.get("task_family_id") != _WIDE_TASK_FAMILY)
             or (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v14"
                 and plan.get("task_family_id") != _NOVEL_TASK_FAMILY)
-            or (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v15"
+            or (schema_version in {
+                    "sentientos.rootless_history_boundary_campaign_plan:v15",
+                    "sentientos.rootless_history_boundary_campaign_plan:v16"}
                 and plan.get("task_family_id") != _TASK_FAMILY)
             or (schema_version in {
                     "sentientos.rootless_history_boundary_campaign_plan:v11",
                     "sentientos.rootless_history_boundary_campaign_plan:v12"}
                 and plan.get("task_family_id") != _NOVEL_TASK_FAMILY)):
         raise ValueError("history_campaign_plan_family_version_mismatch")
-    if (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v15"
+    if (schema_version in {
+                "sentientos.rootless_history_boundary_campaign_plan:v15",
+                "sentientos.rootless_history_boundary_campaign_plan:v16"}
             and plan.get("low_range_source_acquisition_protocol")
                 != _LOW_RANGE_SOURCE_ACQUISITION_PROTOCOL
-            or schema_version != "sentientos.rootless_history_boundary_campaign_plan:v15"
+            or schema_version not in {
+                "sentientos.rootless_history_boundary_campaign_plan:v15",
+                "sentientos.rootless_history_boundary_campaign_plan:v16"}
                 and "low_range_source_acquisition_protocol" in plan):
         raise ValueError("history_campaign_low_range_source_protocol_invalid")
+    if (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v16"
+            and (not isinstance(plan.get(
+                    "owner_feedback_recall_protocol_digest"), str)
+                or re.fullmatch(r"[0-9a-f]{64}", plan.get(
+                    "owner_feedback_recall_protocol_digest", "")) is None)
+            or schema_version != "sentientos.rootless_history_boundary_campaign_plan:v16"
+                and "owner_feedback_recall_protocol_digest" in plan):
+        raise ValueError("history_campaign_feedback_protocol_binding_invalid")
     if (schema_version == "sentientos.rootless_history_boundary_campaign_plan:v13"
             and plan.get("initial_history_bootstrap")
                 != _EMPTY_HISTORY_BOOTSTRAP_PROTOCOL
@@ -1017,7 +1047,7 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
             "sentientos.rootless_history_boundary_campaign_plan:v11",
             "sentientos.rootless_history_boundary_campaign_plan:v12",
             "sentientos.rootless_history_boundary_campaign_plan:v13",
-            "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+            "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
         recipe = plan.get("model_identity_recipe")
         expected_recipe_keys = {
             "schema_version", "engine", "resolved_manifest_path",
@@ -1072,7 +1102,7 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
             implementation = plan.get("experiment_implementation_sha256")
             if (not isinstance(implementation, Mapping)
                     or len(implementation) < 3
@@ -1149,7 +1179,7 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
         admission = plan.get("initial_runtime_admission_ledger")
         if admission is not None and (
                 not isinstance(admission, Mapping)
@@ -1208,7 +1238,7 @@ def _load_plan(plan_path: Path) -> dict[str, Any]:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
         recovery_state = plan.get("initial_cognition_recovery_state")
         if (not _valid_cognition_recovery_state_boundary(recovery_state)
                 or (initial.get("file_count", 0) and recovery_state is None)):
@@ -1260,7 +1290,7 @@ def verify_model_identity_recipe(plan: Mapping[str, Any], *,
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}
             or not isinstance(recipe, Mapping)):
         raise ValueError("history_campaign_model_identity_recipe_missing")
     manifest_path = Path(recipe["resolved_manifest_path"])
@@ -2134,7 +2164,7 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}
     previous_admission_boundary = (plan.get("initial_runtime_admission_ledger")
         if runtime_admission_chain_verified else None)
     cognition_recovery_chain_verified = runtime_admission_chain_verified
@@ -2315,8 +2345,9 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
                     or task_descriptor.get("task_family_id") != plan["task_family_id"]):
                 raise ValueError("history_campaign_source_run_binding_invalid")
             source_run_binding_verified = True
-            if (plan.get("schema_version") ==
-                    "sentientos.rootless_history_boundary_campaign_plan:v15"):
+            if plan.get("schema_version") in {
+                    "sentientos.rootless_history_boundary_campaign_plan:v15",
+                    "sentientos.rootless_history_boundary_campaign_plan:v16"}:
                 acquisition_task, _ = rootless_integer_affine_transfer_task_pair(
                     plan["ordered_task_generation_seeds"][index],
                     task_family_id=_TASK_FAMILY,
@@ -2431,8 +2462,9 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
     semantic = {
         "schema_version": (
             "sentientos.rootless_history_boundary_campaign_audit:v12"
-            if plan.get("schema_version") ==
-                "sentientos.rootless_history_boundary_campaign_plan:v15" else
+            if plan.get("schema_version") in {
+                "sentientos.rootless_history_boundary_campaign_plan:v15",
+                "sentientos.rootless_history_boundary_campaign_plan:v16"} else
             "sentientos.rootless_history_boundary_campaign_audit:v11"
             if plan.get("task_family_id") == _NOVEL_TASK_FAMILY else
             "sentientos.rootless_history_boundary_campaign_audit:v10"),
@@ -2465,8 +2497,9 @@ def verify_chain(*, plan_path: Path, cycle_roots: list[Path],
             "correct_input_values_included": False,
             "learning_established": False,
             "authority": False,
-        } if (plan.get("schema_version") ==
-            "sentientos.rootless_history_boundary_campaign_plan:v15") else None),
+        } if (plan.get("schema_version") in {
+                "sentientos.rootless_history_boundary_campaign_plan:v15",
+                "sentientos.rootless_history_boundary_campaign_plan:v16"}) else None),
         "history_transfer_precondition_snapshot_chain_verified": (
             completed_cycle_count > 0 and all(
                 row["history_transfer_precondition_snapshot_verified"]
@@ -2502,6 +2535,8 @@ def main() -> None:
     prepare.add_argument("--model-manifest-path", type=Path)
     prepare.add_argument("--model-name")
     prepare.add_argument("--gpu-layers", type=int, default=32)
+    prepare.add_argument("--owner-feedback-recall-protocol-digest",
+        help="bind the exact cross-cycle owner-feedback recall protocol digest")
     prepare.add_argument("--transfer-probe-count", type=int, default=3,
         help=("number of fixed transfer probes; 4-16 uses v10 for the v7 "
             "cross-range design and v12 for the v8 novel-range design"))
@@ -2561,7 +2596,9 @@ def main() -> None:
             cross_range_history_enabled_competence=(
                 args.cross_range_history_enabled_competence),
             acquisition_probe_count=args.acquisition_probe_count,
-            transfer_probe_count=args.transfer_probe_count)
+            transfer_probe_count=args.transfer_probe_count,
+            owner_feedback_recall_protocol_digest=(
+                args.owner_feedback_recall_protocol_digest))
         operation = _persist_or_verify(value, args.output,
             verify_existing=args.verify_existing)
         print(json.dumps({"plan": str(args.output),
@@ -2585,7 +2622,7 @@ def main() -> None:
                 "sentientos.rootless_history_boundary_campaign_plan:v11",
                 "sentientos.rootless_history_boundary_campaign_plan:v12",
                 "sentientos.rootless_history_boundary_campaign_plan:v13",
-                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15"}:
+                "sentientos.rootless_history_boundary_campaign_plan:v14", "sentientos.rootless_history_boundary_campaign_plan:v15", "sentientos.rootless_history_boundary_campaign_plan:v16"}:
             evidence.update(verify_experiment_implementation(plan))
         else:
             evidence.update({
