@@ -18,9 +18,15 @@ from pathlib import Path
 from typing import Any, Mapping
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PREVIEW_MAX_INFERENCE_INPUT_CHARS = 24_576
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.run_rootless_ollama_embodied_cognition_cycle import (  # noqa: E402
+    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT,
+)
+
+PREVIEW_MAX_INFERENCE_INPUT_CHARS = (
+    ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT)
 
 from sentientos.codex_task_authority_admission import (  # noqa: E402
     RESIDENT_DEVELOPMENTAL_WRITEBACK,

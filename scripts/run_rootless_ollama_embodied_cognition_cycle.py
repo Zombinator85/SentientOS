@@ -255,9 +255,11 @@ _SUPPORTED_OBJECTIVE_TRANSFER_TASK_FAMILIES = frozenset({
 })
 
 # Leave bounded space for receipt-backed evidence plus its prior-history packet.
-# The model remains configured with an 8,192-token context; this separate
-# character guard addresses the 16 KiB history-selection edge seen in replay.
-ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 24_576
+# The model remains configured with an 8,192-token context. CPU-side packet
+# measurement found that the held-out transfer's three required, compact,
+# score-bound records need about 26.6K prompt characters; retain a bounded
+# margin; the model's configured 8,192-token context remains unchanged.
+ROOTLESS_DEVELOPMENTAL_COGNITION_INPUT_CHAR_LIMIT = 28_672
 PRE_ACTION_DECISION_QUESTION = (
     "Use only current evidence supplied with this request; "
     "developmental history is withheld. The current scenario_fixture "
