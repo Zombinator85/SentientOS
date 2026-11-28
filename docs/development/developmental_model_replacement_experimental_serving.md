@@ -56,7 +56,13 @@ unload a changed lifetime. Close is idempotent and produces one bounded-unload r
 
 Canonical activation: **unchanged**. Canonical production serving: **unchanged**.
 Resident default model: **unchanged**. Developmental history: **unchanged by serving
-itself**. All experimental custody is physically separate beneath
+itself**. Historical receipt reconciliation validates each serving, lifetime, and inference
+reference as an exact prefix plus 24 lowercase hexadecimal characters before it
+opens the corresponding bounded receipt file. Receipt digests remain independently
+verified against their canonical bodies. This validates custody linkage only; it
+does not establish that learning occurred.
+
+All experimental custody is physically separate beneath
 `local-model/developmental-model-replacement/experimental-serving/`.
 
 An experiment result is evidence, not an identity conclusion. This implementation does

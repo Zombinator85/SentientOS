@@ -193,11 +193,15 @@ class ExperimentalModelServingController:
         inference_digest = observation.get("inference_receipt_digest")
         if (not isinstance(serving_id, str) or not serving_id.startswith("experimental-serving-receipt-")
                 or len(serving_id) != len("experimental-serving-receipt-") + 24
+                or any(character not in "0123456789abcdef" for character in serving_id[-24:])
                 or not isinstance(serving_digest, str) or len(serving_digest) != 64
                 or any(character not in "0123456789abcdef" for character in serving_digest)
                 or not isinstance(lifetime_id, str) or not lifetime_id.startswith("experimental-serving-lifetime-")
+                or len(lifetime_id) != len("experimental-serving-lifetime-") + 24
+                or any(character not in "0123456789abcdef" for character in lifetime_id[-24:])
                 or not isinstance(inference_id, str) or len(inference_id) != len("lmrec-") + 24
                 or not inference_id.startswith("lmrec-")
+                or any(character not in "0123456789abcdef" for character in inference_id[-24:])
                 or not isinstance(inference_digest, str) or len(inference_digest) != 64
                 or any(character not in "0123456789abcdef" for character in inference_digest)):
             raise ExperimentalModelServingError("historical_experiment_receipt_identity_invalid")
