@@ -165,6 +165,9 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
     expected = protocol.get("expected_outcomes")
     if not isinstance(expected, dict):
         raise ValueError("protocol_expected_outcomes_missing")
+    qualification = protocol.get("qualification")
+    if not isinstance(qualification, dict):
+        raise ValueError("protocol_qualification_missing")
     rows = recall.get("conditions")
     if (not isinstance(rows, list) or len(rows) != len(EXPECTED_CONDITIONS)
             or {r.get("condition_id") for r in rows if isinstance(r, dict)}
@@ -208,6 +211,11 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         response_digest = (
             canonical_digest({"text": response}) if isinstance(response, str) else None
         )
+        decision_validation_matches = (
+            not qualification.get("decision_validation_must_be_validated", False)
+            or (row.get("decision_validation_status") == "validated"
+                and row.get("decision_validation_error_code") is None)
+        )
         observed = {
             "response_matches_protocol": response == expected_row.get("response"),
             "disposition_matches_protocol": (
@@ -231,6 +239,7 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
             "score_row_selected_digests_match_protocol": (
                 row.get("selected_record_digests") == expected_digests
             ),
+            "decision_validation_matches_protocol": decision_validation_matches,
         }
         history_delivery_binding = audit_history_delivery_binding(receipt)
         links = {
@@ -280,6 +289,34 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         item["all_receipt_links_verified"] and item["structured_output_parse_valid"]
         for item in audited
     )
+    condition_inputs = {row.get("condition_id"): row
+        for row in rows if isinstance(row, dict)}
+    present_prompt_digest = condition_inputs["history_present"].get("prompt_digest")
+    restored_prompt_digest = condition_inputs["history_restored"].get("prompt_digest")
+    matched_input_digests = [
+        row.get("matched_control_inputs_digest") for row in rows
+        if isinstance(row, dict)]
+    matched_input_digest_consistency = (
+        len(matched_input_digests) == len(EXPECTED_CONDITIONS)
+        and all(isinstance(value, str) and value for value in matched_input_digests)
+        and len(set(matched_input_digests)) == 1)
+    matched_controls_verified = (
+        not qualification.get("matched_non_history_inputs_required", False)
+        or (recall.get("matched_non_history_inputs_verified") is True
+            and matched_input_digest_consistency))
+    restored_prompt_verified = (
+        not qualification.get("restored_prompt_must_match_present", False)
+        or (recall.get("restored_prompt_matches_present") is True
+            and isinstance(present_prompt_digest, str)
+            and bool(present_prompt_digest)
+            and restored_prompt_digest == present_prompt_digest))
+    protocol_qualification_recomputed = (
+        all(item["all_receipt_links_verified"]
+            and item["structured_output_parse_valid"]
+            and item["all_protocol_criteria_met"] for item in audited)
+        and matched_controls_verified and restored_prompt_verified)
+    recorded_qualification = recall.get(
+        "history_conditioned_feedback_recall_qualified")
     binding_status_counts = {
         status: sum(item["history_delivery_binding"]["status"] == status
             for item in audited)
@@ -295,7 +332,7 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
     all_recorded_history_delivery_bindings_valid = (
         binding_status_counts["invalid"] == 0)
     return {
-        "schema_version": "sentientos.cross_cycle_recall_receipt_score_audit:v2",
+        "schema_version": "sentientos.cross_cycle_recall_receipt_score_audit:v3",
         "cycle_id": cycle_dir.name,
         "cycle_result_sha256": hashlib.sha256(result_bytes).hexdigest(),
         "protocol_sha256": protocol_digest,
@@ -328,9 +365,29 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         "all_protocol_criteria_met": all(
             item["all_protocol_criteria_met"] for item in audited
         ),
-        "recorded_qualification": recall.get(
-            "history_conditioned_feedback_recall_qualified"
-        ),
+        "recorded_qualification": recorded_qualification,
+        "protocol_qualification_recomputed": protocol_qualification_recomputed,
+        "recorded_qualification_matches_recomputed": (
+            type(recorded_qualification) is bool
+            and recorded_qualification == protocol_qualification_recomputed),
+        "qualification_recomputation_basis": {
+            "all_receipt_links_verified": all(
+                item["all_receipt_links_verified"]
+                and item["structured_output_parse_valid"] for item in audited),
+            "all_condition_criteria_met": all(
+                item["all_protocol_criteria_met"] for item in audited),
+            "matched_non_history_inputs_required": qualification.get(
+                "matched_non_history_inputs_required") is True,
+            "matched_non_history_inputs_verified": matched_controls_verified,
+            "matched_input_digest_consistency": matched_input_digest_consistency,
+            "restored_prompt_must_match_present": qualification.get(
+                "restored_prompt_must_match_present") is True,
+            "restored_prompt_verified": restored_prompt_verified,
+            "present_restored_prompt_digest_match": (
+                isinstance(present_prompt_digest, str)
+                and bool(present_prompt_digest)
+                and restored_prompt_digest == present_prompt_digest),
+        },
         "audit_scope": {
             "raw_model_output_included": False,
             "raw_prompt_included": False,
@@ -363,6 +420,8 @@ def main() -> int:
         f"all_recorded_history_delivery_bindings_valid={report['all_recorded_history_delivery_bindings_valid']};"
         f"legacy_unbound_receipts={report['history_delivery_binding_coverage']['legacy_unbound_receipt_count']};"
         f"protocol_criteria_met={report['all_protocol_criteria_met']};"
+        f"protocol_qualification_recomputed={report['protocol_qualification_recomputed']};"
+        f"recorded_qualification_matches_recomputed={report['recorded_qualification_matches_recomputed']};"
         "raw_output_included=False"
     )
     return 0
