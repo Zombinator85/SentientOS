@@ -1480,3 +1480,44 @@ incomplete, zero-eligibility experiment. A fresh empty-boundary plan with new
 seeds is required to evaluate the fix. Cycle 1 remains blocked on a completed,
 verified cycle 0 and recovery prefix. No independent preregistration timing,
 learning, causal, or authority claim is established.
+
+
+## v22 recovery-fix follow-up prepared
+
+Plan v22, `848107d1b73aca976ace2ffadb2f8c2a914393c109b4a331f5168bc80dff8abe`,
+was frozen with fresh seeds and cycle IDs after the feedback-child recovery
+ordering fix was committed as `77788011730b822d75a2857146f6a6dfbb6f6631`.
+Its empty history boundary has zero files. Model-free verification matched
+2,558 implementation pins and both planned model identities. The initial
+history bundle, cycle-0 owner preflight, and independent preflight
+reconstruction all match the plan; the preflight selected no history records.
+
+The CPU-only source-seed audit recomputed the two task pairs and found four
+distinct planned acquisition inputs (`[2, 3, 4, 5]`) against the minimum of
+three. The acquisition/transfer sets are disjoint within each cycle. This is
+planned coverage only: no correctness or learning was observed. The audit
+digest is `6bc0fee1e212bf06e9ad744c13f16e8e62f8da4a16b7b7a0d20e04b071b42651`,
+and its independent reconstruction returned `status=verified`.
+
+The exact v22 plan bytes were submitted to four OpenTimestamps calendars before
+inference. The private
+[campaign-plan.json.ots](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v22-feedback-ordering-20261128/campaign-plan.json.ots)
+(mode 0600, SHA-256
+`87a6b753c45feec690727eab7c826b1d7eb3ad420ca1318c376afa6e8b7e84a8a`), binding
+plan file SHA-256
+`6b0a2f0745c73432e979e8feae03ab681333efc499ea4d5e44397bb64ec89007`.
+Calendar submissions have been accepted, but Bitcoin confirmation has not yet
+been verified, so independently established preregistration timing remains
+false.
+
+The private [launch card](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v22-feedback-ordering-20261128/cycle-launch-card-v1.json)
+(mode 0600, SHA-256
+`6dfe66d8dbfbe30aebe06e284ba381df1c49c42e69ee8088c634da2b56e5484f`) binds
+the plan, empty history bundle, source commit, and verified cycle-0 preflight.
+The launch-card verifier returned `status=verified`, with current source pins,
+model identity, bundle, and preflight all matching. It recorded 0% GPU
+utilization at verification, but operator confirmation was unset, so cycle 0
+was not launch-eligible. No model was loaded and no inference occurred. Cycle 1
+remains blocked until cycle 0 completes and its history chain and sequential
+preflight verify. The experiment is paused at this boundary while the GPU is
+in use.
