@@ -1240,3 +1240,12 @@ utilization was 37% (1,213 of 12,288 MiB in use), so the runner would fail
 closed. No per-cycle confirmation was used. Telemetry does
 not attribute GPU use to a particular application. This preparation establishes
 neither model attention, learning, causal attribution, nor authority.
+A cycle-28 replay attempted after a temporary edit to
+`work/replay_planned_cycle_owner_preflight.py` stopped with
+`history_campaign_experiment_implementation_mismatch` before checking the
+cycle-order precondition. After reverting that edit, offline `verify-plan`
+returned `operation=verified`: all 2,558 implementation pins matched with
+digest
+`e6e190ccc1d0a7a5c8933d854df967ff26714e9f61fc419bce3cab9d4b1686ef`.
+The v6 plan is therefore bound to this exact implementation; a replacement
+after any source change must use a new campaign plan, cycle IDs, and seeds.
