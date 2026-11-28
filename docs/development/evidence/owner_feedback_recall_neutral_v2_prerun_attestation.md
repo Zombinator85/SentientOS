@@ -36,3 +36,14 @@ cycle 0 completion and append-only history-chain verification.
 
 This record is a custody and pre-run state check. It is not independent review,
 a claim of learning, a performance result, or evidence of a causal effect.
+
+## Remote publication verification
+
+Attestation commit: `20c9a01368aabcb19d75d273bf5b1ba955c76105`
+Commit timestamp: `2026-11-28T05:52:18+00:00` (Git committer metadata; not an independent timestamp).
+Remote ref: `refs/remotes/origin/codex/cognition-feedback-digest-binding-20261127-local-recovery`, observed head `20c9a01368aabcb19d75d273bf5b1ba955c76105`.
+Private offline verification report SHA-256: `fea07c072b918e3dfe881e0a180393b1e63cddee552cd07814b14c1652cc23d2`.
+
+The verifier passed all 18 checks, including exact attestation bytes in the commit, reachability from the fetched remote ref, the private plan-file SHA-256, the semantic plan digest, the protocol and run-card digests, absence of both cycle output roots, and required per-cycle GPU confirmation. The report remains in the private experiment workspace. No model was loaded or invoked.
+
+The commit date and remote reachability are recorded as repository evidence only. The attestation continues to set independent preregistration timing to false.
