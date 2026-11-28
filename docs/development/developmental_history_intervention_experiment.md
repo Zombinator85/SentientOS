@@ -1174,3 +1174,60 @@ verifier maps that exact packet to
 snapshot was verified. Older compact no-schema cycle results remain recognized
 for historical replay. This makes absence machine-readable without treating it
 as either malformed evidence or a legacy versioned precondition.
+
+## Current-source wide-range follow-up plan (not run)
+
+The low-range source campaign was re-audited with the active verifier using
+its original plan and two immutable cycle roots. The
+[current-verifier audit](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v17-registered-model/campaign-audit-current-verifier.json)
+digest is `161923855cd9f587997b2c98ae66195f3e92414d4cd0e0981cfb27e8918e0863`;
+its v1 eligibility packet reports two verified score-bound source runs and
+three distinct correct inputs against thresholds of two runs and three inputs.
+Learning, model attention, independent preregistration timing, and authority
+remain unestablished.
+
+A first current-source replacement (plan digest
+`3c12b094b04f893aa68b5b9380e23968af2fb625b0f9c9c4f8b66e1f6fe1a25a`) is
+preserved but superseded before launch. Inspection of the earlier cycle-21
+[failure artifact](../../../sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-20261127000100000021/cycle-failure.json)
+showed 40 inference receipts from preceding stages before the later objective
+acquisition retrieval gate failed. Thus its backend seed had already been used
+for inference elsewhere in that cycle. We discarded that replacement's seed
+assignment rather than risk reusing an exposed backend seed; no cycle from the
+superseded plan was launched.
+
+The current replacement is campaign
+`rootless-history-campaign-20261127000100000027`, plan schema v9, with the
+frozen cross-range history-enabled competence protocol v2. It uses fresh cycle
+IDs 27 and 28 and fresh task and backend seeds not present in the retained
+campaign plans. Its [plan](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/campaign-plan.json)
+binds the exact low-range history boundary
+`0e4733ac7bba9ecfe534505ec3b5dfad12e21a8cefebc4027b6a10ff4bcbc8cb` and
+has digest
+`e515d86db444ed271712fde6c305f4815b0029a3c943ba5726907dd00894550c`.
+Offline verification matched all 2,558 implementation pins and both model
+identity recipes (implementation digest
+`e6e190ccc1d0a7a5c8933d854df967ff26714e9f61fc419bce3cab9d4b1686ef`).
+The identity recipe was derived from the existing manifest; no model was
+loaded. Independent preregistration timing remains false.
+
+The plan-bound [private history bundle](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/initial-history-bundle.json)
+contains 12 files and has bundle digest
+`e77cdecbe7626cf164ab48404fd47d64feed79b243e7d67c720517fe28a607af`.
+The archive command created it from the exact v17 final boundary; no source
+history files were modified.
+
+A CPU-only owner/binder preflight for cycle 27 selected the same three
+low-range source records at both stages. The new transfer probes are
+`[119, 279, 469]`; the prompt is 26,428 characters under the 28,672-character
+limit. The answer-free [preflight report](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle27-owner-preflight.json)
+digest is `sha256:62a6477bdca90cb6a2ee993f942ad7662d753493b2a1f1741b46f95f9fdcbbca`.
+The separate [reconstruction verifier](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/cycle27-owner-preflight-verification.json)
+returned `status=verified`, matched current source and model identity pins,
+and records no inference; its file SHA-256 is
+`e7e83e35aa1e9989dbb4a8891ad8bacfc79eb8f2a4a70dff62028ddbd3ccef57`.
+It cannot reconstruct the exact future cycle prompt until the new acquisition
+output and observation timestamp exist. The plan remains unrun. GPU utilization
+was 40% at the last live check, so no Hermes inference was started. This
+preparation establishes neither model attention, learning, causal attribution,
+nor authority.
