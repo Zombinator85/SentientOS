@@ -226,16 +226,28 @@ def verify_report(*, report_path: Path, plan_path: Path,
         raise ValueError("owner_preflight_plan_evidence_verification_failed")
     history_root_cycle_id = report.get("prior_history_root_cycle_id")
     recipe = plan.get("model_identity_recipe")
-    if (not isinstance(history_root_cycle_id, str)
-            or re.fullmatch(r"rootless-cognition-cycle-[0-9a-f]{20}",
-                history_root_cycle_id) is None
+    initial_boundary = plan.get("initial_history_boundary")
+    empty_initial_boundary = (cycle_index == 0
+        and isinstance(initial_boundary, Mapping)
+        and initial_boundary.get("file_count") == 0)
+    empty_initial_reference = (history_root_cycle_id is None
+        and empty_initial_boundary)
+    cycle_reference = (isinstance(history_root_cycle_id, str)
+        and re.fullmatch(r"rootless-cognition-cycle-[0-9a-f]{20}",
+            history_root_cycle_id) is not None)
+    if ((not empty_initial_reference and not cycle_reference)
             or not isinstance(recipe, Mapping)
             or not isinstance(recipe.get("resolved_manifest_path"), str)
             or not isinstance(recipe.get("model_name"), str)):
         raise ValueError("owner_preflight_source_reconstruction_inputs_invalid")
-    prior_history_root = (EXPERIMENT_ROOT / "developmental-cognition-cycles"
-        / history_root_cycle_id / "resident-cognition" / "history")
     with tempfile.TemporaryDirectory(prefix="sentientos-owner-preflight-verify-") as temp_dir:
+        if empty_initial_reference:
+            prior_history_root = Path(temp_dir) / "initial-history" / "resident-cognition" / "history"
+            (prior_history_root / "records").mkdir(parents=True)
+            (prior_history_root / "receipts").mkdir()
+        else:
+            prior_history_root = (EXPERIMENT_ROOT / "developmental-cognition-cycles"
+                / history_root_cycle_id / "resident-cognition" / "history")
         reconstructed = create_report(plan_path=Path(plan_path),
             prior_history_root=prior_history_root,
             manifest_path=Path(recipe["resolved_manifest_path"]),

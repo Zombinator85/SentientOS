@@ -41,33 +41,47 @@ def _safe_under(path: Path, root: Path) -> Path:
 def _verify_initial_history_source_chain(*, card: Mapping[str, Any],
         plan: Mapping[str, Any], workspace: Path) -> dict[str, Any]:
     protocol = plan.get("cross_range_history_enabled_competence")
-    if not isinstance(protocol, Mapping):
-        return {"required": False, "verified": True, "reason": None}
+    boundary = plan.get("initial_history_boundary")
+    nonempty_history = (isinstance(boundary, Mapping)
+        and type(boundary.get("file_count")) is int
+        and boundary.get("file_count", 0) > 0)
+    required = isinstance(protocol, Mapping) or nonempty_history
     binding = card.get("initial_history_source_chain")
+    if not required and not isinstance(binding, Mapping):
+        return {"required": False, "verified": True, "reason": None}
     if not isinstance(binding, Mapping):
         return {"required": True, "verified": False,
             "reason": "initial_history_source_chain_binding_missing"}
-    from work.rootless_history_boundary_campaign import _load_plan, verify_chain
+    from work.rootless_history_boundary_campaign import (
+        _history_boundary, _load_plan, verify_chain)
     try:
         source_plan_path = _safe_under(Path(binding.get("source_plan_path", "")),
             workspace)
         audit_path = _safe_under(Path(binding.get("audit_path", "")), workspace)
         source_plan = _load_plan(source_plan_path)
         cycle_ids = source_plan.get("ordered_cycle_ids")
+        expected_family = (protocol.get("source_task_family_id")
+            if isinstance(protocol, Mapping) else plan.get("task_family_id"))
         if (not isinstance(cycle_ids, list) or not cycle_ids
                 or source_plan.get("plan_digest") != binding.get("source_plan_digest")
-                or source_plan.get("task_family_id") !=
-                    protocol.get("source_task_family_id")):
+                or source_plan.get("task_family_id") != expected_family):
             return {"required": True, "verified": False,
                 "reason": "initial_history_source_plan_binding_invalid"}
         roots_raw = binding.get("cycle_root_paths")
-        if not isinstance(roots_raw, list) or len(roots_raw) != len(cycle_ids):
+        allow_prefix = binding.get("allow_prefix") is True
+        if (not isinstance(roots_raw, list) or not roots_raw
+                or len(roots_raw) > len(cycle_ids)
+                or len(roots_raw) < len(cycle_ids) and not allow_prefix):
             return {"required": True, "verified": False,
                 "reason": "initial_history_source_cycle_roots_invalid"}
+        source_cycle_ids = cycle_ids[:len(roots_raw)]
+        if binding.get("source_cycle_ids", source_cycle_ids) != source_cycle_ids:
+            return {"required": True, "verified": False,
+                "reason": "initial_history_source_cycle_order_invalid"}
         cycle_roots = [_safe_under(Path(value), workspace) for value in roots_raw]
         expected_roots = [(workspace / "sentientos-data" / "rootless-experimental"
             / "developmental-cognition-cycles" / cycle_id).resolve(strict=True)
-            for cycle_id in cycle_ids]
+            for cycle_id in source_cycle_ids]
         if cycle_roots != expected_roots:
             return {"required": True, "verified": False,
                 "reason": "initial_history_source_cycle_order_invalid"}
@@ -76,15 +90,18 @@ def _verify_initial_history_source_chain(*, card: Mapping[str, Any],
         if audit_sha256 != binding.get("audit_file_sha256"):
             return {"required": True, "verified": False,
                 "reason": "initial_history_source_audit_digest_mismatch"}
-        chain = verify_chain(plan_path=source_plan_path, cycle_roots=cycle_roots)
+        chain = verify_chain(plan_path=source_plan_path, cycle_roots=cycle_roots,
+            allow_prefix=allow_prefix)
         rows = chain.get("cycle_boundaries", [])
-        target_boundary = plan.get("initial_history_boundary", {}).get(
-            "boundary_digest")
+        target_boundary = boundary.get("boundary_digest") if isinstance(
+            boundary, Mapping) else None
         source_boundary = rows[-1].get("history_boundary_digest") if rows else None
         audit_matches = audit.get("audit_digest") == chain.get("audit_digest")
+        rows_completed = (len(rows) == len(cycle_roots)
+            and all(row.get("terminal_status") == "completed" for row in rows))
         verified = (
             audit_matches
-            and chain.get("all_planned_cycles_completed") is True
+            and rows_completed
             and chain.get("append_only_history_chain_verified") is True
             and chain.get("seed_boundary_chain_verified") is True
             and chain.get("runtime_admission_chain_verified") is True
@@ -92,7 +109,7 @@ def _verify_initial_history_source_chain(*, card: Mapping[str, Any],
             and source_boundary == target_boundary)
         return {"required": True, "verified": verified,
             "source_plan_digest": source_plan["plan_digest"],
-            "source_cycle_ids": cycle_ids,
+            "source_cycle_ids": source_cycle_ids,
             "source_history_boundary_digest": source_boundary,
             "target_history_boundary_digest": target_boundary,
             "source_audit_digest": chain.get("audit_digest"),
@@ -180,7 +197,8 @@ def verify_launch_card(*, card_path: Path,
     source_history_chain = _verify_initial_history_source_chain(
         card=card, plan=plan, workspace=workspace)
     from work.rootless_history_boundary_campaign import (
-        verify_chain, verify_experiment_implementation, verify_model_identity_recipe)
+        _history_boundary, verify_chain, verify_experiment_implementation,
+        verify_model_identity_recipe)
     identity = verify_model_identity_recipe(plan)
     implementation = verify_experiment_implementation(plan)
     if plan.get("campaign_id") != card.get("campaign_id"):
@@ -272,14 +290,19 @@ def verify_launch_card(*, card_path: Path,
         prior_root = Path(cycle.get("prior_history_root", ""))
         if not prior_root.is_absolute() or not prior_root.name == "history":
             raise ValueError("launch_card_prior_history_path_invalid")
-        expected_prior = (Path(card.get("workspace", "")) / "sentientos-data"
-            / "rootless-experimental" / "developmental-cognition-cycles")
         if index == 0:
-            expected_prior = expected_prior / "rootless-cognition-cycle-20261127000100000020" / "resident-cognition" / "history"
+            prior_root = _safe_under(prior_root, workspace)
+            if _history_boundary(prior_root) != plan.get("initial_history_boundary"):
+                raise ValueError("launch_card_initial_history_boundary_mismatch")
         else:
-            expected_prior = expected_prior / plan_ids[0] / "resident-cognition" / "history"
-        if prior_root != expected_prior:
-            raise ValueError("launch_card_prior_history_cycle_mismatch")
+            expected_prior = (workspace / "sentientos-data" / "rootless-experimental"
+                / "developmental-cognition-cycles" / plan_ids[index - 1]
+                / "resident-cognition" / "history").absolute()
+            if prior_root.absolute() != expected_prior:
+                raise ValueError("launch_card_prior_history_cycle_mismatch")
+            if prior_root.exists() or prior_root.is_symlink():
+                if _safe_under(prior_root, workspace) != expected_prior:
+                    raise ValueError("launch_card_prior_history_cycle_mismatch")
         cycle_root = root / cid
         if cycle_root.exists() or cycle_root.is_symlink():
             cycle_results.append({"cycle_id": cid, "cycle_root_absent": False})

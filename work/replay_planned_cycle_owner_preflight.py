@@ -44,6 +44,7 @@ from sentientos.embodiment_self_observation import (  # noqa: E402
 )
 from sentientos.resident_developmental_cognition import (  # noqa: E402
     EXPERIMENT_CONTEXT_INSTRUCTION,
+    STATE_SCHEMA,
     TASK_FAMILY_PRIOR_INCORRECT_EXAMPLE_INSTRUCTION,
     ResidentDevelopmentalCognitionOwner,
     ResidentDevelopmentalCognitionError,
@@ -965,11 +966,21 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
             "append_only_history_chain_verified": True,
         }
 
-    state = _read_json(state_root / "composition_state.json")
-    state_semantic = {key: value for key, value in state.items()
-        if key != "state_digest"}
-    if state.get("state_digest") != _digest(state_semantic):
-        raise ValueError("planned_preflight_composition_state_digest_invalid")
+    state_path = state_root / "composition_state.json"
+    if state_path.exists() or state_path.is_symlink():
+        state = _read_json(state_path)
+        state_semantic = {key: value for key, value in state.items()
+            if key != "state_digest"}
+        if state.get("state_digest") != _digest(state_semantic):
+            raise ValueError("planned_preflight_composition_state_digest_invalid")
+    else:
+        # The cognition owner treats an absent checkpoint as a new, empty
+        # composition state. Mirror that read-only default so a clean campaign
+        # can be preflighted without manufacturing a persisted state artifact.
+        state_semantic = {"schema": STATE_SCHEMA,
+            "processed_selection_ids": [], "completed_ticks": [],
+            "incomplete_ticks": []}
+        state = {**state_semantic, "state_digest": _digest(state_semantic)}
     record_root = history_root / "records"
     expected_refs: dict[str, str] = {}
     for row in before_history["files"]:
@@ -1633,11 +1644,13 @@ def create_report(*, plan_path: Path, prior_history_root: Path,
             sort_keys=True, separators=(",", ":"), ensure_ascii=True)),
         "objective_task_descriptor_posture": (
             "public_descriptor_shape_with_zeroed_commitment_digest_for_reproducibility"),
-        "prior_history_root_cycle_id": cycle_root.name,
+        "prior_history_root_cycle_id": (
+            cycle_root.name if cycle_index != 0 or before_history["file_count"] != 0
+            else None),
         "prior_history_boundary_digest": before_history["boundary_digest"],
         "prior_history_boundary_verification": (
             prior_history_boundary_verification),
-        "prior_recovery_state_boundary_digest": before_recovery["boundary_digest"],
+        "prior_recovery_state_boundary_digest": (before_recovery.get("boundary_digest") if isinstance(before_recovery, Mapping) else None),
         "prior_runtime_admission_ledger_digest": (
             before_admission.get("sha256") if isinstance(before_admission, dict)
             else None),

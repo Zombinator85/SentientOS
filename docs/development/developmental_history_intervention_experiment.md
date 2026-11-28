@@ -1350,3 +1350,45 @@ no operator confirmation was set. No inference was run and no learning or
 authority claim is made. The private answer-free provenance report is
 `wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-source-provenance-block-20261128.json`
 (mode 0600, SHA-256 `5ceb39dc6152be5ee4dd2a72624adffc81a48499d6522631bb21d880b648ec7a`).
+
+## 2026-11-28 empty-boundary low-range source replacement
+
+The v17 low-range campaign's two completed cycles meet its source-count
+threshold packet, but the current full audit does not verify the
+cognition-recovery-state chain. Its cycle-19 prefix does verify, yet provides
+only one score-bound correct source run and one distinct correct input; it
+cannot independently meet the preregistered minimums. The count packet does
+not override the failed recovery chain.
+
+A separate replacement was prepared from a genuinely empty initial history,
+with no inherited cycle-19 records and fresh task/backend seeds. Campaign
+`rootless-history-campaign-51ac975e38dde5c9b173` uses plan digest
+`57bb69a650bc278ef9a907310f0cad723e7c7b19c54aec38605cda16887ccc07`.
+Its two planned cycle IDs are
+`rootless-cognition-cycle-1fb0d83097d130e01c45` and
+`rootless-cognition-cycle-dd06328069ab1b154bd5`. The initial boundary has
+zero files. Offline plan verification matched both model identities and all
+2,558 implementation pins (digest
+`3d316a1deadc8afc6d76ebc98270013865e5a1c43b2dca7e5fe362e823f9d8a3`).
+The empty initial-history bundle digest is
+`d6e9af61e03b6bd2105e0d12bf9d15e0d26ccad984173e5547cc7ceadfce3a4f`.
+
+Preparing the cycle-0 owner/binder preflight exposed that the preflight helper
+required a persisted composition checkpoint even though the cognition owner
+treats a missing checkpoint as its canonical empty state. It also assumed a
+prior-cycle identifier when independently reconstructing a cycle-0 report
+from empty history. The preflight now mirrors the runtime's empty-state
+default without writing it, reports no prior cycle for a zero-file boundary,
+and lets the verifier reconstruct that case in a temporary empty store.
+The cycle-0 preflight passed independent reconstruction with status
+`verified`, plan digest above, and report digest
+`sha256:1c987e6e80593704c1c5f579b8109f7e6db642205682114a419830570476d42a`.
+It selected no historical records; planned acquisition inputs are `[3, 4, 5]`
+and held-out transfer inputs are `[6, 7, 8]`.
+
+The replacement remains prepared and unrun. It has no model correctness
+outcome and has not met source eligibility. No inference was performed,
+independent preregistration timing remains unestablished, and no learning,
+causal, or authority claim follows. Run cycle 0 only after GPU access is
+available and the runner's per-cycle availability and utilization gates pass;
+cycle 1 must wait for a verified cycle-0 history and recovery prefix.
