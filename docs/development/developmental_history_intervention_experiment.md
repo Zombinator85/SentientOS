@@ -1249,3 +1249,26 @@ digest
 `e6e190ccc1d0a7a5c8933d854df967ff26714e9f61fc419bce3cab9d4b1686ef`.
 The v6 plan is therefore bound to this exact implementation; a replacement
 after any source change must use a new campaign plan, cycle IDs, and seeds.
+
+### Reading the v6 condition comparisons
+
+The frozen outcome verifier in
+work/verify_cross_range_history_enabled_competence_outcome.py reports each
+transfer probe's correctness for
+history-present, history-withheld, and history-restored conditions. Its
+history-associated correctness gain and cost labels describe within-task
+condition differences; restoration-versus-present reports whether restoring
+history matches the present condition. The verifier also reports answerability
+separately, so a correctness difference must be read alongside abstention
+changes.
+
+Although the score row gives invalid-answer a correct count of zero, this
+outcome verifier treats invalid-answer, truncated, and unavailable conditions
+as unscoreable for per-probe transitions. They are not negative correctness
+observations. Its verified-internal-consistency status confirms bindings
+among the plan, scores, probes, and receipts; it is not a learning threshold.
+The frozen protocol limits the claim to a history-conditioned capability
+pattern; the verifier keeps learning, causal attribution, and authority
+false. Even a consistent
+present/restored advantage therefore requires further repeated, held-out
+evidence before any durable-learning claim.
