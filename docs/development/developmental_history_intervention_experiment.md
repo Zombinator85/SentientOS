@@ -1310,3 +1310,25 @@ learning or performance claim is made.
 A fresh offline verify-plan against current source rejected the prepared wide-range campaign rootless-history-campaign-20261127000100000027 (plan digest e515d86db444ed271712fde6c305f4815b0029a3c943ba5726907dd00894550c). Of 2,558 implementation pins, exactly one differs: work/replay_planned_cycle_owner_preflight.py. The plan and launch card bind SHA-256 9cc235043e6b52125edcecb0431b1616dff1ee378cbe1ea0fcb1a38bb2a288b4, matching that file at card-creation commit 3490ec1cbdd412aa039ef41943c753455cd0605d; the current file is 846eba26e908ad641b138ce86b1884cc0205a26f5f461d487a5447ef9d7b23aa. This is the later owner-preflight correction to source-bound GPU-layer verification.
 
 The card remains prepared_not_started and both planned cycle roots are absent. No inference was performed. Preserve this plan as historical preparation and do not launch it against current source. A successor needs a current-source plan with new cycle identities and seeds, plus rebuilt bundle, preflight, and card. The private answer-free revalidation report is [here](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-heldout-transfer-v6-current-source/campaign-plan-current-source-revalidation.json), mode 0600, SHA-256 1c575e157c9435fd596f3eccd170205620286e7bb6b1f1cb5c6367bc54073854. The separate neutral-query v2 current-source campaign remains the actively verified prepared plan.
+
+
+## 2026-11-28 current-source wide-range replan
+
+The stale wide-range campaign has an offline replacement plan at
+`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-plan.json`
+under the private experiment custody root. It retains the v7 wide-range task
+family and the preregistered cross-range history-enabled competence comparison,
+uses two fresh cycle identities and seeds with disjoint generated probe sets,
+and reuses the unchanged cycle-20 history boundary. The plan is bound to the
+current 2,558-file experiment implementation and its model identity recipe was
+recomputed from the custody-held manifest without loading the model.
+
+`verify-plan` reports `experiment_implementation_matches_current=true`,
+`identity_digests_verified=true`, and `inference_performed=false`. The plan digest
+is `36b5a76cec78a33f21a8c19b870611b7379a2641b21bcc3b65179664d1dce4fe`.
+The independent preregistration-timing flag is false, no replacement cycle
+preflight or launch card has been built, and both planned cycle roots remain
+absent. This plan is therefore not launch-ready; it does not establish learning
+or performance. Its private answer-free verification report is
+`wide-range-heldout-transfer-v6-current-source-replan-20261128/campaign-plan-current-source-revalidation.json`
+(mode 0600, SHA-256 `30112ad2983c59045d9c5b6c936403d6cf7267265378bc3435ae872d19ef0932`).
