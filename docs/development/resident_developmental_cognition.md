@@ -7500,6 +7500,20 @@ versioned consumers.
 
 ### Correction to cross-cycle feedback recall scoring (2026-11-28)
 
-A post-run audit of the v16 feedback-recall result found that the scorer compared owner capture tuples directly with protocol lists. The serialized report turned the tuples into JSON arrays, obscuring the Python type mismatch. As a result, the withheld condition was labeled as an unexpected citation even though its governed inference receipt and companion decision both contain an empty history-citation array. The present and restored conditions also contain empty citation arrays, correctly failing their requirement to cite the selected feedback record.
+A post-run audit of the v16 feedback-recall result found that the scorer compared
+owner capture tuples directly with protocol lists. The serialized report turned
+the tuples into JSON arrays, obscuring the Python type mismatch. As a result,
+the withheld condition was labeled as an unexpected citation even though its
+governed inference receipt and companion decision both contain an empty
+history-citation array. The present and restored conditions also contain empty
+citation arrays, correctly failing their requirement to cite the selected
+feedback record.
 
-The runner now normalizes bounded list and tuple values for selected IDs, record digests, history citations, and evidence IDs before exact comparison. Missing or malformed sequences remain ineligible. This only corrects the measurement projection; it does not change the frozen v16 observations or its result. The exact-response requirement still failed in all three conditions, so cross-cycle recall remains unqualified. The updated runner is outside the v16 source pin. Any follow-up inference requires a newly pinned plan. A receipt-backed post-hoc replay of the second-cycle feedback probe verifies all three output bindings and records the corrected per-condition scores in the private campaign artifact campaign-citation-score-replay-v1.json (SHA-256 24f297e0b894187f2528bc6e005488edcf40737d61b58f7d4351fe383be8ddca).
+The runner now normalizes bounded list and tuple values for selected IDs,
+record digests, history citations, and evidence IDs before exact comparison.
+Missing or malformed sequences remain ineligible. This only corrects the
+measurement projection; it does not change the frozen v16 observations or its
+result. The exact-response requirement still failed in all three conditions,
+so cross-cycle recall remains unqualified. The updated runner is outside the
+v16 source pin. Any follow-up inference requires a newly pinned plan.
+A receipt-backed post-hoc replay of the second-cycle feedback probe verifies all three output bindings and records the corrected per-condition scores in the private campaign artifact campaign-citation-score-replay-v1.json (SHA-256 24f297e0b894187f2528bc6e005488edcf40737d61b58f7d4351fe383be8ddca).
