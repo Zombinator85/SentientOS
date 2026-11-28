@@ -915,3 +915,50 @@ this campaign demonstrates governed repeated acquisition and a history-linked
 score contrast under this synthetic task, while leaving generalization,
 durable development, causal attribution, and model-independent continuity
 unestablished.
+
+
+### v23 wide-range source attempt and validator correction (2026-11-28)
+
+After v22's complete append-only chain met the low-range source threshold, a
+new two-cycle cross-range plan was prepared against its final history boundary.
+Campaign `rootless-history-campaign-aa5e0f4afffcbacf8093` binds 14 source
+history files from v22 cycle 1 and the source chain for both v22 cycles. The
+wide-range CPU owner/binder preflight independently verified before inference;
+its selected records included both low-range and wide-range task-family
+history, while the registered strategy source remains the score-bound
+low-range evidence. All 2,558 source implementation pins and both target model
+identities matched. The plan digest is
+`32881f32b51ab6f14458ef9ec3fa52f02aabbe6a7b3fb6dd5470b47f9dcd03c0`.
+Its OpenTimestamps proof was accepted by four calendars, but verification still
+reports pending Bitcoin confirmation, so preregistration timing is not
+independently attested.
+
+Cycle 0, `rootless-cognition-cycle-5a776eaf2a0e75d8d931`, reached
+`objective_cross_range_history_enabled_competence_writeback` and then stopped
+incomplete with `objective_family_transfer_accumulated_strategy_invalid`.
+The exact, private [failure artifact](../../../sentientos-data/rootless-experimental/developmental-cognition-cycles/rootless-cognition-cycle-5a776eaf2a0e75d8d931/cycle-failure.json)
+(mode 0600, SHA-256
+`709783686ada7bc42fd9f61528aa034c9aaa224d0513a222a0e98a3801630184`)
+shows that the current history projector emitted
+`accumulated_integer_affine_strategy:v11` inside a compact
+`task_family_history_prompt_projection:v33`; the runner's receipt validator
+accepted only strategy v9 for compact projections. The rejected history-present
+and restored packets therefore never became a completed scored cycle. This is
+a schema-compatibility defect in the experiment path, not a transfer result.
+
+The runner performed governed unload and its final residency check reported
+`target_model_not_resident`; host GPU use returned to 607 MiB and 0–1%. The
+private [failure-chain audit](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/wide-range-cross-range-v23-v22-source-20261128/cycle0-failure-chain-audit-v1.json)
+(mode 0600, SHA-256
+`58ee8e3b1a56cbe0e60427323962ada3e1ed1ebeb38a5e6949fa50f224862dc1`)
+verifies append-only history, runtime admissions, and cognition recovery for
+the partial cycle, while correctly reporting zero completed cycles and an
+incomplete campaign. No learning, causal, authority, or transfer claim is
+made. Cycle 1 was not launched.
+
+The runner's validator now accepts the current v11 strategy schema alongside
+historical v9 for compact projections and records the actual schema version in
+its evidence posture. The old v23 plan binds the pre-fix implementation and is
+retained as a failed attempt; it must not be resumed. A fresh successor plan
+needs new cycle identities and seeds, the fixed source pins, and the same
+verified v22 source chain before cycle 0 can run.
