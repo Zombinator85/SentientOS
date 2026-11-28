@@ -1277,3 +1277,19 @@ pattern; the verifier keeps learning, causal attribution, and authority
 false. Even a consistent
 present/restored advantage therefore requires further repeated, held-out
 evidence before any durable-learning claim.
+
+## Owner-feedback recall: historical result and follow-up
+
+The completed response-digest campaign's cycle 1 did not meet its exact
+history-conditioned recall criterion: the model abstained without citation
+when the feedback record was selected, then answered without citation when
+history was withheld. The historical-source audit verified append-only history,
+seed-boundary, and runtime-admission chains, while cognition-recovery and
+initial seed-bundle custody remained unverified. The
+[CPU-only audit note](evidence/owner_feedback_recall_campaign_response_digest_audit.md)
+binds the campaign and cycle result digests and records these limits. It makes
+no durable-learning or causal claim.
+
+The later neutral-query v2 run card is stale against current source pins and
+must not be launched. Any successor requires a freshly pinned current-source
+plan, new cycle IDs and seeds, and verified initial history/recovery custody.
