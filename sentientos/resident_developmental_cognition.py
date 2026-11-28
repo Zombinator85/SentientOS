@@ -20082,6 +20082,191 @@ class ResidentDevelopmentalCognitionOwner:
         return tuple(sorted(selected,
             key=lambda value: value.get("observation_id", "")))
 
+    def preview_companion_history_intervention_conditions(self, *,
+            snapshot: WorldStateSnapshot, tick_id: str, question: str,
+            history_record_allowlist: tuple[str, ...] | None = None,
+            trial_index: int | None = None) -> dict[str, Any]:
+        """Build exact companion present/withheld/restored prompts without inference."""
+        if (not self.config.enabled or not self.config.comparison_enabled
+                or not isinstance(tick_id, str) or not tick_id
+                or len(tick_id) > 190
+                or not isinstance(question, str) or not question.strip()
+                or len(question) > MAX_COGNITION_REQUEST_QUESTION_CHARS
+                or not validate_snapshot(snapshot).valid
+                or (trial_index is not None
+                    and (type(trial_index) is not int or trial_index < 0))
+                or (history_record_allowlist is not None
+                    and (not isinstance(history_record_allowlist, tuple)
+                        or not history_record_allowlist
+                        or len(history_record_allowlist)
+                            > self.config.max_retrieved_records
+                        or any(not isinstance(record_id, str) or not record_id
+                            for record_id in history_record_allowlist)
+                        or len(set(history_record_allowlist))
+                            != len(history_record_allowlist)))):
+            raise ResidentDevelopmentalCognitionError(
+                "companion_history_conditions_preview_configuration_invalid")
+        condition_order = (balanced_history_condition_order_for_trial(trial_index)
+            if trial_index is not None else CONDITION_ORDER)
+        captures: list[dict[str, Any]] = []
+        result = self._run_tick(snapshot=snapshot, tick_id=tick_id,
+            prior_self_model=None, prior_epistemic_state=None,
+            objective_task=None, objective_only=False,
+            objective_request_id=None, objective_request_digest=None,
+            companion_intervention_question=question,
+            companion_intervention_captures=captures,
+            companion_intervention_record_allowlist=history_record_allowlist,
+            companion_intervention_condition_order=condition_order,
+            companion_intervention_trial_index=trial_index,
+            companion_history_intervention_prompt_preview=True)
+        preview = result.prompt_preview
+        conditions = (preview.get("conditions")
+            if isinstance(preview, Mapping) else None)
+        if (result.status !=
+                "companion_history_intervention_prompt_preview_completed"
+                or not isinstance(preview, Mapping)
+                or preview.get("inference_performed") is not False
+                or preview.get("learning_established") is not False
+                or preview.get("authority") is not False
+                or preview.get("condition_order") != list(condition_order)
+                or not isinstance(conditions, Mapping)
+                or set(conditions) != set(CONDITION_ORDER)):
+            raise ResidentDevelopmentalCognitionError(
+                "companion_history_conditions_preview_incomplete")
+        protocol_ids: tuple[str, ...] | None = None
+        protocol_digests: tuple[str, ...] | None = None
+        protocol_digest: str | None = None
+        summaries: dict[str, dict[str, Any]] = {}
+        for condition_id in CONDITION_ORDER:
+            row = conditions[condition_id]
+            if (not isinstance(row, Mapping)
+                    or row.get("condition_id") != condition_id
+                    or row.get("inference_performed") is not False):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_row_invalid")
+            prompt = row.get("prompt")
+            request = row.get("request")
+            protocol = row.get("protocol")
+            upstream = (request.get("upstream_evidence")
+                if isinstance(request, Mapping) else None)
+            selection = (upstream.get("developmental_history_selection")
+                if isinstance(upstream, Mapping) else None)
+            if (not isinstance(prompt, str) or not isinstance(request, Mapping)
+                    or not isinstance(upstream, Mapping)
+                    or not isinstance(selection, Mapping)
+                    or not isinstance(protocol, Mapping)
+                    or not isinstance(row.get("request_digest"), str)
+                    or re.fullmatch(r"[0-9a-f]{64}",
+                        row.get("request_digest", "")) is None
+                    or row.get("request_digest") != request.get("request_digest")
+                    or not isinstance(row.get("prompt_digest"), str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        row.get("prompt_digest", "")) is None
+                    or row.get("prompt_digest") !=
+                        "sha256:" + str(request.get("prompt_digest", ""))):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_binding_invalid")
+            raw_ids = protocol.get("record_ids")
+            raw_digests = protocol.get("record_digests")
+            if (not isinstance(raw_ids, (list, tuple)) or not raw_ids
+                    or not isinstance(raw_digests, (list, tuple))
+                    or len(raw_ids) != len(raw_digests)
+                    or any(not isinstance(value, str) or not value
+                        for value in raw_ids)
+                    or any(not isinstance(value, str)
+                        or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None
+                        for value in raw_digests)):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_protocol_invalid")
+            current_ids, current_digests = tuple(raw_ids), tuple(raw_digests)
+            current_protocol_digest = protocol.get("protocol_digest")
+            if (not isinstance(current_protocol_digest, str)
+                    or re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        current_protocol_digest) is None):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_protocol_invalid")
+            if protocol_ids is None:
+                protocol_ids, protocol_digests = current_ids, current_digests
+                protocol_digest = current_protocol_digest
+            elif (current_ids != protocol_ids
+                    or current_digests != protocol_digests
+                    or current_protocol_digest != protocol_digest):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_protocol_drift")
+            request_ids = upstream.get("record_ids")
+            request_digests = upstream.get("record_digests")
+            selected_records = selection.get("selected_records")
+            treatment = ("withheld" if condition_id == "history_withheld"
+                else "present")
+            expected_ids = () if condition_id == "history_withheld" else protocol_ids
+            expected_digests = () if condition_id == "history_withheld" else protocol_digests
+            selected_ids = (tuple(item.get("record_id") for item in selected_records)
+                if isinstance(selected_records, list)
+                    and all(isinstance(item, Mapping) for item in selected_records)
+                else None)
+            selected_digests = (tuple(item.get("record_digest")
+                for item in selected_records)
+                if isinstance(selected_records, list)
+                    and all(isinstance(item, Mapping) for item in selected_records)
+                else None)
+            if (not isinstance(request_ids, list)
+                    or tuple(request_ids) != expected_ids
+                    or not isinstance(request_digests, list)
+                    or tuple(request_digests) != expected_digests
+                    or selection.get("treatment") != treatment
+                    or selected_ids != expected_ids
+                    or selected_digests != expected_digests):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_selection_invalid")
+            if condition_id == "history_withheld" and any(
+                    identity in prompt
+                    for identity in (*protocol_ids, *protocol_digests)):
+                raise ResidentDevelopmentalCognitionError(
+                    "companion_history_conditions_preview_withheld_prompt_leak")
+            summaries[condition_id] = {
+                "prompt_digest": row["prompt_digest"],
+                "prompt_chars": len(prompt),
+                "request_digest": row["request_digest"],
+                "treatment": treatment,
+                "selected_record_ids": list(expected_ids),
+                "selected_record_digests": list(expected_digests),
+                "selection_digest": selection.get("selection_digest"),
+            }
+        present = summaries["history_present"]
+        restored = summaries["history_restored"]
+        withheld = summaries["history_withheld"]
+        if (present["selected_record_ids"] != restored["selected_record_ids"]
+                or present["selected_record_digests"]
+                    != restored["selected_record_digests"]
+                or present["prompt_digest"] != restored["prompt_digest"]):
+            raise ResidentDevelopmentalCognitionError(
+                "companion_history_conditions_preview_restore_mismatch")
+        if withheld["prompt_digest"] in {
+                present["prompt_digest"], restored["prompt_digest"]}:
+            raise ResidentDevelopmentalCognitionError(
+                "companion_history_conditions_preview_withheld_prompt_not_distinct")
+        semantic = {
+            "schema_version": (
+                "sentientos.companion_history_intervention_owner_preview:v1"),
+            "tick_id": tick_id,
+            "snapshot_id": snapshot.snapshot_id,
+            "snapshot_digest": snapshot.digest,
+            "question_digest": _digest({"question": question}),
+            "condition_order": list(condition_order),
+            "protocol_digest": protocol_digest,
+            "protocol_record_ids": list(protocol_ids or ()),
+            "protocol_record_digests": list(protocol_digests or ()),
+            "conditions": summaries,
+            "history_restoration_exact": True,
+            "history_withheld_empty": True,
+            "withheld_prompt_excludes_history_identifiers": True,
+            "withheld_prompt_distinct": True,
+            "inference_performed": False,
+            "learning_established": False,
+            "authority": False,
+        }
+        return {**semantic, "preview_digest": _digest(semantic)}
+
     def preview_objective_history_conditions(self, *,
             snapshot: WorldStateSnapshot, tick_id: str,
             objective_task: Any,
@@ -20998,6 +21183,7 @@ class ResidentDevelopmentalCognitionOwner:
                  accumulated_strategy_inclusion: str | None = None,
                  objective_strategy_prompt_preview: bool = False,
                  objective_history_conditions_prompt_preview: bool = False,
+                 companion_history_intervention_prompt_preview: bool = False,
                  omit_historical_examples_prompt: bool = False,
                  historical_examples_prompt_ablation_target: str = "raw_examples",
                  historical_examples_intervention_authorized: bool = False,
@@ -21053,6 +21239,8 @@ class ResidentDevelopmentalCognitionOwner:
                     objective_strategy_prompt_preview),
                 objective_history_conditions_prompt_preview=(
                     objective_history_conditions_prompt_preview),
+                companion_history_intervention_prompt_preview=(
+                    companion_history_intervention_prompt_preview),
                 omit_historical_examples_prompt=(
                     omit_historical_examples_prompt),
                 historical_examples_prompt_ablation_target=(
@@ -21114,6 +21302,8 @@ class ResidentDevelopmentalCognitionOwner:
                     objective_strategy_prompt_preview),
                 objective_history_conditions_prompt_preview=(
                     objective_history_conditions_prompt_preview),
+                companion_history_intervention_prompt_preview=(
+                    companion_history_intervention_prompt_preview),
                 omit_historical_examples_prompt=(
                     omit_historical_examples_prompt),
                 historical_examples_prompt_ablation_target=(
@@ -21160,6 +21350,7 @@ class ResidentDevelopmentalCognitionOwner:
                  accumulated_strategy_inclusion: str | None = None,
                  objective_strategy_prompt_preview: bool = False,
                  objective_history_conditions_prompt_preview: bool = False,
+                 companion_history_intervention_prompt_preview: bool = False,
                  omit_historical_examples_prompt: bool = False,
                  historical_examples_prompt_ablation_target: str = "raw_examples",
                  historical_examples_intervention_authorized: bool = False,
@@ -21239,9 +21430,18 @@ class ResidentDevelopmentalCognitionOwner:
             raise ResidentDevelopmentalCognitionError(
                 "history_withheld_configuration_invalid")
         if (type(objective_history_conditions_prompt_preview) is not bool
+                or type(companion_history_intervention_prompt_preview) is not bool
                 or (objective_history_conditions_prompt_preview
                     and (objective_strategy_prompt_preview
                         or not objective_only or objective_task is None
+                        or not self.config.comparison_enabled
+                        or objective_request_id is not None
+                        or objective_request_digest is not None))
+                or (companion_history_intervention_prompt_preview
+                    and (objective_history_conditions_prompt_preview
+                        or objective_strategy_prompt_preview
+                        or objective_only or objective_task is not None
+                        or companion_intervention_question is None
                         or not self.config.comparison_enabled
                         or objective_request_id is not None
                         or objective_request_digest is not None))
@@ -21731,9 +21931,12 @@ class ResidentDevelopmentalCognitionOwner:
                     raise ResidentDevelopmentalCognitionError(
                         "historical_examples_owner_protocol_reconstruction_mismatch")
                 if (objective_strategy_prompt_preview
-                        or objective_history_conditions_prompt_preview):
-                    objective_plan = self.experiments.build_objective_task_plan(
-                        protocol, objective_task)
+                        or objective_history_conditions_prompt_preview
+                        or companion_history_intervention_prompt_preview):
+                    objective_plan = (
+                        self.experiments.build_objective_task_plan(
+                            protocol, objective_task)
+                        if objective_task is not None else None)
                 else:
                     if historical_examples_intervention_authorized:
                         reconstructed_plan = self.experiments.build_objective_task_plan(
@@ -21799,7 +22002,8 @@ class ResidentDevelopmentalCognitionOwner:
                             accumulated_strategy_inclusion=(
                                 accumulated_strategy_inclusion),
                             objective_invocation_prompt_preview=(
-                                objective_history_conditions_prompt_preview),
+                                objective_history_conditions_prompt_preview
+                                or companion_history_intervention_prompt_preview),
                             omit_historical_examples_prompt=(
                                 omit_historical_examples_prompt),
                             historical_examples_prompt_ablation_target=(
@@ -21820,9 +22024,11 @@ class ResidentDevelopmentalCognitionOwner:
                                 negative_guidance_expected_prompt_digest))
                     except _ObjectiveStrategyPromptPreview as preview:
                         if not (objective_strategy_prompt_preview
-                                or objective_history_conditions_prompt_preview):
+                                or objective_history_conditions_prompt_preview
+                                or companion_history_intervention_prompt_preview):
                             raise
                         if (not objective_history_conditions_prompt_preview
+                                and not companion_history_intervention_prompt_preview
                                 and any(row.get("tick_id") == tick_id
                                     for row in state["incomplete_ticks"])):
                             state["incomplete_ticks"] = [row for row in
@@ -21848,6 +22054,8 @@ class ResidentDevelopmentalCognitionOwner:
                                     "objective_strategy_preview_request_digest_invalid") from exc
                         preview_payload = {
                             "schema_version": (
+                                "sentientos.companion_history_intervention_condition_prompt_preview:v1"
+                                if companion_history_intervention_prompt_preview else
                                 "sentientos.objective_strategy_prompt_preview:v2"),
                             "condition_id": condition_id,
                             "prompt": request.prompt,
@@ -21864,7 +22072,8 @@ class ResidentDevelopmentalCognitionOwner:
                             "learning_established": False,
                             "authority": False,
                         }
-                        if objective_history_conditions_prompt_preview:
+                        if (objective_history_conditions_prompt_preview
+                                or companion_history_intervention_prompt_preview):
                             condition_prompt_previews[condition_id] = (
                                 preview_payload)
                             continue
@@ -21876,10 +22085,13 @@ class ResidentDevelopmentalCognitionOwner:
                     condition_observations[condition_id] = observation
                     if capture is not None:
                         condition_captures[condition_id] = capture
-                if objective_history_conditions_prompt_preview:
+                if (objective_history_conditions_prompt_preview
+                        or companion_history_intervention_prompt_preview):
                     expected_preview_conditions = set(CONDITION_ORDER)
                     if set(condition_prompt_previews) != expected_preview_conditions:
                         raise ResidentDevelopmentalCognitionError(
+                            "companion_history_conditions_preview_incomplete"
+                            if companion_history_intervention_prompt_preview else
                             "objective_history_condition_prompt_preview_incomplete")
                     if any(row.get("tick_id") == tick_id
                             for row in state["incomplete_ticks"]):
@@ -21888,11 +22100,15 @@ class ResidentDevelopmentalCognitionOwner:
                             if row.get("tick_id") != tick_id]
                         self._save_state(state)
                     return ResidentDevelopmentalCycleResult(
-                        "objective_history_conditions_prompt_preview_completed",
+                        ("companion_history_intervention_prompt_preview_completed"
+                            if companion_history_intervention_prompt_preview else
+                            "objective_history_conditions_prompt_preview_completed"),
                         tick_id, snapshot.snapshot_id,
                         prior_record_ids=prior.requested_record_ids,
                         prompt_preview={
                             "schema_version": (
+                                "sentientos.companion_history_intervention_prompt_preview:v1"
+                                if companion_history_intervention_prompt_preview else
                                 "sentientos.objective_history_conditions_prompt_preview:v1"),
                             "condition_order": list(protocol.condition_order),
                             "conditions": condition_prompt_previews,

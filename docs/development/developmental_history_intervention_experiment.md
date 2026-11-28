@@ -1025,3 +1025,23 @@ learning weight; the added classification makes this failure mode explicit
 for later audits without attributing its cause. Before the next full campaign,
 run a no-inference prompt-binding diagnostic for the three arms and then a
 small scored diagnostic. Bind the owner-feedback reference before inference.
+
+
+### CPU-only companion history prompt preflight (2026-11-28)
+
+The resident cognition owner now exposes
+`preview_companion_history_intervention_conditions`. It runs the same
+request-building and history-binding path as the controlled companion
+intervention, but stops before invoking the model. It checks that present and
+restored requests bind the same protocol records, the withheld request binds
+no records, the withheld selection is explicitly marked withheld, and no
+protocol record ID or digest appears in the withheld prompt. It also requires
+identical present/restored prompt digests and a distinct withheld prompt.
+
+The returned summary includes request and prompt digests, record bindings,
+and explicit `inference_performed: false`, `learning_established: false`, and
+`authority: false` fields; it omits prompt text. The preview tick is removed
+from incomplete state before returning. This gives the next campaign a
+model-free check of the real withheld-arm prompt construction before any
+scored inference. The owner API has been syntax-checked; a campaign preflight
+has not yet been run with it.
