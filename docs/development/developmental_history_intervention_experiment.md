@@ -1386,6 +1386,19 @@ The cycle-0 preflight passed independent reconstruction with status
 It selected no historical records; planned acquisition inputs are `[3, 4, 5]`
 and held-out transfer inputs are `[6, 7, 8]`.
 
+A private [launch card](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/cycle-launch-card-v1.json)
+(mode 0600, SHA-256
+`ae684f95d9e99a4f5e96511aceeeb308e6f03d6a4650da6ba3c2a5c8d491a889`) now
+binds the exact plan, empty history bundle, and cycle-0 preflight. Its saved
+[verification report](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/cycle-launch-card-verification-v1.json)
+(mode 0600, SHA-256
+`631f70220fab536a59a888beb7a0377545a91d7ea9801db365a3c13a20c02ebb`)
+verified the cycle-0 preflight and left cycle 1 blocked pending its predecessor.
+At 2026-11-28 07:31 UTC, telemetry showed 40% GPU utilization (3,309/12,288
+MiB); the 25% limit failed, operator confirmation remained unset, and both
+cycles were launch-ineligible. The verifier did not load a model or perform
+inference. GPU telemetry does not identify which process owns that utilization.
+
 The replacement remains prepared and unrun. It has no model correctness
 outcome and has not met source eligibility. No inference was performed,
 independent preregistration timing remains unestablished, and no learning,
