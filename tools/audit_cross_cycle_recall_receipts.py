@@ -280,8 +280,22 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
         item["all_receipt_links_verified"] and item["structured_output_parse_valid"]
         for item in audited
     )
+    binding_status_counts = {
+        status: sum(item["history_delivery_binding"]["status"] == status
+            for item in audited)
+        for status in ("receipt_bound_not_recomputed",
+            "legacy_binding_not_recorded", "invalid")
+    }
+    all_receipts_have_history_delivery_binding = (
+        len(audited) > 0
+        and binding_status_counts["legacy_binding_not_recorded"] == 0)
+    all_receipts_have_valid_history_delivery_binding = (
+        len(audited) > 0
+        and binding_status_counts["receipt_bound_not_recomputed"] == len(audited))
+    all_recorded_history_delivery_bindings_valid = (
+        binding_status_counts["invalid"] == 0)
     return {
-        "schema_version": "sentientos.cross_cycle_recall_receipt_score_audit:v1",
+        "schema_version": "sentientos.cross_cycle_recall_receipt_score_audit:v2",
         "cycle_id": cycle_dir.name,
         "cycle_result_sha256": hashlib.sha256(result_bytes).hexdigest(),
         "protocol_sha256": protocol_digest,
@@ -296,11 +310,20 @@ def audit(cycle_dir: Path, protocol_path: Path) -> dict[str, Any]:
                 in {"legacy_binding_not_recorded", "receipt_bound_not_recomputed"}
             for item in audited
         ),
-        "history_delivery_binding_statuses": {
-            status: sum(item["history_delivery_binding"]["status"] == status
-                for item in audited)
-            for status in ("receipt_bound_not_recomputed",
-                "legacy_binding_not_recorded", "invalid")
+        "all_receipts_have_history_delivery_binding":
+            all_receipts_have_history_delivery_binding,
+        "all_receipts_have_valid_history_delivery_binding":
+            all_receipts_have_valid_history_delivery_binding,
+        "all_recorded_history_delivery_bindings_valid":
+            all_recorded_history_delivery_bindings_valid,
+        "history_delivery_binding_statuses": binding_status_counts,
+        "history_delivery_binding_coverage": {
+            "bound_receipt_count": binding_status_counts[
+                "receipt_bound_not_recomputed"],
+            "legacy_unbound_receipt_count": binding_status_counts[
+                "legacy_binding_not_recorded"],
+            "invalid_binding_count": binding_status_counts["invalid"],
+            "receipt_count": len(audited),
         },
         "all_protocol_criteria_met": all(
             item["all_protocol_criteria_met"] for item in audited
@@ -335,6 +358,10 @@ def main() -> int:
         f"protocol_bound={report['protocol_binding_verified']};"
         f"receipt_links_verified={report['all_receipt_links_verified']};"
         f"present_history_delivery_bindings_valid={report['all_present_history_delivery_bindings_valid']};"
+        f"all_receipts_have_history_delivery_binding={report['all_receipts_have_history_delivery_binding']};"
+        f"all_receipts_have_valid_history_delivery_binding={report['all_receipts_have_valid_history_delivery_binding']};"
+        f"all_recorded_history_delivery_bindings_valid={report['all_recorded_history_delivery_bindings_valid']};"
+        f"legacy_unbound_receipts={report['history_delivery_binding_coverage']['legacy_unbound_receipt_count']};"
         f"protocol_criteria_met={report['all_protocol_criteria_met']};"
         "raw_output_included=False"
     )

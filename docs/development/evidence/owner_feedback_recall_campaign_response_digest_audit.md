@@ -68,3 +68,11 @@ that card for launch. A future attempt needs a newly pinned plan and run card
 from current source, fresh cycle identities and seeds, and verified initial
 history/recovery custody. The separate active v6 campaign also remains
 unlaunched while its GPU gate is closed.
+
+## Current-auditor CPU-only receipt re-audit
+
+On 2026-11-28 the current receipt auditor was run against the already completed cycle 1 and the v1 protocol. No model was loaded or invoked. It again verified the protocol digest and all three receipt links, and found the preregistered protocol criteria and recorded qualification false. It retained no raw prompt or model output.
+
+The re-audit exposed that all three historical v8 receipts predate history-delivery bindings: bound coverage is 0/3, legacy unbound count is 3, invalid count is 0. The earlier machine field all_present_history_delivery_bindings_valid remains true because every recorded binding is either valid or absent; that flag alone does not mean every receipt has a binding. The current v2 report separately states whether every receipt has a binding, whether every receipt has a valid binding, and whether every recorded binding is valid, alongside explicit coverage counts. This prevents missing instrumentation from being mistaken for verified delivery.
+
+The current-auditor report is retained privately at sentientos-data/rootless-experimental/owner-feedback-recall-campaign-20261127-response-digest/cross-cycle-v1-current-audit.json (mode 0600), SHA-256 8c8fea7290910a6114f335b08ea47c9bc3b0edb627da5d5f53fa346b6a77823a. It is an audit of historical outputs, not a new model run or new experiment result.
