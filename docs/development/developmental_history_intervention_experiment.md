@@ -1118,3 +1118,19 @@ with audit digest
 `sha256:186e94f0e113461680665df05a3088df21c556fe82ebba04f8b4fc7fe444c787`.
 It contains record identities and digests only. Both sides are CPU-only,
 state-isolated previews; inference, learning, and authority remain false.
+### Reproducible verification for the prompt-budget pair
+
+`tools/verify_rootless_runtime_owner_prompt_limit_counterfactual.py` verifies
+the current implementation pins, common plan/cycle bindings, both prompt-limit
+conditions, exact selected record identities, prompt sizes, no-inference and
+no-authority flags, and the counterfactual audit digest. It returned
+`status=verified`: three required records at the 28,672 limit, two selected
+at the 24,576 limit, with only
+`devrec-5b094c92d60f2f81b21a71f5` omitted. Report origin remains unattested.
+The verifier lives under `tools/`, outside the plan's pinned experiment
+implementation closure; adding audit tooling therefore does not invalidate the
+experiment source binding.
+
+Run it with the plan, successful preview, and low-limit counterfactual paths
+listed above. The verifier's SHA-256 is
+`9b13295a6553e060e34e2c76d98814b1b66de723edf2b9b3fd6a52afc5d3e96a`.
