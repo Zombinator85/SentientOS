@@ -17,29 +17,43 @@ The raw fact rows remain omitted. These digests preserve the sealed mapping;
 they do not authenticate the source projection or prove that an external source
 served those rows.
 
-The v3 persistence path has not yet been exercised with a generated context
-artifact and a tampered binding. The implementation has received static syntax
-and diff checks only; the Cycle23 prompt-budget replay uses its frozen earlier
-source closure and is not evidence for v3. Until a direct v3 round-trip and
-altered-binding rejection are observed, the reload contract above is a code
-design claim rather than a runtime-verified result.
+## CPU-only v3 context artifact exercise
 
-The next verification is a model-free artifact exercise; it does not require
-either endpoint, inference, or GPU access. Construct a minimal v3 context with
-two selected fact rows, persist it through the context store, and reload it
-using the original protocol-bound context ID and digest. The valid round-trip
-must preserve the ordered `current_fact_bindings` while the persisted manifest
-contains no raw current-projection payload. Then alter one fact digest, recompute
-the outer manifest digest, and attempt reload with the original pinned context
-identity. It must fail closed with `context_manifest_identity_mismatch`; this
-specifically checks that recomputing the outer digest cannot bless a changed
-fact-to-row binding. Separate malformed variants that omit, reorder, duplicate,
-or add a binding must fail the v3 field/order contract. The record should
-capture exact artifact digests and error codes, with inference and GPU use
-explicitly false. Only after this artifact exercise passes should the
-experiment describe v3 reload integrity as runtime-verified. This check covers
-sealed-manifest integrity only; it does not authenticate the source projection
-or prove that a model used the mapped facts.
+The v3 reload contract has now been exercised with a minimal persisted context
+containing two current fact rows and one history row. A valid round-trip
+preserved the ordered `current_fact_bindings`, and the compact manifest
+contained neither raw current-projection nor history-projection payload.
+
+The tamper exercise changed one fact-row digest, recomputed the canonical outer
+manifest digest, and reloaded with the original context ID and digest pinned by
+the protocol. Reload failed with `context_manifest_identity_mismatch`. Omitted,
+reordered, duplicated, and extra fact-binding rows each failed with
+`context_fact_binding_invalid`. After each mutation, restoring the original
+artifact allowed a verified reload. These outcomes establish the v3 sealed
+manifest integrity behavior exercised here; they do not authenticate the
+external source projection or show that any model used the mapped facts.
+
+The corrected private report is
+[context-v3-artifact-exercise-canonical-write.json](../../../sentientos-data/rootless-experimental/model-replacement-v3-context-verification-20261128/context-v3-artifact-exercise-canonical-write.json)
+(mode 0600, SHA-256
+`76d9e8787c17bcd4f8829ebb06169c26793fb86e69ded6be09d1f0faf5518df0`). It
+binds source commit `e072c94030e24e9cc1bd541d69f7f68617dacd75` and
+implementation SHA-256
+`e7ca1f7e8af914a3146649d427ffe3a95214a42101829b8f5619800811aeb44f`; it
+records `inference_performed=false`, `model_loaded=false`, and
+`gpu_accessed=false`.
+
+The first harness attempt serialized the mutated artifact as indented JSON,
+which violated the store's canonical-byte requirement and was rejected early
+with `context_artifact_invalid`. That result did not exercise the v3 binding
+checks and is retained separately as
+[context-v3-artifact-exercise.json](../../../sentientos-data/rootless-experimental/model-replacement-v3-context-verification-20261128/context-v3-artifact-exercise.json)
+(mode 0600, SHA-256
+`a23ac0e2945dffde7ef20b77cdf10fa362a4eab6415a1f4b9c2e596d97ae8ae1`). The
+corrected harness rewrote tampered manifests using the store's canonical JSON
+encoding. The exercise was model-free and required no GPU. It establishes
+reload integrity for these generated artifacts only; it does not establish
+cross-model semantic continuity, learning, or authority.
 
 Context binding v2 addresses a separate reload-integrity gap: its context ID is
 derived from the compact persisted manifest fields, including the original
