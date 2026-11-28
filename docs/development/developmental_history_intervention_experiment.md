@@ -1010,3 +1010,18 @@ transfer. No learning, causal, durable-development, or model-independent
 continuity claim follows from v24. Governed unload completed after both
 cycles; each final residency check reported the target model not resident,
 and host GPU use returned to 607 MiB and 0% utilization.
+
+
+For the rejected withheld-history semantic decision, the private cycle result
+records `companion_interaction_history_id_not_allowed`: the model returned
+an answer carrying a history citation that the withheld arm was not permitted
+to use. The response digest also matched both the present and restored arms.
+The validator correctly rejected this as a condition-invalid output, rather
+than counting the nominal abstention disposition as a valid withheld response.
+This localizes the immediate protocol failure to the model reusing
+history-conditioned content in the withheld condition; the audit does not
+establish whether the cause was model behavior or an inference-context issue.
+The next preflight should fail closed if any withheld-arm output contains a
+non-permitted history citation, and capture enough request/response binding to
+distinguish context leakage from model noncompliance before running the full
+campaign.
