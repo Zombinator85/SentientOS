@@ -272,3 +272,10 @@ fact, task, source identity, and record bindings are checked against the
 source-cycle records. This resolves the earlier input-parity gap for this
 preflight protocol only; no model was invoked, and there is still no behavioral,
 transfer, A→B→A, or durable-learning result.
+
+The v3 persistence path has not yet been exercised with a generated context
+artifact and a tampered binding. The implementation has received static syntax
+and diff checks only; the Cycle23 prompt-budget replay uses its frozen earlier
+source closure and is not evidence for v3. Until a direct v3 round-trip and
+altered-binding rejection are observed, the reload contract above is a code
+design claim rather than a runtime-verified result.
