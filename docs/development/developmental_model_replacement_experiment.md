@@ -10,8 +10,9 @@ At context creation and in-memory verification, the selected current fact-ID
 set is bound to fact rows inside the frozen current-projection payload. V1 and
 v2 compact manifests omit that payload, so reload cannot independently rederive
 the row-to-ID match. V3 stores an ordered pair of each selected fact ID and the
-SHA-256 digest of its canonical row. Reload checks pair order, uniqueness via
-the bound fact-ID list, digest shape, and the content-addressed context identity.
+SHA-256 digest of its canonical row. Reload requires each pair to have exactly
+the `fact_id` and `fact_digest` keys, checks pair order, uniqueness via the
+bound fact-ID list, digest shape, and the content-addressed context identity.
 The raw fact rows remain omitted. These digests preserve the sealed mapping;
 they do not authenticate the source projection or prove that an external source
 served those rows.
