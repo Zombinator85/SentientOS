@@ -1398,6 +1398,26 @@ source eligibility. Both private artifacts are in the campaign directory as
 `source-seed-design-audit.json` and
 `source-seed-design-audit-verification.json` (mode 0600).
 
+The audit now has a tracked CPU-only replay verifier at
+[`tools/verify_rootless_source_seed_design_audit.py`](../../tools/verify_rootless_source_seed_design_audit.py).
+It loads and validates the frozen campaign plan, regenerates each acquisition
+and held-out task pair from its plan seed, reconstructs the coverage and
+overlap fields, and checks the complete audit payload and digest. The verifier
+does not load a model or perform inference. Replay returned `status=verified`
+with the same audit digest; the private v2 report is
+`source-seed-design-audit-verification-v2.json` (mode 0600, SHA-256
+`95a9cdb926541edd33ebadd640e795a1632a732cc1e4c79bbbb5d736d4ef15c0`).
+Reproduce from the repository root with:
+
+```sh
+python3 tools/verify_rootless_source_seed_design_audit.py \
+  --plan /path/to/low-range-source-acquisition-v21-empty-boundary-20261128/campaign-plan.json \
+  --audit /path/to/low-range-source-acquisition-v21-empty-boundary-20261128/source-seed-design-audit.json
+```
+
+This verifies the planned input coverage only. Correctness, source eligibility,
+and learning remain unobserved.
+
 A private [launch card](../../../sentientos-data/rootless-experimental/cognition-goal-20261127/low-range-source-acquisition-v21-empty-boundary-20261128/cycle-launch-card-v1.json)
 (mode 0600, SHA-256
 `ae684f95d9e99a4f5e96511aceeeb308e6f03d6a4650da6ba3c2a5c8d491a889`) now
